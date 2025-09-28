@@ -97,13 +97,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download Linux bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: didhub-release-linux
           path: dist/release/linux
 
       - name: Download Windows bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: didhub-release-windows
           path: dist/release/windows
