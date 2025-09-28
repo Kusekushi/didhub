@@ -1,6 +1,6 @@
-use crate::Db;
-use crate::models::{SystemSummary, SystemDetail};
+use crate::models::{SystemDetail, SystemSummary};
 use crate::users::UserOperations;
+use crate::Db;
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -11,13 +11,23 @@ pub struct SystemListFilters {
 
 #[async_trait]
 pub trait SystemOperations {
-    async fn list_system_users(&self, filters: &SystemListFilters, limit: i64, offset: i64) -> Result<(Vec<SystemSummary>, i64)>;
+    async fn list_system_users(
+        &self,
+        filters: &SystemListFilters,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<SystemSummary>, i64)>;
     async fn get_system_detail(&self, user_id: i64) -> Result<SystemDetail>;
 }
 
 #[async_trait]
 impl SystemOperations for Db {
-    async fn list_system_users(&self, filters: &SystemListFilters, limit: i64, offset: i64) -> Result<(Vec<SystemSummary>, i64)> {
+    async fn list_system_users(
+        &self,
+        filters: &SystemListFilters,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<SystemSummary>, i64)> {
         let base = r#"SELECT u.id, u.username, u.avatar,
                     (SELECT count(*) FROM alters a WHERE a.owner_user_id = u.id) as alters,
                     (SELECT count(*) FROM groups g WHERE g.owner_user_id = u.id) as groups,
@@ -101,7 +111,10 @@ impl SystemOperations for Db {
         .await?;
 
         // Get username from user
-        let user = self.fetch_user_by_id(user_id).await?.ok_or_else(|| anyhow::anyhow!("User not found"))?;
+        let user = self
+            .fetch_user_by_id(user_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("User not found"))?;
 
         Ok(SystemDetail {
             user_id: user.id,

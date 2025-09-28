@@ -1,12 +1,12 @@
-use didhub_db::audit;
-use didhub_db::Db;
-use didhub_db::system_requests::SystemRequestOperations;
-use didhub_error::AppError;
-use didhub_middleware::types::CurrentUser;
 use axum::{
     extract::{Path, Query},
     Extension, Json,
 };
+use didhub_db::audit;
+use didhub_db::system_requests::SystemRequestOperations;
+use didhub_db::Db;
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 
@@ -82,17 +82,14 @@ pub async fn request_system(
         return Err(AppError::BadRequest("already a system".into()));
     }
 
-    let rec = db
-        .create_system_request(user.id)
-        .await
-        .map_err(|e| {
-            error!(
-                user_id = %user.id,
-                error = %e,
-                "Failed to create system request in database"
-            );
-            AppError::Internal
-        })?;
+    let rec = db.create_system_request(user.id).await.map_err(|e| {
+        error!(
+            user_id = %user.id,
+            error = %e,
+            "Failed to create system request in database"
+        );
+        AppError::Internal
+    })?;
 
     debug!(
         user_id = %user.id,

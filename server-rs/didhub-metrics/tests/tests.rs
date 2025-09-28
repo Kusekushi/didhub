@@ -1,4 +1,6 @@
-use didhub_metrics::{RATE_LIMIT_DENIED, RATE_LIMIT_ALLOWED, OIDC_LOGIN_TOTAL, OIDC_SECRET_UPDATE_TOTAL};
+use didhub_metrics::{
+    OIDC_LOGIN_TOTAL, OIDC_SECRET_UPDATE_TOTAL, RATE_LIMIT_ALLOWED, RATE_LIMIT_DENIED,
+};
 
 #[test]
 fn test_rate_limit_counters_initialization() {

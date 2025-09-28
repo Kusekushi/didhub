@@ -1,18 +1,20 @@
-use didhub_db::audit;
-use didhub_cache::AppCache;
-use didhub_config::AppConfig;
-use didhub_db::{alters::AlterOperations, settings::SettingOperations, Db};
-use didhub_error::AppError;
 use crate::upload_dir::UploadDirCache;
-use didhub_middleware::types::CurrentUser;
 use axum::{
     extract::{Extension, Query},
     Json,
 };
+use didhub_cache::AppCache;
+use didhub_config::AppConfig;
+use didhub_db::audit;
+use didhub_db::{alters::AlterOperations, settings::SettingOperations, Db};
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use tracing::{debug, error, info, warn};
 
 #[cfg(feature = "updater")]
-use didhub_updater::{check_for_updates, perform_update, UpdateConfig, UpdateResult, UpdateStatus, get_version_info};
+use didhub_updater::{
+    check_for_updates, get_version_info, perform_update, UpdateConfig, UpdateResult, UpdateStatus,
+};
 
 include!(concat!(env!("OUT_DIR"), "/versions.rs"));
 
@@ -606,7 +608,11 @@ pub async fn post_custom_digest(
     Ok(Json(DigestResponse {
         posted: true,
         count: alters.len() as i64,
-        message: format!("Custom digest posted with {} birthdays for next {} days", alters.len(), days_ahead),
+        message: format!(
+            "Custom digest posted with {} birthdays for next {} days",
+            alters.len(),
+            days_ahead
+        ),
     }))
 }
 
@@ -630,17 +636,18 @@ async fn restart_server() {
     // Get the command line arguments (skip the first one which is the executable path)
     let args: Vec<String> = env::args().skip(1).collect();
 
-    info!("Restarting server with command: {} {:?}", current_exe.display(), args);
+    info!(
+        "Restarting server with command: {} {:?}",
+        current_exe.display(),
+        args
+    );
 
     // Exit the current process first to release the port
     info!("Shutting down current server process to release port");
     tokio::time::sleep(Duration::from_millis(500)).await; // Brief pause to ensure cleanup
 
     // Spawn the new process after the old one has exited
-    match Command::new(&current_exe)
-        .args(&args)
-        .spawn()
-    {
+    match Command::new(&current_exe).args(&args).spawn() {
         Ok(child) => {
             info!("New server process started with PID: {}", child.id());
             std::process::exit(0);

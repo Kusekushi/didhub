@@ -134,7 +134,8 @@ impl OidcState {
     }
 
     pub async fn get_discovery(&self, provider: &str) -> Option<DiscoveryDoc> {
-        let result = self.discovery
+        let result = self
+            .discovery
             .read()
             .await
             .get(provider)

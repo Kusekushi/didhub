@@ -1,6 +1,6 @@
-use crate::DbBackend;
+use crate::entity_ops::{delete_entity, update_entity};
 use crate::models::{Db, Group};
-use crate::entity_ops::{update_entity, delete_entity};
+use crate::DbBackend;
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -21,12 +21,7 @@ pub trait GroupOperations {
     async fn fetch_group(&self, id: i64) -> Result<Option<Group>>;
 
     /// List groups with optional search and pagination
-    async fn list_groups(
-        &self,
-        q: Option<String>,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<Group>>;
+    async fn list_groups(&self, q: Option<String>, limit: i64, offset: i64) -> Result<Vec<Group>>;
 
     /// List groups owned by a specific user with optional search and pagination
     async fn list_groups_by_owner(
@@ -50,7 +45,10 @@ pub trait GroupOperations {
     async fn delete_group(&self, id: i64) -> Result<bool>;
 
     /// Batch load members for multiple groups
-    async fn batch_load_group_members(&self, group_ids: &[i64]) -> Result<std::collections::HashMap<i64, Vec<i64>>>;
+    async fn batch_load_group_members(
+        &self,
+        group_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, Vec<i64>>>;
 }
 
 #[async_trait]
@@ -117,12 +115,7 @@ impl GroupOperations for Db {
         }
     }
 
-    async fn list_groups(
-        &self,
-        q: Option<String>,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<Group>> {
+    async fn list_groups(&self, q: Option<String>, limit: i64, offset: i64) -> Result<Vec<Group>> {
         let rows = if let Some(qs) = q {
             let like = format!("%{}%", qs);
             match self.backend {
@@ -179,17 +172,20 @@ impl GroupOperations for Db {
     async fn count_groups_by_owner(&self, owner_user_id: i64, q: Option<String>) -> Result<i64> {
         if let Some(qs) = q {
             let like = format!("%{}%", qs);
-            let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM groups WHERE owner_user_id = ?1 AND name LIKE ?2")
-                .bind(owner_user_id)
-                .bind(like)
-                .fetch_one(&self.pool)
-                .await?;
+            let (c,): (i64,) = sqlx::query_as(
+                "SELECT count(*) FROM groups WHERE owner_user_id = ?1 AND name LIKE ?2",
+            )
+            .bind(owner_user_id)
+            .bind(like)
+            .fetch_one(&self.pool)
+            .await?;
             Ok(c)
         } else {
-            let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM groups WHERE owner_user_id = ?1")
-                .bind(owner_user_id)
-                .fetch_one(&self.pool)
-                .await?;
+            let (c,): (i64,) =
+                sqlx::query_as("SELECT count(*) FROM groups WHERE owner_user_id = ?1")
+                    .bind(owner_user_id)
+                    .fetch_one(&self.pool)
+                    .await?;
             Ok(c)
         }
     }
@@ -198,7 +194,21 @@ impl GroupOperations for Db {
         if body.as_object().map(|m| m.is_empty()).unwrap_or(true) {
             return self.fetch_group(id).await;
         }
-        update_entity(self, "groups", id, body, &["name", "description", "sigil", "leaders", "metadata", "owner_user_id"]).await?;
+        update_entity(
+            self,
+            "groups",
+            id,
+            body,
+            &[
+                "name",
+                "description",
+                "sigil",
+                "leaders",
+                "metadata",
+                "owner_user_id",
+            ],
+        )
+        .await?;
         self.fetch_group(id).await
     }
 
@@ -206,7 +216,10 @@ impl GroupOperations for Db {
         delete_entity(self, "groups", id).await
     }
 
-    async fn batch_load_group_members(&self, group_ids: &[i64]) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
+    async fn batch_load_group_members(
+        &self,
+        group_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
         use std::collections::HashMap;
 
         if group_ids.is_empty() {
@@ -214,7 +227,9 @@ impl GroupOperations for Db {
         }
 
         // Create placeholders for IN clause
-        let placeholders: Vec<String> = (0..group_ids.len()).map(|i| format!("?{}", i + 1)).collect();
+        let placeholders: Vec<String> = (0..group_ids.len())
+            .map(|i| format!("?{}", i + 1))
+            .collect();
         let placeholders_str = placeholders.join(",");
 
         // Batch query all group members

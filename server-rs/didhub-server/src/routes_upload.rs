@@ -1,12 +1,4 @@
-use didhub_db::audit;
-use didhub_config::AppConfig;
 use crate::upload_dir::UploadDirCache;
-use didhub_db::Db;
-use didhub_db::settings::SettingOperations;
-use didhub_db::uploads::UploadOperations;
-use didhub_db::NewUpload;
-use didhub_error::AppError;
-use didhub_middleware::types::CurrentUser;
 use axum::body::Bytes;
 use axum::{
     extract::{Extension, Multipart, Path},
@@ -14,6 +6,14 @@ use axum::{
     Json,
 };
 use blake3;
+use didhub_config::AppConfig;
+use didhub_db::audit;
+use didhub_db::settings::SettingOperations;
+use didhub_db::uploads::UploadOperations;
+use didhub_db::Db;
+use didhub_db::NewUpload;
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use image::GenericImageView;
 use image::ImageFormat;
 use sanitize_filename::sanitize;
@@ -21,8 +21,8 @@ use serde::Serialize;
 use std::io::Cursor;
 use std::path::{Path as StdPath, PathBuf};
 use tokio::fs;
-use uuid::Uuid;
 use tracing::{debug, info, warn};
+use uuid::Uuid;
 
 #[derive(Serialize)]
 pub struct UploadResp {

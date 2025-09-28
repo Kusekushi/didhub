@@ -155,8 +155,15 @@ pub fn validate_setting(key: &str, value: &serde_json::Value) -> Result<(), Vec<
                 errs.push("app.upload_dir must be string".into());
             }
         }
-        SettingKey::FeatureOidcEnabled | SettingKey::FeatureEmailEnabled | SettingKey::AutoUpdateEnabled => {
-            if !value.is_boolean() && !matches!(value.as_str(), Some("1") | Some("0") | Some("true") | Some("false") | Some("yes") | Some("no")) {
+        SettingKey::FeatureOidcEnabled
+        | SettingKey::FeatureEmailEnabled
+        | SettingKey::AutoUpdateEnabled => {
+            if !value.is_boolean()
+                && !matches!(
+                    value.as_str(),
+                    Some("1") | Some("0") | Some("true") | Some("false") | Some("yes") | Some("no")
+                )
+            {
                 errs.push(format!("{} must be boolean or boolean string", key));
             }
         }

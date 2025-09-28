@@ -18,6 +18,6 @@ pub mod uploads;
 pub mod user_alter_relationships;
 pub mod users;
 
+pub use models::Db;
 pub use models::*;
 pub use types::*;
-pub use models::Db;

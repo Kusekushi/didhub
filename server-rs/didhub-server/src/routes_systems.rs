@@ -1,13 +1,13 @@
-use didhub_db::Db;
-use didhub_error::AppError;
-use didhub_db::users::UserOperations;
-use didhub_db::systems::{SystemOperations, SystemListFilters};
-use didhub_db::models::{SystemSummary, SystemDetail};
-use didhub_middleware::types::CurrentUser;
 use axum::{
     extract::{Extension, Path, Query},
     Json,
 };
+use didhub_db::models::{SystemDetail, SystemSummary};
+use didhub_db::systems::{SystemListFilters, SystemOperations};
+use didhub_db::users::UserOperations;
+use didhub_db::Db;
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -36,7 +36,9 @@ pub async fn list_systems(
     let offset = q.offset.unwrap_or(0).max(0);
 
     let filters = SystemListFilters { q: q.q };
-    let (items, total) = db.list_system_users(&filters, limit, offset).await
+    let (items, total) = db
+        .list_system_users(&filters, limit, offset)
+        .await
         .map_err(|_| AppError::Internal)?;
 
     Ok(Json(Paged {
@@ -65,7 +67,9 @@ pub async fn get_system(
         return Err(AppError::NotFound);
     }
 
-    let detail = db.get_system_detail(uid).await
+    let detail = db
+        .get_system_detail(uid)
+        .await
         .map_err(|_| AppError::Internal)?;
 
     Ok(Json(detail))

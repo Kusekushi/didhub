@@ -15,7 +15,10 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
                 .put(crate::routes_users::update_user)
                 .delete(crate::routes_users::delete_user),
         )
-        .route("/uploads", get(crate::routes_upload_admin::list_uploads_admin))
+        .route(
+            "/uploads",
+            get(crate::routes_upload_admin::list_uploads_admin),
+        )
         .route(
             "/uploads/{name}",
             delete(crate::routes_upload_admin::delete_upload_admin),
@@ -34,7 +37,8 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route(
             "/settings",
-            get(crate::routes_settings::list_settings).put(crate::routes_settings::bulk_upsert_settings),
+            get(crate::routes_settings::list_settings)
+                .put(crate::routes_settings::bulk_upsert_settings),
         )
         .route(
             "/settings/{key}",
@@ -49,7 +53,10 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
             post(crate::routes_admin_misc::migrate_uploads),
         )
         .route("/admin/redis", get(crate::routes_admin_misc::redis_status))
-        .route("/admin/update/check", get(crate::routes_admin_misc::check_updates))
+        .route(
+            "/admin/update/check",
+            get(crate::routes_admin_misc::check_updates),
+        )
         .route(
             "/admin/update",
             post(crate::routes_admin_misc::perform_update_endpoint),
@@ -64,7 +71,10 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
         .route("/audit", get(crate::routes_audit::list_audit))
         .route("/audit/purge", post(crate::routes_audit::purge_audit))
         .route("/audit/clear", post(crate::routes_audit::clear_audit))
-        .route("/housekeeping/jobs", get(crate::routes_housekeeping::list_jobs))
+        .route(
+            "/housekeeping/jobs",
+            get(crate::routes_housekeeping::list_jobs),
+        )
         .route(
             "/housekeeping/runs",
             get(crate::routes_housekeeping::list_runs).post(crate::routes_housekeeping::clear_runs),

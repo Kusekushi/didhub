@@ -1,14 +1,14 @@
-use didhub_db::{
-    audit,
-    models::{NewUserAlterRelationship, UserAlterRelationship},
-};
-use didhub_db::{Db, user_alter_relationships::UserAlterRelationshipOperations};
-use didhub_error::AppError;
-use didhub_db::users::UserOperations;
 use axum::{
     extract::{Extension, Path, State},
     Json,
 };
+use didhub_db::users::UserOperations;
+use didhub_db::{
+    audit,
+    models::{NewUserAlterRelationship, UserAlterRelationship},
+};
+use didhub_db::{user_alter_relationships::UserAlterRelationshipOperations, Db};
+use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
 use tracing::{debug, info, warn};
@@ -25,21 +25,33 @@ pub async fn create_relationship(
     Path(alter_id): Path<i64>,
     Json(payload): Json<CreateRelationshipPayload>,
 ) -> Result<Json<UserAlterRelationship>, AppError> {
-    info!("Creating user-alter relationship: alter_id={}, user_id={}, type={}", alter_id, payload.user_id, payload.relationship_type);
-    
+    info!(
+        "Creating user-alter relationship: alter_id={}, user_id={}, type={}",
+        alter_id, payload.user_id, payload.relationship_type
+    );
+
     // Validate relationship type
     if !["partner", "parent", "child"].contains(&payload.relationship_type.as_str()) {
-        return Err(AppError::BadRequest("Invalid relationship type. Must be 'partner', 'parent', or 'child'".to_string()));
+        return Err(AppError::BadRequest(
+            "Invalid relationship type. Must be 'partner', 'parent', or 'child'".to_string(),
+        ));
     }
 
     // Validate that the target user is not a system user
-    let target_user = db.fetch_user_by_id(payload.user_id).await
+    let target_user = db
+        .fetch_user_by_id(payload.user_id)
+        .await
         .map_err(|_| AppError::Internal)?
         .ok_or_else(|| AppError::BadRequest("Target user not found".to_string()))?;
-    
+
     if target_user.is_system != 0 {
-        warn!("Attempted to create relationship with system user: {}", payload.user_id);
-        return Err(AppError::BadRequest("Cannot create relationships with system users".to_string()));
+        warn!(
+            "Attempted to create relationship with system user: {}",
+            payload.user_id
+        );
+        return Err(AppError::BadRequest(
+            "Cannot create relationships with system users".to_string(),
+        ));
     }
 
     // Check if user has permission to modify this alter
@@ -55,7 +67,14 @@ pub async fn create_relationship(
     let relationship = db.create_user_alter_relationship(&new_relationship).await?;
     info!("Created user-alter relationship: id={}", relationship.id);
 
-    audit::record_entity(&db, Some(user.id), "user_alter_relationship.create", "user_alter_relationship", &relationship.id.to_string()).await;
+    audit::record_entity(
+        &db,
+        Some(user.id),
+        "user_alter_relationship.create",
+        "user_alter_relationship",
+        &relationship.id.to_string(),
+    )
+    .await;
 
     info!(user_id=%user.id, alter_id=%alter_id, relationship_type=%payload.relationship_type, "user-alter relationship created");
 
@@ -69,17 +88,28 @@ pub async fn delete_relationship(
 ) -> Result<(), AppError> {
     // Validate relationship type
     if !["partner", "parent", "child"].contains(&relationship_type.as_str()) {
-        return Err(AppError::BadRequest("Invalid relationship type. Must be 'partner', 'parent', or 'child'".to_string()));
+        return Err(AppError::BadRequest(
+            "Invalid relationship type. Must be 'partner', 'parent', or 'child'".to_string(),
+        ));
     }
 
     // Check if user has permission to modify this alter
     // For now, allow any authenticated user to delete relationships
     // TODO: Add proper permission checks
 
-    let deleted = db.delete_user_alter_relationship(user_id, alter_id, &relationship_type).await?;
+    let deleted = db
+        .delete_user_alter_relationship(user_id, alter_id, &relationship_type)
+        .await?;
 
     if deleted {
-        audit::record_entity(&db, Some(user.id), "user_alter_relationship.delete", "user_alter_relationship", &format!("{}_{}_{}", user_id, alter_id, relationship_type)).await;
+        audit::record_entity(
+            &db,
+            Some(user.id),
+            "user_alter_relationship.delete",
+            "user_alter_relationship",
+            &format!("{}_{}_{}", user_id, alter_id, relationship_type),
+        )
+        .await;
         info!(user_id=%user.id, alter_id=%alter_id, relationship_type=%relationship_type, "user-alter relationship deleted");
     }
 

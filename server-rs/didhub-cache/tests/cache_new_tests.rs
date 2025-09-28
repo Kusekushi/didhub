@@ -4,7 +4,10 @@ use std::time::Duration;
 #[tokio::test]
 async fn memory_cache_set_get_expire() {
     let cache = AppCache::memory();
-    cache.set("k1", &"value", Some(Duration::from_millis(50))).await.unwrap();
+    cache
+        .set("k1", &"value", Some(Duration::from_millis(50)))
+        .await
+        .unwrap();
     let v: Option<String> = cache.get("k1").await.unwrap();
     assert_eq!(v.as_deref(), Some("value"));
     tokio::time::sleep(Duration::from_millis(70)).await;
@@ -16,7 +19,10 @@ async fn memory_cache_set_get_expire() {
 async fn memory_cache_incr_monotonic() {
     let cache = AppCache::memory();
     for i in 1..=5 {
-        let val = cache.incr("ctr", Some(Duration::from_secs(1))).await.unwrap();
+        let val = cache
+            .incr("ctr", Some(Duration::from_secs(1)))
+            .await
+            .unwrap();
         assert_eq!(val, i);
     }
 }

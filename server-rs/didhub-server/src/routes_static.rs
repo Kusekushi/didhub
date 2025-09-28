@@ -140,7 +140,8 @@ fn create_asset_response(bytes: Vec<u8>, path: PathBuf) -> Response {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         match ext {
             // Cache static assets aggressively (1 year)
-            "js" | "css" | "png" | "jpg" | "jpeg" | "gif" | "svg" | "ico" | "woff" | "woff2" | "ttf" | "eot" => {
+            "js" | "css" | "png" | "jpg" | "jpeg" | "gif" | "svg" | "ico" | "woff" | "woff2"
+            | "ttf" | "eot" => {
                 resp.headers_mut().insert(
                     "Cache-Control",
                     header::HeaderValue::from_static("public, max-age=31536000, immutable"),

@@ -1,6 +1,6 @@
-use crate::DbBackend;
+use crate::entity_ops::{delete_entity, update_entity};
 use crate::models::{Db, Subsystem};
-use crate::entity_ops::{update_entity, delete_entity};
+use crate::DbBackend;
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -51,7 +51,10 @@ pub trait SubsystemOperations {
     async fn list_alters_in_subsystem(&self, subsystem_id: i64) -> Result<Vec<i64>>;
 
     /// Batch load members for multiple subsystems
-    async fn batch_load_subsystem_members(&self, subsystem_ids: &[i64]) -> Result<std::collections::HashMap<i64, Vec<i64>>>;
+    async fn batch_load_subsystem_members(
+        &self,
+        subsystem_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, Vec<i64>>>;
 }
 
 #[async_trait]
@@ -157,28 +160,32 @@ impl SubsystemOperations for Db {
         match (q, owner_user_id) {
             (Some(qs), Some(owner_id)) => {
                 let like = format!("%{}%", qs);
-                let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM subsystems WHERE name LIKE ?1 AND owner_user_id = ?2")
-                    .bind(like)
-                    .bind(owner_id)
-                    .fetch_one(&self.pool)
-                    .await?;
+                let (c,): (i64,) = sqlx::query_as(
+                    "SELECT count(*) FROM subsystems WHERE name LIKE ?1 AND owner_user_id = ?2",
+                )
+                .bind(like)
+                .bind(owner_id)
+                .fetch_one(&self.pool)
+                .await?;
                 Ok(c)
-            },
+            }
             (Some(qs), None) => {
                 let like = format!("%{}%", qs);
-                let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM subsystems WHERE name LIKE ?1")
-                    .bind(like)
-                    .fetch_one(&self.pool)
-                    .await?;
+                let (c,): (i64,) =
+                    sqlx::query_as("SELECT count(*) FROM subsystems WHERE name LIKE ?1")
+                        .bind(like)
+                        .fetch_one(&self.pool)
+                        .await?;
                 Ok(c)
-            },
+            }
             (None, Some(owner_id)) => {
-                let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM subsystems WHERE owner_user_id = ?1")
-                    .bind(owner_id)
-                    .fetch_one(&self.pool)
-                    .await?;
+                let (c,): (i64,) =
+                    sqlx::query_as("SELECT count(*) FROM subsystems WHERE owner_user_id = ?1")
+                        .bind(owner_id)
+                        .fetch_one(&self.pool)
+                        .await?;
                 Ok(c)
-            },
+            }
             (None, None) => {
                 let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM subsystems")
                     .fetch_one(&self.pool)
@@ -196,7 +203,20 @@ impl SubsystemOperations for Db {
         if body.as_object().map(|m| m.is_empty()).unwrap_or(true) {
             return self.fetch_subsystem(id).await;
         }
-        update_entity(self, "subsystems", id, body, &["name", "description", "leaders", "metadata", "owner_user_id"]).await?;
+        update_entity(
+            self,
+            "subsystems",
+            id,
+            body,
+            &[
+                "name",
+                "description",
+                "leaders",
+                "metadata",
+                "owner_user_id",
+            ],
+        )
+        .await?;
         self.fetch_subsystem(id).await
     }
 
@@ -234,7 +254,10 @@ impl SubsystemOperations for Db {
         Ok(rows.into_iter().map(|r| r.0).collect())
     }
 
-    async fn batch_load_subsystem_members(&self, subsystem_ids: &[i64]) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
+    async fn batch_load_subsystem_members(
+        &self,
+        subsystem_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
         use std::collections::HashMap;
 
         if subsystem_ids.is_empty() {
@@ -242,7 +265,9 @@ impl SubsystemOperations for Db {
         }
 
         // Create placeholders for IN clause
-        let placeholders: Vec<String> = (0..subsystem_ids.len()).map(|i| format!("?{}", i + 1)).collect();
+        let placeholders: Vec<String> = (0..subsystem_ids.len())
+            .map(|i| format!("?{}", i + 1))
+            .collect();
         let placeholders_str = placeholders.join(",");
 
         // Batch query all subsystem members

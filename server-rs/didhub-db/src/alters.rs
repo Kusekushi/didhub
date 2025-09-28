@@ -1,21 +1,16 @@
-use anyhow::Result;
-use async_trait::async_trait;
 use crate::common::CommonOperations;
-use crate::Db;
 use crate::models::Alter;
 use crate::types::CurrentUser;
+use crate::Db;
+use anyhow::Result;
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait AlterOperations: Send + Sync {
     async fn create_alter(&self, na: &serde_json::Value) -> Result<Alter>;
     async fn fetch_alter(&self, id: i64) -> Result<Option<Alter>>;
     async fn delete_alter(&self, id: i64) -> Result<bool>;
-    async fn list_alters(
-        &self,
-        q: Option<String>,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<Alter>>;
+    async fn list_alters(&self, q: Option<String>, limit: i64, offset: i64) -> Result<Vec<Alter>>;
     async fn count_alters(&self, q: Option<String>) -> Result<i64>;
     async fn list_alters_by_user(
         &self,
@@ -39,13 +34,13 @@ pub trait AlterOperations: Send + Sync {
         user: &CurrentUser,
         filter_user_id: Option<i64>,
     ) -> Result<i64>;
-    async fn update_alter_fields(
-        &self,
-        id: i64,
-        body: &serde_json::Value,
-    ) -> Result<Option<Alter>>;
+    async fn update_alter_fields(&self, id: i64, body: &serde_json::Value)
+        -> Result<Option<Alter>>;
     async fn upcoming_birthdays(&self, days_ahead: i64) -> Result<Vec<Alter>>;
-    async fn batch_load_relationships(&self, alter_ids: &[i64]) -> Result<std::collections::HashMap<i64, (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)>>;
+    async fn batch_load_relationships(
+        &self,
+        alter_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)>>;
 }
 
 #[async_trait]
@@ -110,12 +105,7 @@ impl AlterOperations for Db {
         Ok(res.rows_affected() > 0)
     }
 
-    async fn list_alters(
-        &self,
-        q: Option<String>,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<Alter>> {
+    async fn list_alters(&self, q: Option<String>, limit: i64, offset: i64) -> Result<Vec<Alter>> {
         let rows = if let Some(qs) = q {
             let like = format!("%{}%", qs);
             sqlx::query_as::<_, Alter>(
@@ -397,7 +387,10 @@ impl AlterOperations for Db {
         Ok(out)
     }
 
-    async fn batch_load_relationships(&self, alter_ids: &[i64]) -> Result<std::collections::HashMap<i64, (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)>> {
+    async fn batch_load_relationships(
+        &self,
+        alter_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)>> {
         use std::collections::HashMap;
 
         if alter_ids.is_empty() {
@@ -405,7 +398,9 @@ impl AlterOperations for Db {
         }
 
         // Create placeholders for IN clause
-        let placeholders: Vec<String> = (0..alter_ids.len()).map(|i| format!("?{}", i + 1)).collect();
+        let placeholders: Vec<String> = (0..alter_ids.len())
+            .map(|i| format!("?{}", i + 1))
+            .collect();
         let placeholders_str = placeholders.join(",");
 
         // Batch query all partners
@@ -420,7 +415,10 @@ impl AlterOperations for Db {
         let partners_rows = partners_query.fetch_all(&self.pool).await?;
 
         // Batch query all parents
-        let parents_query = format!("SELECT alter_id, parent_alter_id FROM alter_parents WHERE alter_id IN ({})", placeholders_str);
+        let parents_query = format!(
+            "SELECT alter_id, parent_alter_id FROM alter_parents WHERE alter_id IN ({})",
+            placeholders_str
+        );
         let mut parents_query = sqlx::query_as::<_, (i64, i64)>(&parents_query);
         for id in alter_ids {
             parents_query = parents_query.bind(id);
@@ -428,7 +426,10 @@ impl AlterOperations for Db {
         let parents_rows = parents_query.fetch_all(&self.pool).await?;
 
         // Batch query all children
-        let children_query = format!("SELECT alter_id, parent_alter_id FROM alter_parents WHERE parent_alter_id IN ({})", placeholders_str);
+        let children_query = format!(
+            "SELECT alter_id, parent_alter_id FROM alter_parents WHERE parent_alter_id IN ({})",
+            placeholders_str
+        );
         let mut children_query = sqlx::query_as::<_, (i64, i64)>(&children_query);
         for id in alter_ids {
             children_query = children_query.bind(id);
@@ -436,7 +437,10 @@ impl AlterOperations for Db {
         let children_rows = children_query.fetch_all(&self.pool).await?;
 
         // Batch query all affiliations
-        let affiliations_query = format!("SELECT alter_id, affiliation_id FROM alter_affiliations WHERE alter_id IN ({})", placeholders_str);
+        let affiliations_query = format!(
+            "SELECT alter_id, affiliation_id FROM alter_affiliations WHERE alter_id IN ({})",
+            placeholders_str
+        );
         let mut affiliations_query = sqlx::query_as::<_, (i64, i64)>(&affiliations_query);
         for id in alter_ids {
             affiliations_query = affiliations_query.bind(id);

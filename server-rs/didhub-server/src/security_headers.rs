@@ -1,11 +1,11 @@
-use didhub_config::AppConfig;
-use didhub_error::AppError;
 use axum::middleware::Next;
 use axum::{
     body::Body,
     http::{HeaderValue, Request},
     response::Response,
 };
+use didhub_config::AppConfig;
+use didhub_error::AppError;
 use tracing::{debug, warn};
 pub async fn apply_security_headers(
     axum::Extension(cfg): axum::Extension<AppConfig>,

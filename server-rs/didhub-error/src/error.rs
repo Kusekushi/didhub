@@ -55,7 +55,11 @@ impl IntoResponse for AppError {
             }
             AppError::MustChangePassword => {
                 info!(error_code="must_change_password", status_code=%StatusCode::PRECONDITION_REQUIRED, "password change required");
-                (StatusCode::PRECONDITION_REQUIRED, "must_change_password", None)
+                (
+                    StatusCode::PRECONDITION_REQUIRED,
+                    "must_change_password",
+                    None,
+                )
             }
             AppError::NotApproved => {
                 warn!(error_code="not_approved", status_code=%StatusCode::FORBIDDEN, "user account not approved");
@@ -71,7 +75,11 @@ impl IntoResponse for AppError {
             }
             AppError::Validation(errors) => {
                 warn!(error_code="validation_failed", status_code=%StatusCode::BAD_REQUEST, error_count=%errors.len(), "validation failed");
-                (StatusCode::BAD_REQUEST, "validation_failed", Some(errors.clone()))
+                (
+                    StatusCode::BAD_REQUEST,
+                    "validation_failed",
+                    Some(errors.clone()),
+                )
             }
         };
         let base_msg = match &self {

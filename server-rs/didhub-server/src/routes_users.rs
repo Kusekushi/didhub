@@ -1,12 +1,12 @@
-use didhub_db::{Db, NewUser, UpdateUserFields, UserListFilters, User};
-use didhub_db::users::UserOperations;
-use didhub_error::AppError;
-use didhub_db::audit;
-use didhub_middleware::types::{CurrentUser, AdminFlag};
 use axum::{
     extract::{Extension, Path, Query, State},
     Json,
 };
+use didhub_db::audit;
+use didhub_db::users::UserOperations;
+use didhub_db::{Db, NewUser, UpdateUserFields, User, UserListFilters};
+use didhub_error::AppError;
+use didhub_middleware::types::{AdminFlag, CurrentUser};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -106,10 +106,7 @@ pub async fn list_users(
         .list_users_advanced(&filters)
         .await
         .map_err(|_| AppError::Internal)?;
-    let items = rows
-        .into_iter()
-        .map(|u| user_to_out(&u))
-        .collect();
+    let items = rows.into_iter().map(|u| user_to_out(&u)).collect();
     let pages = if total == 0 {
         1
     } else {
@@ -361,7 +358,7 @@ pub async fn list_user_names(
     let filters = UserListFilters {
         q: q.q.clone(),
         is_admin: None,
-        is_system: Some(false), // Exclude system users
+        is_system: Some(false),  // Exclude system users
         is_approved: Some(true), // Only approved users
         sort_by: "username".to_string(),
         order_desc: false,

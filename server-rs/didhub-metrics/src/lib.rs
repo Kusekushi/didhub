@@ -1,7 +1,8 @@
 use once_cell::sync::Lazy;
 use prometheus::{opts, Encoder, IntCounter, IntCounterVec, TextEncoder};
 
-pub static PROM_REGISTRY: Lazy<&prometheus::Registry> = Lazy::new(|| prometheus::default_registry());
+pub static PROM_REGISTRY: Lazy<&prometheus::Registry> =
+    Lazy::new(|| prometheus::default_registry());
 
 // Rate limit counters (retained names for backward compatibility)
 pub static RATE_LIMIT_DENIED: Lazy<IntCounterVec> = Lazy::new(|| {
@@ -51,8 +52,11 @@ pub static OIDC_SECRET_UPDATE_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
 
 // Metrics endpoint access counter
 pub static METRICS_REQUESTS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
-    let c = IntCounter::new("didhub_metrics_requests_total", "Total metrics endpoint requests")
-        .unwrap();
+    let c = IntCounter::new(
+        "didhub_metrics_requests_total",
+        "Total metrics endpoint requests",
+    )
+    .unwrap();
     PROM_REGISTRY.register(Box::new(c.clone())).ok();
     c
 });
@@ -60,13 +64,13 @@ pub static METRICS_REQUESTS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
 pub async fn metrics_handler() -> (axum::http::StatusCode, String) {
     // Increment the metrics request counter
     METRICS_REQUESTS_TOTAL.inc();
-    
+
     let encoder = TextEncoder::new();
     let metric_families = PROM_REGISTRY.gather();
     let mut buffer = Vec::new();
     encoder.encode(&metric_families, &mut buffer).ok();
     let result = String::from_utf8(buffer).unwrap_or_default();
-    
+
     // If no metrics, return a simple test metric
     if result.is_empty() {
         return (
@@ -74,9 +78,6 @@ pub async fn metrics_handler() -> (axum::http::StatusCode, String) {
             "# HELP didhub_test_metric Test metric\n# TYPE didhub_test_metric counter\ndidhub_test_metric 1\n".to_string(),
         );
     }
-    
-    (
-        axum::http::StatusCode::OK,
-        result,
-    )
+
+    (axum::http::StatusCode::OK, result)
 }

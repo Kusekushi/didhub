@@ -1,7 +1,7 @@
 use axum::{Extension, Json};
+use didhub_middleware::types::AdminFlag;
 use serde::Serialize;
 use tracing::{debug, info};
-use didhub_middleware::types::AdminFlag;
 
 #[derive(Serialize)]
 pub struct WhoAmI {

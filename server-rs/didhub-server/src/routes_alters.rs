@@ -1,15 +1,14 @@
-use didhub_db::{
-    audit,
-    Alter, Db, alters::AlterOperations, user_alter_relationships::UserAlterRelationshipOperations,
-    users::UserOperations, models::UserAlterRelationship,
-};
-use didhub_error::AppError;
-use didhub_db::relationships::AlterRelationships;
-use didhub_middleware::types::CurrentUser;
 use axum::{
     extract::{Extension, Path, Query, State},
     Json,
 };
+use didhub_db::relationships::AlterRelationships;
+use didhub_db::{
+    alters::AlterOperations, audit, models::UserAlterRelationship,
+    user_alter_relationships::UserAlterRelationshipOperations, users::UserOperations, Alter, Db,
+};
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 
@@ -278,7 +277,10 @@ pub async fn list_alters(
 
     if include_rels {
         let alter_ids: Vec<i64> = rows.iter().map(|a| a.id).collect();
-        let relationships = db.batch_load_relationships(&alter_ids).await.map_err(|_| AppError::Internal)?;
+        let relationships = db
+            .batch_load_relationships(&alter_ids)
+            .await
+            .map_err(|_| AppError::Internal)?;
         let mut out = Vec::with_capacity(rows.len());
         for a in rows {
             let rels = relationships.get(&a.id).unwrap_or(&EMPTY_RELS);
@@ -872,10 +874,13 @@ pub async fn family_tree(
             user_ids.insert(owner_id);
         }
     }
-    
+
     // Also collect user IDs from user relationships
     for alter in &alters {
-        let relationships = db.list_user_alter_relationships_by_alter(alter.id).await.unwrap_or_default();
+        let relationships = db
+            .list_user_alter_relationships_by_alter(alter.id)
+            .await
+            .unwrap_or_default();
         for relationship in relationships {
             user_ids.insert(relationship.user_id);
         }
@@ -899,7 +904,10 @@ pub async fn family_tree(
     // Collect all user relationships for the alters
     let mut user_relationships_map = std::collections::HashMap::new();
     for alter in &alters {
-        let relationships = db.list_user_alter_relationships_by_alter(alter.id).await.unwrap_or_default();
+        let relationships = db
+            .list_user_alter_relationships_by_alter(alter.id)
+            .await
+            .unwrap_or_default();
         user_relationships_map.insert(alter.id, relationships);
     }
 
@@ -914,10 +922,24 @@ pub async fn family_tree(
         .into_iter()
         .map(|(id, node)| {
             let alter = alter_data.get(&id);
-            let user_relationships = user_relationships_map.get(&id).unwrap_or(&empty_relationships);
-            let user_partners: Vec<i64> = user_relationships.iter().filter(|r| r.relationship_type == "partner").map(|r| r.user_id).collect();
-            let user_parents: Vec<i64> = user_relationships.iter().filter(|r| r.relationship_type == "parent").map(|r| r.user_id).collect();
-            let user_children: Vec<i64> = user_relationships.iter().filter(|r| r.relationship_type == "child").map(|r| r.user_id).collect();
+            let user_relationships = user_relationships_map
+                .get(&id)
+                .unwrap_or(&empty_relationships);
+            let user_partners: Vec<i64> = user_relationships
+                .iter()
+                .filter(|r| r.relationship_type == "partner")
+                .map(|r| r.user_id)
+                .collect();
+            let user_parents: Vec<i64> = user_relationships
+                .iter()
+                .filter(|r| r.relationship_type == "parent")
+                .map(|r| r.user_id)
+                .collect();
+            let user_children: Vec<i64> = user_relationships
+                .iter()
+                .filter(|r| r.relationship_type == "child")
+                .map(|r| r.user_id)
+                .collect();
 
             (
                 id.to_string(),
@@ -1005,7 +1027,12 @@ pub async fn delete_alter_image(
     let mut update_payload = serde_json::Map::new();
     update_payload.insert(
         "images".to_string(),
-        serde_json::Value::Array(updated_images.into_iter().map(serde_json::Value::String).collect()),
+        serde_json::Value::Array(
+            updated_images
+                .into_iter()
+                .map(serde_json::Value::String)
+                .collect(),
+        ),
     );
     let _updated = db
         .update_alter_fields(id, &serde_json::Value::Object(update_payload))

@@ -123,7 +123,9 @@ fn test_update_config_asset_name_replacement() {
         enabled: true,
     };
 
-    let asset_name = config.asset_name_template.replace("{target}", &config.target_platform);
+    let asset_name = config
+        .asset_name_template
+        .replace("{target}", &config.target_platform);
     assert_eq!(asset_name, "app-linux-v1.zip");
 }
 

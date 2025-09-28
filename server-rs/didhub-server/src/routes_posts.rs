@@ -1,12 +1,12 @@
-use didhub_db::audit;
-use didhub_db::Db;
-use didhub_db::posts::PostOperations;
-use didhub_error::AppError;
-use didhub_middleware::types::CurrentUser;
 use axum::{
     extract::{Extension, Path, Query},
     Json,
 };
+use didhub_db::audit;
+use didhub_db::posts::PostOperations;
+use didhub_db::Db;
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
 use tracing::{debug, info, warn};
 

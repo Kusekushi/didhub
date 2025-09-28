@@ -15,15 +15,14 @@ use tower_http::{
 use didhub_auth as auth;
 use didhub_config as config;
 use didhub_db as db;
-use didhub_middleware::{csrf, middleware_ext, request_logger};
 use didhub_metrics as metrics;
+use didhub_middleware::{csrf, middleware_ext, request_logger};
 
 use crate::{
     constants::cors::ALLOWED_METHODS,
     rate_limit_governor::{self, Audit429Layer},
     router::{build_admin_routes, build_auth_routes, build_protected_routes},
-    routes,
-    security_headers,
+    routes, security_headers,
     services::ServiceComponents,
 };
 
@@ -65,8 +64,10 @@ impl AppRouterBuilder {
         let service_components = ServiceComponents::initialize(&self.db, &self.config).await;
 
         let auth_routes = build_auth_routes(&auth_state);
-        let protected_routes = build_protected_routes(&auth_state)
-            .layer(from_fn_with_state(auth_state.clone(), auth::auth_middleware));
+        let protected_routes = build_protected_routes(&auth_state).layer(from_fn_with_state(
+            auth_state.clone(),
+            auth::auth_middleware,
+        ));
         let admin_routes = build_admin_routes(&auth_state)
             .layer(from_fn_with_state(auth_state, auth::auth_middleware));
 
@@ -83,18 +84,30 @@ impl AppRouterBuilder {
                     .layer(TraceLayer::new_for_http())
                     .layer(cors_layer)
                     .layer(CompressionLayer::new())
-                    .layer(axum::middleware::from_fn(middleware_ext::error_logging_middleware))
+                    .layer(axum::middleware::from_fn(
+                        middleware_ext::error_logging_middleware,
+                    ))
                     .layer(axum::middleware::from_fn(request_logger::request_logger))
                     .layer(axum::middleware::from_fn(csrf::csrf_middleware))
                     .layer(rate_limit_governor::governor_layer_with(
                         service_components.cache.clone(),
                         self.db.clone(),
                     ))
-                    .layer(Audit429Layer { db: self.db.clone() })
-                    .layer(axum::middleware::from_fn(security_headers::apply_security_headers))
+                    .layer(Audit429Layer {
+                        db: self.db.clone(),
+                    })
+                    .layer(axum::middleware::from_fn(
+                        security_headers::apply_security_headers,
+                    )),
             )
-            .route("/uploads/{filename}", axum::routing::get(crate::routes_upload::serve_file))
-            .route("/s/{token}", axum::routing::get(crate::routes_shortlinks::public_redirect))
+            .route(
+                "/uploads/{filename}",
+                axum::routing::get(crate::routes_upload::serve_file),
+            )
+            .route(
+                "/s/{token}",
+                axum::routing::get(crate::routes_shortlinks::public_redirect),
+            )
             .layer(axum::Extension(self.config))
             .layer(axum::Extension(service_components.upload_dir_cache))
             .layer(axum::Extension(self.db))
@@ -102,8 +115,14 @@ impl AppRouterBuilder {
             .layer(axum::Extension(service_components.oidc_settings))
             .layer(axum::Extension(service_components.cache))
             .layer(axum::Extension(service_components.housekeeping_state))
-            .route("/assets/{path}", axum::routing::get(crate::routes_static::serve_asset))
-            .route("/{file}", axum::routing::get(crate::routes_static::serve_root_file))
+            .route(
+                "/assets/{path}",
+                axum::routing::get(crate::routes_static::serve_asset),
+            )
+            .route(
+                "/{file}",
+                axum::routing::get(crate::routes_static::serve_root_file),
+            )
             .fallback(axum::routing::get(crate::routes_static::spa_fallback))
     }
 

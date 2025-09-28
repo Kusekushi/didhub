@@ -1,8 +1,8 @@
+use crate::common::CommonOperations;
+use crate::models::Post;
+use crate::Db;
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::common::CommonOperations;
-use crate::Db;
-use crate::models::Post;
 
 #[async_trait]
 pub trait PostOperations: Send + Sync {

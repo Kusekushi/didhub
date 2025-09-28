@@ -1,9 +1,9 @@
+use crate::models::{NewUpload, UploadRow};
+use crate::settings::SettingOperations;
+use crate::Db;
 use anyhow::Result;
 use async_trait::async_trait;
 use didhub_cache::{AppCache, Cache};
-use crate::settings::SettingOperations;
-use crate::Db;
-use crate::models::{NewUpload, UploadRow};
 
 #[async_trait]
 pub trait UploadOperations: Send + Sync {

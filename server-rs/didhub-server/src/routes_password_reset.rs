@@ -1,9 +1,9 @@
-use didhub_db::Db;
-use didhub_error::AppError;
-use didhub_db::users::UserOperations;
-use didhub_db::audit;
 use axum::{extract::Extension, Json};
 use base64::Engine;
+use didhub_db::audit;
+use didhub_db::users::UserOperations;
+use didhub_db::Db;
+use didhub_error::AppError;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -161,9 +161,7 @@ pub async fn verify_reset(
     )
     .await;
 
-    Ok(Json(VerifyOut {
-        valid: is_valid,
-    }))
+    Ok(Json(VerifyOut { valid: is_valid }))
 }
 
 #[derive(Debug, Deserialize)]
@@ -200,7 +198,10 @@ pub async fn consume_reset(
 
     // verify not used and not expired
     let now = chrono::Utc::now().to_rfc3339();
-    let is_valid = db.validate_password_reset_token(rec.id, &now).await.map_err(|_| AppError::Internal)?;
+    let is_valid = db
+        .validate_password_reset_token(rec.id, &now)
+        .await
+        .map_err(|_| AppError::Internal)?;
 
     if !is_valid {
         warn!(selector=%payload.selector, user_id=%rec.user_id, "password reset failed - token expired or already used");

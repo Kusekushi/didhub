@@ -1,28 +1,28 @@
-use didhub_db::Db;
-use didhub_db::alters::AlterOperations;
-use didhub_error::AppError;
-use didhub_db::groups::GroupOperations;
-use didhub_db::subsystems::SubsystemOperations;
-use didhub_db::relationships::AlterRelationships;
-use didhub_middleware::types::CurrentUser;
 use crate::upload_dir::UploadDirCache;
 use axum::{
     extract::{Extension, Path},
     http::{HeaderMap, HeaderValue},
     response::IntoResponse,
 };
-use genpdf::{Element};
+use didhub_db::alters::AlterOperations;
+use didhub_db::groups::GroupOperations;
+use didhub_db::relationships::AlterRelationships;
+use didhub_db::subsystems::SubsystemOperations;
+use didhub_db::Db;
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
+use genpdf::Element;
 use genpdf::{elements as genpdf_elements, fonts as genpdf_fonts, style as genpdf_style};
+use serde_json;
 use std::env;
 use tracing::{debug, error, info, warn};
-use serde_json;
 
 fn get_font_directories() -> Vec<String> {
     let mut dirs = Vec::new();
-    
+
     // Add relative fonts directory first
     dirs.push("./fonts".to_string());
-    
+
     // Platform-specific font directories
     if cfg!(target_os = "windows") {
         // Windows font directories
@@ -50,14 +50,14 @@ fn get_font_directories() -> Vec<String> {
             dirs.push(format!("{}/.local/share/fonts", home));
         }
     }
-    
+
     dirs
 }
 
 fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<Vec<u8>, AppError> {
     // Create a new PDF document
     let mut font_family = None;
-    
+
     // Try loading fonts from all platform-appropriate directories
     for font_dir in get_font_directories() {
         if let Ok(ff) = genpdf_fonts::from_files(&font_dir, "Hack", None) {
@@ -75,18 +75,21 @@ fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<V
             break;
         }
     }
-    
+
     let font_family = font_family.ok_or(AppError::Internal)?;
     let mut doc = genpdf::Document::new(font_family);
     doc.set_title(title);
-    
+
     // Set page margins
     let mut decorator = genpdf::SimplePageDecorator::new();
     decorator.set_margins(10);
     doc.set_page_decorator(decorator);
 
     // Add title
-    doc.push(genpdf_elements::Paragraph::new(title).styled(genpdf_style::Style::new().bold().with_font_size(18)));
+    doc.push(
+        genpdf_elements::Paragraph::new(title)
+            .styled(genpdf_style::Style::new().bold().with_font_size(18)),
+    );
     doc.push(genpdf_elements::Break::new(1));
 
     // Add content as paragraphs
@@ -98,7 +101,9 @@ fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<V
     // Add images
     for image_path in image_paths {
         if let Ok(image_data) = std::fs::read(image_path) {
-            if let Ok(image) = genpdf::elements::Image::from_reader(std::io::Cursor::new(image_data)) {
+            if let Ok(image) =
+                genpdf::elements::Image::from_reader(std::io::Cursor::new(image_data))
+            {
                 doc.push(image);
                 doc.push(genpdf_elements::Break::new(1));
             }
@@ -108,7 +113,7 @@ fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<V
     // Render to bytes
     let mut buffer = Vec::new();
     doc.render(&mut buffer).map_err(|_| AppError::Internal)?;
-    
+
     Ok(buffer)
 }
 
@@ -238,9 +243,22 @@ pub async fn export_alter(
     if let Some(system_roles) = &alter.system_roles {
         lines.push(format!("System Roles: {}", system_roles));
     }
-    lines.push(format!("System Host: {}", if alter.is_system_host == 1 { "Yes" } else { "No" }));
-    lines.push(format!("Dormant: {}", if alter.is_dormant == 1 { "Yes" } else { "No" }));
-    lines.push(format!("Merged: {}", if alter.is_merged == 1 { "Yes" } else { "No" }));
+    lines.push(format!(
+        "System Host: {}",
+        if alter.is_system_host == 1 {
+            "Yes"
+        } else {
+            "No"
+        }
+    ));
+    lines.push(format!(
+        "Dormant: {}",
+        if alter.is_dormant == 1 { "Yes" } else { "No" }
+    ));
+    lines.push(format!(
+        "Merged: {}",
+        if alter.is_merged == 1 { "Yes" } else { "No" }
+    ));
 
     // Affiliations
     if !affiliation_names.is_empty() {

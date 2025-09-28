@@ -1,10 +1,10 @@
-use didhub_db::{settings::SettingOperations, Db};
-use didhub_error::AppError;
-use didhub_db::audit;
 use crate::{settings, upload_dir};
-use didhub_middleware::types::CurrentUser;
 use anyhow::Result;
 use axum::{extract::Path, Extension, Json};
+use didhub_db::audit;
+use didhub_db::{settings::SettingOperations, Db};
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 

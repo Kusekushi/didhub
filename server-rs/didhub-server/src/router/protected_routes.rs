@@ -22,7 +22,10 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route("/alters/names", get(crate::routes_alters::list_alter_names))
         .route("/alters/search", get(crate::routes_alters::search_alters))
-        .route("/alters/family-tree", get(crate::routes_alters::family_tree))
+        .route(
+            "/alters/family-tree",
+            get(crate::routes_alters::family_tree),
+        )
         .route(
             "/alters/{id}",
             get(crate::routes_alters::get_alter)
@@ -42,10 +45,16 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
             "/alters/{alter_id}/relationships/{user_id}/{relationship_type}",
             delete(crate::routes_user_alter_relationships::delete_relationship),
         )
-        .route("/upload", axum::routing::post(crate::routes_upload::upload_file).layer(DefaultBodyLimit::max(20 * 1024 * 1024)))
+        .route(
+            "/upload",
+            axum::routing::post(crate::routes_upload::upload_file)
+                .layer(DefaultBodyLimit::max(20 * 1024 * 1024)),
+        )
         .route(
             "/me/avatar",
-            post(crate::routes_avatar::upload_avatar).delete(crate::routes_avatar::delete_avatar).layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
+            post(crate::routes_avatar::upload_avatar)
+                .delete(crate::routes_avatar::delete_avatar)
+                .layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
         )
         .route(
             "/groups",
@@ -67,7 +76,10 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route("/systems", get(crate::routes_systems::list_systems))
         .route("/systems/{id}", get(crate::routes_systems::get_system))
-        .route("/shortlink", post(crate::routes_shortlinks::create_shortlink))
+        .route(
+            "/shortlink",
+            post(crate::routes_shortlinks::create_shortlink),
+        )
         .route(
             "/shortlink/{token}",
             get(crate::routes_shortlinks::resolve_shortlink),
@@ -79,7 +91,8 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route(
             "/subsystems",
-            get(crate::routes_subsystems::list_subsystems).post(crate::routes_subsystems::create_subsystem),
+            get(crate::routes_subsystems::list_subsystems)
+                .post(crate::routes_subsystems::create_subsystem),
         )
         .route(
             "/subsystems/{id}",
@@ -93,7 +106,8 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route(
             "/subsystems/{id}/members",
-            get(crate::routes_subsystems::list_members).post(crate::routes_subsystems::change_member),
+            get(crate::routes_subsystems::list_members)
+                .post(crate::routes_subsystems::change_member),
         )
         .route(
             "/posts",
@@ -103,6 +117,9 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         .route("/posts/{id}", delete(crate::routes_posts::delete_post))
         .route("/pdf/alter/{id}", get(crate::routes_pdf::export_alter))
         .route("/pdf/group/{id}", get(crate::routes_pdf::export_group))
-        .route("/pdf/subsystem/{id}", get(crate::routes_pdf::export_subsystem))
+        .route(
+            "/pdf/subsystem/{id}",
+            get(crate::routes_pdf::export_subsystem),
+        )
         .with_state(auth_state.clone())
 }

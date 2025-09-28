@@ -1,16 +1,18 @@
-use didhub_db::audit;
-use didhub_db::Db;
-use didhub_error::AppError;
-use didhub_db::subsystems::SubsystemOperations;
-use didhub_middleware::types::CurrentUser;
+use crate::routes_common::{
+    check_ownership_with_existing, check_subsystem_ownership, parse_leaders,
+};
 use axum::{
     extract::{Extension, Path, Query},
     Json,
 };
+use didhub_db::audit;
+use didhub_db::subsystems::SubsystemOperations;
+use didhub_db::Db;
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::{debug, error, info, warn};
-use crate::routes_common::{parse_leaders, check_subsystem_ownership, check_ownership_with_existing};
 
 #[derive(Deserialize)]
 pub struct ListQuery {
@@ -59,8 +61,13 @@ fn project(s: didhub_db::Subsystem) -> SubsystemOut {
     }
 }
 
-async fn batch_load_subsystem_members(db: &Db, subsystem_ids: &[i64]) -> Result<HashMap<i64, Vec<i64>>, AppError> {
-    db.batch_load_subsystem_members(subsystem_ids).await.map_err(|_| AppError::Internal)
+async fn batch_load_subsystem_members(
+    db: &Db,
+    subsystem_ids: &[i64],
+) -> Result<HashMap<i64, Vec<i64>>, AppError> {
+    db.batch_load_subsystem_members(subsystem_ids)
+        .await
+        .map_err(|_| AppError::Internal)
 }
 
 fn project_subsystem_with_members(s: didhub_db::Subsystem, members: &[i64]) -> SubsystemOut {
@@ -101,13 +108,9 @@ pub async fn list_subsystems(
     let offset = q.offset.unwrap_or(0).max(0);
 
     // If no owner_user_id specified in query, default to current user unless admin
-    let effective_owner_user_id = q.owner_user_id.or_else(|| {
-        if user.is_admin {
-            None
-        } else {
-            Some(user.id)
-        }
-    });
+    let effective_owner_user_id =
+        q.owner_user_id
+            .or_else(|| if user.is_admin { None } else { Some(user.id) });
 
     let rows = db
         .list_subsystems(q.q.clone(), limit, offset, effective_owner_user_id)
@@ -434,18 +437,15 @@ pub async fn delete_subsystem(
         "Permission check passed, proceeding with deletion"
     );
 
-    let ok = db
-        .delete_subsystem(id)
-        .await
-        .map_err(|e| {
-            error!(
-                user_id = %user.id,
-                subsystem_id = %id,
-                error = %e,
-                "Failed to delete subsystem from database"
-            );
-            AppError::Internal
-        })?;
+    let ok = db.delete_subsystem(id).await.map_err(|e| {
+        error!(
+            user_id = %user.id,
+            subsystem_id = %id,
+            error = %e,
+            "Failed to delete subsystem from database"
+        );
+        AppError::Internal
+    })?;
 
     if !ok {
         warn!(
@@ -732,18 +732,15 @@ pub async fn change_member(
         .await;
     }
 
-    let members = db
-        .list_alters_in_subsystem(id)
-        .await
-        .map_err(|e| {
-            error!(
-                user_id = %user.id,
-                subsystem_id = %id,
-                error = %e,
-                "Failed to list alters in subsystem after member change"
-            );
-            AppError::Internal
-        })?;
+    let members = db.list_alters_in_subsystem(id).await.map_err(|e| {
+        error!(
+            user_id = %user.id,
+            subsystem_id = %id,
+            error = %e,
+            "Failed to list alters in subsystem after member change"
+        );
+        AppError::Internal
+    })?;
 
     info!(
         user_id = %user.id,
@@ -771,18 +768,15 @@ pub async fn list_members(
         "Listing subsystem members"
     );
 
-    let members = db
-        .list_alters_in_subsystem(id)
-        .await
-        .map_err(|e| {
-            error!(
-                user_id = %_user.id,
-                subsystem_id = %id,
-                error = %e,
-                "Failed to list alters in subsystem"
-            );
-            AppError::Internal
-        })?;
+    let members = db.list_alters_in_subsystem(id).await.map_err(|e| {
+        error!(
+            user_id = %_user.id,
+            subsystem_id = %id,
+            error = %e,
+            "Failed to list alters in subsystem"
+        );
+        AppError::Internal
+    })?;
 
     debug!(
         user_id = %_user.id,

@@ -1,7 +1,7 @@
+use crate::models::Shortlink;
+use crate::{Db, DbBackend};
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::{Db, DbBackend};
-use crate::models::Shortlink;
 
 #[async_trait]
 pub trait ShortlinkOperations: Send + Sync {
@@ -69,12 +69,12 @@ impl ShortlinkOperations for Db {
     }
 
     async fn fetch_shortlink_by_id(&self, id: i64) -> Result<Option<Shortlink>> {
-        Ok(
-            sqlx::query_as::<_, Shortlink>("SELECT id, token, target, created_by_user_id, created_at FROM shortlinks WHERE id=?1")
-                .bind(id)
-                .fetch_optional(&self.pool)
-                .await?,
+        Ok(sqlx::query_as::<_, Shortlink>(
+            "SELECT id, token, target, created_by_user_id, created_at FROM shortlinks WHERE id=?1",
         )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?)
     }
 
     async fn delete_shortlink(&self, id: i64) -> Result<bool> {

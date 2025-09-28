@@ -170,12 +170,16 @@ pub async fn check_for_updates(config: &UpdateConfig) -> Result<UpdateStatus, Up
 
     let latest_release = &releases[0];
     let latest_version = latest_release.version.clone();
-    
+
     // Check if this might be a draft release by examining the name/version
-    let is_likely_draft = latest_release.name.to_lowercase().contains("draft") ||
-                         latest_release.version.to_lowercase().contains("draft") ||
-                         latest_release.body.as_ref().map(|b| b.to_lowercase().contains("draft")).unwrap_or(false);
-    
+    let is_likely_draft = latest_release.name.to_lowercase().contains("draft")
+        || latest_release.version.to_lowercase().contains("draft")
+        || latest_release
+            .body
+            .as_ref()
+            .map(|b| b.to_lowercase().contains("draft"))
+            .unwrap_or(false);
+
     if is_likely_draft {
         warn!(
             release_name=%latest_release.name,
@@ -191,9 +195,9 @@ pub async fn check_for_updates(config: &UpdateConfig) -> Result<UpdateStatus, Up
             versions: get_version_info(),
         });
     }
-    
+
     debug!(
-        latest_version=%latest_version, 
+        latest_version=%latest_version,
         release_count=%releases.len(),
         asset_count=%latest_release.assets.len(),
         release_name=%latest_release.name,
@@ -219,28 +223,23 @@ pub async fn check_for_updates(config: &UpdateConfig) -> Result<UpdateStatus, Up
     let asset_name = config
         .asset_name_template
         .replace("{target}", &config.target_platform);
-    
+
     debug!(
         asset_name=%asset_name,
         target_platform=%config.target_platform,
         asset_template=%config.asset_name_template,
         "looking for compatible release asset"
     );
-    
+
     // Check if the asset exists, but construct the download URL manually
     // instead of using the API URL from asset.download_url
-    let asset_exists = latest_release
-        .asset_for(&asset_name, None)
-        .is_some();
-    
+    let asset_exists = latest_release.asset_for(&asset_name, None).is_some();
+
     let download_url = if asset_exists {
         // Construct the proper GitHub download URL
         let url = format!(
             "https://github.com/{}/{}/releases/download/v{}/{}",
-            config.repo_owner,
-            config.repo_name,
-            latest_release.version,
-            asset_name
+            config.repo_owner, config.repo_name, latest_release.version, asset_name
         );
         debug!(download_url=%url, "constructed GitHub download URL");
         Some(url)
@@ -257,7 +256,8 @@ pub async fn check_for_updates(config: &UpdateConfig) -> Result<UpdateStatus, Up
         );
     } else {
         // Log available assets for debugging
-        let available_assets: Vec<String> = latest_release.assets
+        let available_assets: Vec<String> = latest_release
+            .assets
             .iter()
             .map(|asset| asset.name.clone())
             .collect();
@@ -343,22 +343,27 @@ pub async fn perform_update(config: &UpdateConfig) -> Result<UpdateResult, Updat
         );
         UpdateError::NotAvailable
     })?;
-    let latest_version = status.latest_version.ok_or_else(|| UpdateError::NotAvailable)?;
+    let latest_version = status
+        .latest_version
+        .ok_or_else(|| UpdateError::NotAvailable)?;
 
     info!(download_url=%download_url, "attempting to download update");
 
     // Pre-flight check: validate the download URL is accessible
     let client = reqwest::Client::new();
-    let head_response = client.head(&download_url).send().await
+    let head_response = client
+        .head(&download_url)
+        .send()
+        .await
         .map_err(|e| UpdateError::Network(format!("HEAD request failed: {}", e)))?;
-    
+
     if !head_response.status().is_success() {
         error!(
             status=%head_response.status(),
             url=%download_url,
             "Asset download URL is not accessible (HEAD request failed)"
         );
-        
+
         // Provide specific guidance for 403 Forbidden
         if head_response.status() == reqwest::StatusCode::FORBIDDEN {
             return Err(UpdateError::Network(
@@ -367,26 +372,33 @@ pub async fn perform_update(config: &UpdateConfig) -> Result<UpdateResult, Updat
                  • The repository is private\n\
                  • The asset requires authentication\n\
                  • Check GitHub repository settings and ensure the release is published\n\
-                 • Verify the repository is public if updates should be available to all users".to_string()
+                 • Verify the repository is public if updates should be available to all users"
+                    .to_string(),
             ));
         } else {
-            return Err(UpdateError::Network(format!("Asset not accessible: {}", head_response.status())));
+            return Err(UpdateError::Network(format!(
+                "Asset not accessible: {}",
+                head_response.status()
+            )));
         }
     }
 
     info!("asset URL validated, proceeding with download");
 
     // Download and extract the update manually
-    let response = client.get(&download_url).send().await
+    let response = client
+        .get(&download_url)
+        .send()
+        .await
         .map_err(|e| UpdateError::Network(format!("Download request failed: {}", e)))?;
-    
+
     if !response.status().is_success() {
         error!(
             status=%response.status(),
             url=%download_url,
             "Download request returned error status"
         );
-        
+
         // If we get a 403 Forbidden, provide additional diagnostic information
         if response.status() == reqwest::StatusCode::FORBIDDEN {
             // Try to fetch release information again to list available assets
@@ -402,15 +414,18 @@ pub async fn perform_update(config: &UpdateConfig) -> Result<UpdateResult, Updat
                 }
             })
             .await
-            .map_err(|e| UpdateError::Network(format!("Task join error during diagnostics: {}", e)))?
+            .map_err(|e| {
+                UpdateError::Network(format!("Task join error during diagnostics: {}", e))
+            })?
             .map_err(|e| UpdateError::SelfUpdate(e))?;
-            
+
             if let Some(latest_release) = releases.first() {
-                let available_assets: Vec<String> = latest_release.assets
+                let available_assets: Vec<String> = latest_release
+                    .assets
                     .iter()
                     .map(|asset| asset.name.clone())
                     .collect();
-                
+
                 error!(
                     expected_asset=%asset_name,
                     available_assets=?available_assets,
@@ -419,18 +434,25 @@ pub async fn perform_update(config: &UpdateConfig) -> Result<UpdateResult, Updat
                 );
             }
         }
-        
-        return Err(UpdateError::Network(format!("Download failed with status: {}", response.status())));
+
+        return Err(UpdateError::Network(format!(
+            "Download failed with status: {}",
+            response.status()
+        )));
     }
 
-    let bytes = response.bytes().await
+    let bytes = response
+        .bytes()
+        .await
         .map_err(|e| UpdateError::Network(format!("Failed to read response: {}", e)))?;
 
     // Get current executable directory
-    let current_exe = std::env::current_exe()
-        .map_err(|e| UpdateError::FileSystem(format!("Failed to get current executable path: {}", e)))?;
-    let install_dir = current_exe.parent()
-        .ok_or_else(|| UpdateError::FileSystem("Cannot determine installation directory".to_string()))?;
+    let current_exe = std::env::current_exe().map_err(|e| {
+        UpdateError::FileSystem(format!("Failed to get current executable path: {}", e))
+    })?;
+    let install_dir = current_exe.parent().ok_or_else(|| {
+        UpdateError::FileSystem("Cannot determine installation directory".to_string())
+    })?;
 
     // Create a backup directory
     let backup_dir = install_dir.join("backup");
@@ -438,17 +460,25 @@ pub async fn perform_update(config: &UpdateConfig) -> Result<UpdateResult, Updat
         std::fs::remove_dir_all(&backup_dir)
             .map_err(|e| UpdateError::FileSystem(format!("Failed to remove old backup: {}", e)))?;
     }
-    std::fs::create_dir(&backup_dir)
-        .map_err(|e| UpdateError::FileSystem(format!("Failed to create backup directory: {}", e)))?;
+    std::fs::create_dir(&backup_dir).map_err(|e| {
+        UpdateError::FileSystem(format!("Failed to create backup directory: {}", e))
+    })?;
 
     // Backup current files
-    let files_to_backup = ["didhub-server", "didhub-server.exe", "config.example.json", "RUN.md", "VERSION"];
+    let files_to_backup = [
+        "didhub-server",
+        "didhub-server.exe",
+        "config.example.json",
+        "RUN.md",
+        "VERSION",
+    ];
     for file in &files_to_backup {
         let file_path = install_dir.join(file);
         if file_path.exists() {
             let backup_path = backup_dir.join(file);
-            std::fs::copy(&file_path, &backup_path)
-                .map_err(|e| UpdateError::FileSystem(format!("Failed to backup {}: {}", file, e)))?;
+            std::fs::copy(&file_path, &backup_path).map_err(|e| {
+                UpdateError::FileSystem(format!("Failed to backup {}: {}", file, e))
+            })?;
         }
     }
 
@@ -458,19 +488,22 @@ pub async fn perform_update(config: &UpdateConfig) -> Result<UpdateResult, Updat
         .map_err(|e| UpdateError::Parse(format!("Failed to open zip: {}", e)))?;
 
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i)
+        let mut file = archive
+            .by_index(i)
             .map_err(|e| UpdateError::Parse(format!("Failed to read zip entry: {}", e)))?;
-        
+
         let outpath = install_dir.join(file.name());
-        
+
         if file.name().ends_with('/') {
-            std::fs::create_dir_all(&outpath)
-                .map_err(|e| UpdateError::FileSystem(format!("Failed to create directory: {}", e)))?;
+            std::fs::create_dir_all(&outpath).map_err(|e| {
+                UpdateError::FileSystem(format!("Failed to create directory: {}", e))
+            })?;
         } else {
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
-                    std::fs::create_dir_all(p)
-                        .map_err(|e| UpdateError::FileSystem(format!("Failed to create directory: {}", e)))?;
+                    std::fs::create_dir_all(p).map_err(|e| {
+                        UpdateError::FileSystem(format!("Failed to create directory: {}", e))
+                    })?;
                 }
             }
             let mut outfile = std::fs::File::create(&outpath)

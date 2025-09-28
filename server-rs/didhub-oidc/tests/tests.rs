@@ -1,4 +1,4 @@
-use didhub_oidc::{ProviderSettings, OidcState, ProviderConfig};
+use didhub_oidc::{OidcState, ProviderConfig, ProviderSettings};
 use std::env;
 
 #[test]
@@ -61,7 +61,10 @@ fn test_provider_config_structure() {
     assert_eq!(config.issuer, "https://test.com");
     assert_eq!(config.client_id, "test_client_id");
     assert_eq!(config.client_secret, Some("test_secret".to_string()));
-    assert_eq!(config.scopes, Some(vec!["openid".to_string(), "email".to_string()]));
+    assert_eq!(
+        config.scopes,
+        Some(vec!["openid".to_string(), "email".to_string()])
+    );
     assert!(config.enabled);
     assert_eq!(config.allow_signup, Some(true));
 }

@@ -1,9 +1,9 @@
 use crate::models::{Db, DbBackend};
 use crate::users::UserOperations;
 use anyhow::{Context, Result};
+use didhub_migrations::{mysql_migrator, postgres_migrator, sqlite_migrator};
 use sqlx::any::AnyPoolOptions;
 use std::path::{Path, PathBuf};
-use didhub_migrations::{sqlite_migrator, postgres_migrator, mysql_migrator};
 use tracing::{debug, info};
 
 impl Db {
@@ -241,9 +241,9 @@ impl Db {
         match (&cfg.bootstrap_admin_username, &cfg.bootstrap_admin_password) {
             (Some(username), Some(password)) if !username.is_empty() && !password.is_empty() => {
                 if self.fetch_user_by_username(username).await?.is_none() {
-                    let password_hash = hash(password, DEFAULT_COST)
-                        .context("hashing bootstrap admin password")?;
-                    
+                    let password_hash =
+                        hash(password, DEFAULT_COST).context("hashing bootstrap admin password")?;
+
                     let user = self
                         .create_user(NewUser {
                             username: username.clone(),
@@ -252,13 +252,17 @@ impl Db {
                             is_approved: true,
                         })
                         .await?;
-                    
+
                     // Make the user an admin
-                    self.update_user(user.id, UpdateUserFields {
-                        is_admin: Some(true),
-                        ..Default::default()
-                    }).await?;
-                    
+                    self.update_user(
+                        user.id,
+                        UpdateUserFields {
+                            is_admin: Some(true),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+
                     info!(id = user.id, username = %username, "created bootstrap admin user");
                 }
             }

@@ -1,1 +1,1 @@
-pub use didhub_db::types::{CurrentUser, AdminFlag};
+pub use didhub_db::types::{AdminFlag, CurrentUser};

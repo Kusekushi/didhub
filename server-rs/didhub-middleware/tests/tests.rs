@@ -1,4 +1,4 @@
-use didhub_middleware::csrf::{is_safe_method, is_allowlisted, generate_token, build_cookie};
+use didhub_middleware::csrf::{build_cookie, generate_token, is_allowlisted, is_safe_method};
 
 #[test]
 fn test_is_safe_method() {

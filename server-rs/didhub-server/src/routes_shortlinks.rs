@@ -1,12 +1,12 @@
-use didhub_db::audit;
-use didhub_db::{shortlinks::ShortlinkOperations, Db};
-use didhub_error::AppError;
-use didhub_middleware::types::CurrentUser;
 use axum::{
     extract::{Extension, Path},
     response::{IntoResponse, Redirect},
     Json,
 };
+use didhub_db::audit;
+use didhub_db::{shortlinks::ShortlinkOperations, Db};
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 

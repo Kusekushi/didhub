@@ -1,16 +1,16 @@
-use didhub_db::audit;
-use didhub_db::Db;
-use didhub_db::users::UserOperations;
-use didhub_db::settings::SettingOperations;
-use didhub_db::housekeeping::HousekeepingOperations;
-use didhub_db::common::CommonOperations;
-use didhub_db::uploads::UploadOperations;
-use didhub_db::alters::AlterOperations;
-use didhub_db::shortlinks::ShortlinkOperations;
-use didhub_db::relationships::AlterRelationships;
-use didhub_db::NewUpload;
 use anyhow::Result;
 use chrono::{Duration, Utc};
+use didhub_db::alters::AlterOperations;
+use didhub_db::audit;
+use didhub_db::common::CommonOperations;
+use didhub_db::housekeeping::HousekeepingOperations;
+use didhub_db::relationships::AlterRelationships;
+use didhub_db::settings::SettingOperations;
+use didhub_db::shortlinks::ShortlinkOperations;
+use didhub_db::uploads::UploadOperations;
+use didhub_db::users::UserOperations;
+use didhub_db::Db;
+use didhub_db::NewUpload;
 use futures::future::BoxFuture;
 use serde_json::json;
 use std::path::PathBuf;
@@ -838,7 +838,11 @@ mod tests {
         ];
 
         for job_name in expected_jobs {
-            assert!(jobs.contains(&job_name.to_string()), "Missing job: {}", job_name);
+            assert!(
+                jobs.contains(&job_name.to_string()),
+                "Missing job: {}",
+                job_name
+            );
         }
     }
 

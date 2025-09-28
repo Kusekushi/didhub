@@ -1,7 +1,7 @@
+use crate::models::*;
+use crate::{Db, DbBackend};
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::{Db, DbBackend};
-use crate::models::*;
 use serde_json;
 
 #[async_trait]

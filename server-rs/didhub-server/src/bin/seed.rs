@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bcrypt::{hash, DEFAULT_COST};
 use didhub_config::AppConfig;
-use didhub_db::{Db, NewUser, users::UserOperations};
+use didhub_db::{users::UserOperations, Db, NewUser};
 use tracing::info;
 
 #[tokio::main]

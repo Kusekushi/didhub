@@ -1,8 +1,8 @@
+use crate::common::CommonOperations;
+use crate::models::Setting;
+use crate::{Db, DbBackend};
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::common::CommonOperations;
-use crate::{Db, DbBackend};
-use crate::models::Setting;
 
 #[async_trait]
 pub trait SettingOperations: Send + Sync {

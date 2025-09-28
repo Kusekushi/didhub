@@ -2,9 +2,9 @@
 //!
 //! This module contains shared route handlers and utilities used across the API.
 
+use axum::Extension;
 use axum::Json;
 use didhub_db::Db;
-use axum::Extension;
 use serde::Serialize;
 use sqlx;
 

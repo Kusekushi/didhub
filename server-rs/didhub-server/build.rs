@@ -8,7 +8,11 @@ fn main() {
         if let Ok(content) = fs::read_to_string(&path) {
             for line in content.lines() {
                 if line.trim().starts_with("version = ") {
-                    let version = line.trim().strip_prefix("version = ").unwrap().trim_matches('"');
+                    let version = line
+                        .trim()
+                        .strip_prefix("version = ")
+                        .unwrap()
+                        .trim_matches('"');
                     return version.to_string();
                 }
             }

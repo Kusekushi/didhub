@@ -1,9 +1,3 @@
-use didhub_db::audit;
-use didhub_config::AppConfig;
-use didhub_db::{Db, NewUser};
-use didhub_middleware::types::{CurrentUser, AdminFlag};
-use didhub_db::users::UserOperations;
-use didhub_error::AppError;
 use axum::body::Body;
 use axum::extract::FromRef;
 use axum::http::{header, HeaderMap, Request};
@@ -15,6 +9,12 @@ use axum::{
     Json,
 };
 use bcrypt::{hash, verify, DEFAULT_COST};
+use didhub_config::AppConfig;
+use didhub_db::audit;
+use didhub_db::users::UserOperations;
+use didhub_db::{Db, NewUser};
+use didhub_error::AppError;
+use didhub_middleware::types::{AdminFlag, CurrentUser};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
@@ -391,7 +391,9 @@ pub async fn change_password(
     Json(payload): Json<ChangePasswordPayload>,
 ) -> Result<impl IntoResponse, AppError> {
     if payload.new_password.len() < 6 {
-        return Err(AppError::BadRequest("password too short. want at least 6 characters.".into()));
+        return Err(AppError::BadRequest(
+            "password too short. want at least 6 characters.".into(),
+        ));
     }
     let db_user = state
         .db

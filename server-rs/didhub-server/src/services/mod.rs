@@ -38,8 +38,12 @@ impl ServiceComponents {
         }
     }
 
-    async fn initialize_upload_dir_cache(db: &db::Db, cfg: &config::AppConfig) -> upload_dir::UploadDirCache {
-        let upload_dir_cache = upload_dir::UploadDirCache::new(db.clone(), cfg.upload_dir.clone(), 10);
+    async fn initialize_upload_dir_cache(
+        db: &db::Db,
+        cfg: &config::AppConfig,
+    ) -> upload_dir::UploadDirCache {
+        let upload_dir_cache =
+            upload_dir::UploadDirCache::new(db.clone(), cfg.upload_dir.clone(), 10);
         upload_dir::set_global(upload_dir_cache.clone());
 
         // Refresh TTL from DB in background (non-blocking)
@@ -56,32 +60,23 @@ impl ServiceComponents {
         let reg_clone = registry.clone();
 
         tokio::spawn(async move {
-            reg_clone
-                .register(housekeeping::AuditRetentionJob)
-                .await;
-            reg_clone
-                .register(housekeeping::BirthdaysDigestJob)
-                .await;
+            reg_clone.register(housekeeping::AuditRetentionJob).await;
+            reg_clone.register(housekeeping::BirthdaysDigestJob).await;
             reg_clone.register(housekeeping::UploadsGcJob).await;
-            reg_clone
-                .register(housekeeping::UploadsBackfillJob)
-                .await;
-            reg_clone
-                .register(housekeeping::UploadsIntegrityJob)
-                .await;
-            reg_clone
-                .register(housekeeping::ShortlinksPruneJob)
-                .await;
-            reg_clone
-                .register(housekeeping::OrphansPruneJob)
-                .await;
+            reg_clone.register(housekeeping::UploadsBackfillJob).await;
+            reg_clone.register(housekeeping::UploadsIntegrityJob).await;
+            reg_clone.register(housekeeping::ShortlinksPruneJob).await;
+            reg_clone.register(housekeeping::OrphansPruneJob).await;
             reg_clone.register(housekeeping::VacuumDbJob).await;
         });
 
         registry
     }
 
-    fn create_housekeeping_state(db: &db::Db, registry: &housekeeping::JobRegistry) -> HousekeepingState {
+    fn create_housekeeping_state(
+        db: &db::Db,
+        registry: &housekeeping::JobRegistry,
+    ) -> HousekeepingState {
         let housekeeping_state = HousekeepingState {
             db: db.clone(),
             registry: registry.clone(),
@@ -97,7 +92,9 @@ impl ServiceComponents {
                 // Create a persistent multiplexed connection and wrap it in Arc<Mutex<>>
                 match client.get_multiplexed_async_connection().await {
                     Ok(conn) => {
-                        return cache::AppCache::redis(std::sync::Arc::new(tokio::sync::Mutex::new(conn)));
+                        return cache::AppCache::redis(std::sync::Arc::new(
+                            tokio::sync::Mutex::new(conn),
+                        ));
                     }
                     Err(_) => {}
                 }
@@ -124,13 +121,7 @@ impl ServiceComponents {
         let db_clone = db.clone();
         tokio::spawn(async move {
             for (key, value) in DEFAULT_SETTINGS {
-                if db_clone
-                    .get_setting(key)
-                    .await
-                    .ok()
-                    .flatten()
-                    .is_none()
-                {
+                if db_clone.get_setting(key).await.ok().flatten().is_none() {
                     let _ = db_clone.upsert_setting(key, value).await;
                 }
             }

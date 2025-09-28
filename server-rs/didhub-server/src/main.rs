@@ -17,11 +17,11 @@
 //!
 //! See the root README.md for a complete list of supported environment variables.
 
-use didhub_server::{self as server, logging};
+use clap::Parser;
 use didhub_config as config;
 use didhub_db as db;
+use didhub_server::{self as server, logging};
 use tracing::info;
-use clap::Parser;
 
 #[derive(Parser)]
 #[command(name = "didhub-server")]

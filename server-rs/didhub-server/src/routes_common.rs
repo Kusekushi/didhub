@@ -27,7 +27,10 @@ pub fn require_admin(user: &CurrentUser) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn check_ownership_with_existing(user: &CurrentUser, owner_id: Option<i64>) -> Result<(), AppError> {
+pub fn check_ownership_with_existing(
+    user: &CurrentUser,
+    owner_id: Option<i64>,
+) -> Result<(), AppError> {
     if user.is_admin {
         return Ok(());
     }
@@ -43,7 +46,11 @@ pub fn check_ownership_with_existing(user: &CurrentUser, owner_id: Option<i64>) 
     Ok(())
 }
 
-pub async fn check_subsystem_ownership(db: &Db, user: &CurrentUser, id: i64) -> Result<(), AppError> {
+pub async fn check_subsystem_ownership(
+    db: &Db,
+    user: &CurrentUser,
+    id: i64,
+) -> Result<(), AppError> {
     if user.is_admin {
         return Ok(());
     }

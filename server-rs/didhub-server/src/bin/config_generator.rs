@@ -49,11 +49,8 @@ async fn main() -> Result<()> {
             let database = Text::new("Database name:")
                 .with_default("didhub")
                 .prompt()?;
-            let username = Text::new("Username:")
-                .with_default("didhub")
-                .prompt()?;
-            let password = Text::new("Password:")
-                .prompt()?;
+            let username = Text::new("Username:").with_default("didhub").prompt()?;
+            let password = Text::new("Password:").prompt()?;
             let ssl_mode = Select::new(
                 "SSL mode:",
                 vec!["disable", "require", "verify-ca", "verify-full"],
@@ -82,11 +79,8 @@ async fn main() -> Result<()> {
             let database = Text::new("Database name:")
                 .with_default("didhub")
                 .prompt()?;
-            let username = Text::new("Username:")
-                .with_default("didhub")
-                .prompt()?;
-            let password = Text::new("Password:")
-                .prompt()?;
+            let username = Text::new("Username:").with_default("didhub").prompt()?;
+            let password = Text::new("Password:").prompt()?;
             json!({
                 "driver": "mysql",
                 "host": host,
@@ -101,9 +95,7 @@ async fn main() -> Result<()> {
 
     // Server configuration
     println!("\nServer Configuration:");
-    let host = Text::new("Server host:")
-        .with_default("0.0.0.0")
-        .prompt()?;
+    let host = Text::new("Server host:").with_default("0.0.0.0").prompt()?;
     let port: u16 = Text::new("Server port:")
         .with_default("6000")
         .prompt()?

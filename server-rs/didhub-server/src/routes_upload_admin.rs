@@ -1,18 +1,18 @@
-use didhub_db::audit;
-use didhub_cache::AppCache;
-use didhub_db::Db;
-use didhub_error::AppError;
+use crate::routes_common::require_admin;
 use crate::upload_dir::UploadDirCache;
-use didhub_db::uploads::UploadOperations;
-use didhub_middleware::types::CurrentUser;
 use axum::{
     extract::{Extension, Path, Query},
     Json,
 };
+use didhub_cache::AppCache;
+use didhub_db::audit;
+use didhub_db::uploads::UploadOperations;
+use didhub_db::Db;
+use didhub_error::AppError;
+use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
-use crate::routes_common::require_admin;
 
 #[derive(Deserialize)]
 pub struct ListParams {
@@ -201,5 +201,5 @@ pub async fn purge_uploads_admin(
     info!(user_id=%user.id, purged=%purged, files_removed=%files_removed, cutoff=%cutoff, "admin upload purge completed");
     Ok(Json(
         serde_json::json!({"ok": true, "purged": purged, "files_removed": files_removed }),
-       ))
+    ))
 }

@@ -1,6 +1,6 @@
 use crate::common::CommonOperations;
-use crate::{Db, DbBackend};
 use crate::models::{NewUser, PasswordResetToken, UpdateUserFields, User, UserListFilters};
+use crate::{Db, DbBackend};
 use anyhow::Result;
 use async_trait::async_trait;
 use tracing::{debug, info, warn};
@@ -35,7 +35,11 @@ pub trait UserOperations {
         selector: &str,
     ) -> Result<Option<PasswordResetToken>>;
     async fn mark_password_reset_used(&self, id: i64) -> Result<()>;
-    async fn validate_password_reset_token(&self, token_id: i64, current_time: &str) -> Result<bool>;
+    async fn validate_password_reset_token(
+        &self,
+        token_id: i64,
+        current_time: &str,
+    ) -> Result<bool>;
     async fn clear_expired_password_resets(&self) -> Result<i64>;
 }
 
@@ -388,7 +392,11 @@ impl UserOperations for Db {
         Ok(())
     }
 
-    async fn validate_password_reset_token(&self, token_id: i64, current_time: &str) -> Result<bool> {
+    async fn validate_password_reset_token(
+        &self,
+        token_id: i64,
+        current_time: &str,
+    ) -> Result<bool> {
         let (still_valid,):(i64,) = sqlx::query_as("SELECT CASE WHEN used_at IS NULL AND expires_at >= ?1 THEN 1 ELSE 0 END FROM password_reset_tokens WHERE id=?2")
             .bind(current_time)
             .bind(token_id)
