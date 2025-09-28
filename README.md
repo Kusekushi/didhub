@@ -3,6 +3,8 @@
 This repository contains the Rust API server in `server-rs/` and the Vite +
 React frontend in `packages/frontend/`.
 
+The current 'stable' version is v0.1.0.
+
 ## Documentation
 
 - **[Getting Started](./docs/getting-started.md)** - Development setup and prerequisites
