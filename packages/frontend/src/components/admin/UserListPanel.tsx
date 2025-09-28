@@ -8,14 +8,13 @@ import {
   ListItem,
   ListItemText,
   Avatar,
-  Snackbar,
-  Alert,
   type AlertColor,
 } from '@mui/material';
 import DeleteConfirmDialog from '../DeleteConfirmDialog';
 import InputPromptDialog from '../InputPromptDialog';
 import { listUsers, updateUser, adminResetUserPassword, adminDisableUser } from '@didhub/api-client';
 import moment from 'moment';
+import NotificationSnackbar from '../../components/NotificationSnackbar';
 
 export default function UserListPanel() {
   const [users, setUsers] = useState([]);
@@ -141,11 +140,12 @@ export default function UserListPanel() {
           await load();
         }}
       />
-      <Snackbar open={localMsg.open} autoHideDuration={3000} onClose={() => setLocalMsg({ ...localMsg, open: false })}>
-        <Alert severity={localMsg.severity} onClose={() => setLocalMsg({ ...localMsg, open: false })}>
-          {localMsg.text}
-        </Alert>
-      </Snackbar>
+      <NotificationSnackbar
+        open={localMsg.open}
+        onClose={() => setLocalMsg({ ...localMsg, open: false })}
+        message={localMsg.text}
+        severity={localMsg.severity}
+      />
     </div>
   );
 }

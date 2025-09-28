@@ -1,4 +1,4 @@
-import { Tabs, Tab, Snackbar, Alert, type AlertColor } from '@mui/material';
+import { Tabs, Tab, type AlertColor } from '@mui/material';
 import React from 'react';
 import { useEffect, useState } from 'react';
 import {
@@ -28,6 +28,7 @@ import {
   MetricsTab,
 } from '../components/admin';
 import TabPanel from '../components/TabPanel';
+import NotificationSnackbar from '../components/NotificationSnackbar';
 
 export default function Admin() {
   const [tab, setTab] = useState(0);
@@ -331,11 +332,12 @@ export default function Admin() {
         </TabPanel>
       ))}
 
-      <Snackbar open={adminMsg.open} autoHideDuration={4000} onClose={() => setAdminMsg({ ...adminMsg, open: false })}>
-        <Alert severity={adminMsg.severity} onClose={() => setAdminMsg({ ...adminMsg, open: false })}>
-          {adminMsg.text}
-        </Alert>
-      </Snackbar>
+      <NotificationSnackbar
+        open={adminMsg.open}
+        onClose={() => setAdminMsg({ ...adminMsg, open: false })}
+        message={adminMsg.text}
+        severity={adminMsg.severity}
+      />
     </div>
   );
 }

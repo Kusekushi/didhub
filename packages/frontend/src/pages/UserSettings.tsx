@@ -2,16 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Button,
   Avatar,
-  Paper,
   Typography,
-  List,
-  Stack,
   TextField,
-  Snackbar,
-  Alert,
 } from '@mui/material';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
+import NotificationSnackbar from '../components/NotificationSnackbar';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getMySystemRequest,
@@ -218,16 +213,18 @@ export default function UserSettings() {
           </Button>
         </div>
       </div>
-      <Snackbar open={pwMsg.open} autoHideDuration={4000} onClose={() => setPwMsg({ ...pwMsg, open: false })}>
-        <Alert severity={(pwMsg as any).severity} onClose={() => setPwMsg({ ...pwMsg, open: false })}>
-          {pwMsg.text}
-        </Alert>
-      </Snackbar>
-      <Snackbar open={msg.open} autoHideDuration={4000} onClose={() => setMsg({ ...msg, open: false })}>
-        <Alert severity={(msg as any).severity} onClose={() => setMsg({ ...msg, open: false })}>
-          {msg.text}
-        </Alert>
-      </Snackbar>
+      <NotificationSnackbar
+        open={pwMsg.open}
+        onClose={() => setPwMsg({ ...pwMsg, open: false })}
+        message={pwMsg.text}
+        severity={(pwMsg as any).severity}
+      />
+      <NotificationSnackbar
+        open={msg.open}
+        onClose={() => setPwMsg({ ...msg, open: false })}
+        message={msg.text}
+        severity={(msg as any).severity}
+      />
     </div>
   );
 }

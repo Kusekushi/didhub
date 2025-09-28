@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Grid, Snackbar, Alert, Typography } from '@mui/material';
+import { Container, Grid, Typography } from '@mui/material';
 
 const G: any = Grid;
 import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
@@ -10,9 +10,10 @@ import BasicInfoSection from '../components/BasicInfoSection';
 import WorkAffiliationsSection from '../components/WorkAffiliationsSection';
 import { ListsSection, NotesSection } from '../components/DetailSections';
 import DetailHeader from '../components/DetailHeader';
+import NotificationSnackbar from '../components/NotificationSnackbar';
 import logger from '../logger';
-import { deleteAlterImage, Alter } from '@didhub/api-client';
-import { renderEmbeds, normalizeToArray } from '../utils/detailUtils';
+import { deleteAlterImage } from '@didhub/api-client';
+import { renderEmbeds } from '../utils/detailUtils';
 import { useAlterData } from '../hooks/useAlterData';
 import { useAlterLinks } from '../hooks/useAlterLinks';
 import { useRename } from '../hooks/useRename';
@@ -197,16 +198,12 @@ export default function Detail(): React.ReactElement {
         }}
       />
 
-      <Snackbar
+      <NotificationSnackbar
         open={pdfSnackOpen}
-        autoHideDuration={4000}
         onClose={closePdfSnack}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="error" variant="filled" onClose={closePdfSnack} sx={{ width: '100%' }}>
-          {pdfError}
-        </Alert>
-      </Snackbar>
+        message={pdfError}
+        severity={"error"}
+      />
     </Container>
   );
 }

@@ -15,8 +15,6 @@ import {
   CircularProgress,
   Autocomplete,
   Tooltip,
-  Snackbar,
-  Alert,
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CloseIcon from '@mui/icons-material/Close';
@@ -25,6 +23,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { getGroup, listGroupMembers, getAlter, updateGroup, uploadFile, Alter, Group, User } from '@didhub/api-client';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationSnackbar from '../components/NotificationSnackbar';
 
 export default function GroupDetail() {
   const { id } = useParams() as { id?: string };
@@ -609,16 +608,12 @@ export default function GroupDetail() {
           No members in this group yet
         </Typography>
       )}
-      <Snackbar
+      <NotificationSnackbar
         open={pdfSnackOpen}
-        autoHideDuration={4000}
         onClose={() => setPdfSnackOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="error" variant="filled" onClose={() => setPdfSnackOpen(false)} sx={{ width: '100%' }}>
-          {pdfError}
-        </Alert>
-      </Snackbar>
+        message={pdfError}
+        severity={"error"}
+      />
     </Container>
   );
 }

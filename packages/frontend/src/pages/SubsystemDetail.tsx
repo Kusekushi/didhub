@@ -14,15 +14,14 @@ import {
   ListItemButton,
   Autocomplete,
   TextField,
-  CircularProgress,
-  Snackbar,
-  Alert,
+  CircularProgress
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/PersonAddAlt1';
 import ShareIcon from '@mui/icons-material/Share';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
+import NotificationSnackbar from '../components/NotificationSnackbar';
 import { useSettings } from '../contexts/SettingsContext';
 import {
   createShortLink,
@@ -517,16 +516,12 @@ export default function SubsystemDetail() {
           })}
         </List>
       </div>
-      <Snackbar
+      <NotificationSnackbar
         open={pdfSnackOpen}
-        autoHideDuration={4000}
         onClose={() => setPdfSnackOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="error" variant="filled" onClose={() => setPdfSnackOpen(false)} sx={{ width: '100%' }}>
-          {pdfError}
-        </Alert>
-      </Snackbar>
+        message={pdfError}
+        severity={"error"}
+      />
     </Container>
   );
 }

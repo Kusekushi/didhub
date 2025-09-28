@@ -8,11 +8,11 @@ interface NotificationSnackbarProps {
   onClose: () => void;
 }
 
-export default function NotificationSnackbar({ open, message, severity, onClose }: NotificationSnackbarProps) {
+export default function NotificationSnackbar(props: NotificationSnackbarProps) {
   return (
-    <Snackbar open={open} autoHideDuration={4000} onClose={onClose}>
-      <Alert onClose={onClose} severity={severity} sx={{ width: '100%' }}>
-        {message}
+    <Snackbar open={props.open} autoHideDuration={4000} onClose={props.onClose}>
+      <Alert onClose={props.onClose} severity={props.severity} sx={{ width: '100%' }}>
+        {props.message}
       </Alert>
     </Snackbar>
   );
