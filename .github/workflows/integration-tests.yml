@@ -3,8 +3,16 @@ name: Integration Tests
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/ISSUE_TEMPLATE/**'
 
 jobs:
   integration:
@@ -29,7 +37,7 @@ jobs:
         with:
           node-version: '20'
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        run: npm install -g pnpm
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
