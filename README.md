@@ -1,9 +1,24 @@
 # DIDHub — Alters manager
 
-This repository contains the Rust API server in `server-rs/` and the Vite +
-React frontend in `packages/frontend/`.
+## What is DIDHub?
 
-The current 'stable' version is v0.1.0.
+DIDHub is a web application we've designed to help people with Dissociative Identity Disorder (DID) and other plural systems manage their alters. It provides a platform for organizing information about your system.
+
+With DIDHub, you can:
+
+- **Create Alter Profiles**: Build detailed profiles for each alter, including names, descriptions, roles, and avatars
+- **Record affiliations/subsystems**: Note down further details for systems, such as fractions or subsystems that might develop
+- **Record relationships between your friend circle**
+- **Share profiles/information about your system with others**
+
+With that said, this application is designed to run in a private instance as of right now. This requires you having a server (and ideally a web domain) on your own.
+We've tried to make this process of setting up as streamlined as possible, but if you have any questions, suggestions or just need help with the setup, feel free to open an issue or contact us directly.
+
+Also please keep in mind that we've developed this application to the best of our knowledge about that entire topic of DID/OSDD/...
+Concepts being applied in this application might not reflect the current state of medicine, and might not be accurate whatsoever.
+If you feel that we've worked with incorrect assumptions, please let us know.
+
+Thanks alot, and please take care of yourselves.
 
 ## Documentation
 
