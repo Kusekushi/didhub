@@ -48,23 +48,27 @@ impl UserAlterRelationshipOperations for Db {
 
         let rec = self.insert_and_return(
             || async {
-                sqlx::query("INSERT INTO user_alter_relationships (user_id, alter_id, relationship_type) VALUES (?1, ?2, ?3)")
+                // SQLite/Postgres: Insert and get ID, then query with join
+                let insert_result = sqlx::query("INSERT INTO user_alter_relationships (user_id, alter_id, relationship_type) VALUES (?1, ?2, ?3)")
                     .bind(user_id)
                     .bind(alter_id)
                     .bind(&relationship_type)
                     .execute(&self.pool)
                     .await?;
+                let inserted_id = insert_result.last_insert_id().unwrap_or(0) as i64;
                 let r = sqlx::query_as::<_, UserAlterRelationship>(
                     "SELECT uar.id, uar.user_id, uar.alter_id, uar.relationship_type, uar.created_at, u.username
                      FROM user_alter_relationships uar
                      JOIN users u ON uar.user_id = u.id
-                     WHERE uar.id = LAST_INSERT_ID()"
+                     WHERE uar.id = ?1"
                 )
+                .bind(inserted_id)
                 .fetch_one(&self.pool)
                 .await?;
                 Ok(r)
             },
             || async {
+                // MySQL: Use LAST_INSERT_ID()
                 sqlx::query("INSERT INTO user_alter_relationships (user_id, alter_id, relationship_type) VALUES (?1, ?2, ?3)")
                     .bind(user_id)
                     .bind(alter_id)
