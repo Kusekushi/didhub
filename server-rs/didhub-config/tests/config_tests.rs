@@ -1,6 +1,13 @@
 use didhub_config::AppConfig;
 use serde_json::json;
 use std::env;
+use std::sync::{Mutex, OnceLock};
+
+static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn env_guard() -> std::sync::MutexGuard<'static, ()> {
+    ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+}
 
 fn reset_env() {
     for key in [
@@ -20,6 +27,7 @@ fn reset_env() {
 
 #[test]
 fn parse_comma_separated_origins() {
+    let _guard = env_guard();
     reset_env();
     env::set_var(
         "FRONTEND_BASE_URL",
@@ -31,6 +39,7 @@ fn parse_comma_separated_origins() {
 
 #[test]
 fn parse_json_array_origins() {
+    let _guard = env_guard();
     reset_env();
     env::set_var(
         "FRONTEND_BASE_URL",
@@ -42,6 +51,7 @@ fn parse_json_array_origins() {
 
 #[test]
 fn config_file_upload_directory_overrides_default() {
+    let _guard = env_guard();
     reset_env();
     env::set_var("FRONTEND_BASE_URL", "http://localhost:5173");
 
@@ -82,6 +92,7 @@ fn config_file_upload_directory_overrides_default() {
 
 #[test]
 fn config_file_logging_flags() {
+    let _guard = env_guard();
     reset_env();
     env::set_var("FRONTEND_BASE_URL", "http://localhost:5173");
 

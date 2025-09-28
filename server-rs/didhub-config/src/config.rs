@@ -145,6 +145,9 @@ impl AppConfig {
             .ok()
             .or(file_upload_dir.clone())
             .unwrap_or_else(|| "uploads".into());
+        if std::env::var("UPLOAD_DIR").is_err() {
+            std::env::set_var("UPLOAD_DIR", upload_dir.clone());
+        }
         let redis_url = std::env::var("DIDHUB_REDIS_URL").ok();
         let content_security_policy = std::env::var("DIDHUB_CSP").ok();
         let enable_hsts = std::env::var("DIDHUB_ENABLE_HSTS")

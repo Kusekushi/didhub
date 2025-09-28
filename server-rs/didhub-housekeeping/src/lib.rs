@@ -334,8 +334,9 @@ impl Job for UploadsGcJob {
             debug!(referenced_count=%referenced.len(), "found referenced files");
 
             // Scan upload directory
-            let upload_dir = if let Some(s) = db.get_setting("app.upload_dir").await.ok().flatten()
-            {
+            let upload_dir = if let Ok(env_dir) = std::env::var("UPLOAD_DIR") {
+                env_dir
+            } else if let Ok(Some(s)) = db.get_setting("app.upload_dir").await {
                 s.value
             } else {
                 "uploads".into()
@@ -443,8 +444,9 @@ impl Job for UploadsBackfillJob {
                     });
                 }
             }
-            let upload_dir = if let Some(s) = db.get_setting("app.upload_dir").await.ok().flatten()
-            {
+            let upload_dir = if let Ok(env_dir) = std::env::var("UPLOAD_DIR") {
+                env_dir
+            } else if let Ok(Some(s)) = db.get_setting("app.upload_dir").await {
                 s.value
             } else {
                 "uploads".into()
@@ -530,8 +532,9 @@ impl Job for UploadsIntegrityJob {
     fn run(&self, db: &Db) -> BoxFuture<'static, Result<JobOutcome>> {
         let db = db.clone();
         Box::pin(async move {
-            let upload_dir = if let Some(s) = db.get_setting("app.upload_dir").await.ok().flatten()
-            {
+            let upload_dir = if let Ok(env_dir) = std::env::var("UPLOAD_DIR") {
+                env_dir
+            } else if let Ok(Some(s)) = db.get_setting("app.upload_dir").await {
                 s.value
             } else {
                 "uploads".into()
