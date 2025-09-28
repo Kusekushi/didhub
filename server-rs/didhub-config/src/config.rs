@@ -35,10 +35,14 @@ impl AppConfig {
         let mut file_db_url: Option<String> = None;
         let mut file_log_level: Option<String> = None;
         let mut file_log_json: Option<bool> = None;
+        let mut file_upload_dir: Option<String> = None;
         if let Some(path) = cfg_file_path.as_ref() {
             if Path::new(path).exists() {
                 match load_config_file(path) {
                     Ok(cfg_file) => {
+                        let config_dir = std::path::Path::new(path)
+                            .parent()
+                            .unwrap_or(std::path::Path::new("."));
                         if let Some(url_opt) = cfg_file.database.and_then(|db| {
 						// Reuse existing logic by reconstructing the DB url from the parsed DatabaseSection
 						// This mirrors the old load_db_url_from_file behavior.
@@ -82,6 +86,11 @@ impl AppConfig {
                         if let Some(logging) = cfg_file.logging {
                             file_log_level = logging.level;
                             file_log_json = logging.json;
+                        }
+                        if let Some(uploads) = cfg_file.uploads {
+                            if let Some(dir) = uploads.directory {
+                                file_upload_dir = Some(normalize_path(&dir, config_dir));
+                            }
                         }
                     }
                     Err(e) => {
@@ -132,7 +141,10 @@ impl AppConfig {
         }
         let bootstrap_admin_username = std::env::var("DIDHUB_BOOTSTRAP_ADMIN_USERNAME").ok();
         let bootstrap_admin_password = std::env::var("DIDHUB_BOOTSTRAP_ADMIN_PASSWORD").ok();
-        let upload_dir = std::env::var("UPLOAD_DIR").unwrap_or_else(|_| "uploads".into());
+        let upload_dir = std::env::var("UPLOAD_DIR")
+            .ok()
+            .or(file_upload_dir.clone())
+            .unwrap_or_else(|| "uploads".into());
         let redis_url = std::env::var("DIDHUB_REDIS_URL").ok();
         let content_security_policy = std::env::var("DIDHUB_CSP").ok();
         let enable_hsts = std::env::var("DIDHUB_ENABLE_HSTS")
@@ -209,6 +221,8 @@ struct RawConfigFile {
     database: Option<DatabaseSection>,
     #[serde(default)]
     logging: Option<LoggingSection>,
+    #[serde(default)]
+    uploads: Option<UploadsSection>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -236,6 +250,12 @@ struct DatabaseSection {
     password: Option<String>,
     #[serde(default)]
     ssl_mode: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UploadsSection {
+    #[serde(default)]
+    directory: Option<String>,
 }
 
 fn load_config_file(path: &str) -> Result<RawConfigFile> {

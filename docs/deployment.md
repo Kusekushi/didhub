@@ -161,9 +161,11 @@ docker run -d \
    Environment=DIDHUB_SECRET=your-secret-key
    Environment=DIDHUB_DB=postgres://user:pass@localhost:5432/didhub
    Environment=REDIS_URL=redis://localhost:6379/0
+   Environment=UPLOAD_DIR=/var/lib/didhub/uploads
    Environment=PORT=8080
    Environment=LOG_LEVEL=info
    Environment=LOG_JSON=true
+   WorkingDirectory=/var/lib/didhub
    ExecStart=/usr/local/bin/didhub-server
    Restart=always
    RestartSec=5
