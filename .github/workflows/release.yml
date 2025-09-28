@@ -65,6 +65,9 @@ jobs:
         with:
           workspaces: server-rs -> target
 
+      - name: Install cargo-license
+        run: cargo install cargo-license
+
       - name: Install dependencies
         run: pnpm install
 
