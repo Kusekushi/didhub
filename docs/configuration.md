@@ -160,14 +160,25 @@ Hours between update checks.
 ### Bootstrap Configuration
 
 #### `DIDHUB_BOOTSTRAP_ADMIN_USERNAME`
-Username for bootstrap admin user.
+Username for bootstrap admin user creation.
 
 **Default**: None
+
+**Important**: When both `DIDHUB_BOOTSTRAP_ADMIN_USERNAME` and `DIDHUB_BOOTSTRAP_ADMIN_PASSWORD` are set, the server will create an admin user account on startup if one doesn't already exist with that username. This only happens once - subsequent server restarts will not recreate the user.
 
 #### `DIDHUB_BOOTSTRAP_ADMIN_PASSWORD`
-Password for bootstrap admin user.
+Password for bootstrap admin user creation.
 
 **Default**: None
+
+**Important**: Must be set together with `DIDHUB_BOOTSTRAP_ADMIN_USERNAME`. The server creates an admin user account on first startup when both variables are provided.
+
+**Example**:
+```bash
+export DIDHUB_BOOTSTRAP_ADMIN_USERNAME=admin
+export DIDHUB_BOOTSTRAP_ADMIN_PASSWORD=mysecurepassword
+# Run server once to create admin user, then remove these env vars for security
+```
 
 ## Configuration Files
 
