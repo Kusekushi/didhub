@@ -1,0 +1,134 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+    tags-ignore:
+      - '**'
+
+permissions:
+  contents: write
+
+jobs:
+  check-release-commit:
+    runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.check.outputs.should_release }}
+      release-version: ${{ steps.check.outputs.release_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Check commit message
+        id: check
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if [[ "$COMMIT_MSG" =~ ^\[release\] ]]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            # Extract version from commit message, e.g., [release] v1.2.3
+            VERSION=$(echo "$COMMIT_MSG" | sed -n 's/^\[release\]\s*v\?\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
+            if [ -z "$VERSION" ]; then
+              # If no version specified, use timestamp-based version
+              VERSION="0.0.$(date +%Y%m%d%H%M%S)"
+            fi
+            echo "release_version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-release-bundle:
+    needs: check-release-commit
+    if: needs.check-release-commit.outputs.should-release == 'true'
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: server-rs -> target
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Bundle Release (with SBOM)
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | bash -s -- -b /usr/local/bin
+          fi
+          pnpm bundle:release
+        shell: bash
+
+      - name: Upload Release Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: didhub-release-${{ matrix.os == 'windows-latest' && 'windows' || 'linux' }}
+          path: dist/release/didhub-*
+
+  create-release:
+    needs: [check-release-commit, build-release-bundle]
+    if: needs.check-release-commit.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Linux bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: didhub-release-linux
+          path: dist/release/linux
+
+      - name: Download Windows bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: didhub-release-windows
+          path: dist/release/windows
+
+      - name: Create release archives
+        run: |
+          cd dist/release
+          # Create Linux zip with files at root
+          cd linux && zip -r ../didhub-release-linux.zip .
+          cd ..
+          # Create Windows zip with files at root
+          cd windows && zip -r ../didhub-release-windows.zip .
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-release-commit.outputs.release-version }}
+          name: Release v${{ needs.check-release-commit.outputs.release-version }}
+          body: |
+            Automated release created from commit with [release] prefix.
+
+            This release includes the DIDHub server binary and frontend assets bundled for deployment.
+          files: dist/release/didhub-release-*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

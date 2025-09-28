@@ -1,0 +1,22 @@
+[package]
+name = "didhub-updater"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tracing = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+self_update = { version = "0.42", optional = true }
+reqwest = { version = "0.12", features = ["rustls-tls"] }
+zip = "2.1"
+
+[features]
+# Enable this to compile in self-update logic
+updater = ["self_update"]
+
+[dev-dependencies]
+serde_json = "1"
+tokio = { version = "1", features = ["macros"] }

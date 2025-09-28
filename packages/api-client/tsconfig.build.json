@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ES2020",
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "outDir": "dist"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "e2e", "tests", "playwright", "scripts", "**/*.spec.ts", "**/*.test.ts"]
+}

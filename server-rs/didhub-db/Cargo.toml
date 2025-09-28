@@ -1,0 +1,22 @@
+[package]
+name = "didhub-db"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "any", "sqlite", "postgres", "mysql", "migrate", "chrono", "uuid"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+async-trait = "0.1"
+bcrypt = "0.17"
+didhub-cache = { path = "../didhub-cache" }
+didhub-migrations = { path = "../didhub-migrations" }
+didhub-config = { path = "../didhub-config" }
+tracing = "0.1"
+
+[features]
+types = []

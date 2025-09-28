@@ -1,0 +1,14 @@
+[package]
+name = "didhub-metrics"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+prometheus = "0.14"
+tracing = "0.1"
+once_cell = "1"
+axum = { version = "0.8", features = ["macros", "json", "multipart"] }
+
+[features]
+types = []

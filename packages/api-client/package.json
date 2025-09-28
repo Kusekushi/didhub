@@ -1,0 +1,31 @@
+{
+  "name": "@didhub/api-client",
+  "version": "0.0.2",
+  "description": "TypeScript API client library for DIDHub backend - provides typed functions for all REST endpoints",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json -w",
+    "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint src/ --ext .js,.jsx,.ts,.tsx --fix",
+    "lint:ci": "eslint src/ --ext .js,.jsx,.ts,.tsx --max-warnings=0",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
+  },
+  "files": ["dist"],
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "@vitest/coverage-istanbul": "3.2.4",
+    "eslint": "^9.36.0",
+    "@eslint/js": "^9.36.0",
+    "typescript-eslint": "^8.44.1"
+  }
+}

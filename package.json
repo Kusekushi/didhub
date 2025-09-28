@@ -1,0 +1,29 @@
+{
+  "name": "@didhub/root",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "pnpm run build:api-client && pnpm run build:frontend && pnpm run generate-licenses",
+    "test": "pnpm run test:frontend && pnpm run test:api-client",
+    "test:e2e": "pnpm --stream -r run test:e2e",
+    "// Per-package": "//////////////////////////////////////////////////////////////////////////////////",
+    "build:frontend": "pnpm -C packages/frontend run build",
+    "build:api-client": "pnpm -C packages/api-client run build",
+    "test:frontend": "pnpm -C packages/frontend run test",
+    "test:api-client": "pnpm -C packages/api-client run test",
+    "dev:frontend": "pnpm -C packages/frontend run dev",
+    "dev:frontend:host": "pnpm -C packages/frontend run dev:host",
+    "dev:api-client": "pnpm -C packages/api-client run build:watch",
+    "// Utilities": "//////////////////////////////////////////////////////////////////////////////////",
+    "format": "npx prettier --write .",
+    "format:check": "npx prettier --check .",
+    "lint": "pnpm --stream -r run lint",
+    "lint:fix": "pnpm --stream -r run lint:fix",
+    "lint:ci": "pnpm --stream -r run lint:ci",
+    "license-check": "pnpm licenses -P ls",
+    "generate-licenses": "cd packages/frontend && pnpm exec license-checker --production --json > ../../static/licenses-frontend.json && cd ../../server-rs && cargo license --json --all-features > ../static/licenses-backend.json && cd .. && node scripts/copy-licenses.js",
+    "bundle:release": "node scripts/bundle-release.mjs"
+  },
+  "packageManager": "pnpm@10.16.1"
+}

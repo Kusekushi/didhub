@@ -1,0 +1,391 @@
+use didhub_db::{Db, NewUser, UpdateUserFields, UserListFilters, User};
+use didhub_db::users::UserOperations;
+use didhub_error::AppError;
+use didhub_db::audit;
+use didhub_middleware::types::{CurrentUser, AdminFlag};
+use axum::{
+    extract::{Extension, Path, Query, State},
+    Json,
+};
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize, Debug)]
+pub struct UsersQuery {
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+    pub q: Option<String>,
+    // keep as strings here and parse later to be permissive about 0/1 and true/false
+    pub is_admin: Option<String>,
+    pub is_system: Option<String>,
+    pub is_approved: Option<String>,
+    pub sort_by: Option<String>, // id|username|created_at
+    pub order: Option<String>,   // asc|desc
+}
+
+fn parse_flag(s: &Option<String>) -> Option<bool> {
+    let s = s.as_ref()?.trim();
+    if s.eq_ignore_ascii_case("true") || s == "1" {
+        Some(true)
+    } else if s.eq_ignore_ascii_case("false") || s == "0" {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+#[derive(Serialize)]
+pub struct UsersListResponseMeta {
+    pub page: i64,
+    pub per_page: i64,
+    pub total: i64,
+    pub pages: i64,
+    pub next: Option<i64>,
+    pub prev: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub struct UsersListResponse<T> {
+    pub meta: UsersListResponseMeta,
+    pub items: Vec<T>,
+}
+
+#[derive(Serialize)]
+pub struct UserOut {
+    pub id: i64,
+    pub username: String,
+    pub avatar: Option<String>,
+    pub is_system: bool,
+    pub is_admin: bool,
+    pub is_approved: bool,
+    pub created_at: Option<String>,
+}
+
+fn user_to_out(u: &User) -> UserOut {
+    UserOut {
+        id: u.id,
+        username: u.username.clone(),
+        avatar: u.avatar.clone(),
+        is_system: u.is_system != 0,
+        is_admin: u.is_admin != 0,
+        is_approved: u.is_approved != 0,
+        created_at: u.created_at.clone(),
+    }
+}
+
+pub async fn list_users(
+    State(db): State<Db>,
+    Extension(current): Extension<CurrentUser>,
+    Query(q): Query<UsersQuery>,
+) -> Result<Json<UsersListResponse<UserOut>>, AppError> {
+    if !current.is_approved {
+        return Err(AppError::Forbidden);
+    }
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(50).clamp(1, 200);
+    let sort_by = match q.sort_by.as_deref() {
+        Some("username") => "username",
+        Some("created_at") => "created_at",
+        _ => "id",
+    };
+    let order_desc = match q.order.as_deref() {
+        Some("asc") => false,
+        _ => true,
+    };
+    let offset = (page - 1) * per_page;
+    let filters = UserListFilters {
+        q: q.q.clone(),
+        is_admin: parse_flag(&q.is_admin),
+        is_system: parse_flag(&q.is_system),
+        is_approved: parse_flag(&q.is_approved),
+        sort_by: sort_by.to_string(),
+        order_desc,
+        limit: per_page,
+        offset,
+    };
+    let (rows, total) = db
+        .list_users_advanced(&filters)
+        .await
+        .map_err(|_| AppError::Internal)?;
+    let items = rows
+        .into_iter()
+        .map(|u| user_to_out(&u))
+        .collect();
+    let pages = if total == 0 {
+        1
+    } else {
+        (total + per_page - 1) / per_page
+    };
+    let next = if page < pages { Some(page + 1) } else { None };
+    let prev = if page > 1 { Some(page - 1) } else { None };
+    let meta = UsersListResponseMeta {
+        page,
+        per_page,
+        total,
+        pages,
+        next,
+        prev,
+    };
+    Ok(Json(UsersListResponse { meta, items }))
+}
+
+#[derive(serde::Deserialize)]
+pub struct UpdateUserPayload {
+    pub is_admin: Option<bool>,
+    pub is_system: Option<bool>,
+    pub is_approved: Option<bool>,
+    pub must_change_password: Option<bool>,
+    pub avatar: Option<Option<String>>,
+}
+
+pub async fn get_user(
+    State(db): State<Db>,
+    Extension(current): Extension<CurrentUser>,
+    Path(id): Path<i64>,
+) -> Result<Json<UserOut>, AppError> {
+    if !current.is_approved {
+        return Err(AppError::Forbidden);
+    }
+    let u = db
+        .fetch_user_by_id(id)
+        .await
+        .map_err(|_| AppError::Internal)?
+        .ok_or(AppError::NotFound)?;
+    Ok(Json(user_to_out(&u)))
+}
+
+pub async fn update_user(
+    State(db): State<Db>,
+    _admin: Extension<AdminFlag>,
+    Extension(actor): Extension<CurrentUser>,
+    Path(id): Path<i64>,
+    Json(payload): Json<UpdateUserPayload>,
+) -> Result<Json<UserOut>, AppError> {
+    let mut fields = UpdateUserFields::default();
+    fields.is_admin = payload.is_admin;
+    fields.is_system = payload.is_system;
+    fields.is_approved = payload.is_approved;
+    fields.must_change_password = payload.must_change_password;
+    fields.avatar = payload.avatar;
+    let u = db
+        .update_user(id, fields)
+        .await
+        .map_err(|_| AppError::Internal)?
+        .ok_or(AppError::NotFound)?;
+    audit::record_entity(
+        &db,
+        Some(actor.id),
+        "user.update",
+        "user",
+        &u.id.to_string(),
+    )
+    .await;
+    Ok(Json(user_to_out(&u)))
+}
+
+#[derive(Deserialize)]
+pub struct DeleteUserPayload {
+    pub reassign_to: Option<i64>,
+}
+
+pub async fn delete_user(
+    State(db): State<Db>,
+    _admin: Extension<AdminFlag>,
+    Extension(actor): Extension<CurrentUser>,
+    Path(id): Path<i64>,
+    maybe_payload: Option<Json<DeleteUserPayload>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    // Prevent self deletion for now (could be allowed with extra safeguards)
+    if actor.id == id {
+        return Err(AppError::Forbidden);
+    }
+    // Ensure target exists
+    let existing = db
+        .fetch_user_by_id(id)
+        .await
+        .map_err(|_| AppError::Internal)?;
+    if existing.is_none() {
+        return Err(AppError::NotFound);
+    }
+    let payload = maybe_payload
+        .map(|p| p.0)
+        .unwrap_or(DeleteUserPayload { reassign_to: None });
+    if let Some(to_id) = payload.reassign_to {
+        if to_id == id {
+            return Err(AppError::BadRequest("Cannot reassign to same user".into()));
+        }
+        // ensure destination exists
+        if db
+            .fetch_user_by_id(to_id)
+            .await
+            .map_err(|_| AppError::Internal)?
+            .is_none()
+        {
+            return Err(AppError::BadRequest("Reassignment target not found".into()));
+        }
+        db.reassign_user_content(id, to_id)
+            .await
+            .map_err(|_| AppError::Internal)?;
+    }
+    let ok = db.delete_user(id).await.map_err(|_| AppError::Internal)?;
+    if !ok {
+        return Err(AppError::NotFound);
+    }
+    audit::record_entity(&db, Some(actor.id), "user.delete", "user", &id.to_string()).await;
+    Ok(Json(
+        serde_json::json!({"deleted": true, "reassigned_to": payload.reassign_to }),
+    ))
+}
+
+#[derive(serde::Deserialize)]
+pub struct CreateUserPayload {
+    pub username: String,
+    pub password: String,
+    pub is_admin: Option<bool>,
+    pub is_system: Option<bool>,
+    pub is_approved: Option<bool>,
+}
+
+pub async fn create_user(
+    State(db): State<Db>,
+    _admin: Extension<AdminFlag>,
+    Extension(actor): Extension<CurrentUser>,
+    Json(payload): Json<CreateUserPayload>,
+) -> Result<Json<UserOut>, AppError> {
+    let uname = payload.username.trim();
+    if uname.is_empty() {
+        return Err(AppError::BadRequest("username required".into()));
+    }
+    if payload.password.len() < 8 {
+        return Err(AppError::BadRequest("password too short".into()));
+    }
+    let password_hash =
+        bcrypt::hash(&payload.password, bcrypt::DEFAULT_COST).map_err(|_| AppError::Internal)?;
+    let mut user = db
+        .create_user(NewUser {
+            username: uname.to_string(),
+            password_hash,
+            is_system: payload.is_system.unwrap_or(false),
+            is_approved: payload.is_approved.unwrap_or(true),
+        })
+        .await
+        .map_err(|_| AppError::Internal)?;
+    if payload.is_admin.unwrap_or(false) {
+        let mut fields = UpdateUserFields::default();
+        fields.is_admin = Some(true);
+        user = db
+            .update_user(user.id, fields)
+            .await
+            .map_err(|_| AppError::Internal)?
+            .unwrap_or(user);
+    }
+    audit::record_entity(
+        &db,
+        Some(actor.id),
+        "user.create",
+        "user",
+        &user.id.to_string(),
+    )
+    .await;
+    Ok(Json(user_to_out(&user)))
+}
+
+#[derive(serde::Deserialize)]
+pub struct AdminPasswordResetPayload {
+    pub password: String,
+}
+
+pub async fn admin_password_reset(
+    State(db): State<Db>,
+    _admin: Extension<AdminFlag>,
+    Extension(actor): Extension<CurrentUser>,
+    Path(id): Path<i64>,
+    Json(payload): Json<AdminPasswordResetPayload>,
+) -> Result<Json<UserOut>, AppError> {
+    if payload.password.len() < 8 {
+        return Err(AppError::BadRequest("password too short".into()));
+    }
+    let hash =
+        bcrypt::hash(&payload.password, bcrypt::DEFAULT_COST).map_err(|_| AppError::Internal)?;
+    let mut fields = UpdateUserFields::default();
+    fields.password_hash = Some(hash);
+    fields.must_change_password = Some(false);
+    let user = db
+        .update_user(id, fields)
+        .await
+        .map_err(|_| AppError::Internal)?
+        .ok_or(AppError::NotFound)?;
+    audit::record_entity(
+        &db,
+        Some(actor.id),
+        "user.admin_password_reset",
+        "user",
+        &id.to_string(),
+    )
+    .await;
+    Ok(Json(user_to_out(&user)))
+}
+
+#[derive(serde::Deserialize)]
+pub struct ListQuery {
+    pub q: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(serde::Serialize)]
+pub struct ListResponse<T> {
+    pub items: Vec<T>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+#[derive(serde::Serialize)]
+pub struct NamesItem {
+    pub id: i64,
+    pub name: String,
+}
+
+pub async fn list_user_names(
+    State(db): State<Db>,
+    Extension(current): Extension<CurrentUser>,
+    Query(q): Query<ListQuery>,
+) -> Result<Json<ListResponse<NamesItem>>, AppError> {
+    if !current.is_approved {
+        return Err(AppError::Forbidden);
+    }
+    let limit = q.limit.unwrap_or(500).clamp(1, 2000);
+    let offset = q.offset.unwrap_or(0).max(0);
+
+    // Use the existing list_users_advanced with filters
+    let filters = UserListFilters {
+        q: q.q.clone(),
+        is_admin: None,
+        is_system: Some(false), // Exclude system users
+        is_approved: Some(true), // Only approved users
+        sort_by: "username".to_string(),
+        order_desc: false,
+        limit,
+        offset,
+    };
+
+    let (rows, total) = db
+        .list_users_advanced(&filters)
+        .await
+        .map_err(|_| AppError::Internal)?;
+
+    let items = rows
+        .into_iter()
+        .map(|u| NamesItem {
+            id: u.id,
+            name: u.username,
+        })
+        .collect();
+
+    Ok(Json(ListResponse {
+        items,
+        total,
+        limit,
+        offset,
+    }))
+}

@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  rust_server:
+    build:
+      context: .
+      dockerfile: server-rs/Dockerfile.rust
+    ports:
+      - "6000:6000"
+    environment:
+      - DIDHUB_DB=sqlite://data/didhub.sqlite
+      - DIDHUB_SECRET=change-me-in-production
+    volumes:
+      - ./server-rs/data:/app/data
+    restart: unless-stopped

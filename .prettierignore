@@ -1,0 +1,14 @@
+# Ignore package manager and lock files
+package.json
+pnpm-lock.yaml
+
+# Node modules and build artifacts
+node_modules/
+dist/
+build/
+static/
+
+# Editor and OS files
+.vscode/
+.DS_Store
+.env

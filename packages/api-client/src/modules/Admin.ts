@@ -1,0 +1,202 @@
+import { apiFetch, ApiFetchResult } from '../Util';
+import { updateUser } from './User';
+import type { UpdateStatus, UpdateResult, UpdateCheckQuery, AuditLogResponse, SystemRequest, SystemRequestAdmin, AdminSettings, HousekeepingJob, HousekeepingRun } from '../Types';
+
+export async function adminResetUserPassword(id: string | number, password: string): Promise<{ success?: boolean; message?: string }> {
+  return apiFetch('/api/users/' + id + '/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  }).then((r: ApiFetchResult) => r.json || {});
+}
+
+export async function adminDisableUser(id: string | number): Promise<ApiFetchResult> {
+  const rnd = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  await adminResetUserPassword(id, rnd);
+  return updateUser(id, { is_approved: false });
+}
+
+export async function fetchAuditLogs(
+  options: {
+    page?: number;
+    per_page?: number;
+    action?: string;
+    user_id?: number;
+    from?: string;
+    to?: string;
+  } = {},
+): Promise<AuditLogResponse> {
+  const params = new URLSearchParams();
+
+  // Add pagination params (legacy support)
+  if (options.page !== undefined) params.set('page', String(options.page));
+  if (options.per_page !== undefined) params.set('per_page', String(options.per_page));
+
+  // Add filtering params
+  if (options.action) params.set('action', options.action);
+  if (options.user_id !== undefined) params.set('user_id', String(options.user_id));
+  if (options.from) params.set('from', options.from);
+  if (options.to) params.set('to', options.to);
+
+  // Convert pagination to limit/offset for the API
+  const page = options.page || 1;
+  const per_page = options.per_page || 200;
+  const limit = per_page;
+  const offset = (page - 1) * per_page;
+
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+
+  return apiFetch(`/api/audit?${params.toString()}`).then((r: ApiFetchResult) => {
+    const j = r.json || {};
+    // Normalize: server may return a raw array or an object with `items`.
+    if (Array.isArray(j)) {
+      return { items: j } as AuditLogResponse;
+    }
+    return j;
+  });
+}
+
+export async function exportAdminAuditCsv(): Promise<ApiFetchResult> {
+  return apiFetch('/api/audit/export');
+}
+
+export async function clearAuditLogs(): Promise<{ success?: boolean; message?: string }> {
+  return apiFetch('/api/audit/clear', { method: 'POST' }).then((r: any) => r.json || {});
+}
+
+export async function requestSystemApproval(): Promise<SystemRequest> {
+  return apiFetch('/api/me/request-system', { method: 'POST' }).then((r: any) => r.json || null);
+}
+
+export async function getMySystemRequest(): Promise<SystemRequest | null> {
+  return apiFetch('/api/me/request-system').then((r: any) => r.json || null);
+}
+
+export async function listSystemRequests(): Promise<SystemRequestAdmin[]> {
+  return apiFetch('/api/system-requests').then((r: any) => r.json || null);
+}
+
+export async function setSystemRequestStatus(id: string | number, status: unknown): Promise<{ success?: boolean; message?: string }> {
+  return apiFetch('/api/system-requests/' + encodeURIComponent(String(id)) + '/decide', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  }).then((r: ApiFetchResult) => r.json || null);
+}
+
+export async function getAdminSettings(): Promise<AdminSettings> {
+  return apiFetch('/api/settings').then((r: any) => r.json || {});
+}
+
+export async function getSetting(key: string): Promise<unknown> {
+  return apiFetch('/api/settings/' + encodeURIComponent(key)).then((r: any) => r.json || null);
+}
+
+export async function getRedisStatus(): Promise<{ ok: boolean; error?: string; info?: Record<string, unknown> }> {
+  return apiFetch('/api/admin/redis').then((r: any) => r.json || { ok: false, error: 'no-response' });
+}
+
+export async function updateAdminSettings(payload: AdminSettings): Promise<{ success?: boolean; message?: string }> {
+  return apiFetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((r: any) => r.json || {});
+}
+
+// Discord birthdays endpoint not present in Rust server (placeholder retained)
+export async function postDiscordBirthdays(): Promise<{ status: number; error: string }> {
+  return { status: 404, error: 'not_implemented' } as any;
+}
+
+export async function getAdminPosts(page = 1, per_page = 50): Promise<Record<string, unknown>> {
+  return apiFetch('/api/posts?page=' + encodeURIComponent(page) + '&per_page=' + encodeURIComponent(per_page)).then(
+    (r: any) => r.json || {},
+  );
+}
+
+export async function repostAdminPost(id: string | number): Promise<Record<string, unknown>> {
+  return apiFetch('/api/posts/' + encodeURIComponent(id) + '/repost', { method: 'POST' }).then(
+    (r: any) => r.json || {},
+  );
+}
+
+export async function listHousekeepingJobs(): Promise<{ jobs: HousekeepingJob[] }> {
+  return apiFetch('/api/housekeeping/jobs').then((r: any) => r.json || { jobs: [] });
+}
+
+export async function runHousekeepingJob(name: string, opts?: { dry?: boolean }): Promise<HousekeepingRun> {
+  const init: any = { method: 'POST' };
+  if (opts && typeof opts.dry !== 'undefined') {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify({ dry: !!opts.dry });
+  }
+  return apiFetch('/api/housekeeping/trigger/' + encodeURIComponent(name), init).then((r: any) => r.json || {});
+}
+
+export async function listHousekeepingRuns(page = 1, per_page = 100): Promise<{ runs: HousekeepingRun[] }> {
+  const limit = per_page;
+  const offset = (page - 1) * per_page;
+  return apiFetch(
+    `/api/housekeeping/runs?limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`,
+  ).then((r: any) => r.json || { runs: [] });
+}
+
+export async function clearHousekeepingRuns(): Promise<Record<string, unknown>> {
+  return apiFetch('/api/housekeeping/runs', { method: 'POST' }).then((r: any) => r.json || {});
+}
+
+export async function reloadUploadDir(): Promise<Record<string, unknown>> {
+  return apiFetch('/api/admin/reload-upload-dir', { method: 'POST' }).then((r: any) => r.json || {});
+}
+
+export async function checkForUpdates(): Promise<UpdateStatus> {
+  return apiFetch('/api/admin/update/check').then(
+    (r: ApiFetchResult) =>
+      r.json || {
+        available: false,
+        current_version: 'unknown',
+        message: 'Failed to check for updates',
+      },
+  );
+}
+
+export async function performUpdate(options: UpdateCheckQuery = {}): Promise<UpdateResult> {
+  const params = new URLSearchParams();
+  if (options.check_only) {
+    params.set('check_only', 'true');
+  }
+
+  const url = '/api/admin/update' + (params.toString() ? '?' + params.toString() : '');
+  return apiFetch(url, { method: 'POST' }).then(
+    (r: ApiFetchResult) =>
+      r.json || {
+        success: false,
+        message: 'Failed to perform update',
+      },
+  );
+}
+
+export interface CustomDigestResponse {
+  posted: boolean;
+  count: number;
+  message: string;
+}
+
+export async function postCustomDigest(daysAhead?: number): Promise<CustomDigestResponse> {
+  const params = new URLSearchParams();
+  if (daysAhead !== undefined) {
+    params.set('days_ahead', String(daysAhead));
+  }
+
+  const url = '/api/admin/digest/custom' + (params.toString() ? '?' + params.toString() : '');
+  return apiFetch(url, { method: 'POST' }).then(
+    (r: ApiFetchResult) =>
+      r.json || {
+        posted: false,
+        count: 0,
+        message: 'Failed to post custom digest',
+      },
+  );
+}

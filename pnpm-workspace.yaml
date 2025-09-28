@@ -1,0 +1,9 @@
+packages:
+  - packages/api-client
+  - packages/frontend
+
+onlyBuiltDependencies:
+  - '@swc/core'
+  - core-js
+  - esbuild
+  - playwright

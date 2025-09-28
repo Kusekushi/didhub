@@ -1,0 +1,1 @@
+pub use didhub_db::types::{CurrentUser, AdminFlag};
