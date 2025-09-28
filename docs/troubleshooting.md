@@ -241,6 +241,8 @@ df -h
 # In database settings or environment
 ```
 
+If the server logs include `falling back to writable upload directory`, the configured path was not writable and uploads are temporarily stored in the fallback location (`DIDHUB_UPLOAD_FALLBACK_DIR` or the system temp folder). Point `app.upload_dir` (or the `UPLOAD_DIR` env var) at a persistent writable directory and call the admin `reload-upload-dir` endpoint to apply the change.
+
 #### Files Not Accessible
 
 **Problem**: Uploaded files return 404

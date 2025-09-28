@@ -1,13 +1,14 @@
-use didhub_db::Db;
 use didhub_db::settings::SettingOperations;
+use didhub_db::Db;
 use once_cell::sync::OnceCell;
 use std::{
+    env, io,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 #[derive(Clone)]
 pub struct UploadDirCache {
@@ -20,6 +21,7 @@ struct State {
     value: String,
     last_value: Option<String>,
     fetched_at: Instant,
+    last_failure: Option<String>,
 }
 
 impl UploadDirCache {
@@ -29,6 +31,7 @@ impl UploadDirCache {
                 value: default.clone(),
                 last_value: None,
                 fetched_at: Instant::now(),
+                last_failure: None,
             })),
             ttl: Arc::new(RwLock::new(Duration::from_secs(ttl_secs))),
             default,
@@ -43,6 +46,7 @@ impl UploadDirCache {
                 value: default.clone(),
                 last_value: None,
                 fetched_at: Instant::now(),
+                last_failure: None,
             })),
             ttl: Arc::new(RwLock::new(Duration::from_secs(ttl_secs))),
             default,
@@ -66,17 +70,29 @@ impl UploadDirCache {
         }
 
         debug!("upload directory cache miss - fetching from database");
-        let new_val = if let Some(db) = &self.db {
+        let raw_val = if let Some(db) = &self.db {
             db.get_setting("app.upload_dir")
                 .await
                 .ok()
                 .flatten()
                 .map(|s| s.value)
-                .filter(|s| !s.trim().is_empty())
                 .unwrap_or_else(|| self.default.clone())
         } else {
             self.default.clone()
         };
+
+        let mut new_val = raw_val.trim().to_string();
+        if new_val.is_empty() {
+            new_val = self.default.clone();
+        }
+
+        if let Some(failed) = w.last_failure.as_ref() {
+            if failed == &new_val {
+                warn!(failed_value=%new_val, active_directory=%w.value, "upload directory setting unresolved - retaining current directory");
+                w.fetched_at = Instant::now();
+                return w.value.clone();
+            }
+        }
 
         let changed = w.value != new_val;
         if changed {
@@ -87,6 +103,7 @@ impl UploadDirCache {
         }
 
         w.value = new_val.clone();
+        w.last_failure = None;
         w.fetched_at = Instant::now();
 
         // Refresh TTL from DB setting `uploads.upload_dir_cache.ttl_secs` if present.
@@ -106,17 +123,68 @@ impl UploadDirCache {
         let mut w = self.inner.write().await;
         let ttl = *self.ttl.read().await;
         w.fetched_at = Instant::now() - ttl - Duration::from_secs(1);
+        w.last_failure = None;
         debug!("upload directory cache invalidated");
     }
     pub async fn ensure_dir(&self) -> std::io::Result<PathBuf> {
-        let path = PathBuf::from(self.current().await);
-        if !path.exists() {
-            info!(directory=%path.display(), "creating upload directory");
-            tokio::fs::create_dir_all(&path).await?;
-        } else {
-            debug!(directory=%path.display(), "upload directory already exists");
+        let current_value = self.current().await;
+        let path = PathBuf::from(&current_value);
+
+        if path.exists() {
+            if path.is_dir() {
+                debug!(directory=%path.display(), "upload directory already exists");
+                let mut w = self.inner.write().await;
+                w.last_failure = None;
+                return Ok(path);
+            } else {
+                warn!(directory=%path.display(), "upload directory path exists but is not a directory");
+                let mut w = self.inner.write().await;
+                w.last_failure = Some(current_value.clone());
+                return Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    "upload path is not a directory",
+                ));
+            }
         }
-        Ok(path)
+
+        info!(directory=%path.display(), "creating upload directory");
+        match tokio::fs::create_dir_all(&path).await {
+            Ok(_) => {
+                let mut w = self.inner.write().await;
+                w.last_failure = None;
+                Ok(path)
+            }
+            Err(err) => {
+                warn!(directory=%path.display(), source=%err, "failed to create upload directory");
+                let fallback = resolve_fallback_upload_path();
+                if fallback != path {
+                    if let Err(fallback_err) = tokio::fs::create_dir_all(&fallback).await {
+                        error!(fallback_directory=%fallback.display(), source=%fallback_err, "failed to create fallback upload directory");
+                        let mut w = self.inner.write().await;
+                        w.last_failure = Some(current_value.clone());
+                        return Err(err);
+                    }
+
+                    let fallback_str = fallback.to_string_lossy().to_string();
+                    {
+                        let mut w = self.inner.write().await;
+                        w.last_failure = Some(current_value.clone());
+                        if w.value != fallback_str {
+                            w.last_value = Some(w.value.clone());
+                        }
+                        w.value = fallback_str.clone();
+                        w.fetched_at = Instant::now();
+                    }
+                    warn!(original_directory=%path.display(), fallback_directory=%fallback.display(), "falling back to writable upload directory");
+                    warn!("Set `app.upload_dir` to a writable location to remove the fallback.");
+                    return Ok(fallback);
+                }
+
+                let mut w = self.inner.write().await;
+                w.last_failure = Some(current_value.clone());
+                Err(err)
+            }
+        }
     }
     pub async fn migrate_previous_to_current(&self) -> Result<(usize, usize), std::io::Error> {
         let (from, to) = {
@@ -211,6 +279,7 @@ impl UploadDirCache {
         let mut w = self.inner.write().await;
         w.last_value = last;
         w.value = val;
+        w.last_failure = None;
     }
 
     /// Set TTL (seconds) programmatically.
@@ -218,6 +287,20 @@ impl UploadDirCache {
         let mut ttl_w = self.ttl.write().await;
         *ttl_w = Duration::from_secs(secs);
     }
+}
+
+fn resolve_fallback_upload_path() -> PathBuf {
+    if let Ok(custom) = env::var("DIDHUB_UPLOAD_FALLBACK_DIR") {
+        let trimmed = custom.trim();
+        if !trimmed.is_empty() {
+            return PathBuf::from(trimmed);
+        }
+    }
+
+    let mut fallback = env::temp_dir();
+    fallback.push("didhub");
+    fallback.push("uploads");
+    fallback
 }
 
 static GLOBAL: OnceCell<UploadDirCache> = OnceCell::new();
