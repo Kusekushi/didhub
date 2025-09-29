@@ -30,7 +30,7 @@ export interface AuditLogPanelProps {
 }
 
 export default function AuditLogPanel(props: AuditLogPanelProps) {
-  if (props.reload === undefined) props.reload = 0;
+  const { reload = 0 } = props;
   const [rows, setRows] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedMetadata, setExpandedMetadata] = useState(new Set<string>());
@@ -67,7 +67,7 @@ export default function AuditLogPanel(props: AuditLogPanelProps) {
 
   useEffect(() => {
     load();
-  }, [props.reload]);
+  }, [reload]);
 
   const toggleMetadata = (id: string) => {
     setExpandedMetadata((prev) => {

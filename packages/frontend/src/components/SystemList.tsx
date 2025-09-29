@@ -17,20 +17,19 @@ export interface SystemListProps {
 };
 
 export default function SystemList(props: SystemListProps) {
-  if (props.showContainer === undefined) props.showContainer = true;
-  if (props.showSearch === undefined) props.showSearch = true;
+  const { title, header, primary, secondary, showContainer = true, showSearch = true } = props;
   const { systems, query, setQuery, clearSearch, hasQuery } = useSystemList();
 
   const content = (
     <>
-      {props.title ? (
+      {title ? (
         <Typography variant="h4" gutterBottom>
-          {props.title}
+          {title}
         </Typography>
       ) : null}
-      {props.header}
+      {header}
 
-      {props.showSearch && (
+      {showSearch && (
         <SystemSearch
           query={query}
           setQuery={setQuery}
@@ -44,14 +43,14 @@ export default function SystemList(props: SystemListProps) {
           <SystemListItem
             key={s.user_id}
             system={s}
-            primary={props.primary}
-            secondary={props.secondary}
+            primary={primary}
+            secondary={secondary}
           />
         ))}
       </List>
     </>
   );
 
-  if (props.showContainer) return <Container sx={{ mt: 4 }}>{content}</Container>;
+  if (showContainer) return <Container sx={{ mt: 4 }}>{content}</Container>;
   return content;
 }
