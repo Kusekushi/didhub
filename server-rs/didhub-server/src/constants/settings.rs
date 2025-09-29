@@ -1,5 +1,4 @@
 pub const DEFAULT_SETTINGS: &[(&str, &str)] = &[
-    ("app.upload_dir", "uploads"),
     ("feature.oidc_enabled", "true"),
     ("feature.email_enabled", "false"),
     ("avatar.max_dim", "512"),

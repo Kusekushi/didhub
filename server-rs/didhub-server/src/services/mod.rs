@@ -105,24 +105,23 @@ impl ServiceComponents {
     }
 
     async fn seed_default_settings(db: &db::Db) {
-        const DEFAULT_SETTINGS: &[(&str, &str)] = &[
-            ("app.upload_dir", "uploads"),
-            ("feature.oidc_enabled", "true"),
-            ("feature.email_enabled", "false"),
-            ("avatar.max_dim", "512"),
-            ("upload.image.max_dim", "2048"),
-            ("uploads.gc.days", "7"),
-            ("uploads.delete.retention.days", "30"),
-            ("uploads.count_cache.ttl_secs", "30"),
-            ("uploads.upload_dir_cache.ttl_secs", "10"),
-            ("shortlinks.retention.days", "180"),
+        let default_settings: Vec<(&str, String)> = vec![
+            ("feature.oidc_enabled", "true".to_string()),
+            ("feature.email_enabled", "false".to_string()),
+            ("avatar.max_dim", "512".to_string()),
+            ("upload.image.max_dim", "2048".to_string()),
+            ("uploads.gc.days", "7".to_string()),
+            ("uploads.delete.retention.days", "30".to_string()),
+            ("uploads.count_cache.ttl_secs", "30".to_string()),
+            ("uploads.upload_dir_cache.ttl_secs", "10".to_string()),
+            ("shortlinks.retention.days", "180".to_string()),
         ];
 
         let db_clone = db.clone();
         tokio::spawn(async move {
-            for (key, value) in DEFAULT_SETTINGS {
+            for (key, value) in default_settings {
                 if db_clone.get_setting(key).await.ok().flatten().is_none() {
-                    let _ = db_clone.upsert_setting(key, value).await;
+                    let _ = db_clone.upsert_setting(key, &value).await;
                 }
             }
         });

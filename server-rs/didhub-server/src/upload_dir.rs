@@ -69,17 +69,8 @@ impl UploadDirCache {
             return w.value.clone();
         }
 
-        debug!("upload directory cache miss - fetching from database");
-        let raw_val = if let Some(db) = &self.db {
-            db.get_setting("app.upload_dir")
-                .await
-                .ok()
-                .flatten()
-                .map(|s| s.value)
-                .unwrap_or_else(|| self.default.clone())
-        } else {
-            self.default.clone()
-        };
+        debug!("upload directory cache miss - using config default");
+        let raw_val = self.default.clone();
 
         let mut new_val = raw_val.trim().to_string();
         if new_val.is_empty() {
@@ -95,9 +86,11 @@ impl UploadDirCache {
         }
 
         let changed = w.value != new_val;
-        if changed {
+        if changed && new_val != self.default {
             info!(old_value=%w.value, new_value=%new_val, "upload directory changed");
             w.last_value = Some(w.value.clone());
+        } else if changed {
+            debug!(old_value=%w.value, new_value=%new_val, "upload directory changed to config default");
         } else {
             debug!(value=%new_val, "upload directory unchanged");
         }
