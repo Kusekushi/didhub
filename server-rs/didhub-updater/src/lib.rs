@@ -454,8 +454,8 @@ pub async fn perform_update(config: &UpdateConfig) -> Result<UpdateResult, Updat
         UpdateError::FileSystem("Cannot determine installation directory".to_string())
     })?;
 
-    // Create a backup directory
-    let backup_dir = install_dir.join("backup");
+    // Create a backup directory in temp
+    let backup_dir = std::env::temp_dir().join("didhub-backup");
     if backup_dir.exists() {
         std::fs::remove_dir_all(&backup_dir)
             .map_err(|e| UpdateError::FileSystem(format!("Failed to remove old backup: {}", e)))?;
