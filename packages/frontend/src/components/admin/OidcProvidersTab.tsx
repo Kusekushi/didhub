@@ -8,7 +8,7 @@ import {
 } from '@didhub/api-client';
 import type { AlertColor } from '@mui/material';
 
-interface OidcProvidersTabProps {
+export interface OidcProvidersTabProps {
   oidcProviders: any[];
   oidcEnabled: boolean;
   status: string;
@@ -74,15 +74,7 @@ function OidcSecretForm({
   );
 }
 
-export default function OidcProvidersTab({
-  oidcProviders,
-  oidcEnabled,
-  status,
-  setOidcProviders,
-  setStatus,
-  setSettings,
-  setAdminMsg,
-}: OidcProvidersTabProps) {
+export default function OidcProvidersTab(props: OidcProvidersTabProps) {
   const [selectedOidcProvider, setSelectedOidcProvider] = useState<string>('google');
   const [providerAdminView, setProviderAdminView] = useState<OidcProviderAdminView | null>(null);
   const [updatingProvider, setUpdatingProvider] = useState(false);
@@ -137,9 +129,9 @@ export default function OidcProvidersTab({
                 });
                 if (updated) {
                   setProviderAdminView(updated);
-                  setAdminMsg({ open: true, text: 'Updated provider', severity: 'success' });
+                  props.setAdminMsg({ open: true, text: 'Updated provider', severity: 'success' });
                 } else {
-                  setAdminMsg({ open: true, text: 'Update failed', severity: 'error' });
+                  props.setAdminMsg({ open: true, text: 'Update failed', severity: 'error' });
                 }
               } finally {
                 setUpdatingProvider(false);

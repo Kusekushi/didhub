@@ -6,7 +6,7 @@ import SystemAvatar from './SystemAvatar';
 
 type System = any;
 
-interface SystemListItemProps {
+export interface SystemListItemProps {
   system: System;
   primary?: (s: System) => React.ReactNode;
   secondary?: (s: System) => React.ReactNode;
@@ -15,25 +15,21 @@ interface SystemListItemProps {
 /**
  * Component for individual system list items
  */
-export default function SystemListItem({
-  system,
-  primary,
-  secondary,
-}: SystemListItemProps) {
+export default function SystemListItem(props: SystemListItemProps) {
   return (
     <ListItem
       secondaryAction={
-        <Button component={RouterLink} to={`/did-system/${system.user_id}`}>
+        <Button component={RouterLink} to={`/did-system/${props.system.user_id}`}>
           View
         </Button>
       }
     >
       <ListItemAvatar>
-        <SystemAvatar system={system} />
+        <SystemAvatar system={props.system} />
       </ListItemAvatar>
       <ListItemText
-        primary={primary ? primary(system) : system.username}
-        secondary={secondary ? secondary(system) : system.description || null}
+        primary={props.primary ? props.primary(props.system) : props.system.username}
+        secondary={props.secondary ? props.secondary(props.system) : props.system.description || null}
       />
     </ListItem>
   );

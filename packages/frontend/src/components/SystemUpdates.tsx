@@ -26,11 +26,11 @@ import {
 import { checkForUpdates, performUpdate } from '@didhub/api-client';
 import type { UpdateStatus, UpdateResult } from '@didhub/api-client';
 
-interface SystemUpdatesProps {
+export interface SystemUpdatesProps {
   onMessage: (message: string, severity?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
-export default function SystemUpdates({ onMessage }: SystemUpdatesProps) {
+export default function SystemUpdates(props: SystemUpdatesProps) {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -45,13 +45,13 @@ export default function SystemUpdates({ onMessage }: SystemUpdatesProps) {
       setLastChecked(new Date());
 
       if (status.available) {
-        onMessage(`Update available: ${status.current_version} → ${status.latest_version}`, 'info');
+        props.onMessage(`Update available: ${status.current_version} → ${status.latest_version}`, 'info');
       } else {
-        onMessage('System is up to date', 'success');
+        props.onMessage('System is up to date', 'success');
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
-      onMessage('Failed to check for updates', 'error');
+      props.onMessage('Failed to check for updates', 'error');
     } finally {
       setLoading(false);
     }
@@ -64,15 +64,15 @@ export default function SystemUpdates({ onMessage }: SystemUpdatesProps) {
       const result: UpdateResult = await performUpdate();
 
       if (result.success) {
-        onMessage(`Update successful: ${result.message}`, 'success');
+        props.onMessage(`Update successful: ${result.message}`, 'success');
         // Refresh update status after successful update
         await checkUpdates();
       } else {
-        onMessage(`Update failed: ${result.message}`, 'error');
+        props.onMessage(`Update failed: ${result.message}`, 'error');
       }
     } catch (error) {
       console.error('Failed to perform update:', error);
-      onMessage('Failed to perform update', 'error');
+      props.onMessage('Failed to perform update', 'error');
     } finally {
       setUpdating(false);
     }

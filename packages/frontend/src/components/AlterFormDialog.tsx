@@ -15,7 +15,7 @@ import {
   deleteAlterImage,
 } from '@didhub/api-client';
 
-type AlterFormDialogProps = {
+export interface AlterFormDialogProps {
   mode: 'create' | 'edit';
   open: boolean;
   onClose: () => void;

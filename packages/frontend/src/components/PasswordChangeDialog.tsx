@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Dialog, DialogTitle, DialogContent, TextField } from '@mui/material';
 
-interface PasswordChangeDialogProps {
+export interface PasswordChangeDialogProps {
   open: boolean;
   currentPassword: string;
   setCurrentPassword: (password: string) => void;
@@ -14,35 +14,27 @@ interface PasswordChangeDialogProps {
 /**
  * Password change required dialog
  */
-export default function PasswordChangeDialog({
-  open,
-  currentPassword,
-  setCurrentPassword,
-  newPassword,
-  setNewPassword,
-  error,
-  onChange,
-}: PasswordChangeDialogProps) {
+export default function PasswordChangeDialog(props: PasswordChangeDialogProps) {
   return (
-    <Dialog open={open} disableEscapeKeyDown onClose={() => {}}>
+    <Dialog open={props.open} disableEscapeKeyDown onClose={() => {}}>
       <DialogTitle>Password change required</DialogTitle>
       <DialogContent>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 360 }}>
           <TextField
             label="Current password"
             type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
+            value={props.currentPassword}
+            onChange={(e) => props.setCurrentPassword(e.target.value)}
           />
           <TextField
             label="New password"
             type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            value={props.newPassword}
+            onChange={(e) => props.setNewPassword(e.target.value)}
           />
-          {error && <div style={{ color: 'red' }}>{String(error)}</div>}
+          {props.error && <div style={{ color: 'red' }}>{String(props.error)}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button variant="contained" onClick={onChange}>
+            <Button variant="contained" onClick={props.onChange}>
               Change password
             </Button>
           </div>

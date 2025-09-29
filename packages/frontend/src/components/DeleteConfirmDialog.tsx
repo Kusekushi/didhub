@@ -1,6 +1,6 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
-export type DeleteConfirmDialogProps = {
+export interface DeleteConfirmDialogProps {
   open: boolean;
   title?: string;
   label?: string;

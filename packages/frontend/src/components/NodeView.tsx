@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 
-interface FamilyNode {
+export interface FamilyNode {
   id: number;
   name?: string;
   partners: number[];
@@ -10,23 +10,23 @@ interface FamilyNode {
   duplicated?: boolean;
 }
 
-interface NodeViewProps {
+export interface NodeViewProps {
   node: FamilyNode;
   all: Record<string, any>;
   toggle: (id: number) => void;
   isCollapsed: (id: number) => boolean;
 }
 
-export default function NodeView({ node, all, toggle, isCollapsed }: NodeViewProps) {
-  const hasKids = !node.duplicated && node.children.length > 0;
-  const coll = isCollapsed(node.id);
+export default function NodeView(props: NodeViewProps) {
+  const hasKids = !props.node.duplicated && props.node.children.length > 0;
+  const coll = props.isCollapsed(props.node.id);
   const listRef = useRef<HTMLUListElement | null>(null);
   return (
     <li style={{ margin: '4px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {hasKids && (
           <button
-            onClick={() => toggle(node.id)}
+            onClick={() => props.toggle(props.node.id)}
             style={{
               cursor: 'pointer',
               border: '1px solid #666',
@@ -44,15 +44,15 @@ export default function NodeView({ node, all, toggle, isCollapsed }: NodeViewPro
           </button>
         )}
         {!hasKids && <span style={{ width: 20 }} />}
-        <RouterLink to={`/detail/${node.id}`}>{node.name || `#${node.id}`}</RouterLink>
-        {node.duplicated && <Chip size="small" label="(ref)" />}
-        {node.partners.length > 0 && (
+        <RouterLink to={`/detail/${props.node.id}`}>{props.node.name || `#${props.node.id}`}</RouterLink>
+        {props.node.duplicated && <Chip size="small" label="(ref)" />}
+        {props.node.partners.length > 0 && (
           <span style={{ fontSize: 12, opacity: 0.7 }}>
-            Partners: {node.partners.map((pid) => all[pid]?.name || `#${pid}`).join(', ')}
+            Partners: {props.node.partners.map((pid) => props.all[pid]?.name || `#${pid}`).join(', ')}
           </span>
         )}
       </div>
-      {!node.duplicated && hasKids && (
+      {!props.node.duplicated && hasKids && (
         <div
           style={{
             marginLeft: 16,
@@ -66,8 +66,8 @@ export default function NodeView({ node, all, toggle, isCollapsed }: NodeViewPro
         >
           <ul ref={listRef} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {!coll &&
-              node.children.map((c) => (
-                <NodeView key={`${node.id}-${c.id}`} node={c} all={all} toggle={toggle} isCollapsed={isCollapsed} />
+              props.node.children.map((c) => (
+                <NodeView key={`${props.node.id}-${c.id}`} node={c} all={props.all} toggle={props.toggle} isCollapsed={props.isCollapsed} />
               ))}
           </ul>
         </div>

@@ -10,4 +10,3 @@ export { default as MessagesTab } from './MessagesTab';
 export { default as AuditTab } from './AuditTab';
 export { default as AuditLogPanel } from './AuditLogPanel';
 export { default as MetricsTab } from './MetricsTab';
-export { default as MetricsPanel } from './MetricsPanel';

@@ -18,7 +18,7 @@ import {
 import ShareIcon from '@mui/icons-material/Share';
 import { Subsystem } from '@didhub/api-client';
 
-interface SubsystemsTabProps {
+export interface SubsystemsTabProps {
   canManage: boolean;
   createSubsystemOpen: boolean;
   setCreateSubsystemOpen: (open: boolean) => void;
@@ -44,59 +44,40 @@ interface SubsystemsTabProps {
   nav: (path: string) => void;
 }
 
-export default function SubsystemsTab({
-  canManage,
-  createSubsystemOpen,
-  setCreateSubsystemOpen,
-  newSubsystemName,
-  setNewSubsystemName,
-  newSubsystemDesc,
-  setNewSubsystemDesc,
-  newSubsystemType,
-  setNewSubsystemType,
-  subsystems,
-  uid,
-  setDeleteDialog,
-  settings,
-  setSnack,
-  refreshSubsystems,
-  createSubsystem,
-  createShortLink,
-  nav,
-}: SubsystemsTabProps) {
+export default function SubsystemsTab(props: SubsystemsTabProps) {
   return (
     <div>
-      {canManage && (
+      {props.canManage && (
         <div style={{ marginBottom: 12 }}>
-          <Button variant="contained" onClick={() => setCreateSubsystemOpen(true)}>
+          <Button variant="contained" onClick={() => props.setCreateSubsystemOpen(true)}>
             Create Subsystem
           </Button>
-          <Dialog open={createSubsystemOpen} onClose={() => setCreateSubsystemOpen(false)} fullWidth maxWidth="sm">
+          <Dialog open={props.createSubsystemOpen} onClose={() => props.setCreateSubsystemOpen(false)} fullWidth maxWidth="sm">
             <DialogTitle>Create subsystem</DialogTitle>
             <DialogContent>
               <Box
                 component="form"
                 onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
                   e.preventDefault();
-                  if (!newSubsystemName || !newSubsystemName.trim())
-                    return setSnack({ open: true, message: 'Name required', severity: 'error' });
+                  if (!props.newSubsystemName || !props.newSubsystemName.trim())
+                    return props.setSnack({ open: true, message: 'Name required', severity: 'error' });
                   try {
                     const payload = {
-                      name: newSubsystemName.trim(),
-                      description: newSubsystemDesc || null,
-                      type: newSubsystemType || 'normal',
-                      owner_user_id: uid,
+                      name: props.newSubsystemName.trim(),
+                      description: props.newSubsystemDesc || null,
+                      type: props.newSubsystemType || 'normal',
+                      owner_user_id: props.uid,
                     };
-                    const r = await createSubsystem(payload);
+                    const r = await props.createSubsystem(payload);
                     if (!r || (r as any).status >= 400) throw new Error('Create failed');
-                    await refreshSubsystems();
-                    setSnack({ open: true, message: 'Subsystem created', severity: 'success' });
-                    setNewSubsystemName('');
-                    setNewSubsystemDesc('');
-                    setNewSubsystemType('normal');
-                    setCreateSubsystemOpen(false);
+                    await props.refreshSubsystems();
+                    props.setSnack({ open: true, message: 'Subsystem created', severity: 'success' });
+                    props.setNewSubsystemName('');
+                    props.setNewSubsystemDesc('');
+                    props.setNewSubsystemType('normal');
+                    props.setCreateSubsystemOpen(false);
                   } catch (err) {
-                    setSnack({ open: true, message: String(err || 'create failed'), severity: 'error' });
+                    props.setSnack({ open: true, message: String(err || 'create failed'), severity: 'error' });
                   }
                 }}
               >
@@ -104,15 +85,15 @@ export default function SubsystemsTab({
                   <TextField
                     size="small"
                     label="Name"
-                    value={newSubsystemName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSubsystemName(e.target.value)}
+                    value={props.newSubsystemName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => props.setNewSubsystemName(e.target.value)}
                     sx={{ minWidth: 240 }}
                   />
                   <TextField
                     size="small"
                     label="Description"
-                    value={newSubsystemDesc}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSubsystemDesc(e.target.value)}
+                    value={props.newSubsystemDesc}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => props.setNewSubsystemDesc(e.target.value)}
                     sx={{ minWidth: 320 }}
                   />
                   <Autocomplete
@@ -122,9 +103,9 @@ export default function SubsystemsTab({
                       { id: 'nested-did', label: 'nested-did' },
                     ]}
                     getOptionLabel={(o: { id: string; label: string } | null) => (o ? o.label : '')}
-                    value={newSubsystemType ? { id: newSubsystemType, label: newSubsystemType } : null}
+                    value={props.newSubsystemType ? { id: props.newSubsystemType, label: props.newSubsystemType } : null}
                     onChange={(_e: React.SyntheticEvent, v: { id: string; label: string } | null) =>
-                      setNewSubsystemType(v ? v.id : 'normal')
+                      props.setNewSubsystemType(v ? v.id : 'normal')
                     }
                     renderInput={(params: Parameters<typeof TextField>[0]) => <TextField {...params} label="Type" />}
                     sx={{ minWidth: 180 }}
@@ -136,33 +117,33 @@ export default function SubsystemsTab({
               </Box>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setCreateSubsystemOpen(false)}>Cancel</Button>
+              <Button onClick={() => props.setCreateSubsystemOpen(false)}>Cancel</Button>
             </DialogActions>
           </Dialog>
         </div>
       )}
 
       <List>
-        {subsystems.map((s: Subsystem, idx: number) => (
+        {props.subsystems.map((s: Subsystem, idx: number) => (
           <React.Fragment key={s.id}>
             <ListItem
               secondaryAction={
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <Button variant="outlined" size="small" onClick={() => nav(`/did-system/${uid}/subsystems/${s.id}`)}>
+                  <Button variant="outlined" size="small" onClick={() => props.nav(`/did-system/${props.uid}/subsystems/${s.id}`)}>
                     View
                   </Button>
-                  {canManage && (
-                    <Button variant="outlined" size="small" onClick={() => nav(`/subsystems/${s.id}/edit`)}>
+                  {props.canManage && (
+                    <Button variant="outlined" size="small" onClick={() => props.nav(`/subsystems/${s.id}/edit`)}>
                       Edit
                     </Button>
                   )}
-                  {canManage && (
+                  {props.canManage && (
                     <Button
                       variant="outlined"
                       color="error"
                       size="small"
                       onClick={() =>
-                        setDeleteDialog({
+                        props.setDeleteDialog({
                           open: true,
                           type: 'subsystem',
                           id: Number(s.id),
@@ -174,12 +155,12 @@ export default function SubsystemsTab({
                     </Button>
                   )}
                   <Tooltip title="Create share link and copy to clipboard">
-                    {settings.shortLinksEnabled && (
+                    {props.settings.shortLinksEnabled && (
                       <IconButton
                         size="small"
                         onClick={async () => {
                           try {
-                            const r = await createShortLink('subsystem', Number(s.id)).catch(() => null);
+                            const r = await props.createShortLink('subsystem', Number(s.id)).catch(() => null);
                             if (!r || (!r.token && !r.url))
                               throw new Error(r && r.error ? String(r.error) : 'failed to create share link');
                             const path = r.url || `/s/${r.token}`;
@@ -187,9 +168,9 @@ export default function SubsystemsTab({
                               ? path
                               : window.location.origin.replace(/:\d+$/, '') + path;
                             await navigator.clipboard.writeText(url);
-                            setSnack({ open: true, message: 'Share link copied', severity: 'success' });
+                            props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
                           } catch (e) {
-                            setSnack({
+                            props.setSnack({
                               open: true,
                               message: String(e?.message || e || 'Failed to create share link'),
                               severity: 'error',
@@ -206,7 +187,7 @@ export default function SubsystemsTab({
             >
               <ListItemText primary={s.name} secondary={s.description} />
             </ListItem>
-            {idx < subsystems.length - 1 && <Divider component="li" />}
+            {idx < props.subsystems.length - 1 && <Divider component="li" />}
           </React.Fragment>
         ))}
       </List>

@@ -41,48 +41,32 @@ interface AltersTabProps {
   refreshAlters: () => Promise<void>;
 }
 
-export default function AltersTab({
-  canManage,
-  createOpen,
-  setCreateOpen,
-  items,
-  search,
-  hideDormant,
-  hideMerged,
-  editingAlter,
-  setEditingAlter,
-  editOpen,
-  setEditOpen,
-  setDeleteDialog,
-  settings,
-  setSnack,
-  refreshAlters,
-}: AltersTabProps) {
+export default function AltersTab(props: AltersTabProps) {
   const nav = useNavigate();
 
   return (
     <div>
-      {canManage && (
+      {props.canManage && (
         <div style={{ marginBottom: 12 }}>
-          <Button variant="contained" onClick={() => setCreateOpen(true)}>
+          <Button variant="contained" onClick={() => props.setCreateOpen(true)}>
             Create Alter
           </Button>
           <AlterFormDialog
             mode="create"
-            open={createOpen}
-            onClose={() => setCreateOpen(false)}
+            open={props.createOpen}
+            onClose={() => props.setCreateOpen(false)}
             onCreated={async () => {
-              await refreshAlters();
-              setCreateOpen(false);
+              await props.refreshAlters();
+              props.setCreateOpen(false);
             }}
           />
         </div>
       )}
       <List>
-        {items
-          .filter((it: Alter) => !search || (it.name || '').toLowerCase().includes(search.toLowerCase()))
-          .filter((it: Alter) => (hideDormant ? !(it as any).is_dormant : true))
-          .filter((it: Alter) => (hideMerged ? !(it as any).is_merged : true))
+        {props.items
+          .filter((it: Alter) => !props.search || (it.name || '').toLowerCase().includes(props.search.toLowerCase()))
+          .filter((it: Alter) => (props.hideDormant ? !(it as any).is_dormant : true))
+          .filter((it: Alter) => (props.hideMerged ? !(it as any).is_merged : true))
           .map((it: Alter, idx: number) => (
             <React.Fragment key={it.id}>
               <ListItem
@@ -92,34 +76,34 @@ export default function AltersTab({
                   <ActionButtons
                     onView={() => nav(`/detail/${it.id}`)}
                     onEdit={
-                      canManage
+                      props.canManage
                         ? () => {
-                            setEditingAlter(it.id);
-                            setEditOpen(true);
+                            props.setEditingAlter(it.id);
+                            props.setEditOpen(true);
                           }
                         : undefined
                     }
                     onDelete={
-                      canManage
+                      props.canManage
                         ? () =>
-                            setDeleteDialog({ open: true, type: 'alter', id: it.id, label: it.name || 'alter' })
+                            props.setDeleteDialog({ open: true, type: 'alter', id: it.id, label: it.name || 'alter' })
                         : undefined
                     }
                     onShare={async () => {
-                      if (!settings.shortLinksEnabled) return;
+                      if (!props.settings.shortLinksEnabled) return;
                       try {
                         const resp = await createShortLink('alter', it.id).catch(() => null);
                         if (!resp || (!resp.token && !resp.url)) throw new Error(resp && resp.error ? String(resp.error) : 'failed');
                         const path = resp.url || `/s/${resp.token}`;
                         const url = path.startsWith('http') ? path : window.location.origin.replace(/:\d+$/, '') + path;
                         await navigator.clipboard.writeText(url);
-                        setSnack({ open: true, message: 'Share link copied', severity: 'success' });
+                        props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
                       } catch (e) {
-                        setSnack({ open: true, message: String(e?.message || e || 'Failed to create share link'), severity: 'error' });
+                        props.setSnack({ open: true, message: String(e?.message || e || 'Failed to create share link'), severity: 'error' });
                       }
                     }}
-                    canManage={canManage}
-                    canShare={settings.shortLinksEnabled}
+                    canManage={props.canManage}
+                    canShare={props.settings.shortLinksEnabled}
                   />
                 }
               >
@@ -177,24 +161,24 @@ export default function AltersTab({
                   secondaryTypographyProps={{ component: 'div' }}
                 />
               </ListItem>
-              {idx < items.length - 1 && <Divider component="li" />}
+              {idx < props.items.length - 1 && <Divider component="li" />}
             </React.Fragment>
           ))}
       </List>
 
       <AlterFormDialog
         mode="edit"
-        open={editOpen}
-        id={editingAlter}
+        open={props.editOpen}
+        id={props.editingAlter}
         onClose={() => {
-          setEditOpen(false);
-          setEditingAlter(null);
+          props.setEditOpen(false);
+          props.setEditingAlter(null);
         }}
         onSaved={async () => {
-          await refreshAlters();
-          setEditOpen(false);
-          setEditingAlter(null);
-          setSnack({ open: true, message: 'Alter updated', severity: 'success' });
+          await props.refreshAlters();
+          props.setEditOpen(false);
+          props.setEditingAlter(null);
+          props.setSnack({ open: true, message: 'Alter updated', severity: 'success' });
         }}
       />
     </div>

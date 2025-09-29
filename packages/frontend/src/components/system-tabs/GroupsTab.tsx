@@ -6,7 +6,7 @@ import EditGroupDialog from './EditGroupDialog';
 import GroupListItem from './GroupListItem';
 import { Alter, Group } from '@didhub/api-client';
 
-interface GroupsTabProps {
+export interface GroupsTabProps {
   canManage: boolean;
   createGroupOpen: boolean;
   setCreateGroupOpen: (open: boolean) => void;
@@ -48,107 +48,72 @@ interface GroupsTabProps {
   uploadFiles: (files: File[]) => Promise<string[]>;
 }
 
-export default function GroupsTab({
-  canManage,
-  createGroupOpen,
-  setCreateGroupOpen,
-  newGroupName,
-  setNewGroupName,
-  newGroupDesc,
-  setNewGroupDesc,
-  newGroupLeaders,
-  setNewGroupLeaders,
-  newGroupSigilFiles,
-  setNewGroupSigilFiles,
-  newGroupSigilUrl,
-  setNewGroupSigilUrl,
-  newGroupSigilUploading,
-  setNewGroupSigilUploading,
-  newGroupSigilDrag,
-  setNewGroupSigilDrag,
-  leaderQuery,
-  setLeaderQuery,
-  altersOptions,
-  groups,
-  editingGroup,
-  setEditingGroup,
-  editGroupOpen,
-  setEditGroupOpen,
-  editingGroupSigilUploading,
-  setEditingGroupSigilUploading,
-  editingGroupSigilDrag,
-  setEditingGroupSigilDrag,
-  setDeleteDialog,
-  settings,
-  setSnack,
-  refreshGroups,
-  uploadFiles,
-}: GroupsTabProps) {
+export default function GroupsTab(props: GroupsTabProps) {
   return (
     <div>
-      {canManage && (
+      {props.canManage && (
         <div style={{ marginBottom: 12 }}>
-          <Button variant="contained" onClick={() => setCreateGroupOpen(true)}>
+          <Button variant="contained" onClick={() => props.setCreateGroupOpen(true)}>
             Create Group
           </Button>
           <CreateGroupDialog
-            open={createGroupOpen}
-            onClose={() => setCreateGroupOpen(false)}
-            newGroupName={newGroupName}
-            setNewGroupName={setNewGroupName}
-            newGroupDesc={newGroupDesc}
-            setNewGroupDesc={setNewGroupDesc}
-            newGroupLeaders={newGroupLeaders}
-            setNewGroupLeaders={setNewGroupLeaders}
-            newGroupSigilFiles={newGroupSigilFiles}
-            setNewGroupSigilFiles={setNewGroupSigilFiles}
-            newGroupSigilUrl={newGroupSigilUrl}
-            setNewGroupSigilUrl={setNewGroupSigilUrl}
-            newGroupSigilUploading={newGroupSigilUploading}
-            setNewGroupSigilUploading={setNewGroupSigilUploading}
-            newGroupSigilDrag={newGroupSigilDrag}
-            setNewGroupSigilDrag={setNewGroupSigilDrag}
-            leaderQuery={leaderQuery}
-            setLeaderQuery={setLeaderQuery}
-            altersOptions={altersOptions}
-            setSnack={setSnack}
-            refreshGroups={refreshGroups}
-            uploadFiles={uploadFiles}
+            open={props.createGroupOpen}
+            onClose={() => props.setCreateGroupOpen(false)}
+            newGroupName={props.newGroupName}
+            setNewGroupName={props.setNewGroupName}
+            newGroupDesc={props.newGroupDesc}
+            setNewGroupDesc={props.setNewGroupDesc}
+            newGroupLeaders={props.newGroupLeaders}
+            setNewGroupLeaders={props.setNewGroupLeaders}
+            newGroupSigilFiles={props.newGroupSigilFiles}
+            setNewGroupSigilFiles={props.setNewGroupSigilFiles}
+            newGroupSigilUrl={props.newGroupSigilUrl}
+            setNewGroupSigilUrl={props.setNewGroupSigilUrl}
+            newGroupSigilUploading={props.newGroupSigilUploading}
+            setNewGroupSigilUploading={props.setNewGroupSigilUploading}
+            newGroupSigilDrag={props.newGroupSigilDrag}
+            setNewGroupSigilDrag={props.setNewGroupSigilDrag}
+            leaderQuery={props.leaderQuery}
+            setLeaderQuery={props.setLeaderQuery}
+            altersOptions={props.altersOptions}
+            setSnack={props.setSnack}
+            refreshGroups={props.refreshGroups}
+            uploadFiles={props.uploadFiles}
           />
         </div>
       )}
 
       <List>
-        {groups.map((g: Group, idx: number) => (
+        {props.groups.map((g: Group, idx: number) => (
           <GroupListItem
             key={g.id}
             group={g}
-            canManage={canManage}
-            settings={settings}
-            setEditingGroup={setEditingGroup}
-            setEditGroupOpen={setEditGroupOpen}
-            setDeleteDialog={setDeleteDialog}
-            setSnack={setSnack}
-            isLast={idx === groups.length - 1}
+            canManage={props.canManage}
+            settings={props.settings}
+            setEditingGroup={props.setEditingGroup}
+            setEditGroupOpen={props.setEditGroupOpen}
+            setDeleteDialog={props.setDeleteDialog}
+            setSnack={props.setSnack}
+            isLast={idx === props.groups.length - 1}
           />
         ))}
       </List>
 
       <EditGroupDialog
-        open={editGroupOpen}
+        open={props.editGroupOpen}
         onClose={() => {
-          setEditGroupOpen(false);
-          setEditingGroup(null);
+          props.setEditGroupOpen(false);
+          props.setEditingGroup(null);
         }}
-        editingGroup={editingGroup}
-        setEditingGroup={setEditingGroup}
-        editingGroupSigilUploading={editingGroupSigilUploading}
-        setEditingGroupSigilUploading={setEditingGroupSigilUploading}
-        editingGroupSigilDrag={editingGroupSigilDrag}
-        setEditingGroupSigilDrag={setEditingGroupSigilDrag}
-        setSnack={setSnack}
-        refreshGroups={refreshGroups}
-        uploadFiles={uploadFiles}
+        editingGroup={props.editingGroup}
+        setEditingGroup={props.setEditingGroup}
+        editingGroupSigilUploading={props.editingGroupSigilUploading}
+        setEditingGroupSigilUploading={props.setEditingGroupSigilUploading}
+        editingGroupSigilDrag={props.editingGroupSigilDrag}
+        setEditingGroupSigilDrag={props.setEditingGroupSigilDrag}
+        setSnack={props.setSnack}
+        refreshGroups={props.refreshGroups}
+        uploadFiles={props.uploadFiles}
       />
     </div>
   );

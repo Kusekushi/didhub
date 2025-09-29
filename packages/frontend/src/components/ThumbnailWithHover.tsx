@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 
-interface ThumbnailWithHoverProps {
+export interface ThumbnailWithHoverProps {
   image: string;
   alt: string;
   onClick?: () => void;
 }
 
-function ThumbnailWithHover({ image, alt, onClick }: ThumbnailWithHoverProps) {
+export default function ThumbnailWithHover(props: ThumbnailWithHoverProps) {
   const [hover, setHover] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   function handleMove(e: React.MouseEvent) {
@@ -15,8 +15,8 @@ function ThumbnailWithHover({ image, alt, onClick }: ThumbnailWithHoverProps) {
   return (
     <>
       <img
-        src={image}
-        alt={alt}
+        src={props.image}
+        alt={props.alt}
         style={{
           width: 40,
           height: 40,
@@ -25,7 +25,7 @@ function ThumbnailWithHover({ image, alt, onClick }: ThumbnailWithHoverProps) {
           cursor: 'pointer',
           border: '1px solid #ccc',
         }}
-        onClick={onClick}
+        onClick={props.onClick}
         onMouseEnter={(e) => {
           setHover(true);
           setPos({ x: e.clientX + 15, y: e.clientY + 15 });
@@ -47,11 +47,9 @@ function ThumbnailWithHover({ image, alt, onClick }: ThumbnailWithHoverProps) {
             boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
           }}
         >
-          <img src={image} alt={alt} style={{ maxWidth: 220, maxHeight: 220, display: 'block' }} />
+          <img src={props.image} alt={props.alt} style={{ maxWidth: 220, maxHeight: 220, display: 'block' }} />
         </div>
       )}
     </>
   );
 }
-
-export default ThumbnailWithHover;

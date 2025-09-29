@@ -10,32 +10,26 @@ interface PendingTabProps {
   onMessage: (message: { open: boolean; text: string; severity: 'success' | 'error' | 'info' }) => void;
 }
 
-export default function PendingTab({
-  pendingRegs,
-  loadingPending,
-  onUserUpdate,
-  onSystemRequestsUpdate,
-  onMessage,
-}: PendingTabProps) {
+export default function PendingTab(props: PendingTabProps) {
   const handleApprove = async (user: { id: number; username: string }) => {
     try {
       await updateUser(user.id, { is_approved: true });
-      onMessage({ open: true, text: `Approved ${user.username}`, severity: 'success' });
-      onUserUpdate();
+      props.onMessage({ open: true, text: `Approved ${user.username}`, severity: 'success' });
+      props.onUserUpdate();
       const sr = await listSystemRequests();
-      onSystemRequestsUpdate((sr && sr.items) || []);
+      props.onSystemRequestsUpdate((sr && sr) || []);
     } catch (e) {
-      onMessage({ open: true, text: String(e || 'Failed'), severity: 'error' });
+      props.onMessage({ open: true, text: String(e || 'Failed'), severity: 'error' });
     }
   };
 
   const handleReject = async (user: { id: number; username: string }) => {
     try {
       await updateUser(user.id, { is_approved: false });
-      onMessage({ open: true, text: `Rejected ${user.username}`, severity: 'info' });
-      onUserUpdate();
+      props.onMessage({ open: true, text: `Rejected ${user.username}`, severity: 'info' });
+      props.onUserUpdate();
     } catch (e) {
-      onMessage({ open: true, text: String(e || 'Failed'), severity: 'error' });
+      props.onMessage({ open: true, text: String(e || 'Failed'), severity: 'error' });
     }
   };
 
@@ -44,11 +38,11 @@ export default function PendingTab({
       <Typography variant="h5" gutterBottom>
         Pending registrations
       </Typography>
-      {pendingRegs.length === 0 && (
-        <Typography>{loadingPending ? 'Loading...' : 'No pending registrations.'}</Typography>
+      {props.pendingRegs.length === 0 && (
+        <Typography>{props.loadingPending ? 'Loading...' : 'No pending registrations.'}</Typography>
       )}
       <List>
-        {pendingRegs.map((u) => (
+        {props.pendingRegs.map((u) => (
           <ListItem
             key={u.id}
             sx={{ border: '1px solid #eee', mb: 1, borderRadius: 1 }}

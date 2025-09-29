@@ -7,20 +7,17 @@ import {
   DialogContent,
   Box,
   CircularProgress,
-  Paper,
-  Stack,
 } from '@mui/material';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useTheme } from '@mui/material/styles';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 import { fetchAlters, getUser } from '@didhub/api-client';
 
 const localizer = momentLocalizer(moment as any);
 
-export function parseBirthdayToDate(bday: any, year: number) {
+function parseBirthdayToDate(bday: any, year: number) {
   if (!bday) return null;
   const s = String(bday).trim();
   const formats = [

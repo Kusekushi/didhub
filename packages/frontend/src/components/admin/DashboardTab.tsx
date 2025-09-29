@@ -1,37 +1,37 @@
 import React from 'react';
 import { Paper, Typography, List, ListItem, ListItemText, Button } from '@mui/material';
 
-interface AdminPost {
+export interface AdminPost {
   id: number;
   type: string;
   created_at: string;
 }
 
-interface DashboardTabProps {
+export interface DashboardTabProps {
   pendingRegsCount: number;
   posts: AdminPost[];
   onRepost: (postId: number) => void;
 }
 
-export default function DashboardTab({ pendingRegsCount, posts, onRepost }: DashboardTabProps) {
+export default function DashboardTab(props: DashboardTabProps) {
   return (
     <>
       <Paper sx={{ mb: 2, p: 2 }}>
         <Typography variant="subtitle1">
           Pending registrations:{' '}
           <Typography component="span" sx={{ fontWeight: 'bold' }}>
-            {pendingRegsCount}
+            {props.pendingRegsCount}
           </Typography>
         </Typography>
       </Paper>
       <Typography variant="h6">Recent admin posts</Typography>
       <List>
-        {posts.map((p) => (
+        {props.posts.map((p) => (
           <ListItem
             key={p.id}
             sx={{ border: '1px solid #eee', mb: 1, borderRadius: 1 }}
             secondaryAction={
-              <Button variant="outlined" size="small" onClick={() => onRepost(p.id)}>
+              <Button variant="outlined" size="small" onClick={() => props.onRepost(p.id)}>
                 Repost
               </Button>
             }

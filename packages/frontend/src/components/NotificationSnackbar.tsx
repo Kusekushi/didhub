@@ -1,7 +1,7 @@
 import React from 'react';
 import { Snackbar, Alert } from '@mui/material';
 
-interface NotificationSnackbarProps {
+export interface NotificationSnackbarProps {
   open: boolean;
   message: string;
   severity: 'success' | 'error' | 'info' | 'warning';

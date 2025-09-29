@@ -1,7 +1,7 @@
 import { Button, IconButton, Tooltip } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 
-export type ActionButtonsProps = {
+export interface ActionButtonsProps {
   onView?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;

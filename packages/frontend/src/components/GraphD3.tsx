@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@mui/material';
 import * as d3 from 'd3';
 
-interface FamilyTreeResponse {
+export interface FamilyTreeResponse {
   roots: any[];
   nodes: Record<
     string,
@@ -24,7 +24,7 @@ interface FamilyTreeResponse {
   edges: { parent: [number, number][]; partner: [number, number][] };
 }
 
-interface GraphProps {
+export interface GraphProps {
   data: FamilyTreeResponse;
   forceLayout: boolean;
   highlight: string;
@@ -33,7 +33,7 @@ interface GraphProps {
   colorMode: 'role' | 'owner';
 }
 
-export default function GraphD3({ data, forceLayout, highlight, roleColors, ownerColors, colorMode }: GraphProps) {
+export default function GraphD3(props: GraphProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -45,18 +45,18 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
     svg.selectAll('*').remove();
 
     // Debug logging
-    console.log('Family tree data:', data);
-    console.log('User relationships in nodes:', Object.values(data.nodes).map(n => ({
+    console.log('Family tree data:', props.data);
+    console.log('User relationships in nodes:', Object.values(props.data.nodes).map(n => ({
       id: n.id,
       name: n.name,
       user_partners: n.user_partners,
       user_parents: n.user_parents,
       user_children: n.user_children
     })));
-    console.log('Owners:', data.owners);
+    console.log('Owners:', props.data.owners);
 
     const width = (wrapperRef.current?.clientWidth || 900) - 16;
-    const height = Math.max(600, Object.keys(data.nodes).length * 20); // Make height dynamic based on node count
+    const height = Math.max(600, Object.keys(props.data.nodes).length * 20); // Make height dynamic based on node count
     setSvgHeight(height);
     svg.attr('viewBox', `0 0 ${width} ${height}`);
 
@@ -74,13 +74,13 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
 
     // Helper function to check if user is non-system
     const isNonSystemUser = (userId: number) => {
-      const user = data.owners?.[userId.toString()];
+      const user = props.data.owners?.[userId.toString()];
       return user && !user.is_system;
     };
 
     // Build nodes array
-    const alterNodes = Object.values(data.nodes).map((n) => ({ id: n.id, name: n.name || `#${n.id}`, meta: n, type: 'alter', isUser: false }));
-    const userNodes = data.owners ? Object.values(data.owners)
+    const alterNodes = Object.values(props.data.nodes).map((n) => ({ id: n.id, name: n.name || `#${n.id}`, meta: n, type: 'alter', isUser: false }));
+    const userNodes = props.data.owners ? Object.values(props.data.owners)
       .filter((u) => !u.is_system) // Exclude system users
       .map((u) => ({ 
         id: u.id, 
@@ -93,12 +93,12 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
     console.log('User nodes created:', userNodes);
     const nodeMeta = [...alterNodes, ...userNodes];
     
-    const parentLinks = data.edges.parent.map(([p, c]) => ({ source: p, target: c, type: 'parent' }));
-    const partnerLinks = data.edges.partner.map(([a, b]) => ({ source: a, target: b, type: 'partner' }));
+    const parentLinks = props.data.edges.parent.map(([p, c]) => ({ source: p, target: c, type: 'parent' }));
+    const partnerLinks = props.data.edges.partner.map(([a, b]) => ({ source: a, target: b, type: 'partner' }));
     
     // Add user relationship links
     const userRelationshipLinks: any[] = [];
-    Object.values(data.nodes).forEach((alter) => {
+    Object.values(props.data.nodes).forEach((alter) => {
       // User partners
       (alter.user_partners || []).forEach((userId) => {
         if (isNonSystemUser(userId)) {
@@ -126,12 +126,12 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
     nodeMeta.forEach((n) => parentsCount.set(n.id, 0));
     
     // Count alter-to-alter parent relationships
-    data.edges.parent.forEach(([p, c]) => {
+    props.data.edges.parent.forEach(([p, c]) => {
       parentsCount.set(c, (parentsCount.get(c) || 0) + 1);
     });
     
     // Count user-parent relationships (user is parent of alter)
-    Object.values(data.nodes).forEach((alter) => {
+    Object.values(props.data.nodes).forEach((alter) => {
       (alter.user_parents || []).forEach((userId) => {
         if (isNonSystemUser(userId)) {
           parentsCount.set(alter.id, (parentsCount.get(alter.id) || 0) + 1);
@@ -154,11 +154,11 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
       visited.add(id);
       
       // Add alter children
-      const alterChildren = data.nodes[id]?.children || [];
+      const alterChildren = props.data.nodes[id]?.children || [];
       alterChildren.forEach((c) => queue.push({ id: c, depth: depth + 1 }));
       
       // Add user children (alter is parent of user)
-      const userChildren = data.nodes[id]?.user_children || [];
+      const userChildren = props.data.nodes[id]?.user_children || [];
       userChildren.forEach((c) => {
         if (isNonSystemUser(c)) {
           queue.push({ id: c, depth: depth + 1 });
@@ -176,13 +176,13 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
 
     const nodes: any[] = nodeMeta.map((n) => ({
       ...n,
-      fx: forceLayout ? undefined : positions.get(n.id)?.x,
-      fy: forceLayout ? undefined : positions.get(n.id)?.y,
+      fx: props.forceLayout ? undefined : positions.get(n.id)?.x,
+      fy: props.forceLayout ? undefined : positions.get(n.id)?.y,
     }));
     const links: any[] = [...parentLinks, ...partnerLinks, ...userRelationshipLinks];
 
     let simulation: d3.Simulation<any, undefined> | null = null;
-    if (forceLayout) {
+    if (props.forceLayout) {
       simulation = d3
         .forceSimulation(nodes)
         .force(
@@ -260,9 +260,9 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
           let ownerLine = '';
           if (meta.owner_user_id) {
             let labelType = 'User';
-            if (data.owners && data.owners[meta.owner_user_id] && data.owners[meta.owner_user_id].is_system)
+            if (props.data.owners && props.data.owners[meta.owner_user_id] && props.data.owners[meta.owner_user_id].is_system)
               labelType = 'System';
-            const o = data.owners && data.owners[meta.owner_user_id];
+            const o = props.data.owners && props.data.owners[meta.owner_user_id];
             ownerLine = `${labelType}: ${o?.username || '#' + meta.owner_user_id}\n`;
           }
           text += `${ownerLine}${age ? 'Age: ' + age + '\n' : ''}${roles ? 'Roles: ' + roles : ''}`;
@@ -279,7 +279,7 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
       });
 
     // Determine highlight set
-    const hl = highlight.trim().toLowerCase();
+    const hl = props.highlight.trim().toLowerCase();
     const matchedIds = new Set<number>();
     if (hl) {
       nodes.forEach((n) => {
@@ -292,16 +292,16 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
       .attr('r', (d) => (hl && matchedIds.has(d.id) ? 28 : 22))
       .attr('fill', (d) => {
         if (d.isUser) return '#ffeb3b'; // Yellow for user nodes
-        if (colorMode === 'owner') {
+        if (props.colorMode === 'owner') {
           const oid = d.meta.owner_user_id;
-          return (oid && ownerColors[oid]) || '#888';
+          return (oid && props.ownerColors[oid]) || '#888';
         } else {
           const rolesRaw = d.meta.system_roles;
           let role: string | undefined;
           if (Array.isArray(rolesRaw)) role = rolesRaw[0];
           else role = rolesRaw;
           if (!role) role = 'Unassigned';
-          return roleColors[role] || '#1976d2';
+          return props.roleColors[role] || '#1976d2';
         }
       })
       .attr('stroke', (d) => {
@@ -336,7 +336,7 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
     return () => {
       simulation?.stop();
     };
-  }, [data, forceLayout, highlight, roleColors, ownerColors, colorMode]);
+  }, [props.data, props.forceLayout, props.highlight, props.roleColors, props.ownerColors, props.colorMode]);
 
   // Export functions
   function buildLegendGroup() {
@@ -347,15 +347,15 @@ export default function GraphD3({ data, forceLayout, highlight, roleColors, owne
     const padding = 8;
     const lineHeight = 16;
     let items: Array<{ label: string; color: string }>;
-    if (colorMode === 'owner') {
-      items = Object.entries(ownerColors).map(([oidStr, color]) => {
-        const o = data.owners && data.owners[oidStr];
+    if (props.colorMode === 'owner') {
+      items = Object.entries(props.ownerColors).map(([oidStr, color]) => {
+        const o = props.data.owners && props.data.owners[oidStr];
         const kind = o?.is_system ? 'System' : 'User';
         const label = o?.username ? `${kind}: ${o.username}` : `${kind} #${oidStr}`;
         return { label, color };
       });
     } else {
-      items = Object.entries(roleColors).map(([role, color]) => ({ label: role, color }));
+      items = Object.entries(props.roleColors).map(([role, color]) => ({ label: role, color }));
     }
     items.sort((a, b) => a.label.localeCompare(b.label));
     const boxWidth = 220;

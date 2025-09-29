@@ -4,52 +4,33 @@ import { useNavigate } from 'react-router-dom';
 
 import ThumbnailWithHover from '../ThumbnailWithHover';
 
-interface GroupAvatarProps {
+export interface GroupAvatarProps {
   group: {
     id?: number | string;
     name?: string;
-    sigil?: string | string[];
+    sigil?: string;
   };
 }
 
 /**
  * Component for displaying group avatar/sigil
  */
-export default function GroupAvatar({ group }: GroupAvatarProps) {
+export default function GroupAvatar(props: GroupAvatarProps) {
   const nav = useNavigate();
 
   try {
-    const raw = (group as any).sigil;
-    let firstUrl: string | null = null;
+    const raw = (props.group as any).sigil;
+    let url: string | null = raw.trim();
 
-    if (Array.isArray(raw)) {
-      firstUrl = raw[0] || null;
-    } else if (typeof raw === 'string') {
-      const trimmed = raw.trim();
-      if (trimmed.startsWith('[')) {
-        try {
-          const arr = JSON.parse(trimmed);
-          if (Array.isArray(arr) && arr.length) firstUrl = arr[0];
-        } catch {}
-      } else if (trimmed.includes(',')) {
-        firstUrl = trimmed
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)[0] || null;
-      } else if (trimmed) {
-        firstUrl = trimmed;
-      }
-    }
-
-    if (firstUrl) {
-      const isImg = /^(https?:\/\/|data:|blob:|\/)/i.test(firstUrl);
+    if (url) {
+      const isImg = /^(https?:\/\/|data:|blob:|\/)/i.test(url);
       if (isImg) {
         return (
           <div style={{ marginRight: 4 }}>
             <ThumbnailWithHover
-              image={firstUrl}
-              alt={group.name || ''}
-              onClick={() => nav(`/groups/${group.id}`)}
+              image={url}
+              alt={props.group.name || ''}
+              onClick={() => nav(`/groups/${props.group.id}`)}
             />
           </div>
         );
@@ -59,7 +40,7 @@ export default function GroupAvatar({ group }: GroupAvatarProps) {
           variant="rounded"
           sx={{ width: 40, height: 40, fontSize: 14, bgcolor: '#e0e0e0', color: '#555' }}
         >
-          {String(firstUrl).slice(0, 2).toUpperCase()}
+          {String(url).slice(0, 2).toUpperCase()}
         </Avatar>
       );
     }
@@ -70,7 +51,7 @@ export default function GroupAvatar({ group }: GroupAvatarProps) {
       variant="rounded"
       sx={{ width: 40, height: 40, fontSize: 14, bgcolor: '#f0f0f0', color: '#777' }}
     >
-      {(group.name || '#').slice(0, 1).toUpperCase()}
+      {(props.group.name || '#').slice(0, 1).toUpperCase()}
     </Avatar>
   );
 }

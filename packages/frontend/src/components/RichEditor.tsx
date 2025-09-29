@@ -2,27 +2,24 @@ import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 
-export default function RichEditor({
-  value,
-  onChange,
-  placeholder,
-  uploadUrl,
-}: {
+export interface RichEditorProps {
   value?: string;
   onChange?: (html: string) => void;
   placeholder?: string;
   uploadUrl?: string;
-}) {
+}
+
+export default function RichEditor(props: RichEditorProps) {
   const [markdown, setMarkdown] = useState<string>('');
 
   useEffect(() => {
-    setMarkdown(value || '');
-  }, [value]);
+    setMarkdown(props.value || '');
+  }, [props.value]);
 
   function onMdChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const m = e.target.value;
     setMarkdown(m);
-    onChange && onChange(m);
+    props.onChange && props.onChange(m);
   }
 
   return (
@@ -31,7 +28,7 @@ export default function RichEditor({
         <textarea
           value={markdown}
           onChange={onMdChange}
-          placeholder={placeholder}
+          placeholder={props.placeholder}
           style={{ minHeight: 200, padding: 8, resize: 'vertical', border: 'none', outline: 'none' }}
         />
         <div

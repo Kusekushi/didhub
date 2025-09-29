@@ -7,7 +7,7 @@ import SystemListItem from './SystemListItem';
 
 type System = any;
 
-type Props = {
+export interface SystemListProps {
   title?: string;
   header?: React.ReactNode;
   primary?: (s: System) => React.ReactNode;
@@ -16,26 +16,21 @@ type Props = {
   showSearch?: boolean;
 };
 
-export default function SystemList({
-  title,
-  header,
-  primary,
-  secondary,
-  showContainer = true,
-  showSearch = true,
-}: Props) {
+export default function SystemList(props: SystemListProps) {
+  if (props.showContainer === undefined) props.showContainer = true;
+  if (props.showSearch === undefined) props.showSearch = true;
   const { systems, query, setQuery, clearSearch, hasQuery } = useSystemList();
 
   const content = (
     <>
-      {title ? (
+      {props.title ? (
         <Typography variant="h4" gutterBottom>
-          {title}
+          {props.title}
         </Typography>
       ) : null}
-      {header}
+      {props.header}
 
-      {showSearch && (
+      {props.showSearch && (
         <SystemSearch
           query={query}
           setQuery={setQuery}
@@ -49,14 +44,14 @@ export default function SystemList({
           <SystemListItem
             key={s.user_id}
             system={s}
-            primary={primary}
-            secondary={secondary}
+            primary={props.primary}
+            secondary={props.secondary}
           />
         ))}
       </List>
     </>
   );
 
-  if (showContainer) return <Container sx={{ mt: 4 }}>{content}</Container>;
+  if (props.showContainer) return <Container sx={{ mt: 4 }}>{content}</Container>;
   return content;
 }

@@ -1,21 +1,21 @@
 import React from 'react';
 
-interface TabPanelProps {
+export interface TabPanelProps {
   children: React.ReactNode;
   value: number;
   index: number;
   labelledBy?: string;
 }
 
-export default function TabPanel({ children, value, index, labelledBy }: TabPanelProps) {
+export default function TabPanel(props: TabPanelProps) {
   return (
     <div
       role="tabpanel"
-      hidden={value !== index}
-      id={`admin-tabpanel-${index}`}
-      aria-labelledby={labelledBy || `admin-tab-${index}`}
+      hidden={props.value !== props.index}
+      id={`admin-tabpanel-${props.index}`}
+      aria-labelledby={props.labelledBy || `admin-tab-${props.index}`}
     >
-      {value === index ? <div style={{ paddingTop: 8 }}>{children}</div> : null}
+      {props.value === props.index ? <div style={{ paddingTop: 8 }}>{props.children}</div> : null}
     </div>
   );
 }

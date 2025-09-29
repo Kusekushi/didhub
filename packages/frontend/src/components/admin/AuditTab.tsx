@@ -5,11 +5,11 @@ import AuditLogPanel from './AuditLogPanel';
 import DeleteConfirmDialog from '../../components/DeleteConfirmDialog';
 import type { AlertColor } from '@mui/material';
 
-interface AuditTabProps {
+export interface AuditTabProps {
   setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
 }
 
-export default function AuditTab({ setAdminMsg }: AuditTabProps) {
+export default function AuditTab(props: AuditTabProps) {
   const [confirmClearAudit, setConfirmClearAudit] = useState(false);
   const [auditReloadCounter, setAuditReloadCounter] = useState(0);
 
@@ -35,7 +35,7 @@ export default function AuditTab({ setAdminMsg }: AuditTabProps) {
               a.remove();
               URL.revokeObjectURL(url);
             } else {
-              setAdminMsg({ open: true, text: 'Export failed', severity: 'error' });
+              props.setAdminMsg({ open: true, text: 'Export failed', severity: 'error' });
             }
           }}
         >
@@ -55,13 +55,13 @@ export default function AuditTab({ setAdminMsg }: AuditTabProps) {
           try {
             const r = await clearAuditLogs();
             if (r && r.status === 'ok') {
-              setAdminMsg({ open: true, text: 'Cleared audit logs', severity: 'success' });
+              props.setAdminMsg({ open: true, text: 'Cleared audit logs', severity: 'success' });
               setAuditReloadCounter((c) => c + 1);
             } else {
-              setAdminMsg({ open: true, text: 'Failed to clear', severity: 'error' });
+              props.setAdminMsg({ open: true, text: 'Failed to clear', severity: 'error' });
             }
           } catch (e) {
-            setAdminMsg({ open: true, text: String(e || 'Failed'), severity: 'error' });
+            props.setAdminMsg({ open: true, text: String(e || 'Failed'), severity: 'error' });
           } finally {
             setConfirmClearAudit(false);
           }

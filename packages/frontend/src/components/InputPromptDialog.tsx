@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
 
-export type InputPromptDialogProps = {
+export interface InputPromptDialogProps {
   open: boolean;
   title?: string;
   label?: string;

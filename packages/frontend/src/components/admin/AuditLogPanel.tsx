@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { fetchAuditLogs } from '@didhub/api-client';
 
-interface AuditLogEntry {
+export interface AuditLogEntry {
   id: string;
   created_at: string;
   action: string;
@@ -25,11 +25,12 @@ interface AuditLogEntry {
   metadata?: any;
 }
 
-interface AuditLogPanelProps {
+export interface AuditLogPanelProps {
   reload?: number;
 }
 
-export default function AuditLogPanel({ reload = 0 }: AuditLogPanelProps) {
+export default function AuditLogPanel(props: AuditLogPanelProps) {
+  if (props.reload === undefined) props.reload = 0;
   const [rows, setRows] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedMetadata, setExpandedMetadata] = useState(new Set<string>());
@@ -66,7 +67,7 @@ export default function AuditLogPanel({ reload = 0 }: AuditLogPanelProps) {
 
   useEffect(() => {
     load();
-  }, [reload]);
+  }, [props.reload]);
 
   const toggleMetadata = (id: string) => {
     setExpandedMetadata((prev) => {

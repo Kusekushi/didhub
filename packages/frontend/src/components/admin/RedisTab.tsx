@@ -3,7 +3,7 @@ import { Typography, Paper, Stack, TextField, Button, FormControlLabel, Switch }
 import { getRedisStatus, updateAdminSettings } from '@didhub/api-client';
 import type { AlertColor } from '@mui/material';
 
-interface RedisTabProps {
+export interface RedisTabProps {
   redisUrl: string;
   redisPrefixSetting: string;
   redisTtlSecondsSetting: string;
@@ -58,24 +58,7 @@ function renderRedisInfo(info: Record<string, string> | undefined) {
   );
 }
 
-export default function RedisTab({
-  redisUrl,
-  redisPrefixSetting,
-  redisTtlSecondsSetting,
-  redisClientOptions,
-  redisSessionsEnabled,
-  redisCacheEnabled,
-  status,
-  setRedisUrl,
-  setRedisPrefixSetting,
-  setRedisTtlSecondsSetting,
-  setRedisClientOptions,
-  setRedisSessionsEnabled,
-  setRedisCacheEnabled,
-  setStatus,
-  setSettings,
-  setAdminMsg,
-}: RedisTabProps) {
+export default function RedisTab(props: RedisTabProps) {
   const [redisStatus, setRedisStatusState] = useState<any | null>(null);
 
   // Load Redis status on mount
@@ -100,42 +83,42 @@ export default function RedisTab({
         <Typography variant="subtitle2" gutterBottom>
           Redis configuration (optional)
         </Typography>
-        {redisStatus && redisStatus.ok && !redisUrl && (
+        {redisStatus && redisStatus.ok && !props.redisUrl && (
           <Typography variant="body2" color="info.main" sx={{ mb: 2 }}>
             Redis is configured in the app config (config.json or environment variables).
           </Typography>
         )}
         <TextField
           fullWidth
-          value={redisUrl}
-          onChange={(e) => setRedisUrl(e.target.value)}
+          value={props.redisUrl}
+          onChange={(e) => props.setRedisUrl(e.target.value)}
           placeholder="redis://localhost:6379"
           label="Redis URL"
           sx={{ mb: 2 }}
         />
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           <TextField
-            value={redisPrefixSetting}
-            onChange={(e) => setRedisPrefixSetting(e.target.value)}
+            value={props.redisPrefixSetting}
+            onChange={(e) => props.setRedisPrefixSetting(e.target.value)}
             placeholder="sess:"
             label="Key prefix"
           />
           <TextField
-            value={redisTtlSecondsSetting}
-            onChange={(e) => setRedisTtlSecondsSetting(e.target.value)}
+            value={props.redisTtlSecondsSetting}
+            onChange={(e) => props.setRedisTtlSecondsSetting(e.target.value)}
             placeholder="Session TTL (seconds)"
             label="TTL seconds"
           />
         </Stack>
         <FormControlLabel
           control={
-            <Switch checked={redisSessionsEnabled} onChange={(e) => setRedisSessionsEnabled(e.target.checked)} />
+            <Switch checked={props.redisSessionsEnabled} onChange={(e) => props.setRedisSessionsEnabled(e.target.checked)} />
           }
           label="Store sessions in Redis"
           sx={{ mb: 2 }}
         />
         <FormControlLabel
-          control={<Switch checked={redisCacheEnabled} onChange={(e) => setRedisCacheEnabled(e.target.checked)} />}
+          control={<Switch checked={props.redisCacheEnabled} onChange={(e) => props.setRedisCacheEnabled(e.target.checked)} />}
           label="Enable Redis caching for server data"
           sx={{ mb: 2 }}
         />
@@ -143,28 +126,28 @@ export default function RedisTab({
           fullWidth
           multiline
           minRows={3}
-          value={redisClientOptions}
-          onChange={(e) => setRedisClientOptions(e.target.value)}
+          value={props.redisClientOptions}
+          onChange={(e) => props.setRedisClientOptions(e.target.value)}
           placeholder='{"tls": {"rejectUnauthorized": false}}'
           label="Redis client options (JSON)"
         />
         <Button
           variant="contained"
           sx={{ mt: 2 }}
-          disabled={!redisUrl}
+          disabled={!props.redisUrl}
           onClick={async () => {
             try {
               await updateAdminSettings({
-                redis_url: redisUrl,
-                redis_prefix: redisPrefixSetting,
-                redis_ttl_seconds: redisTtlSecondsSetting,
-                redis_client_options: redisClientOptions,
-                redis_sessions_enabled: redisSessionsEnabled,
-                redis_cache_enabled: redisCacheEnabled,
+                redis_url: props.redisUrl,
+                redis_prefix: props.redisPrefixSetting,
+                redis_ttl_seconds: props.redisTtlSecondsSetting,
+                redis_client_options: props.redisClientOptions,
+                redis_sessions_enabled: props.redisSessionsEnabled,
+                redis_cache_enabled: props.redisCacheEnabled,
               });
-              setAdminMsg({ open: true, text: 'Redis settings saved', severity: 'success' });
+              props.setAdminMsg({ open: true, text: 'Redis settings saved', severity: 'success' });
             } catch (e) {
-              setAdminMsg({ open: true, text: `Failed to save: ${e}`, severity: 'error' });
+              props.setAdminMsg({ open: true, text: `Failed to save: ${e}`, severity: 'error' });
             }
           }}
         >

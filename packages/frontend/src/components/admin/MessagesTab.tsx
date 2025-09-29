@@ -19,7 +19,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { postDiscordBirthdays, repostAdminPost, postCustomDigest } from '@didhub/api-client';
 import type { AlertColor } from '@mui/material';
 
-interface Post {
+export interface Post {
   id: string;
   type: string;
   created_at: string;
@@ -27,7 +27,7 @@ interface Post {
   count: number;
 }
 
-interface MessagesTabProps {
+export interface MessagesTabProps {
   posts: Post[];
   query: string;
   page: number;
@@ -38,41 +38,32 @@ interface MessagesTabProps {
   setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
 }
 
-export default function MessagesTab({
-  posts,
-  query,
-  page,
-  status,
-  setQuery,
-  setPage,
-  setStatus,
-  setAdminMsg,
-}: MessagesTabProps) {
+export default function MessagesTab(props: MessagesTabProps) {
   const [customDigestOpen, setCustomDigestOpen] = React.useState(false);
   const [customDaysAhead, setCustomDaysAhead] = React.useState(7);
   async function postBirthdays() {
-    setStatus('Posting...');
+    props.setStatus('Posting...');
     const r = await postDiscordBirthdays();
-    if (r && r.posted) setStatus(`Posted ${r.count} birthdays`);
-    else setStatus(r && r.message ? r.message : 'Nothing to post');
-    setTimeout(() => setStatus(''), 4000);
+    if (r && r.posted) props.setStatus(`Posted ${r.count} birthdays`);
+    else props.setStatus(r && r.message ? r.message : 'Nothing to post');
+    setTimeout(() => props.setStatus(''), 4000);
   }
 
   async function postCustomDigestHandler() {
-    setStatus('Posting custom digest...');
+    props.setStatus('Posting custom digest...');
     setCustomDigestOpen(false);
     const r = await postCustomDigest(customDaysAhead);
-    if (r && r.posted) setStatus(`Posted custom digest with ${r.count} birthdays`);
-    else setStatus(r && r.message ? r.message : 'Failed to post custom digest');
-    setTimeout(() => setStatus(''), 4000);
+    if (r && r.posted) props.setStatus(`Posted custom digest with ${r.count} birthdays`);
+    else props.setStatus(r && r.message ? r.message : 'Failed to post custom digest');
+    setTimeout(() => props.setStatus(''), 4000);
   }
 
   async function doRepost(id: string) {
-    setStatus('Reposting...');
+    props.setStatus('Reposting...');
     const r = await repostAdminPost(id);
-    if (r && r.reposted) setStatus('Reposted');
-    else setStatus(r && r.error ? String(r.error) : 'Failed');
-    setTimeout(() => setStatus(''), 2000);
+    if (r && r.reposted) props.setStatus('Reposted');
+    else props.setStatus(r && r.error ? String(r.error) : 'Failed');
+    setTimeout(() => props.setStatus(''), 2000);
   }
 
   function downloadPayload(p: Post) {
@@ -106,11 +97,11 @@ export default function MessagesTab({
     const txt = typeof p.payload === 'string' ? p.payload : JSON.stringify(p.payload || {}, null, 2);
     try {
       await navigator.clipboard.writeText(txt);
-      setStatus('Copied payload');
-      setTimeout(() => setStatus(''), 2000);
+      props.setStatus('Copied payload');
+      setTimeout(() => props.setStatus(''), 2000);
     } catch (e) {
-      setStatus('Copy failed');
-      setTimeout(() => setStatus(''), 2000);
+      props.setStatus('Copy failed');
+      setTimeout(() => props.setStatus(''), 2000);
     }
   }
 
@@ -134,18 +125,18 @@ export default function MessagesTab({
         placeholder="Search posts..."
         fullWidth
         sx={{ mb: 1 }}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        value={props.query}
+        onChange={(e) => props.setQuery(e.target.value)}
       />
-      {posts.length === 0 && <Typography>No posted messages yet.</Typography>}
-      {posts
+      {props.posts.length === 0 && <Typography>No posted messages yet.</Typography>}
+      {props.posts
         .filter((p) => {
-          if (!query) return true;
+          if (!props.query) return true;
           const s = (typeof p.payload === 'string' ? p.payload : JSON.stringify(p.payload || {})).toLowerCase();
           return (
-            (p.type || '').toLowerCase().includes(query.toLowerCase()) ||
-            (p.created_at || '').toLowerCase().includes(query.toLowerCase()) ||
-            s.includes(query.toLowerCase())
+            (p.type || '').toLowerCase().includes(props.query.toLowerCase()) ||
+            (p.created_at || '').toLowerCase().includes(props.query.toLowerCase()) ||
+            s.includes(props.query.toLowerCase())
           );
         })
         .map((p) => {
@@ -199,11 +190,11 @@ export default function MessagesTab({
           );
         })}
       <Stack direction="row" spacing={2} alignItems="center">
-        <Button variant="outlined" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+        <Button variant="outlined" onClick={() => props.setPage((p) => Math.max(1, p - 1))} disabled={props.page <= 1}>
           Prev
         </Button>
-        <Typography>Page {page}</Typography>
-        <Button variant="outlined" onClick={() => setPage((p) => p + 1)}>
+        <Typography>Page {props.page}</Typography>
+        <Button variant="outlined" onClick={() => props.setPage((p) => p + 1)}>
           Next
         </Button>
       </Stack>

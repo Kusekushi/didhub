@@ -36,7 +36,7 @@ export interface Group {
   id?: number | string;
   name?: string;
   description?: string;
-  sigil?: string[] | unknown;
+  sigil?: string;
   leaders?: Array<number | string | { id?: number | string; name?: string }>;
   [k: string]: unknown;
 }

@@ -4,13 +4,12 @@ import { Autocomplete, TextField } from '@mui/material';
 import InputPromptDialog from './InputPromptDialog';
 import { listSubsystems, createSubsystem, Subsystem } from '@didhub/api-client';
 
-export default function SubsystemPicker({
-  value,
-  onChange,
-}: {
+export interface SubsystemPickerProps {
   value?: number | string | { id?: number; name?: string } | null;
   onChange?: (v: number | string | null) => void;
-}) {
+}
+
+export default function SubsystemPicker(props: SubsystemPickerProps) {
   const [options, setOptions] = useState<Subsystem[]>([]);
   const [inputValue, setInputValue] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,21 +40,21 @@ export default function SubsystemPicker({
       setCreateDialog({ open: true, name: v });
       return;
     } else if (v && typeof v === 'object' && 'id' in v) {
-      onChange && onChange((v as Subsystem).id);
+      props.onChange && props.onChange((v as Subsystem).id);
     } else if (v && typeof v === 'object' && 'name' in v) {
-      onChange && onChange((v as { name?: string }).name || null);
+      props.onChange && props.onChange((v as { name?: string }).name || null);
     } else {
-      onChange && onChange(null);
+      props.onChange && props.onChange(null);
     }
   }
 
   const selected: Subsystem | { name: string } | null =
-    value &&
-    (typeof value === 'object'
-      ? (value as Subsystem)
-      : typeof value === 'number'
-        ? options.find((x) => x.id === value) || { name: String(value) }
-        : { name: String(value) });
+    props.value &&
+    (typeof props.value === 'object'
+      ? (props.value as Subsystem)
+      : typeof props.value === 'number'
+        ? options.find((x) => x.id === props.value) || { name: String(props.value) }
+        : { name: String(props.value) });
 
   return (
     <>
@@ -84,12 +83,12 @@ export default function SubsystemPicker({
               if (cr && cr.json) {
                 const s = cr.json;
                 setOptions((prev) => [s, ...prev]);
-                onChange && onChange(s.id);
+                props.onChange && props.onChange(s.id);
               } else {
-                onChange && onChange(createDialog.name);
+                props.onChange && props.onChange(createDialog.name);
               }
             } catch (e) {
-              onChange && onChange(createDialog.name);
+              props.onChange && props.onChange(createDialog.name);
             } finally {
               setCreateDialog({ open: false, name: '' });
             }

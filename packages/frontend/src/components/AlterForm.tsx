@@ -18,7 +18,7 @@ import SubsystemPicker from './SubsystemPicker';
 import { Alter, listGroups } from '@didhub/api-client';
 import { StackItem } from './StackItem';
 
-export type AlterFormFieldsProps = {
+export interface AlterFormFieldsProps {
   values: Partial<Alter> & { _files?: File[] };
   errors: Record<string, string>;
   partnerOptions: string[];

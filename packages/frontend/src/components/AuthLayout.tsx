@@ -2,27 +2,28 @@ import React from 'react';
 import { AppProvider } from '@toolpad/core';
 import { Box, Container, Typography, useTheme } from '@mui/material';
 
-type Props = {
+export interface AuthLayoutProps {
   children?: React.ReactNode;
   title?: string;
   maxWidth?: number | string;
   containerSx?: any;
 };
 
-export default function AuthLayout({ children, title, maxWidth = 600, containerSx }: Props) {
+export default function AuthLayout(props: AuthLayoutProps) {
+  if (props.maxWidth === undefined) props.maxWidth = 600;
   const theme = useTheme();
 
   return (
     <AppProvider theme={theme}>
-      <Container sx={{ mt: 6, display: 'flex', justifyContent: 'center', ...(containerSx || {}) }}>
-        <Box sx={{ width: '100%', maxWidth, px: 2 }}>
-          {title ? (
+      <Container sx={{ mt: 6, display: 'flex', justifyContent: 'center', ...(props.containerSx || {}) }}>
+        <Box sx={{ width: '100%', maxWidth: props.maxWidth, px: 2 }}>
+          {props.title ? (
             <Typography variant="h4" gutterBottom>
-              {title}
+              {props.title}
             </Typography>
           ) : null}
 
-          {children}
+          {props.children}
         </Box>
       </Container>
     </AppProvider>

@@ -5,7 +5,7 @@ import { Group } from '@didhub/api-client';
 import GroupAvatar from './GroupAvatar';
 import GroupActions from './GroupActions';
 
-interface GroupListItemProps {
+export interface GroupListItemProps {
   group: Group;
   canManage: boolean;
   settings: any;
@@ -24,37 +24,28 @@ interface GroupListItemProps {
 /**
  * Component for individual group list items
  */
-export default function GroupListItem({
-  group,
-  canManage,
-  settings,
-  setEditingGroup,
-  setEditGroupOpen,
-  setDeleteDialog,
-  setSnack,
-  isLast,
-}: GroupListItemProps) {
+export default function GroupListItem(props: GroupListItemProps) {
   return (
     <React.Fragment>
       <ListItem
         secondaryAction={
           <GroupActions
-            group={group}
-            canManage={canManage}
-            settings={settings}
-            setEditingGroup={setEditingGroup}
-            setEditGroupOpen={setEditGroupOpen}
-            setDeleteDialog={setDeleteDialog}
-            setSnack={setSnack}
+            group={props.group}
+            canManage={props.canManage}
+            settings={props.settings}
+            setEditingGroup={props.setEditingGroup}
+            setEditGroupOpen={props.setEditGroupOpen}
+            setDeleteDialog={props.setDeleteDialog}
+            setSnack={props.setSnack}
           />
         }
       >
         <ListItemAvatar>
-          <GroupAvatar group={group} />
+          <GroupAvatar group={props.group} />
         </ListItemAvatar>
-        <ListItemText primary={group.name} secondary={group.description} />
+        <ListItemText primary={props.group.name} secondary={props.group.description} />
       </ListItem>
-      {!isLast && <Divider component="li" />}
+      {!props.isLast && <Divider component="li" />}
     </React.Fragment>
   );
 }
