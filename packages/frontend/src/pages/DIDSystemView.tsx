@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
 import AlterFormDialog from '../components/AlterFormDialog';
-import EditGroupDialog from '../components/EditGroupDialog';
+import EditGroupDialog from '../components/system-tabs/GroupDialog';
 import SystemHeader from '../components/SystemHeader';
 import NotificationSnackbar, { SnackbarMessage } from '../components/NotificationSnackbar';
 import AltersTab from '../components/system-tabs/AltersTab';
@@ -197,6 +197,7 @@ export default function DIDSystemView(): React.ReactElement {
       )}
 
       <EditGroupDialog
+        mode="edit"
         open={dialogStates.editGroupOpen}
         onClose={() => {
           dialogStates.setEditGroupOpen(false);
@@ -211,10 +212,9 @@ export default function DIDSystemView(): React.ReactElement {
         altersOptions={altersOptions}
         leaderQuery={groupCreationState.leaderQuery}
         setLeaderQuery={groupCreationState.setLeaderQuery}
-        uploadFiles={uploadFiles}
-        updateGroup={updateGroup}
-        refreshGroups={refreshGroups}
         setSnack={setSnack}
+        refreshGroups={refreshGroups}
+        uploadFiles={uploadFiles}
       />
 
       {tab === 2 && (

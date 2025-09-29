@@ -82,8 +82,8 @@ export default function GroupDialog(props: GroupDialogProps) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    e?.preventDefault();
 
     if (props.mode === 'create') {
       if (!props.newGroupName || !props.newGroupName.trim())
@@ -218,6 +218,55 @@ export default function GroupDialog(props: GroupDialogProps) {
             )}
           />
         )}
+        {props.mode === 'edit' && (
+          <Autocomplete
+            multiple
+            options={props.altersOptions || []}
+            getOptionLabel={(a: Alter | string | null) =>
+              a ? (typeof a === 'object' ? (a as Alter).name || `#${(a as Alter).id}` : String(a)) : ''
+            }
+            value={(function () {
+              if (!group) return [];
+              const lv: any = group.leaders;
+              let ids: Array<string | number> = [];
+              try {
+                if (Array.isArray(lv)) {
+                  ids = lv.map((x) => (typeof x === 'object' && x ? x.id : x));
+                } else if (typeof lv === 'string') {
+                  const t = lv.trim();
+                  if (t.startsWith('[')) {
+                    try {
+                      const parsed = JSON.parse(t);
+                      if (Array.isArray(parsed)) ids = parsed;
+                    } catch {}
+                  } else {
+                    ids = t
+                      .split(',')
+                      .map((s) => s.trim().replace(/^#[\[]?|[\]]$/g, ''))
+                      .filter(Boolean);
+                  }
+                }
+              } catch {}
+              return ids.map(
+                (id) =>
+                  (props.altersOptions || []).find((a) => String(a.id) === String(id)) || {
+                    id,
+                    name: `#${id}`,
+                  },
+              );
+            })()}
+            onChange={(_e: React.SyntheticEvent, v: Alter[]) => {
+              if (!group || !props.setEditingGroup) return;
+              const ids = v.map((x) => (typeof x === 'object' && x ? x.id : x));
+              props.setEditingGroup({ ...group, leaders: ids as any });
+            }}
+            onInputChange={(_e: React.SyntheticEvent, v: string) => props.setLeaderQuery?.(v)}
+            sx={{ minWidth: 240 }}
+            renderInput={(params: Parameters<typeof TextField>[0]) => (
+              <TextField {...params} label="Leaders" size="small" />
+            )}
+          />
+        )}
         <SigilUpload
           sigilUrl={props.mode === 'create' ? props.newGroupSigilUrl : getSigilUrl(group)}
           uploading={props.mode === 'create' ? props.newGroupSigilUploading : props.editingGroupSigilUploading}
@@ -334,7 +383,7 @@ export default function GroupDialog(props: GroupDialogProps) {
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
         {props.mode === 'edit' && (
-          <Button onClick={handleSubmit}>
+          <Button onClick={() => handleSubmit()}>
             Save
           </Button>
         )}

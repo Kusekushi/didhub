@@ -1,8 +1,7 @@
 import React from 'react';
 import { Button, List } from '@mui/material';
 
-import CreateGroupDialog from './CreateGroupDialog';
-import EditGroupDialog from './EditGroupDialog';
+import GroupDialog from './GroupDialog';
 import GroupListItem from './GroupListItem';
 import { Alter, Group } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
@@ -52,7 +51,8 @@ export default function GroupsTab(props: GroupsTabProps) {
           <Button variant="contained" onClick={() => props.setCreateGroupOpen(true)}>
             Create Group
           </Button>
-          <CreateGroupDialog
+          <GroupDialog
+            mode="create"
             open={props.createGroupOpen}
             onClose={() => props.setCreateGroupOpen(false)}
             newGroupName={props.newGroupName}
@@ -95,7 +95,8 @@ export default function GroupsTab(props: GroupsTabProps) {
         ))}
       </List>
 
-      <EditGroupDialog
+      <GroupDialog
+        mode="edit"
         open={props.editGroupOpen}
         onClose={() => {
           props.setEditGroupOpen(false);
@@ -107,6 +108,9 @@ export default function GroupsTab(props: GroupsTabProps) {
         setEditingGroupSigilUploading={props.setEditingGroupSigilUploading}
         editingGroupSigilDrag={props.editingGroupSigilDrag}
         setEditingGroupSigilDrag={props.setEditingGroupSigilDrag}
+        leaderQuery={props.leaderQuery}
+        setLeaderQuery={props.setLeaderQuery}
+        altersOptions={props.altersOptions}
         setSnack={props.setSnack}
         refreshGroups={props.refreshGroups}
         uploadFiles={props.uploadFiles}
