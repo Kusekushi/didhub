@@ -1,12 +1,23 @@
 import React from 'react';
 import { Snackbar, Alert } from '@mui/material';
 
+/**
+ * Type for snackbar severity levels
+ */
+export type SnackbarSeverity = 'success' | 'error' | 'info' | 'warning';
+
 export interface NotificationSnackbarProps {
   open: boolean;
   message: string;
-  severity: 'success' | 'error' | 'info' | 'warning';
+  severity: SnackbarSeverity;
   onClose: () => void;
 }
+
+/**
+ * Type for snackbar messages without the onClose handler
+ * Used for setSnack callbacks throughout the application
+ */
+export type SnackbarMessage = Omit<NotificationSnackbarProps, 'onClose'>;
 
 export default function NotificationSnackbar(props: NotificationSnackbarProps) {
   return (

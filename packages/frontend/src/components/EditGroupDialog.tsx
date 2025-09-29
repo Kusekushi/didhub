@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { Alter, Group } from '@didhub/api-client';
+import { SnackbarMessage } from './NotificationSnackbar';
 
 export interface EditGroupDialogProps {
   open: boolean;
@@ -29,7 +30,7 @@ export interface EditGroupDialogProps {
   uploadFiles: (files: FileList | File[] | null | undefined) => Promise<string[]>;
   updateGroup: (id: string | number, payload: any) => Promise<any>;
   refreshGroups: () => Promise<void>;
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  setSnack: (snack: SnackbarMessage) => void;
 }
 
 export default function EditGroupDialog(props: EditGroupDialogProps) {

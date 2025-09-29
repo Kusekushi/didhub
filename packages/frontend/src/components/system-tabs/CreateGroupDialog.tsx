@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alter } from '@didhub/api-client';
 import GroupDialog from './GroupDialog';
+import { SnackbarMessage } from '../NotificationSnackbar';
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -22,7 +23,7 @@ interface CreateGroupDialogProps {
   leaderQuery: string;
   setLeaderQuery: (query: string) => void;
   altersOptions: Alter[];
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  setSnack: (snack: SnackbarMessage) => void;
   refreshGroups: () => Promise<void>;
   uploadFiles: (files: File[]) => Promise<string[]>;
 }

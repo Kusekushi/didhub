@@ -25,9 +25,10 @@ import {
 } from '@mui/icons-material';
 import { checkForUpdates, performUpdate } from '@didhub/api-client';
 import type { UpdateStatus, UpdateResult } from '@didhub/api-client';
+import { SnackbarSeverity } from './NotificationSnackbar';
 
 export interface SystemUpdatesProps {
-  onMessage: (message: string, severity?: 'success' | 'error' | 'info' | 'warning') => void;
+  onMessage: (message: string, severity?: SnackbarSeverity) => void;
 }
 
 export default function SystemUpdates(props: SystemUpdatesProps) {

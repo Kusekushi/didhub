@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { Alter, Group, createGroup, updateGroup } from '@didhub/api-client';
 import SigilUpload from '../SigilUpload';
+import { SnackbarMessage } from '../NotificationSnackbar';
 
 export type GroupDialogMode = 'create' | 'edit';
 
@@ -48,7 +49,7 @@ export interface GroupDialogProps {
   setEditingGroupSigilDrag?: (drag: boolean) => void;
 
   // Common props
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  setSnack: (snack: SnackbarMessage) => void;
   refreshGroups: () => Promise<void>;
   uploadFiles: (files: File[]) => Promise<string[]>;
 }

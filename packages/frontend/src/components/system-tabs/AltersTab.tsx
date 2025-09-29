@@ -17,6 +17,7 @@ import AlterFormDialog from '../AlterFormDialog';
 import ThumbnailWithHover from '../ThumbnailWithHover';
 import ActionButtons from '../ActionButtons';
 import { Alter, parseRoles, createShortLink } from '@didhub/api-client';
+import { SnackbarMessage } from '../NotificationSnackbar';
 
 interface AltersTabProps {
   canManage: boolean;
@@ -30,14 +31,9 @@ interface AltersTabProps {
   setEditingAlter: (id: number | string | null) => void;
   editOpen: boolean;
   setEditOpen: (open: boolean) => void;
-  setDeleteDialog: (dialog: {
-    open: boolean;
-    type: 'alter' | 'group' | 'subsystem';
-    id: number | string;
-    label: string;
-  }) => void;
+  onDelete: (alterId: number | string) => Promise<void>;
   settings: any;
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  setSnack: (snack: SnackbarMessage) => void;
   refreshAlters: () => Promise<void>;
 }
 
@@ -85,8 +81,7 @@ export default function AltersTab(props: AltersTabProps) {
                     }
                     onDelete={
                       props.canManage
-                        ? () =>
-                            props.setDeleteDialog({ open: true, type: 'alter', id: it.id, label: it.name || 'alter' })
+                        ? () => props.onDelete(it.id)
                         : undefined
                     }
                     onShare={async () => {

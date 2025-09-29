@@ -5,6 +5,7 @@ import CreateGroupDialog from './CreateGroupDialog';
 import EditGroupDialog from './EditGroupDialog';
 import GroupListItem from './GroupListItem';
 import { Alter, Group } from '@didhub/api-client';
+import { SnackbarMessage } from '../NotificationSnackbar';
 
 export interface GroupsTabProps {
   canManage: boolean;
@@ -36,14 +37,9 @@ export interface GroupsTabProps {
   setEditingGroupSigilUploading: (uploading: boolean) => void;
   editingGroupSigilDrag: boolean;
   setEditingGroupSigilDrag: (drag: boolean) => void;
-  setDeleteDialog: (dialog: {
-    open: boolean;
-    type: 'alter' | 'group' | 'subsystem';
-    id: number | string;
-    label: string;
-  }) => void;
+  onDelete: (groupId: number | string) => Promise<void>;
   settings: any;
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  setSnack: (snack: SnackbarMessage) => void;
   refreshGroups: () => Promise<void>;
   uploadFiles: (files: File[]) => Promise<string[]>;
 }
@@ -92,7 +88,7 @@ export default function GroupsTab(props: GroupsTabProps) {
             settings={props.settings}
             setEditingGroup={props.setEditingGroup}
             setEditGroupOpen={props.setEditGroupOpen}
-            setDeleteDialog={props.setDeleteDialog}
+            onDelete={props.onDelete}
             setSnack={props.setSnack}
             isLast={idx === props.groups.length - 1}
           />

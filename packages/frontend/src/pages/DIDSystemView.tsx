@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-import logger from '../logger';
 import { useAuth } from '../contexts/AuthContext';
 import AlterFormDialog from '../components/AlterFormDialog';
 import EditGroupDialog from '../components/EditGroupDialog';
 import SystemHeader from '../components/SystemHeader';
-import SystemDeleteDialog from '../components/SystemDeleteDialog';
-import NotificationSnackbar from '../components/NotificationSnackbar';
+import NotificationSnackbar, { SnackbarMessage } from '../components/NotificationSnackbar';
 import AltersTab from '../components/system-tabs/AltersTab';
 import GroupsTab from '../components/system-tabs/GroupsTab';
 import SubsystemsTab from '../components/SubsystemsTab';
-import { Alter, createShortLink, Group, Subsystem, User } from '@didhub/api-client';
+import { createShortLink, User } from '@didhub/api-client';
 import { useSettings } from '../contexts/SettingsContext';
 
 // Custom hooks
@@ -26,15 +24,10 @@ import { useSubsystemCreationState } from '../hooks/useSubsystemCreationState';
 import { uploadFiles } from '../utils/fileUpload';
 
 import {
-  uploadFile,
   listSystems,
   deleteGroup,
   updateGroup,
   deleteAlter,
-  fetchAltersBySystem,
-  fetchAltersSearch,
-  listGroups,
-  listSubsystems,
   createSubsystem,
   deleteSubsystem,
 } from '@didhub/api-client';
@@ -51,11 +44,7 @@ export default function DIDSystemView(): React.ReactElement {
   const [hideMerged, setHideMerged] = useState(false);
   const [tab, setTab] = useState(0);
   const [systems, setSystems] = useState<User[]>([]);
-  const [snack, setSnack] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
-  }>({ open: false, message: '', severity: 'success' });
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
 
   // Custom hooks for data management
   const { items: alters, loading: altersLoading, refresh: refreshAlters } = useAltersData(uid, search);
@@ -137,7 +126,11 @@ export default function DIDSystemView(): React.ReactElement {
           setEditingAlter={dialogStates.setEditingAlter}
           editOpen={dialogStates.editOpen}
           setEditOpen={dialogStates.setEditOpen}
-          setDeleteDialog={dialogStates.setDeleteDialog}
+          onDelete={async (alterId) => {
+            await deleteAlter(alterId);
+            await refreshAlters();
+            setSnack({ open: true, message: 'Alter deleted', severity: 'success' });
+          }}
           settings={settings}
           setSnack={setSnack}
           refreshAlters={refreshAlters}
@@ -191,7 +184,11 @@ export default function DIDSystemView(): React.ReactElement {
           setEditingGroupSigilUploading={groupEditingState.setEditingGroupSigilUploading}
           editingGroupSigilDrag={groupEditingState.editingGroupSigilDrag}
           setEditingGroupSigilDrag={groupEditingState.setEditingGroupSigilDrag}
-          setDeleteDialog={dialogStates.setDeleteDialog}
+          onDelete={async (groupId) => {
+            await deleteGroup(groupId);
+            await refreshGroups();
+            setSnack({ open: true, message: 'Group deleted', severity: 'success' });
+          }}
           settings={settings}
           setSnack={setSnack}
           refreshGroups={refreshGroups}
@@ -233,7 +230,11 @@ export default function DIDSystemView(): React.ReactElement {
           setNewSubsystemType={subsystemCreationState.setNewSubsystemType}
           subsystems={subsystems}
           uid={uid || ''}
-          setDeleteDialog={dialogStates.setDeleteDialog}
+          onDelete={async (subsystemId) => {
+            await deleteSubsystem(subsystemId);
+            await refreshSubsystems();
+            setSnack({ open: true, message: 'Subsystem deleted', severity: 'success' });
+          }}
           settings={settings}
           setSnack={setSnack}
           refreshSubsystems={refreshSubsystems}
@@ -242,28 +243,6 @@ export default function DIDSystemView(): React.ReactElement {
           nav={nav}
         />
       )}
-
-      <SystemDeleteDialog
-        open={dialogStates.deleteDialog.open}
-        onClose={() => dialogStates.setDeleteDialog({ open: false, type: null, id: null, label: '' })}
-        label={dialogStates.deleteDialog.label || ''}
-        onConfirm={async () => {
-          const { type, id } = dialogStates.deleteDialog;
-          if (type === 'alter') {
-            await deleteAlter(id);
-            await refreshAlters();
-            setSnack({ open: true, message: 'Alter deleted', severity: 'success' });
-          } else if (type === 'group') {
-            await deleteGroup(id);
-            await refreshGroups();
-            setSnack({ open: true, message: 'Group deleted', severity: 'success' });
-          } else if (type === 'subsystem') {
-            await deleteSubsystem(id);
-            await refreshSubsystems();
-            setSnack({ open: true, message: 'Subsystem deleted', severity: 'success' });
-          }
-        }}
-      />
 
       <NotificationSnackbar
         open={snack.open}

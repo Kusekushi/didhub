@@ -10,7 +10,7 @@ import {
   Avatar,
   type AlertColor,
 } from '@mui/material';
-import DeleteConfirmDialog from '../DeleteConfirmDialog';
+import ConfirmDialog from '../ConfirmDialog';
 import InputPromptDialog from '../InputPromptDialog';
 import { listUsers, updateUser, adminResetUserPassword, adminDisableUser } from '@didhub/api-client';
 import moment from 'moment';
@@ -130,10 +130,10 @@ export default function UserListPanel() {
           }
         }}
       />
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={disableConfirm.open}
         label="this user"
-        onCancel={() => setDisableConfirm({ open: false, userId: null })}
+        onClose={() => setDisableConfirm({ open: false, userId: null })}
         onConfirm={async () => {
           if (disableConfirm.userId) await adminDisableUser(disableConfirm.userId);
           setDisableConfirm({ open: false, userId: null });

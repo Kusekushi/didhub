@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, IconButton, Tooltip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ShareIcon from '@mui/icons-material/Share';
 
 import { Group } from '@didhub/api-client';
 import { useGroupShare } from '../../hooks/useGroupShare';
+import { SnackbarMessage } from '../NotificationSnackbar';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 export interface GroupActionsProps {
   group: Group;
@@ -12,13 +14,8 @@ export interface GroupActionsProps {
   settings: any;
   setEditingGroup: (group: Group | null) => void;
   setEditGroupOpen: (open: boolean) => void;
-  setDeleteDialog: (dialog: {
-    open: boolean;
-    type: 'alter' | 'group' | 'subsystem';
-    id: number | string;
-    label: string;
-  }) => void;
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  onDelete: (groupId: number | string) => Promise<void>;
+  setSnack: (snack: SnackbarMessage) => void;
 }
 
 /**
@@ -27,52 +24,57 @@ export interface GroupActionsProps {
 export default function GroupActions(props: GroupActionsProps) {
   const nav = useNavigate();
   const { createShareLink } = useGroupShare();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <Button variant="outlined" size="small" onClick={() => nav(`/groups/${props.group.id}`)}>
-        View
-      </Button>
-
-      {props.canManage && (
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={async () => {
-            props.setEditingGroup(props.group);
-            props.setEditGroupOpen(true);
-          }}
-        >
-          Edit
+    <>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Button variant="outlined" size="small" onClick={() => nav(`/groups/${props.group.id}`)}>
+          View
         </Button>
-      )}
 
-      {props.canManage && (
-        <Button
-          variant="outlined"
-          color="error"
-          size="small"
-          onClick={() => props.setDeleteDialog({
-            open: true,
-            type: 'group',
-            id: props.group.id,
-            label: props.group.name || 'group'
-          })}
-        >
-          Delete
-        </Button>
-      )}
-
-      <Tooltip title="Create share link and copy to clipboard">
-        {props.settings.shortLinksEnabled && (
-          <IconButton
+        {props.canManage && (
+          <Button
+            variant="outlined"
             size="small"
-            onClick={() => createShareLink(props.group.id, props.setSnack)}
+            onClick={async () => {
+              props.setEditingGroup(props.group);
+              props.setEditGroupOpen(true);
+            }}
           >
-            <ShareIcon fontSize="small" />
-          </IconButton>
+            Edit
+          </Button>
         )}
-      </Tooltip>
-    </div>
+
+        {props.canManage && (
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            onClick={() => setDeleteConfirmOpen(true)}
+          >
+            Delete
+          </Button>
+        )}
+
+        <Tooltip title="Create share link and copy to clipboard">
+          {props.settings.shortLinksEnabled && (
+            <IconButton
+              size="small"
+              onClick={() => createShareLink(props.group.id, props.setSnack)}
+            >
+              <ShareIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Tooltip>
+      </div>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        label={props.group.name || 'group'}
+        onConfirm={() => props.onDelete(props.group.id)}
+      />
+    </>
   );
 }

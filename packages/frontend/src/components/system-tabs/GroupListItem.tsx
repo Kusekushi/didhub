@@ -4,6 +4,7 @@ import { ListItem, ListItemText, ListItemAvatar, Divider } from '@mui/material';
 import { Group } from '@didhub/api-client';
 import GroupAvatar from './GroupAvatar';
 import GroupActions from './GroupActions';
+import { SnackbarMessage } from '../NotificationSnackbar';
 
 export interface GroupListItemProps {
   group: Group;
@@ -11,13 +12,8 @@ export interface GroupListItemProps {
   settings: any;
   setEditingGroup: (group: Group | null) => void;
   setEditGroupOpen: (open: boolean) => void;
-  setDeleteDialog: (dialog: {
-    open: boolean;
-    type: 'alter' | 'group' | 'subsystem';
-    id: number | string;
-    label: string;
-  }) => void;
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  onDelete: (groupId: number | string) => Promise<void>;
+  setSnack: (snack: SnackbarMessage) => void;
   isLast: boolean;
 }
 
@@ -35,7 +31,7 @@ export default function GroupListItem(props: GroupListItemProps) {
             settings={props.settings}
             setEditingGroup={props.setEditingGroup}
             setEditGroupOpen={props.setEditGroupOpen}
-            setDeleteDialog={props.setDeleteDialog}
+            onDelete={props.onDelete}
             setSnack={props.setSnack}
           />
         }

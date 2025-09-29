@@ -3,10 +3,11 @@ import { IconButton } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import { createShortLink } from '@didhub/api-client';
 import { useSettings } from '../contexts/SettingsContext';
+import { SnackbarMessage } from './NotificationSnackbar';
 
 export interface ShareButtonInlineProps {
   id: number | string;
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  setSnack: (snack: SnackbarMessage) => void;
 }
 
 export default function ShareButtonInline(props: ShareButtonInlineProps) {

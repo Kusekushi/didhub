@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import { Subsystem } from '@didhub/api-client';
+import { SnackbarMessage } from './NotificationSnackbar';
 
 export interface SubsystemsTabProps {
   canManage: boolean;
@@ -30,14 +31,9 @@ export interface SubsystemsTabProps {
   setNewSubsystemType: (type: string) => void;
   subsystems: Subsystem[];
   uid: string;
-  setDeleteDialog: (dialog: {
-    open: boolean;
-    type: 'alter' | 'group' | 'subsystem';
-    id: number | string;
-    label: string;
-  }) => void;
+  onDelete: (subsystemId: number | string) => Promise<void>;
   settings: any;
-  setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void;
+  setSnack: (snack: SnackbarMessage) => void;
   refreshSubsystems: () => Promise<void>;
   createSubsystem: (payload: any) => Promise<any>;
   createShortLink: (type: string, id: number) => Promise<any>;
@@ -142,14 +138,7 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                       variant="outlined"
                       color="error"
                       size="small"
-                      onClick={() =>
-                        props.setDeleteDialog({
-                          open: true,
-                          type: 'subsystem',
-                          id: Number(s.id),
-                          label: s.name || 'subsystem',
-                        })
-                      }
+                      onClick={() => props.onDelete(Number(s.id))}
                     >
                       Delete
                     </Button>

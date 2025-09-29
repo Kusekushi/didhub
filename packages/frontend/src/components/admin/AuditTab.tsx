@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Typography, Stack, Button } from '@mui/material';
 import { exportAdminAuditCsv, clearAuditLogs } from '@didhub/api-client';
 import AuditLogPanel from './AuditLogPanel';
-import DeleteConfirmDialog from '../../components/DeleteConfirmDialog';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import type { AlertColor } from '@mui/material';
 
 export interface AuditTabProps {
@@ -46,11 +46,11 @@ export default function AuditTab(props: AuditTabProps) {
         </Button>
       </Stack>
       <AuditLogPanel reload={auditReloadCounter} />
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={confirmClearAudit}
         title="Clear audit logs"
         label="all admin audit logs"
-        onCancel={() => setConfirmClearAudit(false)}
+        onClose={() => setConfirmClearAudit(false)}
         onConfirm={async () => {
           try {
             const r = await clearAuditLogs();

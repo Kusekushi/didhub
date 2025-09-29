@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Grid, Typography } from '@mui/material';
 
 const G: any = Grid;
-import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
+import ConfirmDialog from '../components/ConfirmDialog';
 import InputPromptDialog from '../components/InputPromptDialog';
 import ImagesGallery from '../components/ImagesGallery';
 import BasicInfoSection from '../components/BasicInfoSection';
@@ -178,10 +178,10 @@ export default function Detail(): React.ReactElement {
         onSubmit={closeShareDialog}
       />
 
-      <DeleteConfirmDialog
+      <ConfirmDialog
         open={removeImageDialog.open}
         label={removeImageDialog.url}
-        onCancel={() => setRemoveImageDialog({ open: false, url: '', id: null })}
+        onClose={() => setRemoveImageDialog({ open: false, url: '', id: null })}
         onConfirm={async () => {
           try {
             const resp = await deleteAlterImage(removeImageDialog.id, removeImageDialog.url).catch(() => null);
