@@ -1,27 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@mui/material';
 import * as d3 from 'd3';
+import { FamilyTreeResponse, FamilyTreeNodeData, FamilyTreeOwner } from '@didhub/api-client';
 
-export interface FamilyTreeResponse {
-  roots: any[];
-  nodes: Record<
-    string,
-    {
-      id: number;
-      name?: string;
-      partners: number[];
-      parents: number[];
-      children: number[];
-      age?: string;
-      system_roles?: string[] | string;
-      owner_user_id?: number;
-      user_partners?: number[];
-      user_parents?: number[];
-      user_children?: number[];
-    }
-  >;
-  owners?: Record<string, { id: number; username?: string; is_system?: boolean }>;
-  edges: { parent: [number, number][]; partner: [number, number][] };
+interface GraphLink {
+  source: number;
+  target: number;
+  type: string;
+}
+
+interface GraphNode {
+  id: number;
+  name: string;
+  meta: FamilyTreeNodeData | FamilyTreeOwner;
+  type: 'alter' | 'user';
+  isUser: boolean;
+  x?: number;
+  y?: number;
+  fx?: number | undefined;
+  fy?: number | undefined;
+}
+
+interface D3GraphLink {
+  source: GraphNode | number;
+  target: GraphNode | number;
+  type: string;
 }
 
 export interface GraphProps {
@@ -79,25 +82,25 @@ export default function GraphD3(props: GraphProps) {
     };
 
     // Build nodes array
-    const alterNodes = Object.values(props.data.nodes).map((n) => ({ id: n.id, name: n.name || `#${n.id}`, meta: n, type: 'alter', isUser: false }));
-    const userNodes = props.data.owners ? Object.values(props.data.owners)
+    const alterNodes: GraphNode[] = Object.values(props.data.nodes).map((n) => ({ id: n.id, name: n.name || `#${n.id}`, meta: n, type: 'alter' as const, isUser: false }));
+    const userNodes: GraphNode[] = props.data.owners ? Object.values(props.data.owners)
       .filter((u) => !u.is_system) // Exclude system users
       .map((u) => ({ 
         id: u.id, 
         name: u.username || `User ${u.id}`, 
         meta: u, 
-        type: 'user',
+        type: 'user' as const,
         isUser: true
       })) : [];
     
     console.log('User nodes created:', userNodes);
-    const nodeMeta = [...alterNodes, ...userNodes];
+    const nodeMeta: GraphNode[] = [...alterNodes, ...userNodes];
     
     const parentLinks = props.data.edges.parent.map(([p, c]) => ({ source: p, target: c, type: 'parent' }));
     const partnerLinks = props.data.edges.partner.map(([a, b]) => ({ source: a, target: b, type: 'partner' }));
     
     // Add user relationship links
-    const userRelationshipLinks: any[] = [];
+    const userRelationshipLinks: GraphLink[] = [];
     Object.values(props.data.nodes).forEach((alter) => {
       // User partners
       (alter.user_partners || []).forEach((userId) => {
@@ -126,8 +129,8 @@ export default function GraphD3(props: GraphProps) {
     nodeMeta.forEach((n) => parentsCount.set(n.id, 0));
     
     // Count alter-to-alter parent relationships
-    props.data.edges.parent.forEach(([p, c]) => {
-      parentsCount.set(c, (parentsCount.get(c) || 0) + 1);
+    props.data.edges.parent.forEach(([, childId]) => {
+      parentsCount.set(childId, (parentsCount.get(childId) || 0) + 1);
     });
     
     // Count user-parent relationships (user is parent of alter)
@@ -174,23 +177,23 @@ export default function GraphD3(props: GraphProps) {
       });
     });
 
-    const nodes: any[] = nodeMeta.map((n) => ({
+    const nodes: GraphNode[] = nodeMeta.map((n) => ({
       ...n,
       fx: props.forceLayout ? undefined : positions.get(n.id)?.x,
       fy: props.forceLayout ? undefined : positions.get(n.id)?.y,
     }));
-    const links: any[] = [...parentLinks, ...partnerLinks, ...userRelationshipLinks];
+    const links: D3GraphLink[] = [...parentLinks, ...partnerLinks, ...userRelationshipLinks];
 
-    let simulation: d3.Simulation<any, undefined> | null = null;
+    let simulation: d3.Simulation<GraphNode, D3GraphLink> | null = null;
     if (props.forceLayout) {
       simulation = d3
         .forceSimulation(nodes)
         .force(
           'link',
           d3
-            .forceLink(links)
-            .id((d: any) => d.id)
-            .distance((l: any) => {
+            .forceLink<GraphNode, D3GraphLink>(links)
+            .id((d) => d.id)
+            .distance((l) => {
               if (l.type === 'partner') return 120;
               if (l.type.startsWith('user-')) return 100;
               return 80;
@@ -201,17 +204,17 @@ export default function GraphD3(props: GraphProps) {
         .force('collision', d3.forceCollide(40));
     } else {
       nodes.forEach((n) => {
-        const p = positions.get(n.id);
-        if (p) {
-          n.x = p.x;
-          n.y = p.y;
+        const pos = positions.get(n.id);
+        if (pos) {
+          n.x = pos.x;
+          n.y = pos.y;
         }
       });
       // Manually resolve link endpoints to node objects so tick function can access x/y
       const idMap = new Map(nodes.map((n) => [n.id, n]));
-      links.forEach((l: any) => {
-        l.source = idMap.get(l.source);
-        l.target = idMap.get(l.target);
+      links.forEach((l) => {
+        l.source = idMap.get(l.source as number) || l.source;
+        l.target = idMap.get(l.target as number) || l.target;
       });
     }
 
@@ -248,12 +251,12 @@ export default function GraphD3(props: GraphProps) {
         
         if (d.isUser) {
           // User node hover info
-          const userMeta = d.meta;
+          const userMeta = d.meta as FamilyTreeOwner;
           const userType = userMeta.is_system ? 'System' : 'User';
           text += `${userType}\n`;
         } else {
           // Alter node hover info
-          const meta = d.meta;
+          const meta = d.meta as FamilyTreeNodeData;
           const rolesRaw = meta.system_roles;
           const roles = Array.isArray(rolesRaw) ? rolesRaw.join(', ') : rolesRaw || '';
           const age = meta.age || '';
@@ -292,11 +295,12 @@ export default function GraphD3(props: GraphProps) {
       .attr('r', (d) => (hl && matchedIds.has(d.id) ? 28 : 22))
       .attr('fill', (d) => {
         if (d.isUser) return '#ffeb3b'; // Yellow for user nodes
+        const meta = d.meta as FamilyTreeNodeData;
         if (props.colorMode === 'owner') {
-          const oid = d.meta.owner_user_id;
+          const oid = meta.owner_user_id;
           return (oid && props.ownerColors[oid]) || '#888';
         } else {
-          const rolesRaw = d.meta.system_roles;
+          const rolesRaw = meta.system_roles;
           let role: string | undefined;
           if (Array.isArray(rolesRaw)) role = rolesRaw[0];
           else role = rolesRaw;
@@ -323,11 +327,11 @@ export default function GraphD3(props: GraphProps) {
 
     function ticked() {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
-      nodeGroup.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
+        .attr('x1', (d) => (d.source as GraphNode).x)
+        .attr('y1', (d) => (d.source as GraphNode).y)
+        .attr('x2', (d) => (d.target as GraphNode).x)
+        .attr('y2', (d) => (d.target as GraphNode).y);
+      nodeGroup.attr('transform', (d) => `translate(${d.x},${d.y})`);
     }
 
     if (simulation) simulation.on('tick', ticked);
@@ -415,7 +419,7 @@ export default function GraphD3(props: GraphProps) {
         });
       }
       URL.revokeObjectURL(url);
-      legend && legend.remove();
+      if (legend) legend.remove();
     };
     img.src = url;
   };
@@ -431,7 +435,7 @@ export default function GraphD3(props: GraphProps) {
     a.download = 'family-tree.svg';
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    legend && legend.remove();
+    if (legend) legend.remove();
   };
 
   return (
