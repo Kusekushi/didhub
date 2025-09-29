@@ -1,13 +1,18 @@
-import React from 'react';
 import {
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  ChangeEvent,
+  DragEvent,
+  FormEvent,
+  SyntheticEvent,
+} from 'react';
+import {
   Autocomplete,
   Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
   Typography,
 } from '@mui/material';
 import { Alter, Group, createGroup, updateGroup } from '@didhub/api-client';
@@ -54,339 +59,362 @@ export interface GroupDialogProps {
   uploadFiles: (files: File[]) => Promise<string[]>;
 }
 
-export default function GroupDialog(props: GroupDialogProps) {
-  const getSigilUrl = (group: Group | null): string | null => {
-    if (!group) return null;
-    try {
-      const s = group.sigil;
-      let url: string | null = null;
-      if (Array.isArray(s)) url = s[0] || null;
-      else if (typeof s === 'string') {
-        const trimmed = s.trim();
-        if (trimmed.startsWith('[')) {
-          try {
-            const arr = JSON.parse(trimmed);
-            if (Array.isArray(arr) && arr.length) url = arr[0];
-          } catch {}
-        } else if (trimmed.includes(','))
-          url =
-            trimmed
-              .split(',')
-              .map((x) => x.trim())
-              .filter(Boolean)[0] || null;
-        else if (trimmed) url = trimmed;
+const leaderOptionLabel = (option: Alter | string | null): string => {
+  if (!option) return '';
+  if (typeof option === 'object') {
+    const alter = option as Alter;
+    if (alter.name) return alter.name;
+    if (alter.id !== undefined && alter.id !== null) return `#${alter.id}`;
+    return '';
+  }
+  return String(option);
+};
+
+const parseLeaderIds = (leaders: Group['leaders'] | string | null | undefined): Array<string | number> => {
+  if (!leaders) return [];
+  if (Array.isArray(leaders)) {
+    return leaders
+      .map((value) => {
+        if (!value) return null;
+        if (typeof value === 'object') return (value as { id?: string | number }).id ?? null;
+        return value;
+      })
+      .filter((value): value is string | number => value !== null && value !== undefined && value !== '');
+  }
+
+  if (typeof leaders === 'string') {
+    const trimmed = leaders.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((value): value is string | number => value !== null && value !== undefined);
+        }
+      } catch {
+        return [];
       }
-      return url;
-    } catch {
-      return null;
+    }
+
+    return trimmed
+      .split(',')
+      .map((segment) => segment.trim())
+      .map((segment) => segment.replace(/^#/, '').replace(/^\[/, '').replace(/\]$/, ''))
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const toAlterOption = (id: string | number, options: Alter[]): Alter => {
+  const match = options.find((option) => String(option.id) === String(id));
+  if (match) return match;
+  return { id, name: `#${id}` } as Alter;
+};
+
+const getLeadersFromGroup = (group: Group | null, options: Alter[]): Alter[] => {
+  if (!group) return [];
+  return parseLeaderIds(group.leaders).map((id) => toAlterOption(id, options));
+};
+
+const mapLeadersToIds = (leaders: Array<Alter | string | number>): Array<string | number> =>
+  leaders
+    .map((leader) => {
+      if (!leader) return null;
+      if (typeof leader === 'object') {
+        const alter = leader as Alter;
+        return alter.id ?? null;
+      }
+      return leader;
+    })
+    .filter((value): value is string | number => value !== null && value !== undefined && value !== '');
+
+const getSigilUrlFromGroup = (group: Group | null): string | null => {
+  if (!group) return null;
+
+  const sigilValue = group.sigil;
+  if (!sigilValue) return null;
+
+  if (Array.isArray(sigilValue)) {
+    const first = sigilValue[0];
+    return typeof first === 'string' ? first : null;
+  }
+
+  if (typeof sigilValue === 'string') {
+    const trimmed = sigilValue.trim();
+    if (!trimmed) return null;
+
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed) && parsed.length) {
+          const first = parsed[0];
+          return typeof first === 'string' ? first : null;
+        }
+      } catch {
+        return null;
+      }
+    }
+
+    if (trimmed.includes(',')) {
+      const first = trimmed
+        .split(',')
+        .map((segment) => segment.trim())
+        .filter(Boolean)[0];
+      return first || null;
+    }
+
+    return trimmed;
+  }
+
+  return null;
+};
+
+export default function GroupDialog(props: GroupDialogProps) {
+  const isCreate = props.mode === 'create';
+  const altersOptions = props.altersOptions ?? [];
+  const editingGroup = isCreate ? null : props.editingGroup ?? null;
+
+  const leaderValue: Alter[] = isCreate ? props.newGroupLeaders ?? [] : getLeadersFromGroup(editingGroup, altersOptions);
+  const sigilUrl = isCreate ? props.newGroupSigilUrl ?? null : getSigilUrlFromGroup(editingGroup);
+  const sigilUploading = isCreate ? props.newGroupSigilUploading : props.editingGroupSigilUploading;
+  const sigilDrag = isCreate ? props.newGroupSigilDrag : props.editingGroupSigilDrag;
+
+  const updateEditingGroup = (updater: (group: Group) => Group) => {
+    if (isCreate || !props.setEditingGroup || !props.editingGroup) return;
+    props.setEditingGroup(updater(props.editingGroup));
+  };
+
+  const handleClose = () => {
+    if (!isCreate) props.setEditingGroup?.(null);
+    props.onClose();
+  };
+
+  const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    if (isCreate) {
+      props.setNewGroupName?.(value);
+    } else {
+      updateEditingGroup((group) => ({ ...group, name: value }));
     }
   };
 
-  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
-    e?.preventDefault();
+  const handleDescriptionChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    if (isCreate) {
+      props.setNewGroupDesc?.(value);
+    } else {
+      updateEditingGroup((group) => ({ ...group, description: value }));
+    }
+  };
 
-    if (props.mode === 'create') {
-      if (!props.newGroupName || !props.newGroupName.trim())
-        return props.setSnack({ open: true, message: 'Name required', severity: 'error' });
+  const handleLeaderChange = (_event: SyntheticEvent, value: Alter[]) => {
+    if (isCreate) {
+      props.setNewGroupLeaders?.(value);
+    } else {
+      updateEditingGroup((group) => ({ ...group, leaders: mapLeadersToIds(value) }));
+    }
+  };
+
+  const handleLeaderInputChange = (_event: SyntheticEvent, value: string) => {
+    props.setLeaderQuery?.(value);
+  };
+
+  const setSigilDragState = (value: boolean) => {
+    if (isCreate) props.setNewGroupSigilDrag?.(value);
+    else props.setEditingGroupSigilDrag?.(value);
+  };
+
+  const setSigilUploadingState = (value: boolean) => {
+    if (isCreate) props.setNewGroupSigilUploading?.(value);
+    else props.setEditingGroupSigilUploading?.(value);
+  };
+
+  const setSigilUrlState = (value: string | null) => {
+    if (isCreate) {
+      props.setNewGroupSigilUrl?.(value);
+    } else if (props.editingGroup) {
+      updateEditingGroup((group) => ({ ...group, sigil: value ?? undefined }));
+    }
+  };
+
+  const handleSigilRemove = () => {
+    if (isCreate) {
+      props.setNewGroupSigilUrl?.(null);
+      props.setNewGroupSigilFiles?.([]);
+    } else {
+      updateEditingGroup((group) => ({ ...group, sigil: undefined }));
+    }
+  };
+
+  const processSigilFile = async (file: File) => {
+    if (!isCreate && !props.editingGroup) return;
+    if (isCreate) props.setNewGroupSigilFiles?.([file]);
+
+    const previewUrl = URL.createObjectURL(file);
+    setSigilUrlState(previewUrl);
+    setSigilUploadingState(true);
+
+    try {
+      const uploaded = await props.uploadFiles([file]);
+      if (uploaded.length) setSigilUrlState(uploaded[0]);
+    } finally {
+      setSigilUploadingState(false);
+    }
+  };
+
+  const handleDrop = async (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setSigilDragState(false);
+
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    await processSigilFile(file);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setSigilDragState(true);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setSigilDragState(false);
+  };
+
+  const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await processSigilFile(file);
+  };
+
+  const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+
+    if (isCreate) {
+      const trimmedName = (props.newGroupName || '').trim();
+      if (!trimmedName) {
+        props.setSnack({ open: true, message: 'Name required', severity: 'error' });
+        return;
+      }
+
+      if (sigilUploading) {
+        props.setSnack({
+          open: true,
+          message: 'Please wait for sigil upload to finish',
+          severity: 'error',
+        });
+        return;
+      }
 
       try {
-        if (props.newGroupSigilUploading)
-          return props.setSnack({
-            open: true,
-            message: 'Please wait for sigil upload to finish',
-            severity: 'error',
-          });
-
-        const payload = {
-          name: props.newGroupName.trim(),
+        await createGroup({
+          name: trimmedName,
           description: props.newGroupDesc || null,
-          sigil: props.newGroupSigilUrl,
-          leaders: props.newGroupLeaders?.map((x: Alter | string | number) =>
-            typeof x === 'object' ? (x as Alter).id : x,
-          ) || [],
-        };
+          sigil: sigilUrl,
+          leaders: mapLeadersToIds(props.newGroupLeaders || []),
+        });
 
-        await createGroup(payload);
         await props.refreshGroups();
         props.setSnack({ open: true, message: 'Group created', severity: 'success' });
 
-        // Reset form
         props.setNewGroupName?.('');
         props.setNewGroupDesc?.('');
         props.setNewGroupLeaders?.([]);
         props.setNewGroupSigilFiles?.([]);
         props.setNewGroupSigilUrl?.(null);
         props.onClose();
-      } catch (err) {
-        props.setSnack({ open: true, message: String(err || 'create failed'), severity: 'error' });
+      } catch (error) {
+        props.setSnack({ open: true, message: String(error || 'create failed'), severity: 'error' });
       }
-    } else {
-      // Edit mode
-      if (!props.editingGroup) return;
-
-      try {
-        if (props.editingGroupSigilUploading)
-          return props.setSnack({ open: true, message: 'Please wait for sigil upload to finish', severity: 'error' });
-
-        let existing: string | null = null;
-        try {
-          const s = props.editingGroup.sigil;
-          if (Array.isArray(s)) existing = s[0] || null;
-          else if (typeof s === 'string') existing = s;
-        } catch {
-          existing = null;
-        }
-
-        const payload = {
-          name: props.editingGroup.name,
-          description: props.editingGroup.description,
-          sigil: existing,
-          leaders: props.editingGroup.leaders || [],
-        };
-
-        await updateGroup(props.editingGroup.id, payload);
-        props.onClose();
-        props.setEditingGroup?.(null);
-        await props.refreshGroups();
-        props.setSnack({ open: true, message: 'Group updated', severity: 'success' });
-      } catch (e) {
-        props.setSnack({ open: true, message: String(e || 'update failed'), severity: 'error' });
-      }
+      return;
     }
-  };
 
-  const handleClose = () => {
-    if (props.mode === 'edit') {
+    const group = props.editingGroup;
+    if (!group) return;
+
+    if (sigilUploading) {
+      props.setSnack({
+        open: true,
+        message: 'Please wait for sigil upload to finish',
+        severity: 'error',
+      });
+      return;
+    }
+
+    try {
+      await updateGroup(group.id, {
+        name: group.name,
+        description: group.description,
+        sigil: getSigilUrlFromGroup(group),
+        leaders: group.leaders || [],
+      });
+
       props.onClose();
       props.setEditingGroup?.(null);
-    } else {
-      props.onClose();
+      await props.refreshGroups();
+      props.setSnack({ open: true, message: 'Group updated', severity: 'success' });
+    } catch (error) {
+      props.setSnack({ open: true, message: String(error || 'update failed'), severity: 'error' });
     }
   };
 
-  const renderForm = () => {
-    if (props.mode === 'edit' && !props.editingGroup) return null;
-
-    const group = props.mode === 'edit' ? props.editingGroup : null;
-
-    return (
-      <Box
-        component={props.mode === 'create' ? 'form' : 'div'}
-        onSubmit={props.mode === 'create' ? handleSubmit : undefined}
-        sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mt: 1 }}
-      >
-        <TextField
-          size="small"
-          label="Name"
-          value={props.mode === 'create' ? props.newGroupName : (group?.name || '')}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            if (props.mode === 'create') {
-              props.setNewGroupName?.(e.target.value);
-            } else if (group && props.setEditingGroup) {
-              props.setEditingGroup({ ...group, name: e.target.value });
-            }
-          }}
-          sx={{ minWidth: 240 }}
-        />
-        <TextField
-          size="small"
-          label="Description"
-          value={props.mode === 'create' ? props.newGroupDesc : (group?.description || '')}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            if (props.mode === 'create') {
-              props.setNewGroupDesc?.(e.target.value);
-            } else if (group && props.setEditingGroup) {
-              props.setEditingGroup({ ...group, description: e.target.value });
-            }
-          }}
-          sx={{ minWidth: 320 }}
-          multiline={props.mode === 'edit'}
-        />
-        {props.mode === 'create' && (
-          <Autocomplete
-            multiple
-            options={props.altersOptions || []}
-            getOptionLabel={(a: Alter | string | null) =>
-              a ? (typeof a === 'object' ? (a as Alter).name || `#${(a as Alter).id}` : String(a)) : ''
-            }
-            value={props.newGroupLeaders || []}
-            onChange={(_e: React.SyntheticEvent, v: Alter[]) => props.setNewGroupLeaders?.(v)}
-            onInputChange={(_e: React.SyntheticEvent, v: string) => props.setLeaderQuery?.(v)}
-            sx={{ minWidth: 240 }}
-            renderInput={(params: Parameters<typeof TextField>[0]) => (
-              <TextField {...params} label="Leaders" size="small" />
-            )}
-          />
-        )}
-        {props.mode === 'edit' && (
-          <Autocomplete
-            multiple
-            options={props.altersOptions || []}
-            getOptionLabel={(a: Alter | string | null) =>
-              a ? (typeof a === 'object' ? (a as Alter).name || `#${(a as Alter).id}` : String(a)) : ''
-            }
-            value={(function () {
-              if (!group) return [];
-              const lv: any = group.leaders;
-              let ids: Array<string | number> = [];
-              try {
-                if (Array.isArray(lv)) {
-                  ids = lv.map((x) => (typeof x === 'object' && x ? x.id : x));
-                } else if (typeof lv === 'string') {
-                  const t = lv.trim();
-                  if (t.startsWith('[')) {
-                    try {
-                      const parsed = JSON.parse(t);
-                      if (Array.isArray(parsed)) ids = parsed;
-                    } catch {}
-                  } else {
-                    ids = t
-                      .split(',')
-                      .map((s) => s.trim().replace(/^#[\[]?|[\]]$/g, ''))
-                      .filter(Boolean);
-                  }
-                }
-              } catch {}
-              return ids.map(
-                (id) =>
-                  (props.altersOptions || []).find((a) => String(a.id) === String(id)) || {
-                    id,
-                    name: `#${id}`,
-                  },
-              );
-            })()}
-            onChange={(_e: React.SyntheticEvent, v: Alter[]) => {
-              if (!group || !props.setEditingGroup) return;
-              const ids = v.map((x) => (typeof x === 'object' && x ? x.id : x));
-              props.setEditingGroup({ ...group, leaders: ids as any });
-            }}
-            onInputChange={(_e: React.SyntheticEvent, v: string) => props.setLeaderQuery?.(v)}
-            sx={{ minWidth: 240 }}
-            renderInput={(params: Parameters<typeof TextField>[0]) => (
-              <TextField {...params} label="Leaders" size="small" />
-            )}
-          />
-        )}
-        <SigilUpload
-          sigilUrl={props.mode === 'create' ? props.newGroupSigilUrl : getSigilUrl(group)}
-          uploading={props.mode === 'create' ? props.newGroupSigilUploading : props.editingGroupSigilUploading}
-          drag={props.mode === 'create' ? props.newGroupSigilDrag : props.editingGroupSigilDrag}
-          onDragOver={(e) => {
-            e.preventDefault();
-            if (props.mode === 'create') {
-              props.setNewGroupSigilDrag?.(true);
-            } else {
-              props.setEditingGroupSigilDrag?.(true);
-            }
-          }}
-          onDragLeave={(e) => {
-            e.preventDefault();
-            if (props.mode === 'create') {
-              props.setNewGroupSigilDrag?.(false);
-            } else {
-              props.setEditingGroupSigilDrag?.(false);
-            }
-          }}
-          onDrop={async (e) => {
-            e.preventDefault();
-            if (props.mode === 'create') {
-              props.setNewGroupSigilDrag?.(false);
-              const file = e.dataTransfer.files && e.dataTransfer.files[0];
-              if (!file) return;
-              props.setNewGroupSigilFiles?.([file]);
-              const localUrl = URL.createObjectURL(file);
-              props.setNewGroupSigilUrl?.(localUrl);
-              props.setNewGroupSigilUploading?.(true);
-              try {
-                const uploaded = await props.uploadFiles([file]);
-                if (uploaded.length) props.setNewGroupSigilUrl?.(uploaded[0]);
-              } finally {
-                props.setNewGroupSigilUploading?.(false);
-              }
-            } else {
-              props.setEditingGroupSigilDrag?.(false);
-              if (!group) return;
-              const file = e.dataTransfer.files && e.dataTransfer.files[0];
-              if (!file) return;
-              const localUrl = URL.createObjectURL(file);
-              props.setEditingGroup?.({ ...group, sigil: localUrl as any });
-              props.setEditingGroupSigilUploading?.(true);
-              try {
-                const uploaded = await props.uploadFiles([file]);
-                if (uploaded.length) props.setEditingGroup?.({ ...group, sigil: uploaded[0] as any });
-              } finally {
-                props.setEditingGroupSigilUploading?.(false);
-              }
-            }
-          }}
-          onFileSelect={async (e: React.ChangeEvent<HTMLInputElement>) => {
-            if (props.mode === 'create') {
-              const file = e.target.files && e.target.files[0];
-              if (!file) return;
-              props.setNewGroupSigilFiles?.([file]);
-              const localUrl = URL.createObjectURL(file);
-              props.setNewGroupSigilUrl?.(localUrl);
-              props.setNewGroupSigilUploading?.(true);
-              try {
-                const uploaded = await props.uploadFiles([file]);
-                if (uploaded.length) props.setNewGroupSigilUrl?.(uploaded[0]);
-              } finally {
-                props.setNewGroupSigilUploading?.(false);
-              }
-            } else {
-              if (!group) return;
-              const file = e.target.files && e.target.files[0];
-              if (!file) return;
-              const localUrl = URL.createObjectURL(file);
-              props.setEditingGroup?.({ ...group, sigil: localUrl as any });
-              props.setEditingGroupSigilUploading?.(true);
-              try {
-                const uploaded = await props.uploadFiles([file]);
-                if (uploaded.length) props.setEditingGroup?.({ ...group, sigil: uploaded[0] as any });
-              } finally {
-                props.setEditingGroupSigilUploading?.(false);
-              }
-            }
-          }}
-          onRemove={() => {
-            if (props.mode === 'create') {
-              props.setNewGroupSigilUrl?.(null);
-              props.setNewGroupSigilFiles?.([]);
-            } else {
-              props.setEditingGroup?.({ ...group, sigil: null as any });
-            }
-          }}
-        />
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-          Maximum file size: 20MB
-        </Typography>
-        {props.mode === 'create' && (
-          <Button variant="contained" type="submit">
-            Create
-          </Button>
-        )}
-      </Box>
-    );
-  };
+  const shouldRenderForm = isCreate || Boolean(editingGroup);
 
   return (
-    <Dialog
-      open={props.open}
-      onClose={handleClose}
-      fullWidth
-      maxWidth={props.mode === 'create' ? 'md' : 'sm'}
-    >
-      <DialogTitle>{props.mode === 'create' ? 'Create group' : 'Edit group'}</DialogTitle>
+    <Dialog open={props.open} onClose={handleClose} fullWidth maxWidth={isCreate ? 'md' : 'sm'}>
+      <DialogTitle>{isCreate ? 'Create group' : 'Edit group'}</DialogTitle>
       <DialogContent>
-        {renderForm()}
+        {shouldRenderForm && (
+          <Box
+            component={isCreate ? 'form' : 'div'}
+            onSubmit={isCreate ? handleSubmit : undefined}
+            sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mt: 1 }}
+          >
+            <TextField size="small" label="Name" value={isCreate ? props.newGroupName : editingGroup?.name || ''} onChange={handleNameChange} sx={{ minWidth: 240 }} />
+            <TextField
+              size="small"
+              label="Description"
+              value={isCreate ? props.newGroupDesc : editingGroup?.description || ''}
+              onChange={handleDescriptionChange}
+              sx={{ minWidth: 320 }}
+              multiline={!isCreate}
+            />
+            <Autocomplete
+              multiple
+              options={altersOptions}
+              getOptionLabel={leaderOptionLabel}
+              value={leaderValue}
+              onChange={handleLeaderChange}
+              onInputChange={handleLeaderInputChange}
+              sx={{ minWidth: 240 }}
+              renderInput={(params: Parameters<typeof TextField>[0]) => <TextField {...params} label="Leaders" size="small" />}
+            />
+            <SigilUpload
+              sigilUrl={sigilUrl}
+              uploading={Boolean(sigilUploading)}
+              drag={Boolean(sigilDrag)}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onFileSelect={handleFileSelect}
+              onRemove={handleSigilRemove}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              Maximum file size: 20MB
+            </Typography>
+            {isCreate && (
+              <Button variant="contained" type="submit">
+                Create
+              </Button>
+            )}
+          </Box>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        {props.mode === 'edit' && (
-          <Button onClick={() => handleSubmit()}>
-            Save
-          </Button>
-        )}
+        {!isCreate && <Button onClick={() => handleSubmit()}>Save</Button>}
       </DialogActions>
     </Dialog>
   );

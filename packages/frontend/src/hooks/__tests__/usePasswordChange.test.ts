@@ -10,9 +10,7 @@ describe('usePasswordChange', () => {
   });
 
   it('should initialize with empty passwords and no error', () => {
-    const { result } = renderHook(() =>
-      usePasswordChange({ changePassword: mockChangePassword })
-    );
+    const { result } = renderHook(() => usePasswordChange({ changePassword: mockChangePassword }));
 
     expect(result.current.currentPassword).toBe('');
     expect(result.current.newPassword).toBe('');
@@ -20,9 +18,7 @@ describe('usePasswordChange', () => {
   });
 
   it('should allow setting current password', () => {
-    const { result } = renderHook(() =>
-      usePasswordChange({ changePassword: mockChangePassword })
-    );
+    const { result } = renderHook(() => usePasswordChange({ changePassword: mockChangePassword }));
 
     act(() => {
       result.current.setCurrentPassword('current123');
@@ -32,9 +28,7 @@ describe('usePasswordChange', () => {
   });
 
   it('should allow setting new password', () => {
-    const { result } = renderHook(() =>
-      usePasswordChange({ changePassword: mockChangePassword })
-    );
+    const { result } = renderHook(() => usePasswordChange({ changePassword: mockChangePassword }));
 
     act(() => {
       result.current.setNewPassword('new123');
@@ -46,9 +40,7 @@ describe('usePasswordChange', () => {
   it('should handle successful password change', async () => {
     mockChangePassword.mockResolvedValue({ ok: true });
 
-    const { result } = renderHook(() =>
-      usePasswordChange({ changePassword: mockChangePassword })
-    );
+    const { result } = renderHook(() => usePasswordChange({ changePassword: mockChangePassword }));
 
     // Set passwords
     act(() => {
@@ -70,12 +62,10 @@ describe('usePasswordChange', () => {
   it('should handle password change failure with custom error', async () => {
     mockChangePassword.mockResolvedValue({
       ok: false,
-      error: 'Current password is incorrect'
+      error: 'Current password is incorrect',
     });
 
-    const { result } = renderHook(() =>
-      usePasswordChange({ changePassword: mockChangePassword })
-    );
+    const { result } = renderHook(() => usePasswordChange({ changePassword: mockChangePassword }));
 
     act(() => {
       result.current.setCurrentPassword('wrong');
@@ -95,9 +85,7 @@ describe('usePasswordChange', () => {
   it('should handle password change failure with default error', async () => {
     mockChangePassword.mockResolvedValue({ ok: false });
 
-    const { result } = renderHook(() =>
-      usePasswordChange({ changePassword: mockChangePassword })
-    );
+    const { result } = renderHook(() => usePasswordChange({ changePassword: mockChangePassword }));
 
     act(() => {
       result.current.setCurrentPassword('current');
@@ -115,14 +103,12 @@ describe('usePasswordChange', () => {
     // First attempt fails
     mockChangePassword.mockResolvedValueOnce({
       ok: false,
-      error: 'First error'
+      error: 'First error',
     });
     // Second attempt succeeds
     mockChangePassword.mockResolvedValueOnce({ ok: true });
 
-    const { result } = renderHook(() =>
-      usePasswordChange({ changePassword: mockChangePassword })
-    );
+    const { result } = renderHook(() => usePasswordChange({ changePassword: mockChangePassword }));
 
     // First failed attempt
     act(() => {
@@ -154,9 +140,7 @@ describe('usePasswordChange', () => {
   it('should handle async errors', async () => {
     mockChangePassword.mockRejectedValue(new Error('Network error'));
 
-    const { result } = renderHook(() =>
-      usePasswordChange({ changePassword: mockChangePassword })
-    );
+    const { result } = renderHook(() => usePasswordChange({ changePassword: mockChangePassword }));
 
     act(() => {
       result.current.setCurrentPassword('current');
@@ -164,8 +148,10 @@ describe('usePasswordChange', () => {
     });
 
     // The hook doesn't handle async errors explicitly, so this should throw
-    await expect(act(async () => {
-      await result.current.handleChange();
-    })).rejects.toThrow('Network error');
+    await expect(
+      act(async () => {
+        await result.current.handleChange();
+      }),
+    ).rejects.toThrow('Network error');
   });
 });

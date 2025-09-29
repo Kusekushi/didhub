@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  TextField,
-  InputAdornment,
-  IconButton,
-} from '@mui/material';
+import { Box, TextField, InputAdornment, IconButton } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 
@@ -38,16 +33,12 @@ export default function SystemSearch(props: SystemSearchProps) {
             ),
             endAdornment: props.hasQuery ? (
               <InputAdornment position="end">
-                <IconButton
-                  size="small"
-                  onClick={props.clearSearch}
-                  aria-label="clear search"
-                >
+                <IconButton size="small" onClick={props.clearSearch} aria-label="clear search">
                   <ClearIcon fontSize="small" />
                 </IconButton>
               </InputAdornment>
             ) : null,
-          }
+          },
         }}
       />
     </Box>

@@ -72,8 +72,7 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
         <strong>Job:</strong> {props.alter.job || '-'}
       </div>
       <div>
-        <strong>Affiliation:</strong>{' '}
-        {affiliationsNormalized}
+        <strong>Affiliation:</strong> {affiliationsNormalized}
       </div>
       <div>
         <strong>Weapon:</strong> {props.alter.weapon || '-'}

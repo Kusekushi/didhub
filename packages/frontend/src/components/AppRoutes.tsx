@@ -42,8 +42,14 @@ export default function AppRoutes(props: AppRoutesProps) {
         element={props.user ? <SubsystemDetail /> : <Navigate to="/login" replace />}
       />
       <Route path="/subsystems/:sid" element={props.user ? <SubsystemDetail /> : <Navigate to="/login" replace />} />
-      <Route path="/systems/:uid/groups/:id" element={props.user ? <GroupDetail /> : <Navigate to="/login" replace />} />
-      <Route path="/did-system/:uid/groups/:id" element={props.user ? <GroupDetail /> : <Navigate to="/login" replace />} />
+      <Route
+        path="/systems/:uid/groups/:id"
+        element={props.user ? <GroupDetail /> : <Navigate to="/login" replace />}
+      />
+      <Route
+        path="/did-system/:uid/groups/:id"
+        element={props.user ? <GroupDetail /> : <Navigate to="/login" replace />}
+      />
       <Route path="/groups/:id" element={props.user ? <GroupDetail /> : <Navigate to="/login" replace />} />
       <Route path="/birthdays" element={props.user ? <Birthdays /> : <Navigate to="/login" replace />} />
       <Route path="/family-tree" element={props.user ? <FamilyTree /> : <Navigate to="/login" replace />} />
@@ -52,7 +58,10 @@ export default function AppRoutes(props: AppRoutesProps) {
       <Route path="/did-system/:uid" element={props.user ? <DIDSystemView /> : <Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/awaiting-approval" element={<AwaitingApproval />} />
-      <Route path="/redirect-to-system" element={props.user ? <RedirectToSystem /> : <Navigate to="/login" replace />} />
+      <Route
+        path="/redirect-to-system"
+        element={props.user ? <RedirectToSystem /> : <Navigate to="/login" replace />}
+      />
       <Route path="/register" element={<SignUp />} />
       <Route path="/admin" element={props.user ? <Admin /> : <Navigate to="/login" replace />} />
       <Route path="/user-settings" element={props.user ? <UserSettings /> : <Navigate to="/login" replace />} />

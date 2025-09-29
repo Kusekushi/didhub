@@ -34,10 +34,7 @@ export function useAlterData(id?: string) {
         setLoading(true);
         setError(null);
 
-        const [alterResult, userResult] = await Promise.all([
-          getAlter(id),
-          fetchMeVerified(),
-        ]);
+        const [alterResult, userResult] = await Promise.all([getAlter(id), fetchMeVerified()]);
 
         setAlter(alterResult);
         setUser(userResult);
@@ -136,7 +133,12 @@ export function useAlterData(id?: string) {
 
       // Name lookup fallback
       const subsystems = await listSubsystems(rawStr || '', undefined, true);
-      const items = subsystems && (subsystems as any).items ? (subsystems as any).items : Array.isArray(subsystems) ? subsystems : [];
+      const items =
+        subsystems && (subsystems as any).items
+          ? (subsystems as any).items
+          : Array.isArray(subsystems)
+            ? subsystems
+            : [];
       const found = (items as any[]).find(
         (it) => it && it.name && String(it.name).toLowerCase() === rawStr.toLowerCase(),
       );
@@ -152,10 +154,7 @@ export function useAlterData(id?: string) {
       setLoading(true);
       setError(null);
 
-      const [alterResult, userResult] = await Promise.all([
-        getAlter(id),
-        fetchMeVerified(),
-      ]);
+      const [alterResult, userResult] = await Promise.all([getAlter(id), fetchMeVerified()]);
 
       setAlter(alterResult);
       setUser(userResult);

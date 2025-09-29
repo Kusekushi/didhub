@@ -1,15 +1,5 @@
 import React from 'react';
-import {
-  Button,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Avatar,
-  Divider,
-  Chip,
-  Stack,
-} from '@mui/material';
+import { Button, List, ListItem, ListItemText, ListItemAvatar, Avatar, Divider, Chip, Stack } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
 
@@ -79,22 +69,23 @@ export default function AltersTab(props: AltersTabProps) {
                           }
                         : undefined
                     }
-                    onDelete={
-                      props.canManage
-                        ? () => props.onDelete(it.id)
-                        : undefined
-                    }
+                    onDelete={props.canManage ? () => props.onDelete(it.id) : undefined}
                     onShare={async () => {
                       if (!props.settings.shortLinksEnabled) return;
                       try {
                         const resp = await createShortLink('alter', it.id).catch(() => null);
-                        if (!resp || (!resp.token && !resp.url)) throw new Error(resp && resp.error ? String(resp.error) : 'failed');
+                        if (!resp || (!resp.token && !resp.url))
+                          throw new Error(resp && resp.error ? String(resp.error) : 'failed');
                         const path = resp.url || `/s/${resp.token}`;
                         const url = path.startsWith('http') ? path : window.location.origin.replace(/:\d+$/, '') + path;
                         await navigator.clipboard.writeText(url);
                         props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
                       } catch (e) {
-                        props.setSnack({ open: true, message: String(e?.message || e || 'Failed to create share link'), severity: 'error' });
+                        props.setSnack({
+                          open: true,
+                          message: String(e?.message || e || 'Failed to create share link'),
+                          severity: 'error',
+                        });
                       }
                     }}
                     canManage={props.canManage}

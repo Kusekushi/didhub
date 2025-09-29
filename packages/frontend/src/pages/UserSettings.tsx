@@ -1,10 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import {
-  Button,
-  Avatar,
-  Typography,
-  TextField,
-} from '@mui/material';
+import { Button, Avatar, Typography, TextField } from '@mui/material';
 
 import NotificationSnackbar from '../components/NotificationSnackbar';
 import { useAuth } from '../contexts/AuthContext';
@@ -112,11 +107,7 @@ export default function UserSettings() {
             onChange={(e) => setFile((e.target as HTMLInputElement).files && (e.target as HTMLInputElement).files![0])}
             style={{ display: 'none' }}
           />
-          <Button
-            variant="outlined"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading}
-          >
+          <Button variant="outlined" onClick={() => fileInputRef.current?.click()} disabled={loading}>
             Choose avatar image
           </Button>
           {file && (
@@ -140,7 +131,7 @@ export default function UserSettings() {
           </div>
         </div>
       </div>
-            <hr style={{ margin: '16px 0' }} />
+      <hr style={{ margin: '16px 0' }} />
       {!(user?.is_admin || user?.is_system) && (
         <div style={{ marginBottom: 12 }}>
           <div style={{ marginBottom: 8 }}>

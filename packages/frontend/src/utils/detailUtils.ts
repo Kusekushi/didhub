@@ -39,9 +39,9 @@ export function renderEmbeds(arr: unknown): React.ReactElement | null {
       return React.createElement(
         'div',
         { key: i },
-        React.createElement('a', { href: u, target: '_blank', rel: 'noreferrer' }, u)
+        React.createElement('a', { href: u, target: '_blank', rel: 'noreferrer' }, u),
       );
-    })
+    }),
   );
 }
 

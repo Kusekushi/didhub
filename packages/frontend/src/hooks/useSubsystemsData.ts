@@ -7,12 +7,9 @@ import { useEntityData } from './useEntityData';
  */
 export function useSubsystemsData(uid?: string, search: string = '', activeTab: number = 0) {
   // Wrapper to match the expected function signature
-  const fetchSubsystems = useCallback(
-    async (query: string, includeMembers?: boolean) => {
-      return listSubsystems(query, undefined, includeMembers);
-    },
-    []
-  );
+  const fetchSubsystems = useCallback(async (query: string, includeMembers?: boolean) => {
+    return listSubsystems(query, undefined, includeMembers);
+  }, []);
 
   return useEntityData<Subsystem>(2, fetchSubsystems, uid, search, activeTab);
 }

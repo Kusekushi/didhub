@@ -20,7 +20,7 @@ export default function GroupAvatar(props: GroupAvatarProps) {
 
   try {
     const raw = (props.group as any).sigil;
-    let url: string | null = raw.trim();
+    const url: string | null = raw.trim();
 
     if (url) {
       const isImg = /^(https?:\/\/|data:|blob:|\/)/i.test(url);
@@ -36,10 +36,7 @@ export default function GroupAvatar(props: GroupAvatarProps) {
         );
       }
       return (
-        <Avatar
-          variant="rounded"
-          sx={{ width: 40, height: 40, fontSize: 14, bgcolor: '#e0e0e0', color: '#555' }}
-        >
+        <Avatar variant="rounded" sx={{ width: 40, height: 40, fontSize: 14, bgcolor: '#e0e0e0', color: '#555' }}>
           {String(url).slice(0, 2).toUpperCase()}
         </Avatar>
       );
@@ -47,10 +44,7 @@ export default function GroupAvatar(props: GroupAvatarProps) {
   } catch {}
 
   return (
-    <Avatar
-      variant="rounded"
-      sx={{ width: 40, height: 40, fontSize: 14, bgcolor: '#f0f0f0', color: '#777' }}
-    >
+    <Avatar variant="rounded" sx={{ width: 40, height: 40, fontSize: 14, bgcolor: '#f0f0f0', color: '#777' }}>
       {(props.group.name || '#').slice(0, 1).toUpperCase()}
     </Avatar>
   );

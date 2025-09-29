@@ -64,7 +64,7 @@ export default function Login(): React.ReactElement {
       }
 
       // Validate provider is in the allowed list
-      if (provider?.id && !providers.some(p => p.id === provider.id)) {
+      if (provider?.id && !providers.some((p) => p.id === provider.id)) {
         return { error: 'Invalid provider' } as any;
       }
 

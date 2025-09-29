@@ -34,7 +34,7 @@ describe('useAltersData', () => {
   it('should fetch initial data when uid is provided', async () => {
     const mockAlters = [
       { id: 1, name: 'Alter 1' },
-      { id: 2, name: 'Alter 2' }
+      { id: 2, name: 'Alter 2' },
     ];
     (fetchAltersBySystem as any).mockResolvedValue(mockAlters);
 
@@ -82,18 +82,24 @@ describe('useAltersData', () => {
     });
 
     // Wait for search (debounced)
-    await waitFor(() => {
-      expect(fetchAltersSearch).toHaveBeenCalledWith('test-uid', 'search term');
-      expect(result.current.items).toEqual(mockSearchResults);
-    }, { timeout: 500 });
+    await waitFor(
+      () => {
+        expect(fetchAltersSearch).toHaveBeenCalledWith('test-uid', 'search term');
+        expect(result.current.items).toEqual(mockSearchResults);
+      },
+      { timeout: 500 },
+    );
   });
 
   it('should set loading to true during search', async () => {
     const mockSearchResults = [{ id: 3, name: 'Alter 3' }];
     (fetchAltersBySystem as any).mockResolvedValue([]);
-    (fetchAltersSearch as any).mockImplementation(() => new Promise(resolve => {
-      setTimeout(() => resolve(mockSearchResults), 100);
-    }));
+    (fetchAltersSearch as any).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve(mockSearchResults), 100);
+        }),
+    );
 
     const { result } = renderHook(() => useAltersData('test-uid', 'search'));
 
@@ -191,14 +197,16 @@ describe('useAltersData', () => {
 
   it('should cancel previous search when search term changes quickly', async () => {
     (fetchAltersBySystem as any).mockResolvedValue([]);
-    (fetchAltersSearch as any).mockImplementation(() => new Promise(resolve => {
-      setTimeout(() => resolve([{ id: 1, name: 'Slow Result' }]), 200);
-    }));
-
-    const { result, rerender } = renderHook(
-      ({ search }) => useAltersData('test-uid', search),
-      { initialProps: { search: 'first' } }
+    (fetchAltersSearch as any).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve([{ id: 1, name: 'Slow Result' }]), 200);
+        }),
     );
+
+    const { result, rerender } = renderHook(({ search }) => useAltersData('test-uid', search), {
+      initialProps: { search: 'first' },
+    });
 
     // Wait for initial load
     await waitFor(() => {

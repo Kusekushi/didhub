@@ -80,7 +80,7 @@ describe('useEntityCreationState', () => {
 
     const initialState: ComplexState = {
       user: { id: 0, name: '' },
-      settings: { theme: 'light', notifications: true }
+      settings: { theme: 'light', notifications: true },
     };
 
     const { result } = renderHook(() => useEntityCreationState(initialState));

@@ -79,9 +79,7 @@ export default function Licenses() {
   if (error) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Alert severity="error">
-          Failed to load license information: {error}
-        </Alert>
+        <Alert severity="error">Failed to load license information: {error}</Alert>
       </Container>
     );
   }
@@ -100,31 +98,36 @@ export default function Licenses() {
           <Typography variant="h6">Frontend Dependencies</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {frontendLicenses && Object.entries(frontendLicenses).map(([name, info]) => {
-            // Handle our own packages that are marked as UNLICENSED but actually have MIT license
-            const displayLicense = info.licenses === 'UNLICENSED' && (name.startsWith('@didhub/')) ? 'MIT' : info.licenses;
-            
-            return (
-              <Box key={name} sx={{ mb: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  {name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  License: {displayLicense}
-                </Typography>
-                {info.repository && (
-                  <Typography variant="body2" color="text.secondary">
-                    Repository: <a href={info.repository} target="_blank" rel="noopener noreferrer">{info.repository}</a>
+          {frontendLicenses &&
+            Object.entries(frontendLicenses).map(([name, info]) => {
+              // Handle our own packages that are marked as UNLICENSED but actually have MIT license
+              const displayLicense =
+                info.licenses === 'UNLICENSED' && name.startsWith('@didhub/') ? 'MIT' : info.licenses;
+
+              return (
+                <Box key={name} sx={{ mb: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {name}
                   </Typography>
-                )}
-                {info.publisher && (
                   <Typography variant="body2" color="text.secondary">
-                    Publisher: {info.publisher}
+                    License: {displayLicense}
                   </Typography>
-                )}
-              </Box>
-            );
-          })}
+                  {info.repository && (
+                    <Typography variant="body2" color="text.secondary">
+                      Repository:{' '}
+                      <a href={info.repository} target="_blank" rel="noopener noreferrer">
+                        {info.repository}
+                      </a>
+                    </Typography>
+                  )}
+                  {info.publisher && (
+                    <Typography variant="body2" color="text.secondary">
+                      Publisher: {info.publisher}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
         </AccordionDetails>
       </Accordion>
 
@@ -133,26 +136,30 @@ export default function Licenses() {
           <Typography variant="h6">Backend Dependencies</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {backendLicenses && backendLicenses.map((dep) => (
-            <Box key={dep.name} sx={{ mb: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-              <Typography variant="subtitle1" fontWeight="bold">
-                {dep.name} v{dep.version}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                License: {dep.license}
-              </Typography>
-              {dep.repository && (
-                <Typography variant="body2" color="text.secondary">
-                  Repository: <a href={dep.repository} target="_blank" rel="noopener noreferrer">{dep.repository}</a>
+          {backendLicenses &&
+            backendLicenses.map((dep) => (
+              <Box key={dep.name} sx={{ mb: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  {dep.name} v{dep.version}
                 </Typography>
-              )}
-              {dep.description && (
                 <Typography variant="body2" color="text.secondary">
-                  {dep.description}
+                  License: {dep.license}
                 </Typography>
-              )}
-            </Box>
-          ))}
+                {dep.repository && (
+                  <Typography variant="body2" color="text.secondary">
+                    Repository:{' '}
+                    <a href={dep.repository} target="_blank" rel="noopener noreferrer">
+                      {dep.repository}
+                    </a>
+                  </Typography>
+                )}
+                {dep.description && (
+                  <Typography variant="body2" color="text.secondary">
+                    {dep.description}
+                  </Typography>
+                )}
+              </Box>
+            ))}
         </AccordionDetails>
       </Accordion>
     </Container>

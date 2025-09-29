@@ -1,13 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  Container,
-  Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  Box,
-  CircularProgress,
-} from '@mui/material';
+import { Container, Typography, Dialog, DialogTitle, DialogContent, Box, CircularProgress } from '@mui/material';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -20,14 +12,7 @@ const localizer = momentLocalizer(moment as any);
 function parseBirthdayToDate(bday: any, year: number) {
   if (!bday) return null;
   const s = String(bday).trim();
-  const formats = [
-    'DD-MM',
-    'D-M',
-    'DD/MM',
-    'D/M',
-    'D MMMM',
-    'D MMM',
-  ];
+  const formats = ['DD-MM', 'D-M', 'DD/MM', 'D/M', 'D MMMM', 'D MMM'];
   for (const fmt of formats) {
     const m = moment(s, fmt, true);
     if (m.isValid()) return new Date(year, m.month(), m.date());

@@ -27,7 +27,7 @@ describe('useSystemList', () => {
   it('should load systems on mount', async () => {
     const mockSystems = [
       { user_id: 1, username: 'user1' },
-      { user_id: 2, username: 'user2' }
+      { user_id: 2, username: 'user2' },
     ];
     (listSystems as any).mockResolvedValue(mockSystems);
 
@@ -64,7 +64,7 @@ describe('useSystemList', () => {
     const mockSystems = [
       { user_id: 1, username: 'alice' },
       { user_id: 2, username: 'bob' },
-      { user_id: 3, username: 'charlie' }
+      { user_id: 3, username: 'charlie' },
     ];
     (listSystems as any).mockResolvedValue(mockSystems);
 
@@ -81,17 +81,20 @@ describe('useSystemList', () => {
     });
 
     // Wait for debouncing and filtering
-    await waitFor(() => {
-      expect(result.current.systems).toEqual([{ user_id: 2, username: 'bob' }]);
-      expect(result.current.hasQuery).toBe(true);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toEqual([{ user_id: 2, username: 'bob' }]);
+        expect(result.current.hasQuery).toBe(true);
+      },
+      { timeout: 400 },
+    );
   });
 
   it('should filter systems by user_id', async () => {
     const mockSystems = [
       { user_id: 123, username: 'alice' },
       { user_id: 456, username: 'bob' },
-      { user_id: 789, username: 'charlie' }
+      { user_id: 789, username: 'charlie' },
     ];
     (listSystems as any).mockResolvedValue(mockSystems);
 
@@ -105,16 +108,19 @@ describe('useSystemList', () => {
       result.current.setQuery('456');
     });
 
-    await waitFor(() => {
-      expect(result.current.systems).toEqual([{ user_id: 456, username: 'bob' }]);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toEqual([{ user_id: 456, username: 'bob' }]);
+      },
+      { timeout: 400 },
+    );
   });
 
   it('should handle case-insensitive search', async () => {
     const mockSystems = [
       { user_id: 1, username: 'Alice' },
       { user_id: 2, username: 'BOB' },
-      { user_id: 3, username: 'Charlie' }
+      { user_id: 3, username: 'Charlie' },
     ];
     (listSystems as any).mockResolvedValue(mockSystems);
 
@@ -128,15 +134,18 @@ describe('useSystemList', () => {
       result.current.setQuery('alice');
     });
 
-    await waitFor(() => {
-      expect(result.current.systems).toEqual([{ user_id: 1, username: 'Alice' }]);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toEqual([{ user_id: 1, username: 'Alice' }]);
+      },
+      { timeout: 400 },
+    );
   });
 
   it('should return all systems when query is empty', async () => {
     const mockSystems = [
       { user_id: 1, username: 'alice' },
-      { user_id: 2, username: 'bob' }
+      { user_id: 2, username: 'bob' },
     ];
     (listSystems as any).mockResolvedValue(mockSystems);
 
@@ -151,23 +160,29 @@ describe('useSystemList', () => {
       result.current.setQuery('alice');
     });
 
-    await waitFor(() => {
-      expect(result.current.systems).toHaveLength(1);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toHaveLength(1);
+      },
+      { timeout: 400 },
+    );
 
     act(() => {
       result.current.setQuery('');
     });
 
-    await waitFor(() => {
-      expect(result.current.systems).toHaveLength(2);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toHaveLength(2);
+      },
+      { timeout: 400 },
+    );
   });
 
   it('should clear search using clearSearch', async () => {
     const mockSystems = [
       { user_id: 1, username: 'alice' },
-      { user_id: 2, username: 'bob' }
+      { user_id: 2, username: 'bob' },
     ];
     (listSystems as any).mockResolvedValue(mockSystems);
 
@@ -181,10 +196,13 @@ describe('useSystemList', () => {
       result.current.setQuery('alice');
     });
 
-    await waitFor(() => {
-      expect(result.current.systems).toHaveLength(1);
-      expect(result.current.hasQuery).toBe(true);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toHaveLength(1);
+        expect(result.current.hasQuery).toBe(true);
+      },
+      { timeout: 400 },
+    );
 
     act(() => {
       result.current.clearSearch();
@@ -193,15 +211,18 @@ describe('useSystemList', () => {
     expect(result.current.query).toBe('');
     expect(result.current.hasQuery).toBe(false);
 
-    await waitFor(() => {
-      expect(result.current.systems).toHaveLength(2);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toHaveLength(2);
+      },
+      { timeout: 400 },
+    );
   });
 
   it('should debounce search input', async () => {
     const mockSystems = [
       { user_id: 1, username: 'alice' },
-      { user_id: 2, username: 'bob' }
+      { user_id: 2, username: 'bob' },
     ];
     (listSystems as any).mockResolvedValue(mockSystems);
 
@@ -216,13 +237,13 @@ describe('useSystemList', () => {
       result.current.setQuery('a');
     });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     act(() => {
       result.current.setQuery('al');
     });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     act(() => {
       result.current.setQuery('ali');
@@ -232,9 +253,12 @@ describe('useSystemList', () => {
     expect(result.current.systems).toHaveLength(2);
 
     // Wait for final debounce
-    await waitFor(() => {
-      expect(result.current.systems).toEqual([{ user_id: 1, username: 'alice' }]);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toEqual([{ user_id: 1, username: 'alice' }]);
+      },
+      { timeout: 400 },
+    );
   });
 
   it('should handle systems with missing username or user_id', async () => {
@@ -242,7 +266,7 @@ describe('useSystemList', () => {
       { user_id: 1, username: 'alice' },
       { user_id: 2 }, // missing username
       { username: 'bob' }, // missing user_id
-      {} // missing both
+      {}, // missing both
     ];
     (listSystems as any).mockResolvedValue(mockSystems);
 
@@ -256,8 +280,11 @@ describe('useSystemList', () => {
       result.current.setQuery('alice');
     });
 
-    await waitFor(() => {
-      expect(result.current.systems).toEqual([{ user_id: 1, username: 'alice' }]);
-    }, { timeout: 400 });
+    await waitFor(
+      () => {
+        expect(result.current.systems).toEqual([{ user_id: 1, username: 'alice' }]);
+      },
+      { timeout: 400 },
+    );
   });
 });

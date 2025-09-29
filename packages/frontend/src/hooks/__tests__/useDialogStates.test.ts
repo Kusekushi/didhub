@@ -17,7 +17,7 @@ describe('useDialogStates', () => {
       open: false,
       type: null,
       id: null,
-      label: ''
+      label: '',
     });
   });
 
@@ -67,7 +67,7 @@ describe('useDialogStates', () => {
       open: true,
       type: 'alter' as const,
       id: 456,
-      label: 'Test Alter'
+      label: 'Test Alter',
     };
 
     act(() => {
@@ -86,7 +86,7 @@ describe('useDialogStates', () => {
         open: true,
         type: 'group',
         id: 789,
-        label: 'Test Group'
+        label: 'Test Group',
       });
     });
 
@@ -98,7 +98,7 @@ describe('useDialogStates', () => {
         open: false,
         type: null,
         id: null,
-        label: ''
+        label: '',
       });
     });
 
@@ -106,7 +106,7 @@ describe('useDialogStates', () => {
       open: false,
       type: null,
       id: null,
-      label: ''
+      label: '',
     });
   });
 
@@ -126,7 +126,7 @@ describe('useDialogStates', () => {
     const testCases = [
       { type: 'alter' as const, id: 1, label: 'Alter 1' },
       { type: 'group' as const, id: 2, label: 'Group 2' },
-      { type: 'subsystem' as const, id: 3, label: 'Subsystem 3' }
+      { type: 'subsystem' as const, id: 3, label: 'Subsystem 3' },
     ];
 
     testCases.forEach(({ type, id, label }) => {
@@ -135,7 +135,7 @@ describe('useDialogStates', () => {
           open: true,
           type,
           id,
-          label
+          label,
         });
       });
 
@@ -143,7 +143,7 @@ describe('useDialogStates', () => {
         open: true,
         type,
         id,
-        label
+        label,
       });
     });
   });
@@ -159,7 +159,7 @@ describe('useDialogStates', () => {
         open: true,
         type: 'alter',
         id: 999,
-        label: 'Test'
+        label: 'Test',
       });
     });
 

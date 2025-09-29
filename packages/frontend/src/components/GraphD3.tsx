@@ -49,13 +49,16 @@ export default function GraphD3(props: GraphProps) {
 
     // Debug logging
     console.log('Family tree data:', props.data);
-    console.log('User relationships in nodes:', Object.values(props.data.nodes).map(n => ({
-      id: n.id,
-      name: n.name,
-      user_partners: n.user_partners,
-      user_parents: n.user_parents,
-      user_children: n.user_children
-    })));
+    console.log(
+      'User relationships in nodes:',
+      Object.values(props.data.nodes).map((n) => ({
+        id: n.id,
+        name: n.name,
+        user_partners: n.user_partners,
+        user_parents: n.user_parents,
+        user_children: n.user_children,
+      })),
+    );
     console.log('Owners:', props.data.owners);
 
     const width = (wrapperRef.current?.clientWidth || 900) - 16;
@@ -64,7 +67,8 @@ export default function GraphD3(props: GraphProps) {
     svg.attr('viewBox', `0 0 ${width} ${height}`);
 
     // Add zoom behavior
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
@@ -82,23 +86,31 @@ export default function GraphD3(props: GraphProps) {
     };
 
     // Build nodes array
-    const alterNodes: GraphNode[] = Object.values(props.data.nodes).map((n) => ({ id: n.id, name: n.name || `#${n.id}`, meta: n, type: 'alter' as const, isUser: false }));
-    const userNodes: GraphNode[] = props.data.owners ? Object.values(props.data.owners)
-      .filter((u) => !u.is_system) // Exclude system users
-      .map((u) => ({ 
-        id: u.id, 
-        name: u.username || `User ${u.id}`, 
-        meta: u, 
-        type: 'user' as const,
-        isUser: true
-      })) : [];
-    
+    const alterNodes: GraphNode[] = Object.values(props.data.nodes).map((n) => ({
+      id: n.id,
+      name: n.name || `#${n.id}`,
+      meta: n,
+      type: 'alter' as const,
+      isUser: false,
+    }));
+    const userNodes: GraphNode[] = props.data.owners
+      ? Object.values(props.data.owners)
+          .filter((u) => !u.is_system) // Exclude system users
+          .map((u) => ({
+            id: u.id,
+            name: u.username || `User ${u.id}`,
+            meta: u,
+            type: 'user' as const,
+            isUser: true,
+          }))
+      : [];
+
     console.log('User nodes created:', userNodes);
     const nodeMeta: GraphNode[] = [...alterNodes, ...userNodes];
-    
+
     const parentLinks = props.data.edges.parent.map(([p, c]) => ({ source: p, target: c, type: 'parent' }));
     const partnerLinks = props.data.edges.partner.map(([a, b]) => ({ source: a, target: b, type: 'partner' }));
-    
+
     // Add user relationship links
     const userRelationshipLinks: GraphLink[] = [];
     Object.values(props.data.nodes).forEach((alter) => {
@@ -127,12 +139,12 @@ export default function GraphD3(props: GraphProps) {
     // Hierarchical layering for initial positions
     const parentsCount = new Map<number, number>();
     nodeMeta.forEach((n) => parentsCount.set(n.id, 0));
-    
+
     // Count alter-to-alter parent relationships
     props.data.edges.parent.forEach(([, childId]) => {
       parentsCount.set(childId, (parentsCount.get(childId) || 0) + 1);
     });
-    
+
     // Count user-parent relationships (user is parent of alter)
     Object.values(props.data.nodes).forEach((alter) => {
       (alter.user_parents || []).forEach((userId) => {
@@ -141,25 +153,25 @@ export default function GraphD3(props: GraphProps) {
         }
       });
     });
-    
+
     const roots = nodeMeta.filter((n) => (parentsCount.get(n.id) || 0) === 0);
-    
+
     // BFS layering
     const layers: number[][] = [];
     const visited = new Set<number>();
     const queue: Array<{ id: number; depth: number }> = roots.map((r) => ({ id: r.id, depth: 0 }));
-    
+
     while (queue.length) {
       const { id, depth } = queue.shift()!;
       if (!layers[depth]) layers[depth] = [];
       if (!layers[depth].includes(id)) layers[depth].push(id);
       if (visited.has(id)) continue;
       visited.add(id);
-      
+
       // Add alter children
       const alterChildren = props.data.nodes[id]?.children || [];
       alterChildren.forEach((c) => queue.push({ id: c, depth: depth + 1 }));
-      
+
       // Add user children (alter is parent of user)
       const userChildren = props.data.nodes[id]?.user_children || [];
       userChildren.forEach((c) => {
@@ -248,7 +260,7 @@ export default function GraphD3(props: GraphProps) {
       .attr('cursor', 'pointer')
       .on('mousemove', function (event, d) {
         let text = `${d.name}\n`;
-        
+
         if (d.isUser) {
           // User node hover info
           const userMeta = d.meta as FamilyTreeOwner;
@@ -263,14 +275,18 @@ export default function GraphD3(props: GraphProps) {
           let ownerLine = '';
           if (meta.owner_user_id) {
             let labelType = 'User';
-            if (props.data.owners && props.data.owners[meta.owner_user_id] && props.data.owners[meta.owner_user_id].is_system)
+            if (
+              props.data.owners &&
+              props.data.owners[meta.owner_user_id] &&
+              props.data.owners[meta.owner_user_id].is_system
+            )
               labelType = 'System';
             const o = props.data.owners && props.data.owners[meta.owner_user_id];
             ownerLine = `${labelType}: ${o?.username || '#' + meta.owner_user_id}\n`;
           }
           text += `${ownerLine}${age ? 'Age: ' + age + '\n' : ''}${roles ? 'Roles: ' + roles : ''}`;
         }
-        
+
         setHoverInfo({ x: event.offsetX + 12, y: event.offsetY + 12, text });
       })
       .on('mouseleave', () => setHoverInfo(null))
@@ -365,7 +381,8 @@ export default function GraphD3(props: GraphProps) {
     const boxWidth = 220;
     const x = 10;
     const y = 10;
-    legendGroup.append('rect')
+    legendGroup
+      .append('rect')
       .attr('x', x)
       .attr('y', y)
       .attr('rx', 6)
@@ -376,13 +393,15 @@ export default function GraphD3(props: GraphProps) {
       .attr('stroke', '#555');
     items.forEach((it, idx) => {
       const iy = y + padding + idx * lineHeight + 12;
-      legendGroup.append('circle')
+      legendGroup
+        .append('circle')
         .attr('cx', x + 12)
         .attr('cy', iy - 4)
         .attr('r', 6)
         .attr('fill', it.color)
         .attr('stroke', '#111');
-      legendGroup.append('text')
+      legendGroup
+        .append('text')
         .attr('x', x + 24)
         .attr('y', iy - 2)
         .attr('fill', '#eee')

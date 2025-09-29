@@ -25,7 +25,11 @@ export default function ShareButtonInline(props: ShareButtonInlineProps) {
       await navigator.clipboard.writeText(url);
       props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
     } catch (e) {
-      props.setSnack({ open: true, message: String(e?.message || e || 'Failed to create share link'), severity: 'error' });
+      props.setSnack({
+        open: true,
+        message: String(e?.message || e || 'Failed to create share link'),
+        severity: 'error',
+      });
     }
   };
   return (

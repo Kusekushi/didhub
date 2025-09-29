@@ -47,22 +47,14 @@ export default function GroupActions(props: GroupActionsProps) {
         )}
 
         {props.canManage && (
-          <Button
-            variant="outlined"
-            color="error"
-            size="small"
-            onClick={() => setDeleteConfirmOpen(true)}
-          >
+          <Button variant="outlined" color="error" size="small" onClick={() => setDeleteConfirmOpen(true)}>
             Delete
           </Button>
         )}
 
         <Tooltip title="Create share link and copy to clipboard">
           {props.settings.shortLinksEnabled && (
-            <IconButton
-              size="small"
-              onClick={() => createShareLink(props.group.id, props.setSnack)}
-            >
+            <IconButton size="small" onClick={() => createShareLink(props.group.id, props.setSnack)}>
               <ShareIcon fontSize="small" />
             </IconButton>
           )}

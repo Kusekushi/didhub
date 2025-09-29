@@ -8,7 +8,7 @@ export function useEntityCreationState<T extends Record<string, any>>(initialSta
   const [state, setState] = useState<T>(initialState);
 
   const updateField = <K extends keyof T>(field: K, value: T[K]) => {
-    setState(prev => ({ ...prev, [field]: value }));
+    setState((prev) => ({ ...prev, [field]: value }));
   };
 
   const reset = () => {

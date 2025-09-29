@@ -30,11 +30,7 @@ export default function ConfirmDialog(props: ConfirmDialogProps) {
       </DialogContent>
       <DialogActions>
         <Button onClick={props.onClose}>{props.cancelLabel || 'Cancel'}</Button>
-        <Button
-          variant="contained"
-          color="error"
-          onClick={handleConfirm}
-        >
+        <Button variant="contained" color="error" onClick={handleConfirm}>
           {props.confirmLabel || 'Delete'}
         </Button>
       </DialogActions>

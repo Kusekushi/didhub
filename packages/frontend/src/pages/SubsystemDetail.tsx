@@ -14,7 +14,7 @@ import {
   ListItemButton,
   Autocomplete,
   TextField,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/PersonAddAlt1';
@@ -520,7 +520,7 @@ export default function SubsystemDetail() {
         open={pdfSnackOpen}
         onClose={() => setPdfSnackOpen(false)}
         message={pdfError}
-        severity={"error"}
+        severity={'error'}
       />
     </Container>
   );

@@ -112,13 +112,18 @@ export default function RedisTab(props: RedisTabProps) {
         </Stack>
         <FormControlLabel
           control={
-            <Switch checked={props.redisSessionsEnabled} onChange={(e) => props.setRedisSessionsEnabled(e.target.checked)} />
+            <Switch
+              checked={props.redisSessionsEnabled}
+              onChange={(e) => props.setRedisSessionsEnabled(e.target.checked)}
+            />
           }
           label="Store sessions in Redis"
           sx={{ mb: 2 }}
         />
         <FormControlLabel
-          control={<Switch checked={props.redisCacheEnabled} onChange={(e) => props.setRedisCacheEnabled(e.target.checked)} />}
+          control={
+            <Switch checked={props.redisCacheEnabled} onChange={(e) => props.setRedisCacheEnabled(e.target.checked)} />
+          }
           label="Enable Redis caching for server data"
           sx={{ mb: 2 }}
         />

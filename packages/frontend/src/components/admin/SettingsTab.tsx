@@ -65,20 +65,29 @@ export default function SettingsTab(props: SettingsTabProps) {
         <Stack direction="row" spacing={2} sx={{ mt: 2, alignItems: 'center' }}>
           <FormControlLabel
             control={
-              <Switch checked={props.discordDigestEnabled} onChange={(e) => props.onDiscordDigestChange(e.target.checked)} />
+              <Switch
+                checked={props.discordDigestEnabled}
+                onChange={(e) => props.onDiscordDigestChange(e.target.checked)}
+              />
             }
             label="Enable Discord digest"
           />
           <FormControlLabel
-            control={<Switch checked={props.emailEnabled} onChange={(e) => props.onEmailEnabledChange(e.target.checked)} />}
+            control={
+              <Switch checked={props.emailEnabled} onChange={(e) => props.onEmailEnabledChange(e.target.checked)} />
+            }
             label="Enable email features"
           />
           <FormControlLabel
-            control={<Switch checked={props.shortLinksEnabled} onChange={(e) => props.onShortLinksChange(e.target.checked)} />}
+            control={
+              <Switch checked={props.shortLinksEnabled} onChange={(e) => props.onShortLinksChange(e.target.checked)} />
+            }
             label="Enable short links"
           />
           <FormControlLabel
-            control={<Switch checked={props.autoUpdateEnabled} onChange={(e) => props.onAutoUpdateChange(e.target.checked)} />}
+            control={
+              <Switch checked={props.autoUpdateEnabled} onChange={(e) => props.onAutoUpdateChange(e.target.checked)} />
+            }
             label="Enable auto updates"
           />
         </Stack>

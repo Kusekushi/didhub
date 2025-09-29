@@ -8,7 +8,7 @@ import {
   User,
   refreshSession,
   changePassword as apiChangePassword,
-  getTokenExp
+  getTokenExp,
 } from '@didhub/api-client';
 
 /**

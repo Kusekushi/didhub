@@ -22,7 +22,7 @@ export interface AlterFormDialogProps {
   onCreated?: () => void;
   onSaved?: () => void;
   id?: string | number;
-};
+}
 
 const empty: Alter = {
   name: '',
@@ -104,7 +104,10 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         if (it && it.name && typeof it.id !== 'undefined') m[it.name] = it.id as number | string;
       }
       setUserPartnerMap(m);
-      console.log('User partner options:', items.map((x) => x.name || ''));
+      console.log(
+        'User partner options:',
+        items.map((x) => x.name || ''),
+      );
       console.log('User partner map:', m);
     } catch (e) {
       console.warn('Failed to fetch user options:', e);
@@ -120,9 +123,15 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
       setOriginalUserRelationships(userRelationships);
 
       // Transform user_relationships into form fields
-      const user_partners = userRelationships.filter(rel => rel.relationship_type === 'partner').map(rel => rel.user_id);
-      const user_parents = userRelationships.filter(rel => rel.relationship_type === 'parent').map(rel => rel.user_id);
-      const user_children = userRelationships.filter(rel => rel.relationship_type === 'child').map(rel => rel.user_id);
+      const user_partners = userRelationships
+        .filter((rel) => rel.relationship_type === 'partner')
+        .map((rel) => rel.user_id);
+      const user_parents = userRelationships
+        .filter((rel) => rel.relationship_type === 'parent')
+        .map((rel) => rel.user_id);
+      const user_children = userRelationships
+        .filter((rel) => rel.relationship_type === 'child')
+        .map((rel) => rel.user_id);
 
       setValues({
         ...r,
@@ -140,28 +149,35 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
   async function updateUserRelationships(alterId: number) {
     // Get desired relationships from form values
     const desiredRelationships = [
-      ...((values.user_partners as any[]) || []).map((userId: any) => ({ userId: Number(userId), type: 'partner' as const })),
-      ...((values.user_parents as any[]) || []).map((userId: any) => ({ userId: Number(userId), type: 'parent' as const })),
-      ...((values.user_children as any[]) || []).map((userId: any) => ({ userId: Number(userId), type: 'child' as const })),
+      ...((values.user_partners as any[]) || []).map((userId: any) => ({
+        userId: Number(userId),
+        type: 'partner' as const,
+      })),
+      ...((values.user_parents as any[]) || []).map((userId: any) => ({
+        userId: Number(userId),
+        type: 'parent' as const,
+      })),
+      ...((values.user_children as any[]) || []).map((userId: any) => ({
+        userId: Number(userId),
+        type: 'child' as const,
+      })),
     ];
 
     // Get current relationships
-    const currentRelationships = originalUserRelationships.map(rel => ({
+    const currentRelationships = originalUserRelationships.map((rel) => ({
       userId: rel.user_id,
       type: rel.relationship_type,
     }));
 
     // Find relationships to add and remove
-    const toAdd = desiredRelationships.filter(desired =>
-      !currentRelationships.some(current =>
-        current.userId === desired.userId && current.type === desired.type
-      )
+    const toAdd = desiredRelationships.filter(
+      (desired) =>
+        !currentRelationships.some((current) => current.userId === desired.userId && current.type === desired.type),
     );
 
-    const toRemove = currentRelationships.filter(current =>
-      !desiredRelationships.some(desired =>
-        desired.userId === current.userId && desired.type === current.type
-      )
+    const toRemove = currentRelationships.filter(
+      (current) =>
+        !desiredRelationships.some((desired) => desired.userId === current.userId && desired.type === current.type),
     );
 
     // Remove old relationships

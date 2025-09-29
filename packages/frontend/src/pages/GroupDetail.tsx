@@ -612,7 +612,7 @@ export default function GroupDetail() {
         open={pdfSnackOpen}
         onClose={() => setPdfSnackOpen(false)}
         message={pdfError}
-        severity={"error"}
+        severity={'error'}
       />
     </Container>
   );

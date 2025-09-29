@@ -48,7 +48,12 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
           <Button variant="contained" onClick={() => props.setCreateSubsystemOpen(true)}>
             Create Subsystem
           </Button>
-          <Dialog open={props.createSubsystemOpen} onClose={() => props.setCreateSubsystemOpen(false)} fullWidth maxWidth="sm">
+          <Dialog
+            open={props.createSubsystemOpen}
+            onClose={() => props.setCreateSubsystemOpen(false)}
+            fullWidth
+            maxWidth="sm"
+          >
             <DialogTitle>Create subsystem</DialogTitle>
             <DialogContent>
               <Box
@@ -99,7 +104,9 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                       { id: 'nested-did', label: 'nested-did' },
                     ]}
                     getOptionLabel={(o: { id: string; label: string } | null) => (o ? o.label : '')}
-                    value={props.newSubsystemType ? { id: props.newSubsystemType, label: props.newSubsystemType } : null}
+                    value={
+                      props.newSubsystemType ? { id: props.newSubsystemType, label: props.newSubsystemType } : null
+                    }
                     onChange={(_e: React.SyntheticEvent, v: { id: string; label: string } | null) =>
                       props.setNewSubsystemType(v ? v.id : 'normal')
                     }
@@ -125,7 +132,11 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
             <ListItem
               secondaryAction={
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <Button variant="outlined" size="small" onClick={() => props.nav(`/did-system/${props.uid}/subsystems/${s.id}`)}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => props.nav(`/did-system/${props.uid}/subsystems/${s.id}`)}
+                  >
                     View
                   </Button>
                   {props.canManage && (
@@ -134,12 +145,7 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                     </Button>
                   )}
                   {props.canManage && (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => props.onDelete(Number(s.id))}
-                    >
+                    <Button variant="outlined" color="error" size="small" onClick={() => props.onDelete(Number(s.id))}>
                       Delete
                     </Button>
                   )}

@@ -6,7 +6,7 @@ import { createShortLink } from '@didhub/api-client';
 export function useGroupShare() {
   const createShareLink = async (
     groupId: number | string,
-    setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void
+    setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void,
   ) => {
     try {
       const r = await createShortLink('group', groupId).catch(() => null);
@@ -15,9 +15,7 @@ export function useGroupShare() {
       }
 
       const path = r.url || `/s/${r.token}`;
-      const url = path.startsWith('http')
-        ? path
-        : window.location.origin.replace(/:\d+$/, '') + path;
+      const url = path.startsWith('http') ? path : window.location.origin.replace(/:\d+$/, '') + path;
 
       await navigator.clipboard.writeText(url);
       setSnack({ open: true, message: 'Share link copied', severity: 'success' });

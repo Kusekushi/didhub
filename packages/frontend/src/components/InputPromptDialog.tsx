@@ -8,7 +8,7 @@ export interface InputPromptDialogProps {
   defaultValue?: string;
   onCancel?: () => void;
   onSubmit?: (value: string) => void;
-};
+}
 
 export default function InputPromptDialog(props: InputPromptDialogProps) {
   const { open, title = '', label = '', defaultValue = '', onCancel, onSubmit } = props;

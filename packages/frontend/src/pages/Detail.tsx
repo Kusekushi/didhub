@@ -39,18 +39,13 @@ export default function Detail(): React.ReactElement {
 
   const { partnerLinks, parentLinks, childLinks } = useAlterLinks(alter);
 
-  const {
-    renaming,
-    renameVal,
-    renameError,
-    startRename,
-    cancelRename,
-    saveRename,
-    setRenameVal,
-  } = useRename(alter, (updatedAlter) => {
-    // Update the alter in the hook's state
-    refetch();
-  });
+  const { renaming, renameVal, renameError, startRename, cancelRename, saveRename, setRenameVal } = useRename(
+    alter,
+    (updatedAlter) => {
+      // Update the alter in the hook's state
+      refetch();
+    },
+  );
 
   const { shareDialog, handleShare, closeShareDialog } = useShare(alter?.id);
   const { pdfError, pdfSnackOpen, handlePdfDownload, closePdfSnack } = usePdf();
@@ -137,7 +132,13 @@ export default function Detail(): React.ReactElement {
 
       <G container spacing={2} sx={{ mt: 2 }}>
         <G item xs={12} md={6}>
-          <BasicInfoSection alter={alter} partnerLinks={partnerLinks} parentLinks={parentLinks} childLinks={childLinks} userRelationships={alter.user_relationships || []} />
+          <BasicInfoSection
+            alter={alter}
+            partnerLinks={partnerLinks}
+            parentLinks={parentLinks}
+            childLinks={childLinks}
+            userRelationships={alter.user_relationships || []}
+          />
         </G>
         <G item xs={12} md={6}>
           <WorkAffiliationsSection
@@ -198,12 +199,7 @@ export default function Detail(): React.ReactElement {
         }}
       />
 
-      <NotificationSnackbar
-        open={pdfSnackOpen}
-        onClose={closePdfSnack}
-        message={pdfError}
-        severity={"error"}
-      />
+      <NotificationSnackbar open={pdfSnackOpen} onClose={closePdfSnack} message={pdfError} severity={'error'} />
     </Container>
   );
 }

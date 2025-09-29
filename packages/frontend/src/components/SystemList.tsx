@@ -14,7 +14,7 @@ export interface SystemListProps {
   secondary?: (s: System) => React.ReactNode;
   showContainer?: boolean;
   showSearch?: boolean;
-};
+}
 
 export default function SystemList(props: SystemListProps) {
   const { title, header, primary, secondary, showContainer = true, showSearch = true } = props;
@@ -29,23 +29,11 @@ export default function SystemList(props: SystemListProps) {
       ) : null}
       {header}
 
-      {showSearch && (
-        <SystemSearch
-          query={query}
-          setQuery={setQuery}
-          clearSearch={clearSearch}
-          hasQuery={hasQuery}
-        />
-      )}
+      {showSearch && <SystemSearch query={query} setQuery={setQuery} clearSearch={clearSearch} hasQuery={hasQuery} />}
 
       <List>
         {systems.map((s) => (
-          <SystemListItem
-            key={s.user_id}
-            system={s}
-            primary={primary}
-            secondary={secondary}
-          />
+          <SystemListItem key={s.user_id} system={s} primary={primary} secondary={secondary} />
         ))}
       </List>
     </>

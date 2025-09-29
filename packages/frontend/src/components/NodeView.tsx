@@ -67,7 +67,13 @@ export default function NodeView(props: NodeViewProps) {
           <ul ref={listRef} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {!coll &&
               props.node.children.map((c) => (
-                <NodeView key={`${props.node.id}-${c.id}`} node={c} all={props.all} toggle={props.toggle} isCollapsed={props.isCollapsed} />
+                <NodeView
+                  key={`${props.node.id}-${c.id}`}
+                  node={c}
+                  all={props.all}
+                  toggle={props.toggle}
+                  isCollapsed={props.isCollapsed}
+                />
               ))}
           </ul>
         </div>

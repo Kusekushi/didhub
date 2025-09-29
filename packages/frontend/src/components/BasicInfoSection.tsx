@@ -13,11 +13,15 @@ export interface BasicInfoSectionProps {
 
 export default function BasicInfoSection(props: BasicInfoSectionProps) {
   // Group user relationships by type
-  const userPartners = props.userRelationships.filter(rel => rel.relationship_type === 'partner');
-  const userParents = props.userRelationships.filter(rel => rel.relationship_type === 'parent');
-  const userChildren = props.userRelationships.filter(rel => rel.relationship_type === 'child');
+  const userPartners = props.userRelationships.filter((rel) => rel.relationship_type === 'partner');
+  const userParents = props.userRelationships.filter((rel) => rel.relationship_type === 'parent');
+  const userChildren = props.userRelationships.filter((rel) => rel.relationship_type === 'child');
 
-  const renderRelationshipChips = (links: Array<{ name: string; id?: number | string }>, userRels: UserAlterRelationship[], keyPrefix: string) => {
+  const renderRelationshipChips = (
+    links: Array<{ name: string; id?: number | string }>,
+    userRels: UserAlterRelationship[],
+    keyPrefix: string,
+  ) => {
     return links.length || userRels.length ? (
       <>
         {links.map((p, idx) =>
@@ -44,7 +48,9 @@ export default function BasicInfoSection(props: BasicInfoSectionProps) {
           />
         ))}
       </>
-    ) : '-';
+    ) : (
+      '-'
+    );
   };
 
   return (
@@ -66,16 +72,13 @@ export default function BasicInfoSection(props: BasicInfoSectionProps) {
         <strong>Sexuality:</strong> {props.alter.sexuality || '-'}
       </div>
       <div>
-        <strong>Partners:</strong>{' '}
-        {renderRelationshipChips(props.partnerLinks, userPartners, 'partner')}
+        <strong>Partners:</strong> {renderRelationshipChips(props.partnerLinks, userPartners, 'partner')}
       </div>
       <div>
-        <strong>Parents:</strong>{' '}
-        {renderRelationshipChips(props.parentLinks, userParents, 'parent')}
+        <strong>Parents:</strong> {renderRelationshipChips(props.parentLinks, userParents, 'parent')}
       </div>
       <div>
-        <strong>Children:</strong>{' '}
-        {renderRelationshipChips(props.childLinks, userChildren, 'child')}
+        <strong>Children:</strong> {renderRelationshipChips(props.childLinks, userChildren, 'child')}
       </div>
       <div>
         <strong>Species:</strong> {props.alter.species || '-'}
@@ -84,7 +87,8 @@ export default function BasicInfoSection(props: BasicInfoSectionProps) {
         <strong>Type:</strong> {props.alter.alter_type || '-'}
       </div>
       <div>
-        <strong>Roles:</strong> {parseRoles(props.alter.system_roles).length ? parseRoles(props.alter.system_roles).join(', ') : '-'}
+        <strong>Roles:</strong>{' '}
+        {parseRoles(props.alter.system_roles).length ? parseRoles(props.alter.system_roles).join(', ') : '-'}
       </div>
       <div>
         <strong>System host:</strong> {props.alter.is_system_host ? 'Yes' : 'No'}

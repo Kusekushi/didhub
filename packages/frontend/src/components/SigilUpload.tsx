@@ -1,8 +1,5 @@
 import React from 'react';
-import {
-  CircularProgress,
-  IconButton,
-} from '@mui/material';
+import { CircularProgress, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
 export interface SigilUploadProps {
@@ -82,12 +79,7 @@ export default function SigilUpload(props: SigilUploadProps) {
             <span style={{ opacity: 0.6 }}>or click to select</span>
           </>
         )}
-        <input
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={props.onFileSelect}
-        />
+        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={props.onFileSelect} />
       </label>
     </div>
   );

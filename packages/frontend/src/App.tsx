@@ -57,7 +57,7 @@ export default function App() {
       defaultSidebarCollapsed={true}
       slots={{
         toolbarActions: () => <ToolbarActions mode={mode} toggle={toggle} />,
-        toolbarAccount: Account
+        toolbarAccount: Account,
       }}
       slotProps={{
         toolbarAccount: {

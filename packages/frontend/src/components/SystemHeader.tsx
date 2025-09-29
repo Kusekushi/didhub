@@ -52,16 +52,24 @@ export default function SystemHeader(props: SystemHeaderProps) {
                   <CircularProgress size={16} />
                 </InputAdornment>
               ) : null,
-            }
+            },
           }}
         />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-            <input type="checkbox" checked={props.hideDormant} onChange={(e) => props.onHideDormantChange(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={props.hideDormant}
+              onChange={(e) => props.onHideDormantChange(e.target.checked)}
+            />
             Hide Dormant
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-            <input type="checkbox" checked={props.hideMerged} onChange={(e) => props.onHideMergedChange(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={props.hideMerged}
+              onChange={(e) => props.onHideMergedChange(e.target.checked)}
+            />
             Hide Merged
           </label>
         </div>

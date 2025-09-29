@@ -8,7 +8,7 @@ export function useEntityData<T>(
   fetchFunction: (query: string, includeMembers?: boolean) => Promise<any>,
   uid?: string,
   search: string = '',
-  activeTab: number = 0
+  activeTab: number = 0,
 ) {
   const [items, setItems] = useState<T[]>([]);
 

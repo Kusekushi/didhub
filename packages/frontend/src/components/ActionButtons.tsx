@@ -8,7 +8,7 @@ export interface ActionButtonsProps {
   onShare?: () => void;
   canManage?: boolean;
   canShare?: boolean;
-};
+}
 
 export default function ActionButtons(props: ActionButtonsProps) {
   return (

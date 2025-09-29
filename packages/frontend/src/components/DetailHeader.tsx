@@ -61,13 +61,16 @@ export default function DetailHeader(props: DetailHeaderProps) {
             }}
           />
         )}
-        {props.user && props.alter && (props.user.is_admin || props.user.id === props.alter.owner_user_id) && !props.renaming && (
-          <Tooltip title="Rename alter">
-            <Button size="small" onClick={props.onStartRename}>
-              Rename
-            </Button>
-          </Tooltip>
-        )}
+        {props.user &&
+          props.alter &&
+          (props.user.is_admin || props.user.id === props.alter.owner_user_id) &&
+          !props.renaming && (
+            <Tooltip title="Rename alter">
+              <Button size="small" onClick={props.onStartRename}>
+                Rename
+              </Button>
+            </Tooltip>
+          )}
         {props.renaming && (
           <>
             <Button
@@ -86,9 +89,7 @@ export default function DetailHeader(props: DetailHeaderProps) {
       </Box>
 
       {props.renameError && (
-        <div style={{ color: 'red', marginTop: -8, marginBottom: 4, fontSize: 12 }}>
-          {props.renameError}
-        </div>
+        <div style={{ color: 'red', marginTop: -8, marginBottom: 4, fontSize: 12 }}>{props.renameError}</div>
       )}
 
       <Typography variant="body1">{props.alter.description}</Typography>

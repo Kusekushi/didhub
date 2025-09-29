@@ -11,7 +11,7 @@ export interface GroupPickerProps {
   value?: number | string | (number | string)[] | { id?: number; name?: string } | null;
   onChange?: (v: number | string | (number | string)[] | null) => void;
   multiple?: boolean;
-};
+}
 
 export default function GroupPicker(props: GroupPickerProps) {
   const multiple = props.multiple ?? false;

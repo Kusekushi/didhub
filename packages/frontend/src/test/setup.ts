@@ -40,10 +40,12 @@ vi.mock('@mui/material', () => ({
 }));
 
 // Global test utilities
-global.matchMedia = global.matchMedia || function() {
-  return {
-    matches: false,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
+global.matchMedia =
+  global.matchMedia ||
+  function () {
+    return {
+      matches: false,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
   };
-};

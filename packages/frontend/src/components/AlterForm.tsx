@@ -43,7 +43,7 @@ export interface AlterFormFieldsProps {
   partnerLabel?: string;
   useSwitchForHost?: boolean;
   progressMap?: Record<string, number>; // filename -> percent
-};
+}
 
 export default function AlterFormFields(props: AlterFormFieldsProps) {
   const {
@@ -323,7 +323,9 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           freeSolo={false}
           options={props.userPartnerOptions || []}
           value={(() => {
-            const vals = (values.user_partners && Array.isArray(values.user_partners) ? values.user_partners : []) as any[];
+            const vals = (
+              values.user_partners && Array.isArray(values.user_partners) ? values.user_partners : []
+            ) as any[];
             console.log('User partners values:', vals);
             const idToName: Record<string, string> = {};
             if (props.userPartnerMap) {
@@ -366,7 +368,9 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           freeSolo={false}
           options={props.userParentOptions || []}
           value={(() => {
-            const vals = (values.user_parents && Array.isArray(values.user_parents) ? values.user_parents : []) as any[];
+            const vals = (
+              values.user_parents && Array.isArray(values.user_parents) ? values.user_parents : []
+            ) as any[];
             const idToName: Record<string, string> = {};
             if (props.userParentMap) {
               Object.keys(props.userParentMap).forEach((name) => {
@@ -402,7 +406,9 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           freeSolo={false}
           options={props.userChildOptions || []}
           value={(() => {
-            const vals = (values.user_children && Array.isArray(values.user_children) ? values.user_children : []) as any[];
+            const vals = (
+              values.user_children && Array.isArray(values.user_children) ? values.user_children : []
+            ) as any[];
             const idToName: Record<string, string> = {};
             if (props.userChildMap) {
               Object.keys(props.userChildMap).forEach((name) => {
@@ -427,7 +433,9 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
             });
             onChange('user_children', converted);
           }}
-          renderInput={(params) => <TextField {...params} label={'User Child(ren)'} placeholder="Add user child(ren)" />}
+          renderInput={(params) => (
+            <TextField {...params} label={'User Child(ren)'} placeholder="Add user child(ren)" />
+          )}
           fullWidth
         />
       </StackItem>

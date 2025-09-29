@@ -30,12 +30,12 @@ export default function SignUp(): React.ReactElement {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
       setMsg({ type: 'error', text: 'Passwords do not match' });
       return;
     }
-    
+
     setLoading(true);
     try {
       const res = await register(username, password, requestSystem);
@@ -85,11 +85,7 @@ export default function SignUp(): React.ReactElement {
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={handleClickShowPassword}
-                    edge="end"
-                  >
+                  <IconButton aria-label="toggle password visibility" onClick={handleClickShowPassword} edge="end">
                     {showPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
@@ -108,12 +104,7 @@ export default function SignUp(): React.ReactElement {
             helperText={confirmPassword !== '' && password !== confirmPassword ? 'Passwords do not match' : ''}
           />
           <FormControlLabel
-            control={
-              <Checkbox
-                checked={requestSystem}
-                onChange={(e) => setRequestSystem(e.target.checked)}
-              />
-            }
+            control={<Checkbox checked={requestSystem} onChange={(e) => setRequestSystem(e.target.checked)} />}
             label="Request system user account"
             sx={{ mt: 1 }}
           />

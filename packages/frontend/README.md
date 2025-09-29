@@ -1,13 +1,15 @@
 # DIDHub Frontend
 
-A modern React application built with Vite, Material-UI, and TypeScript for managing alters and systems in DID (Dissociative Identity Disorder) communities.
+A modern React application built with Vite, Material-UI, and TypeScript for
+managing alters and systems in DID (Dissociative Identity Disorder) communities.
 
 ## Features
 
 - **System Management**: Create and manage multiple systems and alters
 - **User Authentication**: Secure login/logout with JWT tokens
 - **File Uploads**: Upload and manage avatars and other media
-- **Admin Panel**: Administrative functions for managing users and system requests
+- **Admin Panel**: Administrative functions for managing users and system
+  requests
 - **Responsive Design**: Mobile-friendly interface using Material-UI
 - **Real-time Updates**: Live updates for system changes and notifications
 
@@ -68,7 +70,8 @@ pnpm -F @didhub/frontend test
 pnpm -F @didhub/frontend e2e
 ```
 
-Note: E2E tests require Playwright browsers to be installed. Run `npx playwright install` if needed.
+Note: E2E tests require Playwright browsers to be installed. Run
+`npx playwright install` if needed.
 
 ## Project Structure
 
@@ -105,7 +108,8 @@ The frontend integrates with the Rust backend's JWT-based authentication:
 
 ## API Integration
 
-Uses the `@didhub/api-client` package for all backend communication. The client automatically:
+Uses the `@didhub/api-client` package for all backend communication. The client
+automatically:
 
 - Attaches JWT tokens to requests
 - Handles token refresh on 401 responses
@@ -120,4 +124,6 @@ Uses the `@didhub/api-client` package for all backend communication. The client 
 
 ## Deployment
 
-The built frontend is served by the Rust backend from the `static/` directory. For production deployment, build the frontend and ensure the backend is configured to serve static files.
+The built frontend is served by the Rust backend from the `static/` directory.
+For production deployment, build the frontend and ensure the backend is
+configured to serve static files.

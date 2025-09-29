@@ -10,25 +10,19 @@ describe('useEntityData', () => {
   });
 
   it('should initialize with empty items array', () => {
-    const { result } = renderHook(() =>
-      useEntityData(0, mockFetchFunction, 'test-uid', '', 0)
-    );
+    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     expect(result.current.items).toEqual([]);
   });
 
   it('should not fetch data when activeTab does not match targetTab', () => {
-    renderHook(() =>
-      useEntityData(1, mockFetchFunction, 'test-uid', '', 0)
-    );
+    renderHook(() => useEntityData(1, mockFetchFunction, 'test-uid', '', 0));
 
     expect(mockFetchFunction).not.toHaveBeenCalled();
   });
 
   it('should not fetch data when uid is not provided', () => {
-    renderHook(() =>
-      useEntityData(0, mockFetchFunction, undefined, '', 0)
-    );
+    renderHook(() => useEntityData(0, mockFetchFunction, undefined, '', 0));
 
     expect(mockFetchFunction).not.toHaveBeenCalled();
   });
@@ -37,9 +31,7 @@ describe('useEntityData', () => {
     const mockData = { items: [{ id: 1, name: 'Test Item' }] };
     mockFetchFunction.mockResolvedValue(mockData);
 
-    const { result } = renderHook(() =>
-      useEntityData(0, mockFetchFunction, 'test-uid', '', 0)
-    );
+    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenCalledWith('?owner_user_id=test-uid', true);
@@ -51,9 +43,7 @@ describe('useEntityData', () => {
     const mockData = { items: [{ id: 1, name: 'Test Item' }] };
     mockFetchFunction.mockResolvedValue(mockData);
 
-    const { result } = renderHook(() =>
-      useEntityData(0, mockFetchFunction, 'test-uid', 'search term', 0)
-    );
+    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', 'search term', 0));
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenCalledWith('?owner_user_id=test-uid&q=search%20term', true);
@@ -64,9 +54,7 @@ describe('useEntityData', () => {
   it('should handle fetch errors gracefully', async () => {
     mockFetchFunction.mockRejectedValue(new Error('Fetch failed'));
 
-    const { result } = renderHook(() =>
-      useEntityData(0, mockFetchFunction, 'test-uid', '', 0)
-    );
+    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenCalledWith('?owner_user_id=test-uid', true);
@@ -80,9 +68,7 @@ describe('useEntityData', () => {
     const mockData = [{ id: 1, name: 'Test Item' }];
     mockFetchFunction.mockResolvedValue(mockData);
 
-    const { result } = renderHook(() =>
-      useEntityData(0, mockFetchFunction, 'test-uid', '', 0)
-    );
+    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
       expect(result.current.items).toEqual(mockData);
@@ -92,13 +78,9 @@ describe('useEntityData', () => {
   it('should refetch data when refresh is called', async () => {
     const mockData = { items: [{ id: 1, name: 'Test Item' }] };
     const refreshData = { items: [{ id: 2, name: 'Refreshed Item' }] };
-    mockFetchFunction
-      .mockResolvedValueOnce(mockData)
-      .mockResolvedValueOnce(refreshData);
+    mockFetchFunction.mockResolvedValueOnce(mockData).mockResolvedValueOnce(refreshData);
 
-    const { result } = renderHook(() =>
-      useEntityData(0, mockFetchFunction, 'test-uid', '', 0)
-    );
+    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
       expect(result.current.items).toEqual(mockData.items);
@@ -113,9 +95,7 @@ describe('useEntityData', () => {
   });
 
   it('should not refresh when uid is not provided', async () => {
-    const { result } = renderHook(() =>
-      useEntityData(0, mockFetchFunction, undefined, '', 0)
-    );
+    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, undefined, '', 0));
 
     await result.current.refresh();
 
@@ -125,13 +105,11 @@ describe('useEntityData', () => {
   it('should refetch when search term changes', async () => {
     const mockData1 = { items: [{ id: 1, name: 'Item 1' }] };
     const mockData2 = { items: [{ id: 2, name: 'Item 2' }] };
-    mockFetchFunction
-      .mockResolvedValueOnce(mockData1)
-      .mockResolvedValueOnce(mockData2);
+    mockFetchFunction.mockResolvedValueOnce(mockData1).mockResolvedValueOnce(mockData2);
 
     const { result, rerender } = renderHook(
       ({ search }) => useEntityData(0, mockFetchFunction, 'test-uid', search, 0),
-      { initialProps: { search: '' } }
+      { initialProps: { search: '' } },
     );
 
     await waitFor(() => {

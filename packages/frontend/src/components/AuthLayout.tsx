@@ -7,7 +7,7 @@ export interface AuthLayoutProps {
   title?: string;
   maxWidth?: number | string;
   containerSx?: any;
-};
+}
 
 export default function AuthLayout(props: AuthLayoutProps) {
   if (props.maxWidth === undefined) props.maxWidth = 600;

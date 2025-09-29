@@ -154,9 +154,20 @@ export default function SystemUpdates(props: SystemUpdatesProps) {
                         <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
                           <strong>Component Versions</strong>
                         </Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1 }}>
+                        <Box
+                          sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1 }}
+                        >
                           {Object.entries(updateStatus.versions).map(([component, version]) => (
-                            <Box key={component} sx={{ display: 'flex', justifyContent: 'space-between', p: 1, bgcolor: 'action.selected', borderRadius: 1 }}>
+                            <Box
+                              key={component}
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                p: 1,
+                                bgcolor: 'action.selected',
+                                borderRadius: 1,
+                              }}
+                            >
                               <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
                                 {component.replace('_', ' ')}:
                               </Typography>
