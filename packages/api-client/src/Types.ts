@@ -36,8 +36,11 @@ export interface Group {
   id?: number | string;
   name?: string;
   description?: string;
-  sigil?: string;
+  sigil?: unknown;
   leaders?: Array<number | string | { id?: number | string; name?: string }>;
+  owner_user_id?: number | string;
+  ownerUserId?: number | string;
+  metadata?: unknown;
   [k: string]: unknown;
 }
 
@@ -48,6 +51,7 @@ export interface Subsystem {
   type?: string;
   leaders?: Array<number | string | { id?: number | string; name?: string }>;
   owner_user_id?: number | string;
+  ownerUserId?: number | string;
   [k: string]: unknown;
 }
 
@@ -262,18 +266,13 @@ export interface FamilyTreeResponse {
   owners?: Record<string, FamilyTreeOwner>;
 }
 
-export interface ShortLink {
-  id: string;
-  type: string;
-  target_id: number;
-  created_at: string;
-  clicks: number;
-}
-
 export interface SubsystemMember {
-  alter_id: number;
-  alter_name: string;
-  is_leader: boolean;
+  alter_id?: number | string;
+  alterId?: number | string;
+  alter_name?: string;
+  is_leader?: boolean;
+  roles?: string[] | string;
+  [k: string]: unknown;
 }
 
 export interface GroupMember {
@@ -281,4 +280,10 @@ export interface GroupMember {
   username: string;
   display_name: string;
   joined_at: string;
+}
+
+export interface GroupMembersResponse {
+  group_id?: number | string;
+  alters: Array<number | string>;
+  [k: string]: unknown;
 }

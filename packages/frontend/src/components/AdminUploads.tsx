@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -25,115 +25,214 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import { getUser, getSetting, listUploads, deleteUpload, purgeUploads } from '@didhub/api-client';
+import type { ApiFetchResult } from '@didhub/api-client';
+import type { UploadRecord } from '../types/api';
+
+interface UploadListPayload {
+  items?: unknown;
+  total?: unknown;
+  limit?: unknown;
+  offset?: unknown;
+}
+
+const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
+
+const toNumberOrNull = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const parseUploadRecord = (value: unknown): UploadRecord | null => {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const id = toNumberOrNull(record.id);
+  const storedName = record.stored_name;
+  if (!Number.isFinite(id) || !isNonEmptyString(storedName)) return null;
+  return {
+    id,
+    stored_name: storedName,
+    hash: typeof record.hash === 'string' ? record.hash : null,
+    user_id: toNumberOrNull(record.user_id),
+    mime: typeof record.mime === 'string' ? record.mime : typeof record.mime_type === 'string' ? record.mime_type : null,
+    bytes: toNumberOrNull(record.bytes),
+    created_at: typeof record.created_at === 'string' ? record.created_at : null,
+    deleted_at: typeof record.deleted_at === 'string' ? record.deleted_at : null,
+    original_name: typeof record.original_name === 'string' ? record.original_name : null,
+  };
+};
+
+const parseUploadList = (payload: UploadListPayload | UploadRecord[] | null): {
+  items: UploadRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+} => {
+  if (!payload) {
+    return { items: [], total: 0, limit: 0, offset: 0 };
+  }
+
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload.items)
+      ? payload.items
+      : [];
+  const items = source
+    .map(parseUploadRecord)
+    .filter((item): item is UploadRecord => Boolean(item));
+  const total = typeof (payload as UploadListPayload).total === 'number' ? (payload as UploadListPayload).total : items.length;
+  const limit = typeof (payload as UploadListPayload).limit === 'number' ? (payload as UploadListPayload).limit : items.length;
+  const offset = typeof (payload as UploadListPayload).offset === 'number' ? (payload as UploadListPayload).offset : 0;
+  return { items, total, limit, offset };
+};
+
+const parseSettingValue = (value: unknown): number | null => {
+  if (!value || typeof value !== 'object') return null;
+  const setting = value as { value?: unknown };
+  const raw = setting.value;
+  if (raw == null) return null;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string') {
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
 
 export default function AdminUploads() {
-  // Inlined from AdminUploads.tsx with local state name adjustments to avoid collisions
-  const [items, setItems] = React.useState<any[]>([]);
-  const [limitLocal, setLimitLocal] = React.useState(50);
-  const [offsetLocal, setOffsetLocal] = React.useState(0);
-  const [total, setTotal] = React.useState(0);
-  const [mime, setMime] = React.useState('');
-  const [hash, setHash] = React.useState('');
-  const [userId, setUserId] = React.useState('');
-  const [includeDeleted, setIncludeDeleted] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [deleting, setDeleting] = React.useState<string | null>(null);
-  const [selected, setSelected] = React.useState<string[]>([]);
-  const [bulkDeleting, setBulkDeleting] = React.useState(false);
-  const [purgeCutoff, setPurgeCutoff] = React.useState('');
-  const [purgeForce, setPurgeForce] = React.useState(false);
-  const [purging, setPurging] = React.useState(false);
-  const [usernames, setUsernames] = React.useState<Record<number, string>>({});
-  const [confirmForceOpen, setConfirmForceOpen] = React.useState(false);
-  const [confirmPurgeOpen, setConfirmPurgeOpen] = React.useState(false);
-  const [retentionDays, setRetentionDays] = React.useState<number | null>(null);
-  const [copyHash, setCopyHash] = React.useState<string | null>(null);
+  const [items, setItems] = useState<UploadRecord[]>([]);
+  const [limitLocal, setLimitLocal] = useState(50);
+  const [offsetLocal, setOffsetLocal] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [mime, setMime] = useState('');
+  const [hash, setHash] = useState('');
+  const [userId, setUserId] = useState('');
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [purgeCutoff, setPurgeCutoff] = useState('');
+  const [purgeForce, setPurgeForce] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [usernames, setUsernames] = useState<Record<number, string>>({});
+  const [confirmForceOpen, setConfirmForceOpen] = useState(false);
+  const [confirmPurgeOpen, setConfirmPurgeOpen] = useState(false);
+  const [retentionDays, setRetentionDays] = useState<number | null>(null);
+  const [copyHash, setCopyHash] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
-    const params: Record<string, any> = { limit: limitLocal, offset: offsetLocal };
+    const params: Record<string, string | number | boolean> = { limit: limitLocal, offset: offsetLocal };
     if (mime) params.mime = mime;
     if (hash) params.hash = hash;
     if (userId) params.user_id = userId;
-    if (includeDeleted) params.include_deleted = 'true';
-    const data: any = await listUploads(params).catch(() => null);
-    if (data) {
-      setItems(data.items || []);
+    if (includeDeleted) params.include_deleted = true;
+
+    try {
+      const response = await listUploads(params).catch(() => null);
+      const { items: fetchedItems, total: fetchedTotal } = parseUploadList(response as UploadListPayload | UploadRecord[] | null);
+      setItems(fetchedItems);
       setSelected([]);
-      setTotal(data.total || 0);
-      const uids = Array.from(new Set((data.items || []).map((r: any) => r.user_id).filter((v: any) => v)));
-      const missing = uids.filter((id: number) => !(id in usernames));
+      setTotal(fetchedTotal);
+
+      const uniqueUserIds = new Set<number>();
+      fetchedItems.forEach((item) => {
+        if (typeof item.user_id === 'number' && Number.isFinite(item.user_id)) {
+          uniqueUserIds.add(item.user_id);
+        }
+      });
+      const missing = Array.from(uniqueUserIds).filter((id) => !(id in usernames));
       if (missing.length) {
-        const fetched: Record<number, string> = {};
+        const fetchedUsernames: Record<number, string> = {};
         await Promise.all(
-          missing.map(async (id: number) => {
+          missing.map(async (id) => {
             try {
-              const j = await getUser(id as any);
-              if (j && (j as any).username) fetched[id] = (j as any).username;
-            } catch (e) {}
+              const user = await getUser(id);
+              if (user && user.username) {
+                fetchedUsernames[id] = user.username;
+              }
+            } catch {
+              /* ignore */
+            }
           }),
         );
-        if (Object.keys(fetched).length) setUsernames((prev) => ({ ...prev, ...fetched }));
+        if (Object.keys(fetchedUsernames).length) {
+          setUsernames((prev) => ({ ...prev, ...fetchedUsernames }));
+        }
       }
+
       if (retentionDays === null) {
         try {
-          const rs: any = await getSetting('uploads.delete.retention.days');
-          if (rs) {
-            const v = rs && rs.value ? parseInt(rs.value, 10) : NaN;
-            if (!isNaN(v)) setRetentionDays(v);
-            else setRetentionDays(0);
-          }
-        } catch (e) {
+          const setting = await getSetting('uploads.delete.retention.days');
+          const parsed = parseSettingValue(setting);
+          setRetentionDays(parsed ?? 0);
+        } catch {
           setRetentionDays(0);
         }
       }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }
+  }, [hash, includeDeleted, limitLocal, mime, offsetLocal, retentionDays, userId, usernames]);
 
   const allChecked = items.length > 0 && selected.length === items.length;
   const someChecked = selected.length > 0 && selected.length < items.length;
-  function toggleAll() {
-    if (allChecked) setSelected([]);
-    else setSelected(items.map((i) => i.stored_name));
-  }
-  function toggleOne(name: string) {
-    setSelected((s) => (s.includes(name) ? s.filter((x) => x !== name) : [...s, name]));
-  }
-  async function deleteRow(name: string, force: boolean) {
-    setDeleting(name + (force ? ':force' : ':soft'));
-    try {
-      const res: any = await deleteUpload(name, force).catch(() => null);
-      if (res && res.status < 400) {
-        await load();
-      }
-    } finally {
-      setDeleting(null);
-    }
-  }
-  async function bulkDelete(force: boolean) {
-    if (!selected.length) return;
-    setBulkDeleting(true);
-    try {
-      const names = [...selected];
-      const concurrency = 5;
-      let idx = 0;
-      async function worker() {
-        while (idx < names.length) {
-          const my = names[idx++];
-          try {
-            await deleteUpload(my, force).catch(() => null);
-          } catch (e) {}
+
+  const toggleAll = useCallback(() => {
+    setSelected((prev) => (allChecked ? [] : items.map((item) => item.stored_name)));
+  }, [allChecked, items]);
+
+  const toggleOne = useCallback((name: string) => {
+    setSelected((prev) => (prev.includes(name) ? prev.filter((value) => value !== name) : [...prev, name]));
+  }, []);
+
+  const deleteRow = useCallback(
+    async (name: string, force: boolean) => {
+      setDeleting(`${name}${force ? ':force' : ':soft'}`);
+      try {
+        const response: ApiFetchResult | null = await deleteUpload(name, force).catch(() => null);
+        if (response && response.status < 400) {
+          await load();
         }
+      } finally {
+        setDeleting(null);
       }
-      const workers = Array.from({ length: Math.min(concurrency, names.length) }, () => worker());
-      await Promise.all(workers);
-      await load();
-    } finally {
-      setBulkDeleting(false);
-    }
-  }
-  async function doPurge() {
+    },
+    [load],
+  );
+
+  const bulkDelete = useCallback(
+    async (force: boolean) => {
+      if (!selected.length) return;
+      setBulkDeleting(true);
+      try {
+        const names = [...selected];
+        const concurrency = 5;
+        let idx = 0;
+        const worker = async () => {
+          while (idx < names.length) {
+            const current = names[idx++];
+            try {
+              await deleteUpload(current, force).catch(() => null);
+            } catch {
+              /* ignore */
+            }
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(concurrency, names.length) }, () => worker()));
+        await load();
+      } finally {
+        setBulkDeleting(false);
+      }
+    },
+    [load, selected],
+  );
+
+  const doPurge = useCallback(async () => {
     setPurging(true);
     try {
       const params = new URLSearchParams();
@@ -147,61 +246,75 @@ export default function AdminUploads() {
     } finally {
       setPurging(false);
     }
-  }
-  function openForceBulk() {
+  }, [load, purgeCutoff, purgeForce]);
+
+  const openForceBulk = useCallback(() => {
     if (selected.length) setConfirmForceOpen(true);
-  }
-  function confirmForceBulk() {
+  }, [selected.length]);
+
+  const confirmForceBulk = useCallback(() => {
     setConfirmForceOpen(false);
-    bulkDelete(true);
-  }
-  function openPurgeConfirm() {
+    void bulkDelete(true);
+  }, [bulkDelete]);
+
+  const openPurgeConfirm = useCallback(() => {
     setConfirmPurgeOpen(true);
-  }
-  function confirmPurge() {
+  }, []);
+
+  const confirmPurge = useCallback(() => {
     setConfirmPurgeOpen(false);
-    doPurge();
-  }
-  function cancelDialogs() {
+    void doPurge();
+  }, [doPurge]);
+
+  const cancelDialogs = useCallback(() => {
     setConfirmForceOpen(false);
     setConfirmPurgeOpen(false);
-  }
-  function ageInfo(row: any) {
-    if (!row.deleted_at) return '';
-    try {
-      const del = new Date(row.deleted_at).getTime();
-      const now = Date.now();
-      const diffMs = now - del;
-      const days = Math.floor(diffMs / 86400000);
-      let eta = '';
-      if (retentionDays !== null) {
-        const purgeAt = del + retentionDays * 86400000;
-        const remMs = purgeAt - now;
-        if (remMs > 0) {
-          const remDays = Math.ceil(remMs / 86400000);
-          eta = ` (purges in ~${remDays}d)`;
-        } else eta = ' (eligible for purge)';
+  }, []);
+
+  const ageInfo = useCallback(
+    (row: UploadRecord): string => {
+      if (!row.deleted_at) return '';
+      try {
+        const deletedAt = new Date(row.deleted_at).getTime();
+        const now = Date.now();
+        const diffMs = now - deletedAt;
+        const days = Math.floor(diffMs / 86400000);
+        let eta = '';
+        if (retentionDays !== null) {
+          const purgeAt = deletedAt + retentionDays * 86400000;
+          const remMs = purgeAt - now;
+          if (remMs > 0) {
+            const remDays = Math.ceil(remMs / 86400000);
+            eta = ` (purges in ~${remDays}d)`;
+          } else {
+            eta = ' (eligible for purge)';
+          }
+        }
+        return `${days}d ago${eta}`;
+      } catch {
+        return '';
       }
-      return `${days}d ago${eta}`;
-    } catch (e) {
-      return '';
-    }
-  }
-  async function copyToClipboard(val: string) {
+    },
+    [retentionDays],
+  );
+
+  const copyToClipboard = useCallback(async (val: string) => {
     try {
       await navigator.clipboard.writeText(val);
       setCopyHash(val);
-      setTimeout(() => setCopyHash((h) => (h === val ? null : h)), 1500);
-    } catch (e) {}
-  }
+      window.setTimeout(() => setCopyHash((existing) => (existing === val ? null : existing)), 1500);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
-  React.useEffect(() => {
-    load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [limitLocal, offsetLocal, includeDeleted]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const uploadsPage = Math.floor(offsetLocal / limitLocal) + 1;
   const pageCount = Math.max(1, Math.ceil(total / limitLocal));
-  function changePage(_: any, p: number) {
+  function changePage(_: React.ChangeEvent<unknown>, p: number) {
     setOffsetLocal((p - 1) * limitLocal);
   }
 

@@ -9,11 +9,23 @@ export async function uploadFiles(files: FileList | File[] | null | undefined): 
   const arr: File[] = Array.isArray(files) ? files : Array.from(files as FileList);
   for (const f of arr) {
     try {
-      const file = f as File;
-      const res = await uploadFile(file);
-      const up = res as any;
-      if (up && up.json && up.json.url) urls.push(up.json.url as string);
-      else if (up && up.url) urls.push(up.url as string);
+      const res = await uploadFile(f);
+      if (typeof res.url === 'string' && res.url) {
+        urls.push(res.url);
+        continue;
+      }
+      if (res.json && typeof res.json === 'object') {
+        const record = res.json as Record<string, unknown>;
+        const directUrl = typeof record.url === 'string' ? record.url : undefined;
+        if (directUrl) {
+          urls.push(directUrl);
+          continue;
+        }
+        const filename = typeof record.filename === 'string' ? record.filename : undefined;
+        if (filename) {
+          urls.push(filename);
+        }
+      }
     } catch {
       // ignore
     }

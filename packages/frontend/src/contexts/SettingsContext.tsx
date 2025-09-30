@@ -2,14 +2,14 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { getAdminSettings, SETTINGS as SETTINGS_KEYS } from '@didhub/api-client';
 
-type SettingsState = {
+export interface SettingsState {
   loaded: boolean;
   discordDigestEnabled: boolean;
   emailEnabled: boolean;
   oidcEnabled: boolean;
   shortLinksEnabled: boolean;
-  raw: Record<string, any> | null;
-};
+  raw: Record<string, unknown> | null;
+}
 
 const defaultState: SettingsState = {
   loaded: false,
@@ -28,9 +28,9 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
 
   useEffect(() => {
     let mounted = true;
-    const parseBool = (v: any, def = false) => {
-      if (v === null || typeof v === 'undefined') return def;
-      const sv = String(v).toLowerCase();
+    const parseBool = (value: unknown, def = false): boolean => {
+      if (value === null || typeof value === 'undefined') return def;
+      const sv = String(value).toLowerCase();
       return sv === '1' || sv === 'true' || sv === 'yes';
     };
 

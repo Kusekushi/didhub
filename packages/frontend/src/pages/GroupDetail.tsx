@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import logger from '../logger';
@@ -21,9 +21,116 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { getGroup, listGroupMembers, getAlter, updateGroup, uploadFile, Alter, Group, User } from '@didhub/api-client';
+import {
+  getGroup,
+  listGroupMembers,
+  getAlter,
+  updateGroup,
+  uploadFile,
+  type Alter,
+  type Group,
+  type GroupMembersResponse,
+  type User,
+} from '@didhub/api-client';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationSnackbar from '../components/NotificationSnackbar';
+
+type LeaderOption = Partial<Alter> & { id: number | string; name?: string | null };
+
+function normalizeStringId(value: unknown): string | undefined {
+  if (typeof value === 'number' || typeof value === 'string') return String(value);
+  if (value && typeof value === 'object' && 'id' in value) {
+    const candidate = (value as { id?: unknown }).id;
+    if (typeof candidate === 'number' || typeof candidate === 'string') return String(candidate);
+  }
+  return undefined;
+}
+
+function extractLeaderIds(group: Group | null): string[] {
+  if (!group) return [];
+  const { leaders } = group;
+  if (!leaders) return [];
+  if (Array.isArray(leaders)) {
+    return leaders
+      .map((value) => normalizeStringId(value))
+      .filter((value): value is string => typeof value === 'string' && value.length > 0);
+  }
+  if (typeof leaders === 'string') {
+    const trimmed = leaders.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((value) => normalizeStringId(value))
+            .filter((value): value is string => typeof value === 'string' && value.length > 0);
+        }
+      } catch {}
+    }
+    return trimmed
+      .split(',')
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0);
+  }
+  return [];
+}
+
+function extractOwnerId(group: Group | null): number | string | undefined {
+  if (!group) return undefined;
+  if (group.owner_user_id != null) return group.owner_user_id;
+  if (group.ownerUserId != null) return group.ownerUserId;
+  const raw = (group as Record<string, unknown>).owner_user_id;
+  if (typeof raw === 'number' || typeof raw === 'string') return raw;
+  return undefined;
+}
+
+function deriveSigilUrl(raw: unknown): string | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          const first = parsed.find((value) => typeof value === 'string' && value.trim().length > 0);
+          return typeof first === 'string' ? first.trim() : null;
+        }
+      } catch {}
+    }
+    if (trimmed.includes(',')) {
+      const first = trimmed
+        .split(',')
+        .map((segment) => segment.trim())
+        .find((segment) => segment.length > 0);
+      return first ?? null;
+    }
+    return trimmed;
+  }
+  if (Array.isArray(raw)) {
+    const first = raw.find((value) => typeof value === 'string' && value.trim().length > 0);
+    return typeof first === 'string' ? first.trim() : null;
+  }
+  if (raw && typeof raw === 'object') {
+    if ('url' in raw && typeof (raw as Record<string, unknown>).url === 'string') {
+      return (raw as Record<string, string>).url;
+    }
+  }
+  return null;
+}
+
+function dedupeAltersById(alters: Alter[]): Alter[] {
+  const seen = new Set<string>();
+  const result: Alter[] = [];
+  for (const alter of alters) {
+    const id = normalizeStringId(alter?.id);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    result.push(alter);
+  }
+  return result;
+}
 
 export default function GroupDetail() {
   const { id } = useParams() as { id?: string };
@@ -32,161 +139,128 @@ export default function GroupDetail() {
   const [members, setMembers] = useState<Alter[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { user: me } = useAuth() as { user?: User };
+  const { user: me } = useAuth();
 
   // Inline edit state
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
-  const [editLeaders, setEditLeaders] = useState<Array<Alter | { id: string | number; name?: string }>>([]);
+  const [editLeaders, setEditLeaders] = useState<LeaderOption[]>([]);
   const [editSigilUrl, setEditSigilUrl] = useState<string | null>(null);
   const [sigilUploading, setSigilUploading] = useState(false);
   const [sigilDrag, setSigilDrag] = useState(false);
-  const [leaderOptions, setLeaderOptions] = useState<Alter[]>([]);
+  const [leaderOptions, setLeaderOptions] = useState<LeaderOption[]>([]);
   const [leaderQuery, setLeaderQuery] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfSnackOpen, setPdfSnackOpen] = useState(false);
 
-  const callIfFn = <T extends any[] = any[]>(fn: ((...args: T) => any) | null | undefined, ...args: T) => {
-    try {
-      if (typeof fn === 'function') return fn(...args);
-      logger.warn('callIfFn: skipped non-function', { value: fn, type: typeof fn, stack: new Error().stack });
-    } catch (e) {
-      logger.warn('callIfFn error', e);
-    }
-  };
+  const fetchMemberAlters = useCallback(
+    async (groupId: string | number, ensureAlterIds: string[] = []): Promise<Alter[]> => {
+      try {
+        const response: GroupMembersResponse = await listGroupMembers(groupId);
+        const collectedIds = new Set<string>();
+        if (Array.isArray(response.alters)) {
+          response.alters.forEach((value) => {
+            const id = normalizeStringId(value);
+            if (id) collectedIds.add(id);
+          });
+        }
+        ensureAlterIds.forEach((value) => {
+          if (value) collectedIds.add(value);
+        });
+        const alters = await Promise.all(
+          Array.from(collectedIds).map(async (alterId) => {
+            try {
+              const alter = await getAlter(alterId);
+              return alter ?? null;
+            } catch (err) {
+              logger.warn('failed to fetch alter', alterId, err);
+              return null;
+            }
+          }),
+        );
+        const valid = alters.filter((alter): alter is Alter => Boolean(alter && alter.id != null));
+        return dedupeAltersById(valid);
+      } catch (err) {
+        logger.warn('error listing group members', err);
+        return [];
+      }
+    },
+    [],
+  );
 
-  // Fetch group & members
   useEffect(() => {
     let mounted = true;
-    async function fetchGroup() {
+
+    const loadGroupAndMembers = async () => {
       if (!id) return;
-      callIfFn(setLoading, true);
+      setLoading(true);
       try {
-        const g = await getGroup(id);
+        const groupData = await getGroup(id);
         if (!mounted) return;
-        if (!g) {
-          callIfFn(setGroup, null);
-          callIfFn(setError, 'Group not found');
+        if (!groupData || groupData.id == null) {
+          setGroup(null);
+          setMembers([]);
+          setError('Group not found');
           return;
         }
-        callIfFn(setGroup, g as Group);
-        try {
-          const gm = await listGroupMembers(id);
-          if (!mounted) return;
+        setGroup(groupData);
+        setError(null);
 
-          // gm now has format { group_id, alters: [id1, id2, ...] }
-          const memberIds = gm && gm.alters ? gm.alters : [];
-
-          // Fetch full alter details for each member ID
-          const memberPromises = memberIds.map((alterId: number) =>
-            getAlter(alterId)
-              .then((alter: any) => alter)
-              .catch(() => null),
-          );
-          const memberAlters = (await Promise.all(memberPromises)).filter(Boolean);
-
-          callIfFn(setMembers, memberAlters);
-          try {
-            const leadersRaw = g && (g as any).leaders ? (g as any).leaders : null;
-            let leaderIds: string[] = [];
-            if (Array.isArray(leadersRaw)) leaderIds = leadersRaw.map(String);
-            else if (typeof leadersRaw === 'string') {
-              try {
-                leaderIds = JSON.parse(leadersRaw);
-              } catch (e) {
-                leaderIds = leadersRaw
-                  .split(',')
-                  .map((s: string) => s.trim())
-                  .filter(Boolean);
-              }
-            }
-            const missing = leaderIds.filter((lid) => !memberAlters.some((m: Alter) => String(m.id) === String(lid)));
-            for (const lid of missing) {
-              try {
-                const a = await getAlter(lid);
-                if (a && mounted)
-                  callIfFn(setMembers, (prev: Alter[]) => {
-                    if (prev.some((x) => String(x.id) === String((a as Alter).id))) return prev;
-                    return [...prev, a as Alter];
-                  });
-              } catch (e) {
-                logger.warn('failed to fetch leader alter', lid, e);
-              }
-            }
-          } catch (e) {
-            logger.warn('error processing leaders', e);
-          }
-        } catch (e) {
-          logger.warn('error listing group members', e);
-          callIfFn(setMembers, []);
-        }
-      } catch (e) {
-        logger.warn('group fetch error', e);
-        callIfFn(setGroup, null);
-        callIfFn(setError, String(e));
+        const leaders = extractLeaderIds(groupData);
+        const alters = await fetchMemberAlters(groupData.id, leaders);
+        if (!mounted) return;
+        setMembers(alters);
+      } catch (err) {
+        if (!mounted) return;
+        logger.warn('group fetch error', err);
+        setGroup(null);
+        setMembers([]);
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
-        if (mounted) callIfFn(setLoading, false);
+        if (mounted) setLoading(false);
       }
-    }
-    try {
-      fetchGroup().catch((e) => {
-        logger.error('fetchGroup rejected', e);
-      });
-    } catch (e) {
-      logger.error('fetchGroup sync error', e as any);
-    }
+    };
+
+    loadGroupAndMembers().catch((err) => logger.error('fetchGroup rejected', err));
+
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [fetchMemberAlters, id]);
+
+  useEffect(() => {
+    if (!group) return;
+    setEditSigilUrl((current) => (current != null ? current : deriveSigilUrl(group.sigil)));
+  }, [group]);
 
   // Determine manage permission: admin or system owner (computed later if group present)
-  const canManage = !!(
+  const groupOwnerId = extractOwnerId(group);
+  const canManage = Boolean(
     me &&
-    (me.is_admin ||
-      (me.is_system && group && (group as any).owner_user_id && String(me.id) === String((group as any).owner_user_id)))
+      (me.is_admin ||
+        (me.is_system && groupOwnerId != null && me.id != null && String(me.id) === String(groupOwnerId))),
   );
 
   // Normalized leader ids (string form for comparisons) with null guard
-  const leaderIds: string[] = (function () {
-    if (!group) return [];
-    try {
-      const raw = (group as any).leaders;
-      if (Array.isArray(raw)) return raw.map((l) => (typeof l === 'object' ? String(l.id) : String(l)));
-      if (typeof raw === 'string') {
-        const t = raw.trim();
-        if (t.startsWith('[')) {
-          try {
-            const arr = JSON.parse(t);
-            if (Array.isArray(arr)) return arr.map(String);
-          } catch {}
-        }
-        return t
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-      }
-    } catch {}
-    return [];
-  })();
-  const uniqueMembers = members.reduce<Alter[]>((acc, m) => {
-    if (!m || m.id == null) return acc;
-    if (acc.some((x) => String(x.id) === String(m.id))) return acc;
-    acc.push(m);
-    return acc;
-  }, []);
-  const leaderMembers = uniqueMembers.filter((m) => leaderIds.includes(String(m.id)));
-  const otherMembers = uniqueMembers.filter((m) => !leaderIds.includes(String(m.id)));
-  // Sort alphabetically by name (case-insensitive)
-  leaderMembers.sort((a, b) =>
-    String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
-  );
-  otherMembers.sort((a, b) =>
-    String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
-  );
+  const leaderIds = useMemo(() => extractLeaderIds(group), [group]);
+
+  const uniqueMembers = useMemo(() => dedupeAltersById(members), [members]);
+
+  const leaderMembers = useMemo(() => {
+    const leadersSet = new Set(leaderIds);
+    const leaders: Alter[] = [];
+    uniqueMembers.forEach((member) => {
+      const id = normalizeStringId(member?.id);
+      if (id && leadersSet.has(id)) leaders.push(member);
+    });
+    leaders.sort((a, b) =>
+      String(a.name ?? '').localeCompare(String(b.name ?? ''), undefined, { sensitivity: 'base' }),
+    );
+    return leaders;
+  }, [leaderIds, uniqueMembers]);
 
   const renderAlterChip = (m: Alter, extra?: { variant?: 'outlined' | 'filled'; color?: 'primary' | 'default' }) => (
     <Chip
@@ -205,55 +279,42 @@ export default function GroupDetail() {
   // Initialize edit form when entering edit mode
   function beginEdit() {
     if (!group) return;
-    setEditName(group.name || '');
-    setEditDesc(group.description || '');
-    setEditLeaders(leaderIds.map((id) => members.find((m) => String(m.id) === String(id)) || { id, name: `#${id}` }));
-    // Sigil normalization (single or first element)
-    const sig = (group as any).sigil as any;
-    let first: string | null = null;
-    try {
-      if (Array.isArray(sig)) first = sig[0] || null;
-      else if (typeof sig === 'string') {
-        const trimmed = sig.trim();
-        if (trimmed.startsWith('[')) {
-          const arr = JSON.parse(trimmed);
-          if (Array.isArray(arr) && arr.length) first = arr[0];
-        } else if (trimmed.includes(','))
-          first =
-            trimmed
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean)[0] || null;
-        else if (trimmed) first = trimmed;
-      }
-    } catch {}
-    setEditSigilUrl(first);
+    setEditName(group.name ?? '');
+    setEditDesc(group.description ?? '');
+    const leaderSelections = leaderIds
+      .map((id) => {
+        const existing = members.find((member) => normalizeStringId(member.id) === id);
+        if (existing && existing.id != null) return { ...existing, id: existing.id } as LeaderOption;
+        return { id, name: `#${id}` } as LeaderOption;
+      })
+      .filter((option, index, array) => index === array.findIndex((candidate) => candidate.id === option.id));
+    setEditLeaders(leaderSelections);
+    setEditSigilUrl(deriveSigilUrl(group.sigil));
     setEditing(true);
     setSaveError(null);
   }
 
   async function handleSave() {
-    if (!group) return;
+    if (!group || group.id == null) return;
     setSaving(true);
     setSaveError(null);
     try {
       if (sigilUploading) throw new Error('Please wait for sigil upload to finish');
-      const leadersIds = editLeaders.map((l) => (typeof l === 'object' && (l as any).id ? (l as any).id : l)) as any[];
-      await updateGroup(
-        group.id as any,
-        {
-          name: editName || null,
-          description: editDesc || null,
-          leaders: leadersIds,
-          sigil: editSigilUrl || null,
-        } as any,
-      );
-      // Refetch updated group
-      const g2 = await getGroup(String(group.id));
-      if (g2) setGroup(g2 as Group);
+      const leaderIdsPayload = editLeaders
+        .map((leader) => leader.id)
+        .filter((value): value is string | number => typeof value === 'string' || typeof value === 'number');
+      const payload: Record<string, unknown> = {
+        name: editName.trim() ? editName.trim() : null,
+        description: editDesc ? editDesc : null,
+        leaders: leaderIdsPayload,
+        sigil: editSigilUrl || null,
+      };
+      await updateGroup(group.id, payload);
+      const updated = await getGroup(group.id);
+      setGroup(updated);
       setEditing(false);
-    } catch (e: any) {
-      setSaveError(String(e?.message || e));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
     }
@@ -266,45 +327,25 @@ export default function GroupDetail() {
 
   // Leader search (only while editing)
   useEffect(() => {
-    if (!editing || !group) return;
+    if (!editing || !group || group.id == null) return;
     let mounted = true;
-    const t = setTimeout(async () => {
-      try {
-        // Get group members (affiliated alters) instead of all user alters
-        const groupMembersResponse = await listGroupMembers(group.id as string | number);
-        const memberIds = groupMembersResponse?.alters || [];
-
-        if (memberIds.length === 0) {
-          setLeaderOptions([]);
-          return;
-        }
-
-        // Fetch details for each member alter
-        const memberPromises = memberIds.map((id: number) =>
-          getAlter(id)
-            .then((alter: any) => alter)
-            .catch(() => null),
-        );
-        const memberAlters = (await Promise.all(memberPromises)).filter(Boolean);
-
-        // Filter by search query if provided
-        const filteredAlters = leaderQuery
-          ? memberAlters.filter((alter: any) => alter?.name?.toLowerCase().includes(leaderQuery.toLowerCase()))
-          : memberAlters;
-
-        if (!mounted) return;
-        setLeaderOptions(filteredAlters);
-      } catch (e) {
-        console.warn('Failed to load leader options:', e);
-        if (!mounted) return;
-        setLeaderOptions([]);
-      }
+    const timeout = window.setTimeout(async () => {
+      const alters = await fetchMemberAlters(group.id);
+      if (!mounted) return;
+      const query = leaderQuery.trim().toLowerCase();
+      const filtered = query
+        ? alters.filter((alter) => alter.name?.toLowerCase().includes(query))
+        : alters;
+      const mapped = filtered
+        .map((alter) => (alter.id != null ? ({ ...alter, id: alter.id } as LeaderOption) : null))
+        .filter((option): option is LeaderOption => option !== null);
+      setLeaderOptions(mapped);
     }, 250);
     return () => {
       mounted = false;
-      clearTimeout(t);
+      window.clearTimeout(timeout);
     };
-  }, [leaderQuery, editing, group]);
+  }, [editing, fetchMemberAlters, group, leaderQuery]);
 
   async function handleSigilFiles(files: FileList | null) {
     if (!files || !files.length) return;
@@ -313,12 +354,11 @@ export default function GroupDetail() {
     setEditSigilUrl(localUrl); // immediate preview
     setSigilUploading(true);
     try {
-      const res = await uploadFile(file);
-      const up: any = res;
-      const remote = up?.json?.url || up?.url;
+      const result = await uploadFile(file);
+      const remote = result.url ?? (typeof result.json?.url === 'string' ? result.json.url : undefined);
       if (remote) setEditSigilUrl(remote);
-    } catch (e) {
-      setSaveError(String(e));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err));
     } finally {
       setSigilUploading(false);
     }
@@ -382,8 +422,9 @@ export default function GroupDetail() {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 3000);
-    } catch (e: any) {
-      setPdfError(e?.message || 'Export failed');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Export failed';
+      setPdfError(message);
       setPdfSnackOpen(true);
     }
   }
@@ -564,13 +605,13 @@ export default function GroupDetail() {
           Leaders
         </Typography>
         {editing ? (
-          <Autocomplete
+          <Autocomplete<LeaderOption, true, false, false>
             multiple
             options={leaderOptions}
-            value={editLeaders as any}
-            onChange={(_e, v) => setEditLeaders(v as any)}
+            value={editLeaders}
+            onChange={(_event, value) => setEditLeaders(value)}
             onInputChange={(_e, v) => setLeaderQuery(v)}
-            getOptionLabel={(a: any) => (a && typeof a === 'object' ? a.name || `#${a.id}` : String(a))}
+            getOptionLabel={(option) => (option.name ? option.name : option.id != null ? `#${option.id}` : '')}
             filterSelectedOptions
             renderInput={(params) => <TextField {...params} label="Leaders" size="small" sx={{ maxWidth: 480 }} />}
             sx={{ maxWidth: 520 }}

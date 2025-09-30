@@ -1,8 +1,8 @@
-export interface ApiFetchResult<T = any> {
+export interface ApiFetchResult<T = unknown> {
   status: number;
   url?: string;
   contentType?: string | null;
-  json?: T | any | null;
+  json?: T | null;
   text?: string | null;
 }
 
@@ -19,38 +19,35 @@ function getStoredToken(): string | null {
   }
 }
 
-export async function apiFetch(path: string, opts: Record<string, any> = {}): Promise<ApiFetchResult> {
-  const defaultOpts: Record<string, any> = { credentials: 'include', cache: 'no-store' };
-  const merged: Record<string, any> = Object.assign({}, defaultOpts, opts || {});
+export async function apiFetch<T = unknown>(path: string, opts: RequestInit = {}): Promise<ApiFetchResult<T>> {
+  const defaultOpts: RequestInit = { credentials: 'include', cache: 'no-store' };
+  const merged: RequestInit = { ...defaultOpts, ...(opts || {}) };
   // Inject Authorization bearer header for API calls if not explicitly provided
   if (typeof path === 'string' && path.startsWith('/api')) {
     const token = getStoredToken();
-    const headers = (merged.headers = merged.headers || {});
-    if (token && !('Authorization' in headers)) {
-      headers['Authorization'] = 'Bearer ' + token;
+    const headers = new Headers(merged.headers || undefined);
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', 'Bearer ' + token);
     }
     // For mutating requests, include CSRF token from cookie if present and header not provided.
     try {
       const method = (merged.method || 'GET').toString().toUpperCase();
       if (method !== 'GET' && method !== 'HEAD') {
-        const headersLocal = merged.headers as Record<string, any>;
-        const hasCsrfHeader = Object.keys(headersLocal || {}).some((k) => k.toLowerCase() === 'x-csrf-token');
+        const hasCsrfHeader = Array.from(headers.keys()).some((k) => k.toLowerCase() === 'x-csrf-token');
         if (!hasCsrfHeader && typeof document !== 'undefined' && typeof document.cookie === 'string') {
           const m = document.cookie.match('(^|;)\\s*csrf_token=([^;]+)');
           if (m && m.length >= 3) {
-            headersLocal['x-csrf-token'] = decodeURIComponent(m[2]);
+            headers.set('x-csrf-token', decodeURIComponent(m[2]));
           }
         }
       }
     } catch (e) {}
+    merged.headers = headers;
   }
   const res = await fetch(path, merged);
   const txt = await res.text();
-  const contentType =
-    res.headers && typeof (res.headers as unknown as { get?: Function }).get === 'function'
-      ? (res.headers as any).get('content-type')
-      : null;
-  const meta: ApiFetchResult = { status: res.status, url: res.url, contentType };
+  const contentType = typeof res.headers?.get === 'function' ? res.headers.get('content-type') : null;
+  const meta: ApiFetchResult<T> = { status: res.status, url: res.url, contentType };
   try {
     const parsed = txt ? JSON.parse(txt) : null;
     if (parsed && parsed.code === 'must_change_password') {
@@ -63,14 +60,14 @@ export async function apiFetch(path: string, opts: Record<string, any> = {}): Pr
         window.dispatchEvent(new CustomEvent('didhub:unauthorized'));
       } catch {}
     }
-    return Object.assign(meta, { json: parsed });
+    return { ...meta, json: parsed };
   } catch (e) {
     if (res.status === 401) {
       try {
         window.dispatchEvent(new CustomEvent('didhub:unauthorized'));
       } catch {}
     }
-    return Object.assign(meta, { text: txt });
+    return { ...meta, text: txt };
   }
 }
 
@@ -131,16 +128,16 @@ export function parseRoles(v: unknown): string[] {
   try {
     if (!v) return [];
     if (Array.isArray(v))
-      return (v as any[])
+      return v
         .map((x) => (x === null || x === undefined ? '' : String(x)))
         .map((s) => s.trim())
-        .filter(Boolean);
+        .filter((s) => s.length > 0);
     if (typeof v === 'string') {
       const s = v.trim();
       if (s.startsWith('[') && s.endsWith(']')) {
         try {
           const p = JSON.parse(s);
-          if (Array.isArray(p)) return p;
+          if (Array.isArray(p)) return p.map((x) => String(x).trim()).filter((x) => x.length > 0);
         } catch (e) {}
       }
       return s

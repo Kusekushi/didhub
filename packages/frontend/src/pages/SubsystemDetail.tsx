@@ -25,6 +25,7 @@ import NotificationSnackbar from '../components/NotificationSnackbar';
 import { useSettings } from '../contexts/SettingsContext';
 import {
   createShortLink,
+  getShortLinkUrl,
   getSubsystem,
   listSubsystemMembers,
   getAlter,
@@ -36,32 +37,43 @@ import {
   fetchAlterNamesByUser,
   Alter,
   Subsystem,
+  type User,
+  type AlterName,
+  type SubsystemMember,
+  parseRoles,
 } from '@didhub/api-client';
+
+type AlterMember = Alter & { roles?: string[] };
 
 export default function SubsystemDetail() {
   const { uid, sid } = useParams() as { uid?: string; sid?: string };
   const nav = useNavigate();
   const [subsystem, setSubsystem] = useState<Subsystem | null>(null);
-  const [members, setMembers] = useState<Array<Alter & { roles?: string[] }>>([]);
-  const [me, setMe] = useState<any>(null);
+  const [members, setMembers] = useState<AlterMember[]>([]);
+  const [me, setMe] = useState<User | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [saving, setSaving] = useState(false);
-  const canEdit = !!(
+  const subsystemOwnerId =
+    subsystem?.owner_user_id ??
+    (typeof subsystem?.ownerUserId === 'number' || typeof subsystem?.ownerUserId === 'string'
+      ? subsystem.ownerUserId
+      : undefined);
+  const canEdit = Boolean(
     me &&
-    subsystem &&
-    (subsystem as any).owner_user_id != null &&
-    (me.is_admin || Number(me.id) === Number((subsystem as any).owner_user_id))
+      subsystem &&
+      subsystemOwnerId != null &&
+      (me.is_admin || (me.id != null && Number(me.id) === Number(subsystemOwnerId))),
   );
   // Member editing state
   const [memberBusy, setMemberBusy] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [alterOptions, setAlterOptions] = useState<Array<{ id: number | string; name: string }>>([]);
+  const [alterOptions, setAlterOptions] = useState<AlterName[]>([]);
   const [alterSearch, setAlterSearch] = useState('');
-  const [selectedAlter, setSelectedAlter] = useState<{ id: number | string; name: string } | null>(null);
+  const [selectedAlter, setSelectedAlter] = useState<AlterName | null>(null);
   const [newMemberRole, setNewMemberRole] = useState('Member');
-  const [roleInputMap, setRoleInputMap] = useState<Record<string | number, string>>({});
+  const [roleInputMap, setRoleInputMap] = useState<Record<string, string>>({});
   const [loadingAlterNames, setLoadingAlterNames] = useState(false);
   const [shareDialog, setShareDialog] = useState<{ open: boolean; url: string; error: string | null }>({
     open: false,
@@ -73,6 +85,11 @@ export default function SubsystemDetail() {
   useEffect(() => {
     (async () => {
       try {
+        if (!sid) {
+          setSubsystem(null);
+          setMembers([]);
+          return;
+        }
         // fetch user first
         try {
           const muser = await fetchMeVerified();
@@ -80,14 +97,14 @@ export default function SubsystemDetail() {
         } catch {
           setMe(null);
         }
-        const s = await getSubsystem(sid);
-        setSubsystem(s || null);
-        if (s) {
-          setEditName((s as any).name || '');
-          setEditDesc((s as any).description || '');
+        const subsystemData = await getSubsystem(sid);
+        setSubsystem(subsystemData ?? null);
+        if (subsystemData) {
+          setEditName(subsystemData.name ?? '');
+          setEditDesc(subsystemData.description ?? '');
         }
-        await refreshMembers(true);
-      } catch (e) {
+        await refreshMembers();
+      } catch {
         setSubsystem(null);
         setMembers([]);
       }
@@ -101,16 +118,13 @@ export default function SubsystemDetail() {
       if (!addMemberOpen) return;
       setLoadingAlterNames(true);
       try {
-        let r;
-        // filter by system owner id if available on subsystem
-        if (subsystem && (subsystem as any).owner_user_id) {
-          r = await fetchAlterNamesByUser((subsystem as any).owner_user_id, alterSearch || '');
-        } else {
-          r = await fetchAlterNames(alterSearch || '');
-        }
+        const ownerId = subsystemOwnerId;
+        const results = await (ownerId != null
+          ? fetchAlterNamesByUser(ownerId, alterSearch || '')
+          : fetchAlterNames(alterSearch || ''));
         if (!active) return;
-        const items = (r && (r as any).items) || [];
-        setAlterOptions(items.filter((it: any) => it && it.name));
+        const filtered = results.filter((item): item is AlterName => Boolean(item && item.name));
+        setAlterOptions(filtered);
       } catch (e) {
         if (active) setAlterOptions([]);
       } finally {
@@ -122,57 +136,55 @@ export default function SubsystemDetail() {
     };
   }, [alterSearch, addMemberOpen, subsystem]);
 
-  async function refreshMembers(initial = false) {
+  async function refreshMembers() {
+    if (!sid) return;
     try {
-      const m = await listSubsystemMembers(sid);
-      const membershipRows = ((m && (m as any).items) || []) as any[];
+      const membershipRows = await listSubsystemMembers(sid);
+      const byId: Record<string, { alterId: string | number; roles: string[] }> = {};
+      membershipRows.forEach((row: SubsystemMember) => {
+        const alterId = row.alter_id ?? row.alterId;
+        if (alterId == null) return;
+        const roles = parseRoles(row.roles);
+        byId[String(alterId)] = { alterId, roles };
+      });
       // always also gather alters referencing this subsystem (implicit members)
-      let implicit: any[] = [];
       try {
         const all = await fetchAlters('', true); // include relationships
-        const alters = (all && (all as any).items) || [];
-        implicit = alters.filter((al: any) => String(al.subsystem) === String(sid));
+        const alters = Array.isArray(all.items) ? all.items : [];
+        alters
+          .filter((al) => String(al.subsystem) === String(sid))
+          .forEach((al) => {
+            if (al?.id == null) return;
+            const key = String(al.id);
+            if (!byId[key]) byId[key] = { alterId: al.id, roles: [] };
+          });
       } catch {
         /* ignore implicit errors */
       }
-      const byId: Record<string | number, { alter_id: number | string; roles: string[] }> = {};
-      membershipRows.forEach((row) => {
-        const aid = row.alter_id || row.alterId;
-        if (aid != null) byId[aid] = { alter_id: aid, roles: Array.isArray(row.roles) ? row.roles : [] };
-      });
-      implicit.forEach((al: any) => {
-        if (al && al.id != null && !byId[al.id]) byId[al.id] = { alter_id: al.id, roles: [] };
-      });
-      const merged = Object.values(byId);
       const detailed = await Promise.all(
-        merged.map(async (row: any) => {
-          const aid = row.alter_id;
-          if (aid == null) return null;
+        Object.values(byId).map(async ({ alterId, roles }) => {
           try {
-            const a = await getAlter(aid);
-            if (a) return { ...(a as Alter), roles: row.roles };
+            const alter = await getAlter(alterId);
+            if (!alter) return null;
+            return { ...alter, roles } as AlterMember;
           } catch {
             return null;
           }
-          return null;
         }),
       );
-      setMembers(detailed.filter(Boolean) as Array<Alter & { roles?: string[] }>);
+      const validMembers = detailed.filter((item): item is AlterMember => Boolean(item));
+      setMembers(validMembers);
     } catch {
       setMembers([]);
     }
   }
 
   async function addMember() {
-    if (!selectedAlter) return;
+    if (!selectedAlter || !sid) return;
     setMemberBusy(true);
     try {
-      if (newMemberRole === 'Host') {
-        await toggleSubsystemLeader(sid as string, selectedAlter.id, true);
-      } else {
-        await toggleSubsystemLeader(sid as string, selectedAlter.id, true);
-        // server side handles non-host roles via same endpoint (role param optional)
-      }
+      await toggleSubsystemLeader(sid, selectedAlter.id, true);
+      // server side handles non-host roles via same endpoint (role param optional)
       await refreshMembers();
       setSelectedAlter(null);
       setNewMemberRole('Member');
@@ -185,27 +197,29 @@ export default function SubsystemDetail() {
   }
 
   async function removeMember(alterId: string | number, roles: string[] | undefined) {
-    if (!roles || !roles.length) return;
+    if (!sid || !roles || roles.length === 0) return;
     setMemberBusy(true);
     try {
-      for (const roleName of roles) {
-        await toggleSubsystemLeader(sid as string, alterId, false);
+      for (const _roleName of roles) {
+        await toggleSubsystemLeader(sid, alterId, false);
         // role param omitted; server will remove leader/role appropriately
       }
       await refreshMembers();
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       setMemberBusy(false);
     }
   }
 
-  async function toggleRole(alterId: string | number, role: string, add: boolean) {
+  async function toggleRole(alterId: string | number, _role: string, add: boolean) {
+    void _role;
+    if (!sid) return;
     setMemberBusy(true);
     try {
-      await toggleSubsystemLeader(sid as string, alterId, add);
+      await toggleSubsystemLeader(sid, alterId, add);
       await refreshMembers();
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       setMemberBusy(false);
@@ -213,11 +227,12 @@ export default function SubsystemDetail() {
   }
 
   function onAddCustomRole(alterId: string | number) {
-    const val = (roleInputMap as any)[alterId];
-    const trimmed = (val || '').trim();
+    const key = String(alterId);
+    const val = roleInputMap[key] ?? '';
+    const trimmed = val.trim();
     if (!trimmed) return;
-    toggleRole(alterId, trimmed, true);
-    setRoleInputMap((m) => ({ ...m, [alterId]: '' }));
+    void toggleRole(alterId, trimmed, true);
+    setRoleInputMap((m) => ({ ...m, [key]: '' }));
   }
   if (!subsystem)
     return (
@@ -231,14 +246,15 @@ export default function SubsystemDetail() {
   async function handleShare() {
     if (!settings.loaded) return setShareDialog({ open: true, url: '', error: 'Settings not loaded' });
     if (!settings.shortLinksEnabled) return setShareDialog({ open: true, url: '', error: 'Short links are disabled' });
-    const resp = await createShortLink('subsystem', (subsystem as Subsystem).id).catch(() => null);
-    if (!resp || (!(resp as any).token && !(resp as any).url))
-      return setShareDialog({
-        open: true,
-        url: '',
-        error: resp && (resp as any).error ? String((resp as any).error) : 'Unknown',
-      });
-    const url = (resp as any).url || `/s/${(resp as any).token}`;
+    if (!subsystem || subsystem.id == null) {
+      setShareDialog({ open: true, url: '', error: 'Missing subsystem id' });
+      return;
+    }
+    const record = await createShortLink('subsystem', Number(subsystem.id)).catch(() => null);
+    if (!record) {
+      return setShareDialog({ open: true, url: '', error: 'Failed to create share link' });
+    }
+    const url = getShortLinkUrl(record);
     try {
       await navigator.clipboard.writeText(url);
       setShareDialog({ open: true, url, error: null });
@@ -247,7 +263,11 @@ export default function SubsystemDetail() {
     }
   }
   async function exportPdf() {
-    if (!subsystem) return;
+    if (!subsystem || subsystem.id == null) {
+      setPdfError('Missing subsystem id');
+      setPdfSnackOpen(true);
+      return;
+    }
     try {
       // Get JWT token from localStorage
       const token = localStorage.getItem('didhub_jwt');
@@ -256,7 +276,7 @@ export default function SubsystemDetail() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const resp = await fetch(`/api/pdf/subsystem/${(subsystem as any).id}`, {
+      const resp = await fetch(`/api/pdf/subsystem/${subsystem.id}`, {
         credentials: 'include',
         headers,
       });
@@ -269,13 +289,14 @@ export default function SubsystemDetail() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `subsystem-${(subsystem as any).id}.pdf`;
+      a.download = `subsystem-${subsystem.id}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 3000);
-    } catch (e: any) {
-      setPdfError(e?.message || 'Export failed');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Export failed';
+      setPdfError(message);
       setPdfSnackOpen(true);
     }
   }
@@ -294,10 +315,10 @@ export default function SubsystemDetail() {
             sx={{ ml: 1 }}
           />
         )}
-        {!uid && subsystem && (subsystem as any).owner_user_id && (
+        {!uid && subsystemOwnerId != null && (
           <Chip
             component={RouterLink}
-            to={`/did-system/${(subsystem as any).owner_user_id}`}
+            to={`/did-system/${encodeURIComponent(String(subsystemOwnerId))}`}
             label="View System"
             clickable
             size="small"
@@ -323,7 +344,7 @@ export default function SubsystemDetail() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
         {!editing && (
           <Typography variant="h4" sx={{ flex: 1 }}>
-            {(subsystem as Subsystem).name}
+            {subsystem.name}
           </Typography>
         )}
         {editing && (
@@ -346,16 +367,16 @@ export default function SubsystemDetail() {
               variant="contained"
               disabled={!editName.trim() || saving}
               onClick={async () => {
-                if (!subsystem) return;
+                if (!subsystem || subsystem.id == null) return;
                 setSaving(true);
                 try {
-                  const resp = await updateSubsystem((subsystem as any).id, {
+                  const resp = await updateSubsystem(subsystem.id, {
                     name: editName.trim(),
                     description: editDesc || null,
                   });
-                  if ((resp as any).status === 200 || (resp as any).json) {
-                    const updated = await getSubsystem((subsystem as any).id);
-                    setSubsystem(updated || null);
+                  if (resp.status === 200) {
+                    const updated = await getSubsystem(subsystem.id);
+                    setSubsystem(updated ?? null);
                     setEditing(false);
                   }
                 } catch (e) {
@@ -372,8 +393,8 @@ export default function SubsystemDetail() {
               disabled={saving}
               onClick={() => {
                 setEditing(false);
-                setEditName((subsystem as any).name || '');
-                setEditDesc((subsystem as any).description || '');
+                setEditName(subsystem?.name ?? '');
+                setEditDesc(subsystem?.description ?? '');
               }}
             >
               Cancel
@@ -381,7 +402,7 @@ export default function SubsystemDetail() {
           </>
         )}
       </Box>
-      {!editing && <Typography sx={{ mb: 2 }}>{(subsystem as Subsystem).description}</Typography>}
+      {!editing && <Typography sx={{ mb: 2 }}>{subsystem.description}</Typography>}
       {editing && (
         <textarea
           style={{ width: '100%', minHeight: 120, padding: 8, fontFamily: 'inherit', fontSize: 14, marginBottom: 16 }}
@@ -404,7 +425,10 @@ export default function SubsystemDetail() {
                 <Autocomplete
                   size="small"
                   sx={{ minWidth: 240 }}
-                  options={alterOptions.filter((o) => !members.find((m) => String(m.id) === String(o.id)))}
+                  options={alterOptions.filter(
+                    (option) =>
+                      !members.some((member) => member.id != null && String(member.id) === String(option.id)),
+                  )}
                   getOptionLabel={(o) => o.name}
                   loading={loadingAlterNames}
                   value={selectedAlter}
@@ -456,25 +480,26 @@ export default function SubsystemDetail() {
             </ListItem>
           )}
           {members.map((m) => {
-            const secondary = [
-              m.species || '',
-              (m as any).roles && (m as any).roles.length ? `Roles: ${(m as any).roles.join(', ')}` : '',
-            ]
+            const memberId = m.id;
+            if (memberId == null) return null;
+            const roles = Array.isArray(m.roles) ? m.roles : [];
+            const secondary = [m.species || '', roles.length ? `Roles: ${roles.join(', ')}` : '']
               .filter(Boolean)
               .join(' \u2022 ');
+            const roleKey = String(memberId);
             return (
-              <ListItem key={m.id} disablePadding>
-                <ListItemButton onClick={() => nav(`/detail/${m.id}`)}>
-                  <ListItemText primary={m.name || `#${m.id}`} secondary={secondary} />
+              <ListItem key={roleKey} disablePadding>
+                <ListItemButton onClick={() => nav(`/detail/${memberId}`)}>
+                  <ListItemText primary={m.name || `#${memberId}`} secondary={secondary} />
                 </ListItemButton>
                 {canEdit && (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, px: 1, pb: 1 }}>
-                    {(m.roles || []).map((r) => (
+                    {roles.map((r) => (
                       <Chip
                         key={r}
                         size="small"
                         label={r}
-                        onDelete={() => toggleRole(m.id as any, r, false)}
+                        onDelete={() => void toggleRole(memberId, r, false)}
                         deleteIcon={<CloseIcon />}
                         color={r === 'Host' ? 'primary' : 'default'}
                         sx={{ mr: 0.5 }}
@@ -483,12 +508,12 @@ export default function SubsystemDetail() {
                     <TextField
                       size="small"
                       placeholder="Add role"
-                      value={roleInputMap[m.id] || ''}
-                      onChange={(e) => setRoleInputMap((mp) => ({ ...mp, [m.id]: e.target.value }))}
+                      value={roleInputMap[roleKey] || ''}
+                      onChange={(e) => setRoleInputMap((mp) => ({ ...mp, [roleKey]: e.target.value }))}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          onAddCustomRole(m.id as any);
+                          onAddCustomRole(memberId);
                         }
                       }}
                       sx={{ width: 140 }}
@@ -496,8 +521,8 @@ export default function SubsystemDetail() {
                     <Button
                       size="small"
                       variant="outlined"
-                      disabled={memberBusy || !(roleInputMap[m.id] || '').trim()}
-                      onClick={() => onAddCustomRole(m.id as any)}
+                      disabled={memberBusy || !(roleInputMap[roleKey] || '').trim()}
+                      onClick={() => onAddCustomRole(memberId)}
                     >
                       Add Role
                     </Button>
@@ -505,7 +530,7 @@ export default function SubsystemDetail() {
                       size="small"
                       color="error"
                       disabled={memberBusy}
-                      onClick={() => removeMember(m.id as any, (m as any).roles || [])}
+                      onClick={() => void removeMember(memberId, roles)}
                     >
                       Remove Member
                     </Button>

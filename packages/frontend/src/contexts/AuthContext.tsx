@@ -22,7 +22,10 @@ type AuthContextShape = {
   /** Whether the user must change their password */
   mustChange: boolean;
   /** Login function */
-  login: (username: string, password: string) => Promise<{ ok: boolean; user?: User | null; error?: string | null }>;
+  login: (
+    username: string,
+    password: string,
+  ) => Promise<{ ok: boolean; user?: User | null; error?: string | null; pending?: boolean }>;
   /** Logout function */
   logout: () => Promise<void>;
   /** Register function */
@@ -119,11 +122,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [mustChange]);
   useEffect(() => {
-    function handler() {
+    const handler: EventListener = () => {
       setMustChange(true);
-    }
-    window.addEventListener('didhub:must-change-password', handler as any);
-    return () => window.removeEventListener('didhub:must-change-password', handler as any);
+    };
+    window.addEventListener('didhub:must-change-password', handler);
+    return () => window.removeEventListener('didhub:must-change-password', handler);
   }, []);
   useEffect(() => {
     try {
@@ -148,15 +151,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     // If server indicates account is not yet approved, surface a pending flag so UI can redirect.
-    const code = (r.json as any)?.code as string | undefined;
+    const loginJson = r.json as { token?: string; code?: string; error?: string } | null | undefined;
+    const code = loginJson?.code;
     if (code === 'not_approved') {
       return {
         ok: false,
         pending: true,
-        error: ((r.json as any)?.error as string) || 'Account awaiting approval',
-      } as any;
+        error: loginJson?.error ?? 'Account awaiting approval',
+      };
     }
-    return { ok: false, error: ((r.json as any)?.error as string) || (r.text as string | null) };
+    return { ok: false, error: loginJson?.error ?? (r.text ?? null) };
   }
   async function register(username: string, password: string, is_system = false) {
     const r = await apiRegister(username, password, is_system);
@@ -164,7 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Account created. Because new accounts require admin approval, don't auto-login.
       return { ok: true, pending: true };
     }
-    return { ok: false, error: ((r.json as any)?.error as string) || (r.text as string | null) };
+    const registerJson = r.json as { error?: string } | null | undefined;
+    return { ok: false, error: registerJson?.error ?? (r.text ?? null) };
   }
   async function logout() {
     await apiLogout();
@@ -188,7 +193,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { ok: true };
     }
-    const err = (res && (res.json as any)?.error) || (res && (res.text as any)) || 'error';
+    const errJson = res?.json as { error?: string } | null | undefined;
+    const errText = res?.text;
+    const err = errJson?.error ?? errText ?? 'error';
     return { ok: false, error: String(err) };
   }
   return (
@@ -201,6 +208,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 // Global listeners mounted once (outside provider usage) could also manage 401 events: integrated here for simplicity.
+declare global {
+  interface Window {
+    __didhub_refreshing?: boolean;
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('didhub:unauthorized', () => {
     try {
@@ -211,15 +224,15 @@ if (typeof window !== 'undefined') {
         return;
       }
       // Stash a flag to avoid multiple concurrent attempts across components.
-      if ((window as any).__didhub_refreshing) return;
-      (window as any).__didhub_refreshing = true;
+      if (window.__didhub_refreshing) return;
+      window.__didhub_refreshing = true;
       (async () => {
         try {
           const r = await refreshSession();
           if (r && r.ok && r.token) {
             localStorage.setItem('didhub_jwt', r.token);
             // Clear the refreshing flag immediately since the operation is complete
-            (window as any).__didhub_refreshing = false;
+            window.__didhub_refreshing = false;
             return;
           }
         } catch {

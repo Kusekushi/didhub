@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button, Avatar, Typography, TextField } from '@mui/material';
+import { Button, Avatar, Typography, TextField, type AlertColor } from '@mui/material';
 
 import NotificationSnackbar from '../components/NotificationSnackbar';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,28 +10,38 @@ import {
   deleteAvatar,
   fetchMeVerified,
 } from '@didhub/api-client';
+import type { SystemRequest } from '../types/api';
+
+type SnackbarState = {
+  open: boolean;
+  text: string;
+  severity: AlertColor;
+};
 
 export default function UserSettings() {
-  const { user, setUser, changePassword } = useAuth() as any;
-  const [file, setFile] = useState<any>(null);
+  const { user, setUser, changePassword } = useAuth();
+  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
-  const [pwMsg, setPwMsg] = useState({ open: false, text: '', severity: 'info' });
-  const [msg, setMsg] = useState({ open: false, text: '', severity: 'info' });
-  const [myRequest, setMyRequest] = useState<any>(null);
+  const [pwMsg, setPwMsg] = useState<SnackbarState>({ open: false, text: '', severity: 'info' });
+  const [msg, setMsg] = useState<SnackbarState>({ open: false, text: '', severity: 'info' });
+  const [myRequest, setMyRequest] = useState<SystemRequest | null>(null);
 
   async function doUpload() {
     if (!file) return;
     setLoading(true);
     const res = await uploadAvatar(file);
     setLoading(false);
-    if (res && res.avatar) {
+    if (!res.error) {
       const me = await fetchMeVerified();
       setUser(me);
+      setMsg({ open: true, text: 'Avatar updated', severity: 'success' });
+    } else {
+      setMsg({ open: true, text: res.message ?? 'Avatar upload failed', severity: 'error' });
     }
   }
 
@@ -67,7 +77,7 @@ export default function UserSettings() {
     setPwLoading(true);
     try {
       const r = await changePassword(currentPassword, newPassword);
-      if (r && (r as any).ok) {
+      if (r?.ok) {
         setPwMsg({ open: true, text: 'Password changed', severity: 'success' });
         setCurrentPassword('');
         setNewPassword('');
@@ -75,7 +85,7 @@ export default function UserSettings() {
         const me = await fetchMeVerified();
         setUser(me);
       } else {
-        setPwMsg({ open: true, text: String((r && (r as any).error) || 'change failed'), severity: 'error' });
+        setPwMsg({ open: true, text: String(r?.error ?? 'change failed'), severity: 'error' });
       }
     } catch (e) {
       setPwMsg({ open: true, text: String(e || 'change failed'), severity: 'error' });
@@ -87,7 +97,7 @@ export default function UserSettings() {
     (async () => {
       try {
         const r = await getMySystemRequest();
-        setMyRequest(r || null);
+        setMyRequest(r ?? null);
       } catch (e) {
         setMyRequest(null);
       }
@@ -104,7 +114,10 @@ export default function UserSettings() {
             type="file"
             accept="image/*"
             ref={fileInputRef}
-            onChange={(e) => setFile((e.target as HTMLInputElement).files && (e.target as HTMLInputElement).files![0])}
+            onChange={(e) => {
+              const files = (e.target as HTMLInputElement).files;
+              setFile(files && files.length > 0 ? files[0] : null);
+            }}
             style={{ display: 'none' }}
           />
           <Button variant="outlined" onClick={() => fileInputRef.current?.click()} disabled={loading}>
@@ -154,13 +167,13 @@ export default function UserSettings() {
               setLoading(true);
               try {
                 const res = await requestSystemApproval();
-                if (res && (res as any).id) {
+                if (res && 'id' in res && typeof res.id !== 'undefined') {
                   const me = await fetchMeVerified();
                   setUser(me);
-                  setMyRequest(res);
+                  setMyRequest(res as SystemRequest);
                   setPwMsg({ open: true, text: 'System request submitted', severity: 'success' });
-                } else if (res && (res as any).error) {
-                  setPwMsg({ open: true, text: String((res as any).error), severity: 'error' });
+                } else if (res && typeof (res as { error?: unknown }).error === 'string') {
+                  setPwMsg({ open: true, text: String((res as { error?: unknown }).error), severity: 'error' });
                 } else {
                   setPwMsg({ open: true, text: 'Request failed', severity: 'error' });
                 }
@@ -208,13 +221,13 @@ export default function UserSettings() {
         open={pwMsg.open}
         onClose={() => setPwMsg({ ...pwMsg, open: false })}
         message={pwMsg.text}
-        severity={(pwMsg as any).severity}
+        severity={pwMsg.severity}
       />
       <NotificationSnackbar
         open={msg.open}
-        onClose={() => setPwMsg({ ...msg, open: false })}
+        onClose={() => setMsg({ ...msg, open: false })}
         message={msg.text}
-        severity={(msg as any).severity}
+        severity={msg.severity}
       />
     </div>
   );

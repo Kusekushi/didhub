@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { listSystems } from '@didhub/api-client';
+import { listSystems, type User } from '@didhub/api-client';
 
-type System = any;
+export type SystemSummary = User & { description?: string | null };
 
 /**
  * Hook for managing system list data and search
  */
 export function useSystemList() {
-  const [systems, setSystems] = useState<System[]>([]);
+  const [systems, setSystems] = useState<SystemSummary[]>([]);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 

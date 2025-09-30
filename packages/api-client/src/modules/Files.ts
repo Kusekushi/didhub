@@ -1,6 +1,23 @@
 import { apiFetch, ApiFetchResult } from '../Util';
 import type { UploadInfo, UploadListResponse } from '../Types';
 
+type UploadJsonPayload = {
+  filename?: string;
+  url?: string;
+  message?: string;
+  error?: string;
+  [key: string]: unknown;
+};
+
+type AvatarResponsePayload = UploadJsonPayload & {
+  avatar?: string;
+};
+
+type DeleteAvatarResponse = {
+  success?: boolean;
+  message?: string;
+};
+
 function getStoredToken(): string | null {
   try {
     if (typeof localStorage === 'undefined') return null;
@@ -21,18 +38,22 @@ function getCsrfToken(): string | null {
   return null;
 }
 
-export async function uploadFile(file: File): Promise<{ status: number; json?: any; text?: string | null; url?: string | null }> {
+export async function uploadFile(
+  file: File,
+): Promise<{ status: number; json?: UploadJsonPayload; text?: string | null; url?: string | null }> {
   const fd = new FormData();
   fd.append('file', file);
-  const res = await apiFetch('/api/upload', { method: 'POST', body: fd });
-  return { status: res.status, json: res.json, text: res.text, url: res.json ? res.json.filename : null };
+  const res = await apiFetch<UploadJsonPayload>('/api/upload', { method: 'POST', body: fd });
+  const payload = res.json ?? undefined;
+  const url = typeof payload?.filename === 'string' ? payload.filename : typeof payload?.url === 'string' ? payload.url : null;
+  return { status: res.status, json: payload, text: res.text ?? null, url };
 }
 
 // Upload with progress callback (percentage 0-100). Returns same shape as uploadFile.
 export function uploadFileWithProgress(
   file: File,
   onProgress: (pct: number) => void,
-): Promise<{ status: number; json?: any; url?: string; text?: string; error?: string }> {
+): Promise<{ status: number; json?: UploadJsonPayload; url?: string; text?: string; error?: string }> {
   return new Promise((resolve) => {
     const fd = new FormData();
     fd.append('file', file);
@@ -60,15 +81,20 @@ export function uploadFileWithProgress(
     };
     xhr.onreadystatechange = () => {
       if (xhr.readyState === 4) {
-        let parsed: any = undefined;
+        let parsed: UploadJsonPayload | undefined;
         try {
-          parsed = xhr.responseText ? JSON.parse(xhr.responseText) : undefined;
+          parsed = xhr.responseText ? (JSON.parse(xhr.responseText) as UploadJsonPayload) : undefined;
         } catch {}
         resolve({
           status: xhr.status,
           json: parsed,
-          url: parsed ? parsed.filename : undefined,
-          text: xhr.responseText,
+          url:
+            typeof parsed?.filename === 'string'
+              ? parsed.filename
+              : typeof parsed?.url === 'string'
+                ? parsed.url
+                : undefined,
+          text: xhr.responseText || undefined,
         });
       }
     };
@@ -77,14 +103,24 @@ export function uploadFileWithProgress(
   });
 }
 
-export async function uploadAvatar(file: File): Promise<{ url?: string; message?: string }> {
+export async function uploadAvatar(file: File): Promise<{ url?: string; message?: string; error?: string }> {
   const fd = new FormData();
   fd.append('file', file);
-  return apiFetch('/api/me/avatar', { method: 'POST', body: fd }).then((r: ApiFetchResult) => r.json || null);
+  const res = await apiFetch<AvatarResponsePayload>('/api/me/avatar', { method: 'POST', body: fd });
+  const payload = res.json;
+  if (payload && (typeof payload.url === 'string' || typeof payload.filename === 'string')) {
+    const url = typeof payload.url === 'string' ? payload.url : payload.filename;
+    const message = typeof payload.message === 'string' ? payload.message : undefined;
+    return { url, message };
+  }
+  return {
+    error: 'upload_failed',
+    message: payload && typeof payload.message === 'string' ? payload.message : undefined,
+  };
 }
 
-export async function deleteAvatar(): Promise<{ success?: boolean; message?: string }> {
-  return apiFetch('/api/me/avatar', { method: 'DELETE' }).then((r: any) => r.json || null);
+export async function deleteAvatar(): Promise<DeleteAvatarResponse | null> {
+  return apiFetch<DeleteAvatarResponse>('/api/me/avatar', { method: 'DELETE' }).then((r) => r.json ?? null);
 }
 
 export async function listUploads(params: Record<string, unknown> = {}): Promise<UploadListResponse> {
@@ -93,7 +129,7 @@ export async function listUploads(params: Record<string, unknown> = {}): Promise
     if (params[k] != null) qs.set(k, String(params[k]));
   });
   const q = qs.toString() ? '?' + qs.toString() : '';
-  return apiFetch('/api/uploads' + q).then((r: ApiFetchResult) => r.json || {});
+  return apiFetch<UploadListResponse>('/api/uploads' + q).then((r) => r.json ?? { items: [] });
 }
 
 export async function deleteUpload(name: string, force = false): Promise<ApiFetchResult> {
@@ -105,5 +141,8 @@ export async function purgeUploads(opts: { purge_before?: string; force?: boolea
   if (opts.purge_before) qs.set('purge_before', opts.purge_before);
   if (opts.force) qs.set('force', '1');
   const q = qs.toString() ? '?' + qs.toString() : '';
-  return apiFetch('/api/uploads/purge' + q, { method: 'POST' }).then((r: ApiFetchResult) => r.json || {});
+  return apiFetch<{ deleted?: number; message?: string }>(
+    '/api/uploads/purge' + q,
+    { method: 'POST' },
+  ).then((r) => r.json || {});
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import { SignInPage } from '@toolpad/core';
 import { Checkbox, FormControlLabel, IconButton, InputAdornment, Link } from '@mui/material';
 import AuthLayout from '../components/AuthLayout';
@@ -12,6 +12,8 @@ type Provider = {
   id: string;
   name: string;
 };
+
+type SignInResponse = { success?: string; error?: string } | undefined;
 
 export default function Login(): React.ReactElement {
   const { login } = useAuth();
@@ -42,7 +44,7 @@ export default function Login(): React.ReactElement {
   }, []);
 
   const signIn = useCallback(
-    async (provider?: Provider | null, formData?: FormData, callbackUrl?: string) => {
+    async (provider?: Provider | null, formData?: FormData, callbackUrl?: string): Promise<SignInResponse> => {
       if (provider?.id === 'credentials') {
         const username = formData?.get('username')?.toString() ?? '';
         const password = formData?.get('password')?.toString() ?? '';
@@ -52,20 +54,20 @@ export default function Login(): React.ReactElement {
           const isValidCallback = callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.includes('://');
           const dest = isValidCallback ? callbackUrl : '/';
           window.location.href = dest;
-          return { success: '' } as any;
+          return { success: '' };
         }
 
-        if ((result as any).pending) {
+        if (result.pending) {
           window.location.href = '/awaiting-approval';
-          return { success: '' } as any;
+          return { success: '' };
         }
 
-        return { error: result.error || 'Sign in failed' } as any;
+        return { error: result.error ?? 'Sign in failed' };
       }
 
       // Validate provider is in the allowed list
       if (provider?.id && !providers.some((p) => p.id === provider.id)) {
-        return { error: 'Invalid provider' } as any;
+        return { error: 'Invalid provider' };
       }
 
       // OAuth / external providers: redirect to server endpoint
@@ -112,14 +114,15 @@ export default function Login(): React.ReactElement {
           rememberMe: { label: 'Remember me?', control: <Checkbox /> },
         }}
         slots={{
-          signUpLink: (props: any) => (
+          signUpLink: (props: ComponentProps<typeof Link>) => (
             <Link href="/register" {...props}>
               Sign up
             </Link>
           ),
-          rememberMe: (props: any) => (
-            <FormControlLabel control={<Checkbox />} label={props?.label || 'Remember me?'} {...props} />
-          ),
+          rememberMe: (props: ComponentProps<typeof FormControlLabel>) => {
+            const { label, ...rest } = props;
+            return <FormControlLabel control={<Checkbox />} label={label ?? 'Remember me?'} {...rest} />;
+          },
         }}
         localeText={{ email: 'Username' }}
       />

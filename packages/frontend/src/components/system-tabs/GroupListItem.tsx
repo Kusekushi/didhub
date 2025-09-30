@@ -5,11 +5,12 @@ import { Group } from '@didhub/api-client';
 import GroupAvatar from './GroupAvatar';
 import GroupActions from './GroupActions';
 import { SnackbarMessage } from '../NotificationSnackbar';
+import type { SettingsState } from '../../contexts/SettingsContext';
 
 export interface GroupListItemProps {
   group: Group;
   canManage: boolean;
-  settings: any;
+  settings: SettingsState;
   setEditingGroup: (group: Group | null) => void;
   setEditGroupOpen: (open: boolean) => void;
   onDelete: (groupId: number | string) => Promise<void>;

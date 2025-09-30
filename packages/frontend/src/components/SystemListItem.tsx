@@ -3,13 +3,12 @@ import { ListItem, ListItemText, Button, ListItemAvatar } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 
 import SystemAvatar from './SystemAvatar';
-
-type System = any;
+import type { SystemSummary } from '../hooks/useSystemList';
 
 export interface SystemListItemProps {
-  system: System;
-  primary?: (s: System) => React.ReactNode;
-  secondary?: (s: System) => React.ReactNode;
+  system: SystemSummary;
+  primary?: (s: SystemSummary) => React.ReactNode;
+  secondary?: (s: SystemSummary) => React.ReactNode;
 }
 
 /**
@@ -29,7 +28,13 @@ export default function SystemListItem(props: SystemListItemProps) {
       </ListItemAvatar>
       <ListItemText
         primary={props.primary ? props.primary(props.system) : props.system.username}
-        secondary={props.secondary ? props.secondary(props.system) : props.system.description || null}
+        secondary={
+          props.secondary
+            ? props.secondary(props.system)
+            : typeof props.system.description === 'string'
+            ? props.system.description
+            : null
+        }
       />
     </ListItem>
   );

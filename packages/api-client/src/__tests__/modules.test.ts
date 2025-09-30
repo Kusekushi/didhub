@@ -275,7 +275,7 @@ describe('api-client', () => {
   });
 
   it('Shortlink: create and get with success and error path', async () => {
-    vi.mocked(apiFetch).mockResolvedValueOnce({ status: 201, json: { token: 't' } });
+    vi.mocked(apiFetch).mockResolvedValueOnce({ status: 201, json: { id: 7, token: 't', target: '/detail/123' } });
     const created = await Shortlink.createShortLink('alter', 123);
     expect(vi.mocked(apiFetch).mock.calls[0][0]).toBe('/api/shortlink');
     expect(vi.mocked(apiFetch).mock.calls[0][1]).toEqual({
@@ -283,33 +283,31 @@ describe('api-client', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target: '/detail/123' }),
     });
-    expect(created).toEqual({ token: 't' });
+    expect(created).toEqual({ id: 7, token: 't', target: '/detail/123' });
 
-    vi.mocked(apiFetch).mockResolvedValueOnce({ status: 200, json: { target_type: 'a', target_id: '1' } });
+    vi.mocked(apiFetch).mockResolvedValueOnce({ status: 200, json: { id: 2, token: 'tok', target: '/detail/1' } });
     const rec = await Shortlink.getShortlinkRecord('tok');
     expect(vi.mocked(apiFetch).mock.calls[1][0]).toBe('/api/shortlink/tok');
-    expect((rec as any).target_type).toBe('a');
+    expect(rec).toEqual({ id: 2, token: 'tok', target: '/detail/1' });
 
     vi.mocked(apiFetch).mockResolvedValueOnce({ status: 404, json: null });
     const err = await Shortlink.getShortlinkRecord('bad');
-    expect((err as any).status).toBe(404);
+    expect('status' in err ? err.status : null).toBe(404);
   });
 
   it('OIDC: fetchOidcList handles ok/not-ok and errors', async () => {
     // successful fetch
-    (globalThis as any).fetch = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => ({ items: [{ id: '1', name: 'n' }] }) });
+    vi.mocked(apiFetch).mockResolvedValueOnce({ status: 200, json: [{ id: '1', name: 'n' }] });
     const list = await OIDC.fetchOidcList();
     expect(list.length).toBe(1);
 
     // non-ok
-    (globalThis as any).fetch = vi.fn().mockResolvedValue({ ok: false });
+    vi.mocked(apiFetch).mockResolvedValueOnce({ status: 500, json: null });
     const empty = await OIDC.fetchOidcList();
     expect(empty).toEqual([]);
 
     // throws
-    (globalThis as any).fetch = vi.fn().mockRejectedValue(new Error('boom'));
+    vi.mocked(apiFetch).mockRejectedValueOnce(new Error('boom'));
     const alsoEmpty = await OIDC.fetchOidcList();
     expect(alsoEmpty).toEqual([]);
   });
@@ -338,8 +336,9 @@ describe('api-client', () => {
     await Group.createGroup({});
     await Group.updateGroup(1, {});
     await Group.deleteGroup(1);
-    vi.mocked(apiFetch).mockResolvedValueOnce({ status: 200, json: { items: [] } });
-    await Group.listGroupMembers(1);
+  vi.mocked(apiFetch).mockResolvedValueOnce({ status: 200, json: { group_id: 1, alters: [2, 3] } });
+  const members = await Group.listGroupMembers(1);
+  expect(members).toEqual({ group_id: 1, alters: [2, 3] });
   });
 
   it('Files: uploadFile success + non-json, uploadFileWithProgress and avatar flows', async () => {

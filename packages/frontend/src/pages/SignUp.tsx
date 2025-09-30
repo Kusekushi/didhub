@@ -17,7 +17,7 @@ import AuthLayout from '../components/AuthLayout';
 type Msg = { type: 'success' | 'error' | 'info'; text: string } | null;
 
 export default function SignUp(): React.ReactElement {
-  const { register } = useAuth() as any;
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -39,13 +39,14 @@ export default function SignUp(): React.ReactElement {
     setLoading(true);
     try {
       const res = await register(username, password, requestSystem);
-      if (res && (res as any).ok) {
+      if (res.ok) {
         navigate('/login');
         return;
       }
-      setMsg({ type: 'error', text: String((res && (res as any).error) || 'Registration failed') });
-    } catch (err: any) {
-      setMsg({ type: 'error', text: String(err || 'Registration failed') });
+      setMsg({ type: 'error', text: res.error ?? 'Registration failed' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      setMsg({ type: 'error', text: message });
     } finally {
       setLoading(false);
     }

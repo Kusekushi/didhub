@@ -5,6 +5,7 @@ import GroupDialog from './GroupDialog';
 import GroupListItem from './GroupListItem';
 import { Alter, Group } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
+import type { SettingsState } from '../../contexts/SettingsContext';
 
 export interface GroupsTabProps {
   canManage: boolean;
@@ -37,7 +38,7 @@ export interface GroupsTabProps {
   editingGroupSigilDrag: boolean;
   setEditingGroupSigilDrag: (drag: boolean) => void;
   onDelete: (groupId: number | string) => Promise<void>;
-  settings: any;
+  settings: SettingsState;
   setSnack: (snack: SnackbarMessage) => void;
   refreshGroups: () => Promise<void>;
   uploadFiles: (files: File[]) => Promise<string[]>;

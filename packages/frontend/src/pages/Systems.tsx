@@ -5,8 +5,8 @@ export default function Systems() {
   return (
     <SystemList
       title="Systems"
-      primary={(s: any) => `${s.username} (${s.user_id})`}
-      secondary={(s: any) => s.display_name || ''}
+      primary={(system) => `${system.username ?? ''} (${system.user_id ?? ''})`}
+      secondary={(system) => system.display_name ?? ''}
     />
   );
 }

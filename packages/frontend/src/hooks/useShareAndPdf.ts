@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createShortLink } from '@didhub/api-client';
+import { createShortLink, getShortLinkUrl } from '@didhub/api-client';
 import { useSettings } from '../contexts/SettingsContext';
 
 interface UseShareResult {
@@ -33,13 +33,18 @@ export function useShare(alterId?: string | number): UseShareResult {
       return;
     }
 
-    const resp = await createShortLink('alter', alterId).catch(() => null);
-    if (!resp || (!resp.token && !resp.url)) {
-      setShareDialog({ open: true, url: '', error: resp && resp.error });
+    if (alterId == null) {
+      setShareDialog({ open: true, url: '', error: 'Missing alter id' });
       return;
     }
 
-    const url = resp.url || `/s/${resp.token}`;
+    const record = await createShortLink('alter', alterId).catch(() => null);
+    if (!record) {
+      setShareDialog({ open: true, url: '', error: 'Failed to create share link' });
+      return;
+    }
+
+    const url = getShortLinkUrl(record);
     try {
       await navigator.clipboard.writeText(url);
       setShareDialog({ open: true, url, error: null });
@@ -94,8 +99,9 @@ export function usePdf(): UsePdfResult {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setPdfError(e?.message || 'Export failed');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Export failed';
+      setPdfError(message);
       setPdfSnackOpen(true);
     }
   };

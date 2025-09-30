@@ -1,17 +1,15 @@
 import React from 'react';
 import { Container, Typography, List } from '@mui/material';
 
-import { useSystemList } from '../hooks/useSystemList';
+import { useSystemList, type SystemSummary } from '../hooks/useSystemList';
 import SystemSearch from './SystemSearch';
 import SystemListItem from './SystemListItem';
-
-type System = any;
 
 export interface SystemListProps {
   title?: string;
   header?: React.ReactNode;
-  primary?: (s: System) => React.ReactNode;
-  secondary?: (s: System) => React.ReactNode;
+  primary?: (s: SystemSummary) => React.ReactNode;
+  secondary?: (s: SystemSummary) => React.ReactNode;
   showContainer?: boolean;
   showSearch?: boolean;
 }

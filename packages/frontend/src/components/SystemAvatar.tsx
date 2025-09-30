@@ -1,17 +1,17 @@
 import React from 'react';
 import { Avatar } from '@mui/material';
 
-type System = any;
+import type { SystemSummary } from '../hooks/useSystemList';
 
 export interface SystemAvatarProps {
-  system: System;
+  system: SystemSummary;
 }
 
 /**
  * Component for displaying system avatar
  */
 export default function SystemAvatar(props: SystemAvatarProps) {
-  if (props.system.avatar) {
+  if (typeof props.system.avatar === 'string' && props.system.avatar) {
     return <Avatar src={`/uploads/${props.system.avatar}`} />;
   }
 

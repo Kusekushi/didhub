@@ -6,8 +6,9 @@ import PersonIcon from '@mui/icons-material/Person';
 import AlterFormDialog from '../AlterFormDialog';
 import ThumbnailWithHover from '../ThumbnailWithHover';
 import ActionButtons from '../ActionButtons';
-import { Alter, parseRoles, createShortLink } from '@didhub/api-client';
+import { Alter, parseRoles, createShortLink, getShortLinkUrl } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
+import type { SettingsState } from '../../contexts/SettingsContext';
 
 interface AltersTabProps {
   canManage: boolean;
@@ -22,7 +23,7 @@ interface AltersTabProps {
   editOpen: boolean;
   setEditOpen: (open: boolean) => void;
   onDelete: (alterId: number | string) => Promise<void>;
-  settings: any;
+  settings: SettingsState;
   setSnack: (snack: SnackbarMessage) => void;
   refreshAlters: () => Promise<void>;
 }
@@ -50,9 +51,11 @@ export default function AltersTab(props: AltersTabProps) {
       )}
       <List>
         {props.items
-          .filter((it: Alter) => !props.search || (it.name || '').toLowerCase().includes(props.search.toLowerCase()))
-          .filter((it: Alter) => (props.hideDormant ? !(it as any).is_dormant : true))
-          .filter((it: Alter) => (props.hideMerged ? !(it as any).is_merged : true))
+          .filter((alter: Alter) =>
+            !props.search || (alter.name || '').toLowerCase().includes(props.search.toLowerCase()),
+          )
+          .filter((alter: Alter) => (props.hideDormant ? !alter?.is_dormant : true))
+          .filter((alter: Alter) => (props.hideMerged ? !alter?.is_merged : true))
           .map((it: Alter, idx: number) => (
             <React.Fragment key={it.id}>
               <ListItem
@@ -71,19 +74,20 @@ export default function AltersTab(props: AltersTabProps) {
                     }
                     onDelete={props.canManage ? () => props.onDelete(it.id) : undefined}
                     onShare={async () => {
-                      if (!props.settings.shortLinksEnabled) return;
+                      if (!props.settings.shortLinksEnabled || it.id == null) return;
                       try {
-                        const resp = await createShortLink('alter', it.id).catch(() => null);
-                        if (!resp || (!resp.token && !resp.url))
-                          throw new Error(resp && resp.error ? String(resp.error) : 'failed');
-                        const path = resp.url || `/s/${resp.token}`;
-                        const url = path.startsWith('http') ? path : window.location.origin.replace(/:\d+$/, '') + path;
-                        await navigator.clipboard.writeText(url);
+                        const record = await createShortLink('alter', it.id).catch(() => null);
+                        if (!record) {
+                          throw new Error('Failed to create share link');
+                        }
+                        const shareUrl = getShortLinkUrl(record);
+                        await navigator.clipboard.writeText(shareUrl);
                         props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
-                      } catch (e) {
+                      } catch (error: unknown) {
+                        const message = error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
                         props.setSnack({
                           open: true,
-                          message: String(e?.message || e || 'Failed to create share link'),
+                          message,
                           severity: 'error',
                         });
                       }
@@ -117,8 +121,8 @@ export default function AltersTab(props: AltersTabProps) {
                   primary={
                     <span
                       style={{
-                        opacity: (it as any).is_dormant ? 0.6 : 1,
-                        textDecoration: (it as any).is_merged ? 'line-through' : 'none',
+                        opacity: it.is_dormant ? 0.6 : 1,
+                        textDecoration: it.is_merged ? 'line-through' : 'none',
                       }}
                     >
                       {it.name || 'Unnamed'}
@@ -136,10 +140,10 @@ export default function AltersTab(props: AltersTabProps) {
                             <Chip key={i} label={r} size="small" />
                           ))}
                           {it.is_system_host ? <Chip label="Host" color="primary" size="small" /> : null}
-                          {(it as any).is_dormant ? (
+                          {it.is_dormant ? (
                             <Chip label="Dormant" size="small" variant="outlined" color="default" />
                           ) : null}
-                          {(it as any).is_merged ? <Chip label="Merged" size="small" color="warning" /> : null}
+                          {it.is_merged ? <Chip label="Merged" size="small" color="warning" /> : null}
                         </Stack>
                       </div>
                     </div>
@@ -160,7 +164,7 @@ export default function AltersTab(props: AltersTabProps) {
           props.setEditOpen(false);
           props.setEditingAlter(null);
         }}
-        onSaved={async () => {
+  onSaved={async () => {
           await props.refreshAlters();
           props.setEditOpen(false);
           props.setEditingAlter(null);

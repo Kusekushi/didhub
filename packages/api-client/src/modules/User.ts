@@ -1,5 +1,11 @@
 import { apiFetch, setStoredToken, clearStoredToken, ApiFetchResult, hasAuthToken, refreshToken } from '../Util';
-import type { User, UserListResponse, UserNamesResponse, UserListOptions } from '../Types';
+import type { User, UserListResponse, UserNamesResponse, UserListOptions, PaginatedResponse } from '../Types';
+
+type LoginResponse = {
+  token?: string;
+  code?: string;
+  error?: string;
+};
 
 export async function registerUser(username: string, password: string, is_system = false): Promise<ApiFetchResult> {
   return apiFetch('/api/auth/register', {
@@ -10,12 +16,12 @@ export async function registerUser(username: string, password: string, is_system
 }
 
 export async function loginUser(username: string, password: string): Promise<ApiFetchResult> {
-  const r = await apiFetch('/api/auth/login', {
+  const r = await apiFetch<LoginResponse>('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });
-  const token = (r.json as any)?.token;
+  const token = r.json?.token;
   if (r.status === 200 && token) setStoredToken(token);
   return r;
 }
@@ -36,24 +42,24 @@ export async function listUsers(q?: string, page = 1, per_page = 50, opts: UserL
   if (opts.sort_by) params.push('sort_by=' + encodeURIComponent(opts.sort_by));
   if (opts.order) params.push('order=' + encodeURIComponent(opts.order));
   const qs = params.length ? '?' + params.join('&') : '';
-  return apiFetch('/api/users' + qs).then((r: ApiFetchResult) => r.json || {});
+  return apiFetch<UserListResponse>('/api/users' + qs).then((r) => r.json ?? { items: [] });
 }
 
 export async function getUser(id: string | number): Promise<User | null> {
-  return apiFetch('/api/users/' + id).then((r: ApiFetchResult) => r.json || null);
+  return apiFetch<User | null>('/api/users/' + id).then((r) => r.json ?? null);
 }
 
 export async function fetchMeVerified(): Promise<User | null> {
   if (!hasAuthToken()) return null;
-  const r = await apiFetch('/api/me');
+  const r = await apiFetch<User | null>('/api/me');
   if (r.status !== 200) return null;
-  return r.json || null;
+  return r.json ?? null;
 }
 
 export async function fetchMe(): Promise<User | { ok: false; status: number }> {
-  const r = await apiFetch('/api/me');
+  const r = await apiFetch<User | null>('/api/me');
   if (r.status !== 200) return { ok: false, status: r.status };
-  return r.json;
+  return r.json ?? { ok: false, status: r.status };
 }
 
 export async function updateUser(id: string | number, payload: Record<string, unknown>): Promise<ApiFetchResult> {
@@ -65,9 +71,9 @@ export async function updateUser(id: string | number, payload: Record<string, un
 }
 
 export async function listSystems(): Promise<User[]> {
-  return apiFetch('/api/systems?per_page=100')
-    .then((r: ApiFetchResult) => r.json || { items: [] })
-    .then((j: any) => j.items || []);
+  return apiFetch<PaginatedResponse<User>>('/api/systems?per_page=100')
+    .then((r) => r.json ?? { items: [] })
+    .then((j) => (Array.isArray(j.items) ? j.items : []));
 }
 
 export async function refreshSession(): Promise<{ ok: boolean; token?: string }> {
@@ -83,7 +89,7 @@ export async function changePassword(current: string, next: string): Promise<Api
 }
 
 export async function fetchUserNames(q = ''): Promise<UserNamesResponse> {
-  return apiFetch('/api/users/names' + (q ? '?q=' + encodeURIComponent(q) : '')).then(
-    (r: ApiFetchResult) => r.json || {},
+  return apiFetch<UserNamesResponse>('/api/users/names' + (q ? '?q=' + encodeURIComponent(q) : '')).then(
+    (r) => r.json ?? ({} as UserNamesResponse),
   );
 }

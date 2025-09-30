@@ -248,7 +248,7 @@ export default function DIDSystemView(): React.ReactElement {
         open={snack.open}
         message={snack.message}
         severity={snack.severity}
-        onClose={() => setSnack((s: any) => ({ ...s, open: false }))}
+  onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

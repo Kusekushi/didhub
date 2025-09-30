@@ -13,10 +13,8 @@ export default function SRedirect(): React.ReactElement {
       try {
         const record = await getShortlinkRecord(token);
         if ('status' in record) return setMsg('Not found');
-        if (record.target_type === 'alter') return nav(`/detail/${record.target_id}`);
-        if (record.target_type === 'group') return nav(`/groups/${record.target_id}`);
-        if (record.target_type === 'subsystem') return nav(`/subsystems/${record.target_id}`);
-        setMsg('Unknown target');
+        if (!record.target) return setMsg('Unknown target');
+        return nav(record.target);
       } catch (e) {
         setMsg('Redirect failed');
       }

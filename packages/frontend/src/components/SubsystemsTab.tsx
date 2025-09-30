@@ -16,8 +16,10 @@ import {
   Tooltip,
 } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
-import { Subsystem } from '@didhub/api-client';
+import { Subsystem, getShortLinkUrl } from '@didhub/api-client';
+import type { ApiFetchResult, ShortLinkRecord } from '@didhub/api-client';
 import { SnackbarMessage } from './NotificationSnackbar';
+import type { SettingsState } from '../contexts/SettingsContext';
 
 export interface SubsystemsTabProps {
   canManage: boolean;
@@ -32,11 +34,11 @@ export interface SubsystemsTabProps {
   subsystems: Subsystem[];
   uid: string;
   onDelete: (subsystemId: number | string) => Promise<void>;
-  settings: any;
+  settings: SettingsState;
   setSnack: (snack: SnackbarMessage) => void;
   refreshSubsystems: () => Promise<void>;
-  createSubsystem: (payload: any) => Promise<any>;
-  createShortLink: (type: string, id: number) => Promise<any>;
+  createSubsystem: (payload: Record<string, unknown>) => Promise<ApiFetchResult>;
+  createShortLink: (type: string, id: number) => Promise<ShortLinkRecord>;
   nav: (path: string) => void;
 }
 
@@ -69,8 +71,8 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                       type: props.newSubsystemType || 'normal',
                       owner_user_id: props.uid,
                     };
-                    const r = await props.createSubsystem(payload);
-                    if (!r || (r as any).status >= 400) throw new Error('Create failed');
+                    const result = await props.createSubsystem(payload);
+                    if (!result || result.status >= 400) throw new Error('Create failed');
                     await props.refreshSubsystems();
                     props.setSnack({ open: true, message: 'Subsystem created', severity: 'success' });
                     props.setNewSubsystemName('');
@@ -155,19 +157,18 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                         size="small"
                         onClick={async () => {
                           try {
-                            const r = await props.createShortLink('subsystem', Number(s.id)).catch(() => null);
-                            if (!r || (!r.token && !r.url))
-                              throw new Error(r && r.error ? String(r.error) : 'failed to create share link');
-                            const path = r.url || `/s/${r.token}`;
-                            const url = path.startsWith('http')
-                              ? path
-                              : window.location.origin.replace(/:\d+$/, '') + path;
-                            await navigator.clipboard.writeText(url);
+                            const record = await props.createShortLink('subsystem', Number(s.id)).catch(() => null);
+                            if (!record) {
+                              throw new Error('Failed to create share link');
+                            }
+                            const shareUrl = getShortLinkUrl(record);
+                            await navigator.clipboard.writeText(shareUrl);
                             props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
-                          } catch (e) {
+                          } catch (error: unknown) {
+                            const message = error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
                             props.setSnack({
                               open: true,
-                              message: String(e?.message || e || 'Failed to create share link'),
+                              message,
                               severity: 'error',
                             });
                           }

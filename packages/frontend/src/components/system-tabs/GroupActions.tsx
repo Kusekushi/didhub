@@ -7,11 +7,12 @@ import { Group } from '@didhub/api-client';
 import { useGroupShare } from '../../hooks/useGroupShare';
 import { SnackbarMessage } from '../NotificationSnackbar';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import type { SettingsState } from '../../contexts/SettingsContext';
 
 export interface GroupActionsProps {
   group: Group;
   canManage: boolean;
-  settings: any;
+  settings: SettingsState;
   setEditingGroup: (group: Group | null) => void;
   setEditGroupOpen: (open: boolean) => void;
   onDelete: (groupId: number | string) => Promise<void>;
