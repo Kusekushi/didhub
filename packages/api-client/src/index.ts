@@ -9,3 +9,5 @@ export * from './modules/Group';
 export * from './Types';
 export * from './SettingsKeys';
 export * from './Util';
+export * from './core/HttpClient';
+export * from './client';

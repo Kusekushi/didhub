@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import PaletteIcon from '@mui/icons-material/Palette';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchFamilyTree } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 import * as d3 from 'd3';
 import GraphD3 from '../components/GraphD3';
 import NodeView from '../components/NodeView';
@@ -137,7 +137,7 @@ export default function FamilyTree() {
       setLoading(true);
       setError(null);
       try {
-        const result = await fetchFamilyTree();
+        const result = await apiClient.alters.familyTree();
         if (!result) throw new Error('Failed to fetch family tree data');
         setData(result as FamilyTreeResponse);
       } catch (e: any) {

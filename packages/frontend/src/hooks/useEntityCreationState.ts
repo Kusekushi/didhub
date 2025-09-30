@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { Alter } from '@didhub/api-client';
-
 /**
  * Generic hook for managing entity creation state
  */

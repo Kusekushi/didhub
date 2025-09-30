@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../contexts/AuthContext';
-import { fetchMe } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 
 export default function RedirectToSystem() {
   const { user: me } = useAuth() as any;
@@ -19,13 +19,11 @@ export default function RedirectToSystem() {
           if (mounted) nav('/', { replace: true });
           return;
         }
-        const userOrError = await fetchMe();
+        const session = await apiClient.users.session();
         if (!mounted) return;
-        if (!('ok' in userOrError)) {
-          if (userOrError.is_system) {
-            nav(`/did-system/${userOrError.id}`, { replace: true });
-            return;
-          }
+        if (session.ok && session.user && session.user.is_system) {
+          nav(`/did-system/${session.user.id}`, { replace: true });
+          return;
         }
         if (mounted) nav('/', { replace: true });
       } catch (e) {

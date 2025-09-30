@@ -1,85 +1,118 @@
-import { Group, GroupMembersResponse, PaginatedResponse } from '../Types';
-import { safeJsonParse, apiFetch, ApiFetchResult } from '../Util';
+import { HttpClient } from '../core/HttpClient';
+import { Group, GroupMembersResponse } from '../Types';
+import { safeJsonParse } from '../Util';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function normalizeGroup(group: unknown): Group {
-  if (!isRecord(group)) return group as Group;
-  const g = group as Partial<Group> & Record<string, unknown>;
+function normalizeGroup(input: unknown): Group {
+  if (!isRecord(input)) return input as Group;
+  const group = input as Partial<Group> & Record<string, unknown>;
   return {
-    ...g,
-  sigil: safeJsonParse<unknown>(g.sigil, g.sigil ?? null),
-    leaders: safeJsonParse<string[]>(g.leaders, []),
-    metadata: safeJsonParse<unknown>(g.metadata, null),
+    ...group,
+    sigil: safeJsonParse<unknown>(group.sigil, group.sigil ?? null),
+    leaders: safeJsonParse<string[]>(group.leaders, []),
+    metadata: safeJsonParse<unknown>(group.metadata, null),
   } as Group;
 }
 
-export async function listGroups(q = '', includeMembers = false): Promise<Array<Group>> {
-  // allow callers to pass raw querystring like "?owner_user_id=..."
-  const params = new URLSearchParams();
-  if (includeMembers) params.set('fields', 'members');
-  const fieldsQuery = params.toString() ? '&' + params.toString() : '';
-  
-  if (q && q.startsWith('?')) {
-    return apiFetch<PaginatedResponse<Group> | Group[]>('/api/groups' + q + fieldsQuery).then((r) => {
-      const j = r.json ?? { items: [] };
-      if (Array.isArray(j)) return j.map(normalizeGroup);
-      if (isRecord(j) && Array.isArray(j.items)) return j.items.map(normalizeGroup);
-      return [] as Group[];
+export interface GroupListFilters {
+  query?: string;
+  includeMembers?: boolean;
+  ownerUserId?: string | number;
+  rawQuery?: string;
+}
+
+export class GroupsApi {
+  constructor(private readonly http: HttpClient) {}
+
+  async list(filters: GroupListFilters = {}): Promise<Group[]> {
+    const fields: Record<string, string> = {};
+    if (filters.includeMembers) fields.fields = 'members';
+
+    if (typeof filters.ownerUserId !== 'undefined') {
+      fields.owner_user_id = String(filters.ownerUserId);
+    }
+
+    const queryString = filters.rawQuery
+      ? filters.rawQuery.replace(/^\?/, '')
+      : filters.query
+        ? `q=${encodeURIComponent(filters.query)}`
+        : '';
+
+    const query = new URLSearchParams(queryString || '');
+    Object.entries(fields).forEach(([key, value]) => {
+      query.set(key, value);
+    });
+
+    const response = await this.http.request<unknown>({
+      path: '/api/groups',
+      query: Object.fromEntries(query.entries()),
+    });
+
+    if (Array.isArray(response.data)) {
+      return response.data.map((item) => normalizeGroup(item));
+    }
+
+    if (isRecord(response.data) && Array.isArray(response.data.items)) {
+      return response.data.items.map((item) => normalizeGroup(item));
+    }
+
+    return [];
+  }
+
+  async get(id: string | number): Promise<Group | null> {
+    const response = await this.http.request<Group | null>({
+      path: `/api/groups/${id}`,
+      acceptStatuses: [404],
+    });
+    if (response.status === 404 || response.data == null) return null;
+    return normalizeGroup(response.data);
+  }
+
+  async create(payload: Record<string, unknown>): Promise<Group> {
+    const response = await this.http.request<Group>({
+      path: '/api/groups',
+      method: 'POST',
+      json: payload,
+    });
+    return normalizeGroup(response.data);
+  }
+
+  async update(id: string | number, payload: Record<string, unknown>): Promise<Group> {
+    const response = await this.http.request<Group>({
+      path: `/api/groups/${id}`,
+      method: 'PUT',
+      json: payload,
+    });
+    return normalizeGroup(response.data);
+  }
+
+  async remove(id: string | number): Promise<void> {
+    await this.http.request({
+      path: `/api/groups/${id}`,
+      method: 'DELETE',
+      parse: 'none',
+      acceptStatuses: [404],
     });
   }
-  return apiFetch<PaginatedResponse<Group> | Group[]>(
-    '/api/groups' + (q ? '?q=' + encodeURIComponent(q) : '') + fieldsQuery,
-  ).then((r) => {
-    const j = r.json ?? { items: [] };
-    if (Array.isArray(j)) return j.map(normalizeGroup);
-    if (isRecord(j) && Array.isArray(j.items)) return j.items.map(normalizeGroup);
-    return [] as Group[];
-  });
-}
 
-export async function getGroup(id: string | number): Promise<Group | null> {
-  return apiFetch<Group | null>('/api/groups/' + id).then((r) => {
-    const data = r.json;
-    return data ? normalizeGroup(data) : null;
-  });
-}
-
-export async function createGroup(payload: Record<string, unknown>): Promise<ApiFetchResult> {
-  return apiFetch('/api/groups', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateGroup(id: string | number, payload: Record<string, unknown>): Promise<ApiFetchResult> {
-  return apiFetch('/api/groups/' + id, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function deleteGroup(id: string | number): Promise<ApiFetchResult> {
-  return apiFetch('/api/groups/' + id, { method: 'DELETE' });
-}
-
-export async function listGroupMembers(groupId: string | number): Promise<GroupMembersResponse> {
-  return apiFetch<GroupMembersResponse>('/api/groups/' + groupId + '/members').then((r) => {
+  async listMembers(groupId: string | number): Promise<GroupMembersResponse> {
+    const response = await this.http.request<GroupMembersResponse>({
+      path: `/api/groups/${groupId}/members`,
+    });
     const fallback: GroupMembersResponse = { group_id: groupId, alters: [] };
-    const payload = r.json;
-    if (!payload || typeof payload !== 'object') return fallback;
+    if (!response.data || typeof response.data !== 'object') return fallback;
+    const payload = response.data as GroupMembersResponse;
     const alters = Array.isArray(payload.alters)
-      ? payload.alters.filter((value): value is number | string =>
-          typeof value === 'number' || typeof value === 'string',
+      ? payload.alters.filter(
+          (value): value is number | string => typeof value === 'number' || typeof value === 'string',
         )
       : [];
     return {
       group_id: payload.group_id ?? groupId,
       alters,
     };
-  });
+  }
 }

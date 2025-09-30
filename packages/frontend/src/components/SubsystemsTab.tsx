@@ -16,8 +16,8 @@ import {
   Tooltip,
 } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
-import { Subsystem, getShortLinkUrl } from '@didhub/api-client';
-import type { ApiFetchResult, ShortLinkRecord } from '@didhub/api-client';
+import { getShortLinkUrl } from '@didhub/api-client';
+import type { Subsystem, ShortLinkRecord } from '@didhub/api-client';
 import { SnackbarMessage } from './NotificationSnackbar';
 import type { SettingsState } from '../contexts/SettingsContext';
 
@@ -37,8 +37,8 @@ export interface SubsystemsTabProps {
   settings: SettingsState;
   setSnack: (snack: SnackbarMessage) => void;
   refreshSubsystems: () => Promise<void>;
-  createSubsystem: (payload: Record<string, unknown>) => Promise<ApiFetchResult>;
-  createShortLink: (type: string, id: number) => Promise<ShortLinkRecord>;
+  createSubsystem: (payload: Record<string, unknown>) => Promise<Subsystem>;
+  createShortLink: (type: string, id: number, options?: { target?: string }) => Promise<ShortLinkRecord>;
   nav: (path: string) => void;
 }
 
@@ -71,8 +71,7 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                       type: props.newSubsystemType || 'normal',
                       owner_user_id: props.uid,
                     };
-                    const result = await props.createSubsystem(payload);
-                    if (!result || result.status >= 400) throw new Error('Create failed');
+                    await props.createSubsystem(payload);
                     await props.refreshSubsystems();
                     props.setSnack({ open: true, message: 'Subsystem created', severity: 'success' });
                     props.setNewSubsystemName('');
@@ -165,7 +164,8 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                             await navigator.clipboard.writeText(shareUrl);
                             props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
                           } catch (error: unknown) {
-                            const message = error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
+                            const message =
+                              error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
                             props.setSnack({
                               open: true,
                               message,

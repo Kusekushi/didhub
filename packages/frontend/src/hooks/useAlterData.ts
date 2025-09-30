@@ -1,16 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  getAlter,
-  fetchMeVerified,
-  getGroup,
-  listGroups,
-  getSubsystem,
-  listSubsystems,
-  Alter,
-  Group,
-  User,
-  Subsystem,
-} from '@didhub/api-client';
+import { apiClient, type Alter, type Group, type User, type Subsystem } from '@didhub/api-client';
 
 /**
  * Hook to manage alter data and related entities (group, subsystem, affiliations)
@@ -34,7 +23,10 @@ export function useAlterData(id?: string) {
         setLoading(true);
         setError(null);
 
-        const [alterResult, userResult] = await Promise.all([getAlter(id), fetchMeVerified()]);
+        const [alterResult, userResult] = await Promise.all([
+          apiClient.alters.get(id),
+          apiClient.users.sessionIfAuthenticated(),
+        ]);
 
         setAlter(alterResult);
         setUser(userResult);
@@ -42,7 +34,7 @@ export function useAlterData(id?: string) {
         // Handle group resolution
         if (alterResult?.group !== undefined && alterResult?.group !== null) {
           try {
-            const group = await getGroup(alterResult.group as string | number);
+            const group = await apiClient.groups.get(alterResult.group as string | number);
             setGroupObj(group);
           } catch (e) {
             setGroupObj(null);
@@ -84,7 +76,7 @@ export function useAlterData(id?: string) {
           const maybeId = typeof rawName === 'number' ? rawName : Number(rawName);
           if (!Number.isNaN(maybeId)) {
             try {
-              const group = await getGroup(maybeId);
+              const group = await apiClient.groups.get(maybeId);
               if (group) idMap[maybeId] = group;
               continue;
             } catch (e) {
@@ -96,12 +88,11 @@ export function useAlterData(id?: string) {
         // Name-based lookup
         const name = Array.isArray(rawName) ? rawName.join(',') : String(rawName);
         try {
-          const groups = await listGroups(name || '', true);
-          const items = groups && (groups as any).items ? (groups as any).items : Array.isArray(groups) ? groups : [];
-          const found = (items as any[]).find(
+          const groups = await apiClient.groups.list({ query: name || '', includeMembers: true });
+          const found = (groups as Group[]).find(
             (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
           );
-          if (found) map[name] = found as Group;
+          if (found) map[name] = found;
         } catch (e) {
           // Ignore individual lookup errors
         }
@@ -121,7 +112,7 @@ export function useAlterData(id?: string) {
 
       if (!Number.isNaN(maybeId) && rawStr.trim() !== '') {
         try {
-          const subsystem = await getSubsystem(maybeId);
+          const subsystem = await apiClient.subsystems.get(maybeId);
           if (subsystem) {
             setSubsystemObj(subsystem);
             return;
@@ -132,17 +123,9 @@ export function useAlterData(id?: string) {
       }
 
       // Name lookup fallback
-      const subsystems = await listSubsystems(rawStr || '', undefined, true);
-      const items =
-        subsystems && (subsystems as any).items
-          ? (subsystems as any).items
-          : Array.isArray(subsystems)
-            ? subsystems
-            : [];
-      const found = (items as any[]).find(
-        (it) => it && it.name && String(it.name).toLowerCase() === rawStr.toLowerCase(),
-      );
-      if (found) setSubsystemObj(found as Subsystem);
+      const subsystems = await apiClient.subsystems.list({ query: rawStr || '', includeMembers: true });
+      const found = subsystems.find((it) => it && it.name && String(it.name).toLowerCase() === rawStr.toLowerCase());
+      if (found) setSubsystemObj(found);
     } catch (e) {
       setSubsystemObj(null);
     }
@@ -154,7 +137,10 @@ export function useAlterData(id?: string) {
       setLoading(true);
       setError(null);
 
-      const [alterResult, userResult] = await Promise.all([getAlter(id), fetchMeVerified()]);
+      const [alterResult, userResult] = await Promise.all([
+        apiClient.alters.get(id),
+        apiClient.users.sessionIfAuthenticated(),
+      ]);
 
       setAlter(alterResult);
       setUser(userResult);
@@ -162,7 +148,7 @@ export function useAlterData(id?: string) {
       // Handle group resolution
       if (alterResult?.group !== undefined && alterResult?.group !== null) {
         try {
-          const group = await getGroup(alterResult.group as string | number);
+          const group = await apiClient.groups.get(alterResult.group as string | number);
           setGroupObj(group);
         } catch (e) {
           setGroupObj(null);

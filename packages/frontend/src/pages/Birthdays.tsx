@@ -5,7 +5,7 @@ import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useTheme } from '@mui/material/styles';
 
-import { fetchAlters, getUser } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 
 const localizer = momentLocalizer(moment as any);
 
@@ -55,8 +55,8 @@ export default function Birthdays() {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetchAlters();
-        const list = (res && res.items) || [];
+        const res = await apiClient.alters.list({ perPage: 1000 });
+        const list = res.items || [];
         const curYear = new Date().getFullYear();
         const evts: any[] = [];
         const ownerIds = Array.from(new Set(list.map((a: any) => a.owner_user_id).filter(Boolean)));
@@ -64,7 +64,7 @@ export default function Birthdays() {
         await Promise.all(
           ownerIds.map(async (id: any) => {
             try {
-              const u = await getUser(id);
+              const u = await apiClient.users.get(id);
               if (u) usersMap[id] = u;
             } catch (e) {}
           }),

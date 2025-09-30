@@ -32,8 +32,8 @@ export default function SystemListItem(props: SystemListItemProps) {
           props.secondary
             ? props.secondary(props.system)
             : typeof props.system.description === 'string'
-            ? props.system.description
-            : null
+              ? props.system.description
+              : null
         }
       />
     </ListItem>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { listSystems, type User } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
+import type { User } from '@didhub/api-client';
 
 export type SystemSummary = User & { description?: string | null };
 
@@ -15,7 +16,7 @@ export function useSystemList() {
   useEffect(() => {
     (async () => {
       try {
-        const s = await listSystems();
+        const s = await apiClient.users.systems();
         setSystems(s || []);
       } catch (e) {
         setSystems([]);

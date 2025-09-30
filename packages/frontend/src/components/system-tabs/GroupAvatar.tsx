@@ -3,13 +3,10 @@ import { Avatar } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
 import ThumbnailWithHover from '../ThumbnailWithHover';
+import type { Group } from '@didhub/api-client';
 
 export interface GroupAvatarProps {
-  group: {
-    id?: number | string;
-    name?: string;
-    sigil?: string;
-  };
+  group: Group;
 }
 
 /**
@@ -19,8 +16,8 @@ export default function GroupAvatar(props: GroupAvatarProps) {
   const nav = useNavigate();
 
   try {
-    const raw = (props.group as any).sigil;
-    const url: string | null = raw.trim();
+    const raw = (props.group as { sigil?: unknown }).sigil;
+    const url = typeof raw === 'string' ? raw.trim() : raw ? String(raw) : '';
 
     if (url) {
       const isImg = /^(https?:\/\/|data:|blob:|\/)/i.test(url);

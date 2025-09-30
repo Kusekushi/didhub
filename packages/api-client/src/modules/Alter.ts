@@ -1,169 +1,261 @@
-import { Alter, AlterName, FamilyTreeResponse, PaginatedResponse, UserAlterRelationship } from '../Types';
-import { safeJsonParse, apiFetch, ApiFetchResult, ApiFetchResultError } from '../Util';
+import { HttpClient } from '../core/HttpClient';
+import { createPage, Page } from '../core/Pagination';
+import { Alter, AlterName, FamilyTreeResponse, UserAlterRelationship } from '../Types';
+import { safeJsonParse } from '../Util';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function normalizeAlter(alter: unknown): Alter {
-  if (!isRecord(alter)) return alter as Alter;
-  const a = alter as Partial<Alter> & Record<string, unknown>;
-  return {
-    ...a,
-    partners: Array.isArray(a.partners)
-      ? a.partners
-      : safeJsonParse<Array<string | number>>(
-        a.partners,
-        typeof a.partners === 'string' ? a.partners.split(',').map((s) => s.trim()) : [],
-      ),
-    parents: Array.isArray(a.parents)
-      ? a.parents
-      : safeJsonParse<Array<string | number>>(
-        a.parents,
-        typeof a.parents === 'string' ? a.parents.split(',').map((s) => s.trim()) : [],
-      ),
-    children: Array.isArray(a.children)
-      ? a.children
-      : safeJsonParse<Array<string | number>>(
-        a.children,
-        typeof a.children === 'string' ? a.children.split(',').map((s) => s.trim()) : [],
-      ),
-    soul_songs: Array.isArray(a.soul_songs)
-      ? a.soul_songs
+function normalizeAlter(input: unknown): Alter {
+  if (!isRecord(input)) return input as Alter;
+  const alter = input as Partial<Alter> & Record<string, unknown>;
+
+  const normalizeStringArray = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.map((item) => String(item));
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+      if (trimmed.startsWith('[')) {
+        const parsed = safeJsonParse<string[]>(trimmed, []);
+        return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
+      }
+      return trimmed
+        .split(',')
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const normalizeIdArray = (value: unknown): Array<string | number> => {
+    if (Array.isArray(value)) return value as Array<string | number>;
+    if (typeof value === 'string') {
+      const parsed = normalizeStringArray(value);
+      return parsed.map((id) => (Number.isFinite(Number(id)) ? Number(id) : id));
+    }
+    if (typeof value === 'number') return [value];
+    return [];
+  };
+
+  const images = (() => {
+    const raw = Array.isArray(alter.images)
+      ? alter.images
       : safeJsonParse<string[]>(
-        a.soul_songs,
-        typeof a.soul_songs === 'string' ? a.soul_songs.split(',').map((s) => s.trim()) : [],
-      ),
-    interests: Array.isArray(a.interests)
-      ? a.interests
-      : safeJsonParse<string[]>(
-        a.interests,
-        typeof a.interests === 'string' ? a.interests.split(',').map((s) => s.trim()) : [],
-      ),
-    affiliation: Array.isArray(a.affiliation)
-      ? a.affiliation
-      : safeJsonParse<string[]>(
-        a.affiliation,
-        typeof a.affiliation === 'string' ? a.affiliation.split(',').map((s) => s.trim()) : [],
-      ),
-    system_roles: Array.isArray(a.system_roles)
-      ? a.system_roles
-      : safeJsonParse<string[]>(
-        a.system_roles,
-        typeof a.system_roles === 'string' ? a.system_roles.split(',').map((s) => s.trim()) : [],
-      ),
-    images: ((Array.isArray(a.images)
-      ? a.images // FIXME: This is weird. We should get rid of most of this map function
-      : safeJsonParse<string[]>(a.images, typeof a.images === 'string' ? a.images.split(',').map((s) => s.trim()) : [])) || []).map((img) => {
+          alter.images,
+          typeof alter.images === 'string' ? normalizeStringArray(alter.images) : [],
+        );
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((img) => String(img))
+      .map((img) => {
         if (img.startsWith('/uploads/')) return img;
         if (img.startsWith('/did-system/')) return img.replace('/did-system/', '/uploads/');
-        return '/uploads/' + img;
-      }),
-    user_relationships: Array.isArray(a.user_relationships) ? a.user_relationships : [],
+        if (img.startsWith('http://') || img.startsWith('https://')) return img;
+        return `/uploads/${img.replace(/^\//, '')}`;
+      });
+  })();
+
+  return {
+    ...alter,
+    partners: normalizeIdArray(alter.partners),
+    parents: normalizeIdArray(alter.parents),
+    children: normalizeIdArray(alter.children),
+    soul_songs: normalizeStringArray(alter.soul_songs),
+    interests: normalizeStringArray(alter.interests),
+    affiliation: normalizeStringArray(alter.affiliation),
+    system_roles: normalizeStringArray(alter.system_roles),
+    images,
+    user_relationships: Array.isArray(alter.user_relationships) ? alter.user_relationships : [],
   } as Alter;
 }
 
-export async function fetchAltersBySystem(uid: string, includeRelationships = false): Promise<Alter[] | ApiFetchResultError> {
-  const params = new URLSearchParams();
-  params.set('user_id', uid);
-  params.set('fields', includeRelationships ? 'id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images,relationships' : 'id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images');
-  const r = await apiFetch<PaginatedResponse<Alter>>('/api/alters?' + params.toString());
-  if (!r || typeof r !== 'object' || r.status !== 200) return { status: r?.status ?? 404 } as ApiFetchResultError;
-  const items = r.json?.items ?? [];
-  return items.map(normalizeAlter);
+export interface AlterListFilters {
+  query?: string;
+  includeRelationships?: boolean;
+  perPage?: number;
+  offset?: number;
 }
 
-export async function fetchAltersSearch(uid: string, q: string, includeRelationships = false): Promise<Alter[] | ApiFetchResultError> {
-  const params = new URLSearchParams();
-  params.set('user_id', uid);
-  params.set('q', q);
-  params.set('per_page', '1000');
-  params.set('fields', includeRelationships ? 'id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images,relationships' : 'id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images');
-  const r = await apiFetch<PaginatedResponse<Alter>>('/api/alters?' + params.toString());
-  if (!r || typeof r !== 'object' || r.status !== 200) return { status: r?.status ?? 404 } as ApiFetchResultError;
-  const items = r.json?.items ?? [];
-  return items.map(normalizeAlter);
+export interface AlterSearchFilters extends AlterListFilters {
+  userId: string;
 }
 
-type AlterListResponse = PaginatedResponse<Alter> & Record<string, unknown>;
+export class AltersApi {
+  constructor(private readonly http: HttpClient) {}
 
-export async function fetchAlters(q = '', includeRelationships = false): Promise<AlterListResponse> {
-  const qs: string[] = [];
-  if (q) qs.push('q=' + encodeURIComponent(q));
-  if (includeRelationships) qs.push('fields=id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images,relationships');
-  qs.push('per_page=1000');
-  const query = qs.length ? '?' + qs.join('&') : '';
-  return apiFetch<AlterListResponse>('/api/alters' + query).then((r) => {
-    const j = r.json ?? { items: [] };
-    if (Array.isArray(j.items)) j.items = j.items.map(normalizeAlter);
-    return j;
-  });
-}
+  async list(filters: AlterListFilters = {}): Promise<Page<Alter>> {
+    const query: Record<string, string | number | undefined> = {};
+    if (filters.query) query.q = filters.query;
+    if (filters.includeRelationships) {
+      query.fields =
+        'id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images,relationships';
+    }
+    if (typeof filters.perPage === 'number') query.per_page = filters.perPage;
+    if (typeof filters.offset === 'number') query.offset = filters.offset;
 
-export async function getAlter(id: string | number): Promise<Alter> {
-  return apiFetch<Alter | null>('/api/alters/' + id).then((r) => normalizeAlter(r.json ?? {}));
-}
+    const response = await this.http.request<Record<string, unknown>>({
+      path: '/api/alters',
+      query,
+    });
 
-export async function createAlter(payload: Record<string, unknown>): Promise<ApiFetchResult> {
-  return apiFetch('/api/alters', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-}
+    const items = Array.isArray((response.data as { items?: unknown }).items)
+      ? ((response.data as { items?: unknown }).items as unknown[]).map((item) => normalizeAlter(item))
+      : Array.isArray(response.data)
+        ? (response.data as unknown[]).map((item) => normalizeAlter(item))
+        : [];
 
-export async function updateAlter(id: string | number, payload: Record<string, unknown>): Promise<ApiFetchResult> {
-  return apiFetch('/api/alters/' + id, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-}
+    const payload = isRecord(response.data) ? response.data : {};
 
-export async function deleteAlter(id: string | number): Promise<ApiFetchResult> {
-  return apiFetch('/api/alters/' + id, { method: 'DELETE' });
-}
+    return createPage<Alter>({
+      items,
+      total: typeof payload.total === 'number' ? payload.total : undefined,
+      limit: typeof payload.per_page === 'number' ? payload.per_page : filters.perPage,
+      offset: typeof payload.offset === 'number' ? payload.offset : filters.offset,
+    });
+  }
 
-export async function deleteAlterImage(alterId: string | number, url: string): Promise<Record<string, unknown>> {
-  return apiFetch<Record<string, unknown>>('/api/alters/' + alterId + '/image', {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
-  }).then((r) => r.json ?? {});
-}
+  async listBySystem(userId: string, options: Omit<AlterSearchFilters, 'userId' | 'query'> = {}): Promise<Alter[]> {
+    const query: Record<string, string | number> = { user_id: userId };
+    if (options.includeRelationships) {
+      query.fields =
+        'id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images,relationships';
+    }
+    if (typeof options.perPage === 'number') query.per_page = options.perPage;
 
-export async function fetchAlterNames(q = ''): Promise<AlterName[]> {
-  return apiFetch<AlterName[]>('/api/alters/names' + (q ? '?q=' + encodeURIComponent(q) : '')).then(
-    (r) => r.json ?? [],
-  );
-}
+    const response = await this.http.request<{ items?: unknown[] }>({
+      path: '/api/alters',
+      query,
+    });
 
-export async function fetchAlterNamesByUser(user_id: string | number | undefined, q = ''): Promise<AlterName[]> {
-  const params = new URLSearchParams();
-  if (q) params.set('q', q);
-  if (user_id != null) params.set('user_id', String(user_id));
-  const qs = params.toString() ? '?' + params.toString() : '';
-  return apiFetch<AlterName[]>('/api/alters/names' + qs).then((r) => r.json ?? []);
-}
+    const items = Array.isArray(response.data?.items) ? response.data.items : [];
+    return items.map((item) => normalizeAlter(item));
+  }
 
-export async function fetchFamilyTree(): Promise<FamilyTreeResponse> {
-  return apiFetch<FamilyTreeResponse>('/api/alters/family-tree').then((r) => r.json ?? { nodes: {}, edges: { parent: [], partner: [] }, roots: [] });
-}
+  async search(filters: AlterSearchFilters): Promise<Alter[]> {
+    const query: Record<string, string | number> = {
+      user_id: filters.userId,
+      q: filters.query ?? '',
+      per_page: filters.perPage ?? 1000,
+    };
+    if (filters.includeRelationships) {
+      query.fields =
+        'id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images,relationships';
+    }
 
-export async function createUserAlterRelationship(alterId: number, userId: number, relationshipType: 'partner' | 'parent' | 'child'): Promise<ApiFetchResult> {
-  return apiFetch(`/api/alters/${alterId}/relationships`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: userId, relationship_type: relationshipType }),
-  });
-}
+    const response = await this.http.request<{ items?: unknown[] }>({
+      path: '/api/alters',
+      query,
+    });
 
-export async function deleteUserAlterRelationship(alterId: number, userId: number, relationshipType: 'partner' | 'parent' | 'child'): Promise<ApiFetchResult> {
-  return apiFetch(`/api/alters/${alterId}/relationships/${userId}/${relationshipType}`, {
-    method: 'DELETE',
-  });
-}
+    const items = Array.isArray(response.data?.items) ? response.data.items : [];
+    return items.map((item) => normalizeAlter(item));
+  }
 
-export async function listUserAlterRelationships(alterId: number): Promise<UserAlterRelationship[]> {
-  return apiFetch<UserAlterRelationship[]>(`/api/alters/${alterId}/relationships`).then((r) => r.json ?? []);
+  async get(id: string | number): Promise<Alter | null> {
+    const response = await this.http.request<Alter | null>({
+      path: `/api/alters/${id}`,
+      acceptStatuses: [404],
+    });
+    if (response.status === 404 || response.data == null) return null;
+    return normalizeAlter(response.data);
+  }
+
+  async create(payload: Record<string, unknown>): Promise<Alter> {
+    const response = await this.http.request<Alter>({
+      path: '/api/alters',
+      method: 'POST',
+      json: payload,
+    });
+    return normalizeAlter(response.data);
+  }
+
+  async update(id: string | number, payload: Record<string, unknown>): Promise<Alter> {
+    const response = await this.http.request<Alter>({
+      path: `/api/alters/${id}`,
+      method: 'PUT',
+      json: payload,
+    });
+    return normalizeAlter(response.data);
+  }
+
+  async remove(id: string | number): Promise<void> {
+    await this.http.request({
+      path: `/api/alters/${id}`,
+      method: 'DELETE',
+      parse: 'none',
+      acceptStatuses: [404],
+    });
+  }
+
+  async removeImage(alterId: string | number, url: string): Promise<Record<string, unknown>> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: `/api/alters/${alterId}/image`,
+      method: 'DELETE',
+      json: { url },
+    });
+    return isRecord(response.data) ? response.data : {};
+  }
+
+  async names(query = ''): Promise<AlterName[]> {
+    const response = await this.http.request<AlterName[]>({
+      path: '/api/alters/names',
+      query: query ? { q: query } : undefined,
+    });
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async namesByUser(userId: string | number | undefined, query = ''): Promise<AlterName[]> {
+    const search: Record<string, string> = {};
+    if (query) search.q = query;
+    if (userId != null) search.user_id = String(userId);
+    const response = await this.http.request<AlterName[]>({
+      path: '/api/alters/names',
+      query: Object.keys(search).length ? search : undefined,
+    });
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async familyTree(): Promise<FamilyTreeResponse> {
+    const response = await this.http.request<FamilyTreeResponse>({
+      path: '/api/alters/family-tree',
+    });
+    if (isRecord(response.data) && response.data.nodes) {
+      return response.data as FamilyTreeResponse;
+    }
+    return { nodes: {}, edges: { parent: [], partner: [] }, roots: [] };
+  }
+
+  async listRelationships(alterId: number): Promise<UserAlterRelationship[]> {
+    const response = await this.http.request<UserAlterRelationship[]>({
+      path: `/api/alters/${alterId}/relationships`,
+    });
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async addRelationship(
+    alterId: number,
+    userId: number,
+    relationshipType: 'partner' | 'parent' | 'child',
+  ): Promise<void> {
+    await this.http.request({
+      path: `/api/alters/${alterId}/relationships`,
+      method: 'POST',
+      json: { user_id: userId, relationship_type: relationshipType },
+      parse: 'none',
+    });
+  }
+
+  async removeRelationship(
+    alterId: number,
+    userId: number,
+    relationshipType: 'partner' | 'parent' | 'child',
+  ): Promise<void> {
+    await this.http.request({
+      path: `/api/alters/${alterId}/relationships/${userId}/${relationshipType}`,
+      method: 'DELETE',
+      parse: 'none',
+      acceptStatuses: [404],
+    });
+  }
 }

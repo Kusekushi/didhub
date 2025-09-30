@@ -23,8 +23,7 @@ import {
   NewReleases as NewReleasesIcon,
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
-import { checkForUpdates, performUpdate } from '@didhub/api-client';
-import type { UpdateStatus, UpdateResult } from '@didhub/api-client';
+import { apiClient, type UpdateStatus, type UpdateResult } from '@didhub/api-client';
 import { SnackbarSeverity } from './NotificationSnackbar';
 
 export interface SystemUpdatesProps {
@@ -41,7 +40,7 @@ export default function SystemUpdates(props: SystemUpdatesProps) {
   const checkUpdates = async () => {
     setLoading(true);
     try {
-      const status = await checkForUpdates();
+      const status = await apiClient.admin.updateStatus();
       setUpdateStatus(status);
       setLastChecked(new Date());
 
@@ -62,7 +61,7 @@ export default function SystemUpdates(props: SystemUpdatesProps) {
     setConfirmDialog(false);
     setUpdating(true);
     try {
-      const result: UpdateResult = await performUpdate();
+      const result: UpdateResult = await apiClient.admin.performUpdate();
 
       if (result.success) {
         props.onMessage(`Update successful: ${result.message}`, 'success');

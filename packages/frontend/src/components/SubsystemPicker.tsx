@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
 
 import InputPromptDialog from './InputPromptDialog';
-import { listSubsystems, createSubsystem, Subsystem } from '@didhub/api-client';
+import { apiClient, type Subsystem } from '@didhub/api-client';
 
 export interface SubsystemPickerProps {
   value?: number | string | { id?: number; name?: string } | null;
@@ -21,7 +21,7 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-    const r = await listSubsystems(q || '');
+    const r = await apiClient.subsystems.list({ query: q || '' });
     setOptions(r || []);
   }
 
@@ -79,11 +79,10 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
           onSubmit={async (value: string | undefined) => {
             const type = value || 'normal';
             try {
-              const cr = await createSubsystem({ name: createDialog.name, type });
-              if (cr && cr.json) {
-                const s = cr.json;
-                setOptions((prev) => [s, ...prev]);
-                props.onChange && props.onChange(s.id);
+              const subsystem = await apiClient.subsystems.create({ name: createDialog.name, type });
+              if (subsystem && subsystem.id != null) {
+                setOptions((prev) => [subsystem, ...prev]);
+                props.onChange && props.onChange(subsystem.id);
               } else {
                 props.onChange && props.onChange(createDialog.name);
               }

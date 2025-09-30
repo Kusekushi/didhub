@@ -6,7 +6,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import AlterFormDialog from '../AlterFormDialog';
 import ThumbnailWithHover from '../ThumbnailWithHover';
 import ActionButtons from '../ActionButtons';
-import { Alter, parseRoles, createShortLink, getShortLinkUrl } from '@didhub/api-client';
+import { apiClient, parseRoles, getShortLinkUrl } from '@didhub/api-client';
+import type { Alter } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
 import type { SettingsState } from '../../contexts/SettingsContext';
 
@@ -51,8 +52,8 @@ export default function AltersTab(props: AltersTabProps) {
       )}
       <List>
         {props.items
-          .filter((alter: Alter) =>
-            !props.search || (alter.name || '').toLowerCase().includes(props.search.toLowerCase()),
+          .filter(
+            (alter: Alter) => !props.search || (alter.name || '').toLowerCase().includes(props.search.toLowerCase()),
           )
           .filter((alter: Alter) => (props.hideDormant ? !alter?.is_dormant : true))
           .filter((alter: Alter) => (props.hideMerged ? !alter?.is_merged : true))
@@ -76,7 +77,9 @@ export default function AltersTab(props: AltersTabProps) {
                     onShare={async () => {
                       if (!props.settings.shortLinksEnabled || it.id == null) return;
                       try {
-                        const record = await createShortLink('alter', it.id).catch(() => null);
+                        const record = await apiClient.shortlinks
+                          .create('alter', it.id as number | string)
+                          .catch(() => null);
                         if (!record) {
                           throw new Error('Failed to create share link');
                         }
@@ -84,7 +87,8 @@ export default function AltersTab(props: AltersTabProps) {
                         await navigator.clipboard.writeText(shareUrl);
                         props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
                       } catch (error: unknown) {
-                        const message = error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
+                        const message =
+                          error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
                         props.setSnack({
                           open: true,
                           message,
@@ -164,7 +168,7 @@ export default function AltersTab(props: AltersTabProps) {
           props.setEditOpen(false);
           props.setEditingAlter(null);
         }}
-  onSaved={async () => {
+        onSaved={async () => {
           await props.refreshAlters();
           props.setEditOpen(false);
           props.setEditingAlter(null);

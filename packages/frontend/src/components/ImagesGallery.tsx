@@ -1,6 +1,6 @@
 import React from 'react';
 import { ImageList, ImageListItem, Button } from '@mui/material';
-import { Alter, User } from '@didhub/api-client';
+import type { Alter, User } from '@didhub/api-client';
 
 export interface ImagesGalleryProps {
   alter: Alter;

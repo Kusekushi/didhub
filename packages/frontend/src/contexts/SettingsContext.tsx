@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { getAdminSettings, SETTINGS as SETTINGS_KEYS } from '@didhub/api-client';
+import { apiClient, SETTINGS as SETTINGS_KEYS } from '@didhub/api-client';
 
 export interface SettingsState {
   loaded: boolean;
@@ -41,7 +41,7 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
         return;
       }
       try {
-        const s = await getAdminSettings();
+        const s = await apiClient.admin.settings();
         if (!mounted) return;
         setState({
           loaded: true,

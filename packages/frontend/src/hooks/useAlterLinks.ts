@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchAlterNames, getAlter, Alter } from '@didhub/api-client';
+import { apiClient, type Alter } from '@didhub/api-client';
 import { normalizeToArray } from '../utils/detailUtils';
 
 interface AlterLink {
@@ -21,12 +21,12 @@ export function useAlterLinks(alter: Alter | null) {
   useEffect(() => {
     async function loadAlterNamesMap() {
       try {
-        const namesRes = (await fetchAlterNames()) as { items?: Array<{ id?: number | string; name?: string }> };
+        const namesRes = await apiClient.alters.names();
         const map = new Map<string, number | string>();
         const idMap = new Map<number | string, string>();
-        (namesRes.items || []).forEach((it) => {
+        namesRes.forEach((it) => {
           if (it && it.name) {
-            map.set(String(it.name).toLowerCase(), it.id as number | string);
+            map.set(String(it.name).toLowerCase(), (it.id ?? it.name) as number | string);
             if (it.id !== undefined && it.id !== null) idMap.set(it.id as number | string, it.name as string);
           }
         });
@@ -53,9 +53,9 @@ export function useAlterLinks(alter: Alter | null) {
         const map = alterNamesMap ?? new Map<string, number | string>();
         if (!alterNamesMap) {
           try {
-            const namesRes = (await fetchAlterNames()) as { items?: Array<{ id?: number | string; name?: string }> };
-            (namesRes.items || []).forEach((it) => {
-              if (it && it.name) map.set(String(it.name).toLowerCase(), it.id as number | string);
+            const namesRes = await apiClient.alters.names();
+            namesRes.forEach((it) => {
+              if (it && it.name) map.set(String(it.name).toLowerCase(), (it.id ?? it.name) as number | string);
             });
           } catch (e) {
             // Ignore fetch error and fall back to names only
@@ -72,7 +72,7 @@ export function useAlterLinks(alter: Alter | null) {
               continue;
             }
             try {
-              const fetched = (await getAlter(maybeNum)) as Alter | null;
+              const fetched = await apiClient.alters.get(maybeNum);
               if (fetched && fetched.name) {
                 const newMap = new Map(alterIdToNameMap?.entries() || []);
                 newMap.set(maybeNum, fetched.name);
@@ -111,9 +111,9 @@ export function useAlterLinks(alter: Alter | null) {
           const map = alterNamesMap ?? new Map<string, number | string>();
           if (!alterNamesMap) {
             try {
-              const namesRes = (await fetchAlterNames()) as { items?: Array<{ id?: number | string; name?: string }> };
-              (namesRes.items || []).forEach((it) => {
-                if (it && it.name) map.set(String(it.name).toLowerCase(), it.id as number | string);
+              const namesRes = await apiClient.alters.names();
+              namesRes.forEach((it) => {
+                if (it && it.name) map.set(String(it.name).toLowerCase(), (it.id ?? it.name) as number | string);
               });
             } catch (e) {
               // Ignore fetch error and fall back to names only
@@ -130,7 +130,7 @@ export function useAlterLinks(alter: Alter | null) {
                 continue;
               }
               try {
-                const fetched = (await getAlter(maybeNum)) as Alter | null;
+                const fetched = await apiClient.alters.get(maybeNum);
                 if (fetched && fetched.name) {
                   const newMap = new Map(alterIdToNameMap?.entries() || []);
                   newMap.set(maybeNum, fetched.name);

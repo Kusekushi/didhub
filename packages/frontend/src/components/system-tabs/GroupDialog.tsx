@@ -1,9 +1,4 @@
-import {
-  ChangeEvent,
-  DragEvent,
-  FormEvent,
-  SyntheticEvent,
-} from 'react';
+import { ChangeEvent, DragEvent, FormEvent, SyntheticEvent } from 'react';
 import {
   Autocomplete,
   Box,
@@ -15,7 +10,10 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Alter, Group, createGroup, updateGroup } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
+import type { Alter, Group } from '@didhub/api-client';
+
+const { groups } = apiClient;
 import SigilUpload from '../SigilUpload';
 import { SnackbarMessage } from '../NotificationSnackbar';
 
@@ -174,10 +172,12 @@ const getSigilUrlFromGroup = (group: Group | null): string | null => {
 export default function GroupDialog(props: GroupDialogProps) {
   const isCreate = props.mode === 'create';
   const altersOptions = props.altersOptions ?? [];
-  const editingGroup = isCreate ? null : props.editingGroup ?? null;
+  const editingGroup = isCreate ? null : (props.editingGroup ?? null);
 
-  const leaderValue: Alter[] = isCreate ? props.newGroupLeaders ?? [] : getLeadersFromGroup(editingGroup, altersOptions);
-  const sigilUrl = isCreate ? props.newGroupSigilUrl ?? null : getSigilUrlFromGroup(editingGroup);
+  const leaderValue: Alter[] = isCreate
+    ? (props.newGroupLeaders ?? [])
+    : getLeadersFromGroup(editingGroup, altersOptions);
+  const sigilUrl = isCreate ? (props.newGroupSigilUrl ?? null) : getSigilUrlFromGroup(editingGroup);
   const sigilUploading = isCreate ? props.newGroupSigilUploading : props.editingGroupSigilUploading;
   const sigilDrag = isCreate ? props.newGroupSigilDrag : props.editingGroupSigilDrag;
 
@@ -309,7 +309,7 @@ export default function GroupDialog(props: GroupDialogProps) {
       }
 
       try {
-        await createGroup({
+        await groups.create({
           name: trimmedName,
           description: props.newGroupDesc || null,
           sigil: sigilUrl,
@@ -344,11 +344,12 @@ export default function GroupDialog(props: GroupDialogProps) {
     }
 
     try {
-      await updateGroup(group.id, {
+      const leadersPayload = mapLeadersToIds(leaderValue);
+      await groups.update(group.id!, {
         name: group.name,
         description: group.description,
         sigil: getSigilUrlFromGroup(group),
-        leaders: group.leaders || [],
+        leaders: leadersPayload,
       });
 
       props.onClose();
@@ -372,7 +373,13 @@ export default function GroupDialog(props: GroupDialogProps) {
             onSubmit={isCreate ? handleSubmit : undefined}
             sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mt: 1 }}
           >
-            <TextField size="small" label="Name" value={isCreate ? props.newGroupName : editingGroup?.name || ''} onChange={handleNameChange} sx={{ minWidth: 240 }} />
+            <TextField
+              size="small"
+              label="Name"
+              value={isCreate ? props.newGroupName : editingGroup?.name || ''}
+              onChange={handleNameChange}
+              sx={{ minWidth: 240 }}
+            />
             <TextField
               size="small"
               label="Description"
@@ -389,7 +396,9 @@ export default function GroupDialog(props: GroupDialogProps) {
               onChange={handleLeaderChange}
               onInputChange={handleLeaderInputChange}
               sx={{ minWidth: 240 }}
-              renderInput={(params: Parameters<typeof TextField>[0]) => <TextField {...params} label="Leaders" size="small" />}
+              renderInput={(params: Parameters<typeof TextField>[0]) => (
+                <TextField {...params} label="Leaders" size="small" />
+              )}
             />
             <SigilUpload
               sigilUrl={sigilUrl}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alter, parseRoles, UserAlterRelationship } from '@didhub/api-client';
+import { parseRoles, type Alter, type UserAlterRelationship } from '@didhub/api-client';
 
 export interface BasicInfoSectionProps {
   alter: Alter;

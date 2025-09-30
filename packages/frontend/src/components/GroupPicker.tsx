@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
 
-import { listGroups, createGroup, Group } from '@didhub/api-client';
+import { apiClient, type Group } from '@didhub/api-client';
 
 import InputPromptDialog from './InputPromptDialog';
 
@@ -25,7 +25,7 @@ export default function GroupPicker(props: GroupPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-    const items = await listGroups(q || '');
+    const items = await apiClient.groups.list({ query: q || '' });
     setOptions(items);
   }
 
@@ -109,11 +109,10 @@ export default function GroupPicker(props: GroupPickerProps) {
           onCancel={() => setCreateDialog({ open: false, name: '' })}
           onSubmit={async () => {
             try {
-              const cr = await createGroup({ name: createDialog.name });
-              if (cr && cr.json) {
-                const g = cr.json;
-                setOptions((prev) => [g, ...prev]);
-                props.onChange?.(g.id);
+              const group = await apiClient.groups.create({ name: createDialog.name });
+              if (group && group.id != null) {
+                setOptions((prev) => [group, ...prev]);
+                props.onChange?.(group.id);
               } else {
                 props.onChange?.(createDialog.name);
               }

@@ -23,25 +23,8 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 import NotificationSnackbar from '../components/NotificationSnackbar';
 import { useSettings } from '../contexts/SettingsContext';
-import {
-  createShortLink,
-  getShortLinkUrl,
-  getSubsystem,
-  listSubsystemMembers,
-  getAlter,
-  fetchAlters,
-  updateSubsystem,
-  fetchMeVerified,
-  toggleSubsystemLeader,
-  fetchAlterNames,
-  fetchAlterNamesByUser,
-  Alter,
-  Subsystem,
-  type User,
-  type AlterName,
-  type SubsystemMember,
-  parseRoles,
-} from '@didhub/api-client';
+import { apiClient, getShortLinkUrl, parseRoles } from '@didhub/api-client';
+import type { Alter, Subsystem, User, AlterName, SubsystemMember } from '@didhub/api-client';
 
 type AlterMember = Alter & { roles?: string[] };
 
@@ -92,12 +75,12 @@ export default function SubsystemDetail() {
         }
         // fetch user first
         try {
-          const muser = await fetchMeVerified();
+          const muser = await apiClient.users.sessionIfAuthenticated();
           setMe(muser);
         } catch {
           setMe(null);
         }
-        const subsystemData = await getSubsystem(sid);
+        const subsystemData = await apiClient.subsystems.get(sid);
         setSubsystem(subsystemData ?? null);
         if (subsystemData) {
           setEditName(subsystemData.name ?? '');
@@ -120,10 +103,15 @@ export default function SubsystemDetail() {
       try {
         const ownerId = subsystemOwnerId;
         const results = await (ownerId != null
-          ? fetchAlterNamesByUser(ownerId, alterSearch || '')
-          : fetchAlterNames(alterSearch || ''));
+          ? apiClient.alters.namesByUser(ownerId, alterSearch || '')
+          : apiClient.alters.names(alterSearch || ''));
         if (!active) return;
-        const filtered = results.filter((item): item is AlterName => Boolean(item && item.name));
+        const items = Array.isArray((results as { items?: AlterName[] }).items)
+          ? ((results as { items?: AlterName[] }).items as AlterName[])
+          : Array.isArray(results)
+            ? (results as AlterName[])
+            : [];
+        const filtered = items.filter((item): item is AlterName => Boolean(item && item.name));
         setAlterOptions(filtered);
       } catch (e) {
         if (active) setAlterOptions([]);
@@ -139,7 +127,7 @@ export default function SubsystemDetail() {
   async function refreshMembers() {
     if (!sid) return;
     try {
-      const membershipRows = await listSubsystemMembers(sid);
+      const membershipRows = await apiClient.subsystems.listMembers(sid);
       const byId: Record<string, { alterId: string | number; roles: string[] }> = {};
       membershipRows.forEach((row: SubsystemMember) => {
         const alterId = row.alter_id ?? row.alterId;
@@ -149,7 +137,7 @@ export default function SubsystemDetail() {
       });
       // always also gather alters referencing this subsystem (implicit members)
       try {
-        const all = await fetchAlters('', true); // include relationships
+        const all = await apiClient.alters.list({ includeRelationships: true, perPage: 1000 });
         const alters = Array.isArray(all.items) ? all.items : [];
         alters
           .filter((al) => String(al.subsystem) === String(sid))
@@ -164,7 +152,7 @@ export default function SubsystemDetail() {
       const detailed = await Promise.all(
         Object.values(byId).map(async ({ alterId, roles }) => {
           try {
-            const alter = await getAlter(alterId);
+            const alter = await apiClient.alters.get(alterId);
             if (!alter) return null;
             return { ...alter, roles } as AlterMember;
           } catch {
@@ -183,7 +171,7 @@ export default function SubsystemDetail() {
     if (!selectedAlter || !sid) return;
     setMemberBusy(true);
     try {
-      await toggleSubsystemLeader(sid, selectedAlter.id, true);
+      await apiClient.subsystems.toggleLeader(sid, selectedAlter.id, true);
       // server side handles non-host roles via same endpoint (role param optional)
       await refreshMembers();
       setSelectedAlter(null);
@@ -201,7 +189,7 @@ export default function SubsystemDetail() {
     setMemberBusy(true);
     try {
       for (const _roleName of roles) {
-        await toggleSubsystemLeader(sid, alterId, false);
+        await apiClient.subsystems.toggleLeader(sid, alterId, false);
         // role param omitted; server will remove leader/role appropriately
       }
       await refreshMembers();
@@ -217,7 +205,7 @@ export default function SubsystemDetail() {
     if (!sid) return;
     setMemberBusy(true);
     try {
-      await toggleSubsystemLeader(sid, alterId, add);
+      await apiClient.subsystems.toggleLeader(sid, alterId, add);
       await refreshMembers();
     } catch {
       // ignore
@@ -250,7 +238,7 @@ export default function SubsystemDetail() {
       setShareDialog({ open: true, url: '', error: 'Missing subsystem id' });
       return;
     }
-    const record = await createShortLink('subsystem', Number(subsystem.id)).catch(() => null);
+    const record = await apiClient.shortlinks.create('subsystem', Number(subsystem.id)).catch(() => null);
     if (!record) {
       return setShareDialog({ open: true, url: '', error: 'Failed to create share link' });
     }
@@ -370,15 +358,13 @@ export default function SubsystemDetail() {
                 if (!subsystem || subsystem.id == null) return;
                 setSaving(true);
                 try {
-                  const resp = await updateSubsystem(subsystem.id, {
+                  await apiClient.subsystems.update(subsystem.id, {
                     name: editName.trim(),
                     description: editDesc || null,
                   });
-                  if (resp.status === 200) {
-                    const updated = await getSubsystem(subsystem.id);
-                    setSubsystem(updated ?? null);
-                    setEditing(false);
-                  }
+                  const updated = await apiClient.subsystems.get(subsystem.id);
+                  setSubsystem(updated ?? null);
+                  setEditing(false);
                 } catch (e) {
                   // optionally show snackbar
                 } finally {
@@ -426,8 +412,7 @@ export default function SubsystemDetail() {
                   size="small"
                   sx={{ minWidth: 240 }}
                   options={alterOptions.filter(
-                    (option) =>
-                      !members.some((member) => member.id != null && String(member.id) === String(option.id)),
+                    (option) => !members.some((member) => member.id != null && String(member.id) === String(option.id)),
                   )}
                   getOptionLabel={(o) => o.name}
                   loading={loadingAlterNames}

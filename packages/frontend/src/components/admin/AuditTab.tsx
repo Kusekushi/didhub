@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Typography, Stack, Button } from '@mui/material';
-import { exportAdminAuditCsv, clearAuditLogs } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 import AuditLogPanel from './AuditLogPanel';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import type { AlertColor } from '@mui/material';
@@ -22,9 +22,9 @@ export default function AuditTab(props: AuditTabProps) {
         <Button
           variant="contained"
           onClick={async () => {
-            const r = await exportAdminAuditCsv();
-            if (r && (r.text || r.json)) {
-              const txt = r.text || (typeof r.json === 'string' ? r.json : JSON.stringify(r.json || ''));
+            const result = await apiClient.admin.exportAuditCsv();
+            if (result.ok && result.content) {
+              const txt = result.content;
               const blob = new Blob([txt], { type: 'text/csv' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -53,9 +53,9 @@ export default function AuditTab(props: AuditTabProps) {
         onClose={() => setConfirmClearAudit(false)}
         onConfirm={async () => {
           try {
-            const r = await clearAuditLogs();
-            if (r && r.status === 'ok') {
-              props.setAdminMsg({ open: true, text: 'Cleared audit logs', severity: 'success' });
+            const r = await apiClient.admin.clearAuditLogs();
+            if (r && r.success) {
+              props.setAdminMsg({ open: true, text: r.message || 'Cleared audit logs', severity: 'success' });
               setAuditReloadCounter((c) => c + 1);
             } else {
               props.setAdminMsg({ open: true, text: 'Failed to clear', severity: 'error' });

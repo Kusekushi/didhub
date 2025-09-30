@@ -1,87 +1,6 @@
-export interface ApiFetchResult<T = unknown> {
-  status: number;
-  url?: string;
-  contentType?: string | null;
-  json?: T | null;
-  text?: string | null;
-}
+import { getStoredToken, setStoredToken } from './utils/storage';
 
-export type ApiFetchResultError = {
-  status: number;
-};
-
-function getStoredToken(): string | null {
-  try {
-    if (typeof localStorage === 'undefined') return null;
-    return localStorage.getItem('didhub_jwt');
-  } catch {
-    return null;
-  }
-}
-
-export async function apiFetch<T = unknown>(path: string, opts: RequestInit = {}): Promise<ApiFetchResult<T>> {
-  const defaultOpts: RequestInit = { credentials: 'include', cache: 'no-store' };
-  const merged: RequestInit = { ...defaultOpts, ...(opts || {}) };
-  // Inject Authorization bearer header for API calls if not explicitly provided
-  if (typeof path === 'string' && path.startsWith('/api')) {
-    const token = getStoredToken();
-    const headers = new Headers(merged.headers || undefined);
-    if (token && !headers.has('Authorization')) {
-      headers.set('Authorization', 'Bearer ' + token);
-    }
-    // For mutating requests, include CSRF token from cookie if present and header not provided.
-    try {
-      const method = (merged.method || 'GET').toString().toUpperCase();
-      if (method !== 'GET' && method !== 'HEAD') {
-        const hasCsrfHeader = Array.from(headers.keys()).some((k) => k.toLowerCase() === 'x-csrf-token');
-        if (!hasCsrfHeader && typeof document !== 'undefined' && typeof document.cookie === 'string') {
-          const m = document.cookie.match('(^|;)\\s*csrf_token=([^;]+)');
-          if (m && m.length >= 3) {
-            headers.set('x-csrf-token', decodeURIComponent(m[2]));
-          }
-        }
-      }
-    } catch (e) {}
-    merged.headers = headers;
-  }
-  const res = await fetch(path, merged);
-  const txt = await res.text();
-  const contentType = typeof res.headers?.get === 'function' ? res.headers.get('content-type') : null;
-  const meta: ApiFetchResult<T> = { status: res.status, url: res.url, contentType };
-  try {
-    const parsed = txt ? JSON.parse(txt) : null;
-    if (parsed && parsed.code === 'must_change_password') {
-      try {
-        window.dispatchEvent(new CustomEvent('didhub:must-change-password'));
-      } catch {}
-    }
-    if (res.status === 401) {
-      try {
-        window.dispatchEvent(new CustomEvent('didhub:unauthorized'));
-      } catch {}
-    }
-    return { ...meta, json: parsed };
-  } catch (e) {
-    if (res.status === 401) {
-      try {
-        window.dispatchEvent(new CustomEvent('didhub:unauthorized'));
-      } catch {}
-    }
-    return { ...meta, text: txt };
-  }
-}
-
-export function clearStoredToken() {
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem('didhub_jwt');
-  } catch {}
-}
-
-export function setStoredToken(token: string) {
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.setItem('didhub_jwt', token);
-  } catch {}
-}
+export { getStoredToken, setStoredToken, clearStoredToken, hasAuthToken } from './utils/storage';
 
 export function getTokenExp(token: string): number | null {
   try {
@@ -108,10 +27,6 @@ export async function refreshToken(): Promise<{ ok: boolean; token?: string }> {
     }
   } catch {}
   return { ok: false };
-}
-
-export function hasAuthToken(): boolean {
-  return !!getStoredToken();
 }
 
 export function safeJsonParse<T = unknown>(v: unknown, fallback: T | null = null): T | null {

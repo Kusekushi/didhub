@@ -3,7 +3,7 @@ import { Button, List } from '@mui/material';
 
 import GroupDialog from './GroupDialog';
 import GroupListItem from './GroupListItem';
-import { Alter, Group } from '@didhub/api-client';
+import type { Alter, Group } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
 import type { SettingsState } from '../../contexts/SettingsContext';
 

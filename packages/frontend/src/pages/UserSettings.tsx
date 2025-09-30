@@ -3,14 +3,8 @@ import { Button, Avatar, Typography, TextField, type AlertColor } from '@mui/mat
 
 import NotificationSnackbar from '../components/NotificationSnackbar';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  getMySystemRequest,
-  requestSystemApproval,
-  uploadAvatar,
-  deleteAvatar,
-  fetchMeVerified,
-} from '@didhub/api-client';
-import type { SystemRequest } from '../types/api';
+import { apiClient } from '@didhub/api-client';
+import type { SystemRequest } from '@didhub/api-client';
 
 type SnackbarState = {
   open: boolean;
@@ -34,10 +28,10 @@ export default function UserSettings() {
   async function doUpload() {
     if (!file) return;
     setLoading(true);
-    const res = await uploadAvatar(file);
+    const res = await apiClient.files.uploadAvatar(file);
     setLoading(false);
     if (!res.error) {
-      const me = await fetchMeVerified();
+      const me = await apiClient.users.sessionIfAuthenticated();
       setUser(me);
       setMsg({ open: true, text: 'Avatar updated', severity: 'success' });
     } else {
@@ -47,16 +41,16 @@ export default function UserSettings() {
 
   async function doDelete() {
     setLoading(true);
-    await deleteAvatar();
+    await apiClient.files.deleteAvatar();
     setLoading(false);
-    const me = await fetchMeVerified();
+    const me = await apiClient.users.sessionIfAuthenticated();
     setUser(me);
   }
 
   async function doRefreshProfile() {
     setLoading(true);
     try {
-      const me = await fetchMeVerified();
+      const me = await apiClient.users.sessionIfAuthenticated();
       setUser(me);
       setMsg({ open: true, text: 'Profile refreshed', severity: 'success' });
     } catch (e) {
@@ -82,7 +76,7 @@ export default function UserSettings() {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        const me = await fetchMeVerified();
+        const me = await apiClient.users.sessionIfAuthenticated();
         setUser(me);
       } else {
         setPwMsg({ open: true, text: String(r?.error ?? 'change failed'), severity: 'error' });
@@ -96,7 +90,7 @@ export default function UserSettings() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await getMySystemRequest();
+        const r = await apiClient.admin.mySystemRequest();
         setMyRequest(r ?? null);
       } catch (e) {
         setMyRequest(null);
@@ -166,14 +160,12 @@ export default function UserSettings() {
             onClick={async () => {
               setLoading(true);
               try {
-                const res = await requestSystemApproval();
-                if (res && 'id' in res && typeof res.id !== 'undefined') {
-                  const me = await fetchMeVerified();
+                const res = await apiClient.admin.requestSystemApproval();
+                if (res && typeof res.id !== 'undefined') {
+                  const me = await apiClient.users.sessionIfAuthenticated();
                   setUser(me);
                   setMyRequest(res as SystemRequest);
                   setPwMsg({ open: true, text: 'System request submitted', severity: 'success' });
-                } else if (res && typeof (res as { error?: unknown }).error === 'string') {
-                  setPwMsg({ open: true, text: String((res as { error?: unknown }).error), severity: 'error' });
                 } else {
                   setPwMsg({ open: true, text: 'Request failed', severity: 'error' });
                 }

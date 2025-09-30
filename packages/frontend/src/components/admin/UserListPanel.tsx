@@ -12,12 +12,12 @@ import {
 } from '@mui/material';
 import ConfirmDialog from '../ConfirmDialog';
 import InputPromptDialog from '../InputPromptDialog';
-import { listUsers, updateUser, adminResetUserPassword, adminDisableUser } from '@didhub/api-client';
+import { apiClient, type User } from '@didhub/api-client';
 import moment from 'moment';
 import NotificationSnackbar from '../../components/NotificationSnackbar';
 
 export default function UserListPanel() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [localMsg, setLocalMsg] = useState<{ open: boolean; text: string; severity: AlertColor }>({
     open: false,
     text: '',
@@ -31,8 +31,8 @@ export default function UserListPanel() {
   async function load() {
     setLoading(true);
     try {
-      const r = await listUsers(q, 1, 200, {});
-      setUsers((r && r.items) || []);
+      const r = await apiClient.users.list({ query: q, page: 1, perPage: 200 });
+      setUsers(r.items ?? []);
     } catch (e) {
       setUsers([]);
     } finally {
@@ -80,7 +80,7 @@ export default function UserListPanel() {
                   size="small"
                   variant="contained"
                   onClick={async () => {
-                    await updateUser(u.id, { is_system: !u.is_system });
+                    await apiClient.users.update(u.id, { is_system: !u.is_system });
                     await load();
                   }}
                 >
@@ -91,7 +91,7 @@ export default function UserListPanel() {
                   variant={u.is_admin ? 'contained' : 'outlined'}
                   color={u.is_admin ? 'secondary' : 'primary'}
                   onClick={async () => {
-                    await updateUser(u.id, { is_admin: !u.is_admin });
+                    await apiClient.users.update(u.id, { is_admin: !u.is_admin });
                     await load();
                   }}
                 >
@@ -117,11 +117,11 @@ export default function UserListPanel() {
         onSubmit={async (value) => {
           try {
             if (!pwPromptLocal.userId) return;
-            const res = await adminResetUserPassword(pwPromptLocal.userId, value);
-            if (res && res.status === 200) {
-              setLocalMsg({ open: true, text: 'Password reset', severity: 'success' });
+            const res = await apiClient.admin.resetUserPassword(pwPromptLocal.userId, value ?? '');
+            if (res.success) {
+              setLocalMsg({ open: true, text: res.message ?? 'Password reset', severity: 'success' });
             } else {
-              setLocalMsg({ open: true, text: String((res && res.error) || 'Failed'), severity: 'error' });
+              setLocalMsg({ open: true, text: res.message ?? 'Failed to reset password', severity: 'error' });
             }
           } catch (e) {
             setLocalMsg({ open: true, text: String(e || 'Failed'), severity: 'error' });
@@ -135,7 +135,7 @@ export default function UserListPanel() {
         label="this user"
         onClose={() => setDisableConfirm({ open: false, userId: null })}
         onConfirm={async () => {
-          if (disableConfirm.userId) await adminDisableUser(disableConfirm.userId);
+          if (disableConfirm.userId) await apiClient.admin.disableUser(disableConfirm.userId);
           setDisableConfirm({ open: false, userId: null });
           await load();
         }}

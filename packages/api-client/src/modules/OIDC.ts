@@ -1,14 +1,4 @@
-import { apiFetch, ApiFetchResult } from '../Util';
-
-export async function fetchOidcList(): Promise<{ id: string; name: string }[]> {
-  try {
-    const res = await apiFetch('/api/oidc');
-    if (res.status < 200 || res.status >= 300) return [];
-    return res.json || [];
-  } catch (e) {
-    return [];
-  }
-}
+import { HttpClient } from '../core/HttpClient';
 
 export interface OidcProviderAdminView {
   id: string;
@@ -18,29 +8,38 @@ export interface OidcProviderAdminView {
   client_id: string;
 }
 
-export async function getOidcProviderSecret(id: string): Promise<OidcProviderAdminView | null> {
-  try {
-    const res = await apiFetch(`/api/oidc/${encodeURIComponent(id)}/secret`);
-    if (res.status < 200 || res.status >= 300) return null;
-    return res.json;
-  } catch {
-    return null;
-  }
-}
+export class OidcApi {
+  constructor(private readonly http: HttpClient) {}
 
-export async function updateOidcProviderSecret(
-  id: string,
-  body: { client_id?: string; client_secret?: string; enabled?: boolean },
-): Promise<OidcProviderAdminView | null> {
-  try {
-    const res = await apiFetch(`/api/oidc/${encodeURIComponent(id)}/secret`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body || {}),
+  async list(): Promise<{ id: string; name: string }[]> {
+    const response = await this.http.request<Array<{ id: string; name: string }> | null>({
+      path: '/api/oidc',
+      throwOnError: false,
     });
-    if (res.status < 200 || res.status >= 300) return null;
-    return res.json;
-  } catch {
-    return null;
+    if (!response.ok || !Array.isArray(response.data)) return [];
+    return response.data;
+  }
+
+  async getSecret(id: string): Promise<OidcProviderAdminView | null> {
+    const response = await this.http.request<OidcProviderAdminView | null>({
+      path: `/api/oidc/${encodeURIComponent(id)}/secret`,
+      throwOnError: false,
+    });
+    if (!response.ok) return null;
+    return response.data ?? null;
+  }
+
+  async updateSecret(
+    id: string,
+    body: { client_id?: string; client_secret?: string; enabled?: boolean },
+  ): Promise<OidcProviderAdminView | null> {
+    const response = await this.http.request<OidcProviderAdminView | null>({
+      path: `/api/oidc/${encodeURIComponent(id)}/secret`,
+      method: 'POST',
+      json: body ?? {},
+      throwOnError: false,
+    });
+    if (!response.ok) return null;
+    return response.data ?? null;
   }
 }

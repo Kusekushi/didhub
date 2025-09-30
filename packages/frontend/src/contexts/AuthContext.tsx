@@ -1,15 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 
-import {
-  loginUser as apiLogin,
-  registerUser as apiRegister,
-  logoutUser as apiLogout,
-  fetchMeVerified,
-  User,
-  refreshSession,
-  changePassword as apiChangePassword,
-  getTokenExp,
-} from '@didhub/api-client';
+import { apiClient, getTokenExp } from '@didhub/api-client';
+import type { User } from '@didhub/api-client';
 
 /**
  * Shape of the authentication context.
@@ -85,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshTimer.current = window.setTimeout(async () => {
       if (refreshingRef.current) return;
       refreshingRef.current = true;
-      const r = await refreshSession();
+      const r = await apiClient.users.refreshSession();
       refreshingRef.current = false;
       if (!r.ok) {
         // Failed refresh -> trigger logout
@@ -137,42 +129,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [me]);
   async function login(username: string, password: string) {
-    const r = await apiLogin(username, password);
-    if (r.status === 200) {
-      try {
-        const m = await fetchMeVerified();
-        setMe(m);
-        if (m && m.must_change_password) setMustChange(true);
-        initTokenState();
-        return { ok: true, user: m };
-      } catch {
-        initTokenState();
-        return { ok: true, user: null };
-      }
+    const result = await apiClient.users.login(username, password);
+    if (result.ok) {
+      const session = await apiClient.users.session();
+      const user = session.ok ? session.user : null;
+      setMe(user);
+      if (user && user.must_change_password) setMustChange(true);
+      initTokenState();
+      return { ok: true, user };
     }
-    // If server indicates account is not yet approved, surface a pending flag so UI can redirect.
-    const loginJson = r.json as { token?: string; code?: string; error?: string } | null | undefined;
-    const code = loginJson?.code;
+
+    const code = result.data?.code;
     if (code === 'not_approved') {
       return {
         ok: false,
         pending: true,
-        error: loginJson?.error ?? 'Account awaiting approval',
+        error: result.data?.error ?? 'Account awaiting approval',
       };
     }
-    return { ok: false, error: loginJson?.error ?? (r.text ?? null) };
+
+    return { ok: false, error: result.data?.error ?? null };
   }
   async function register(username: string, password: string, is_system = false) {
-    const r = await apiRegister(username, password, is_system);
-    if (r.status === 200 || r.status === 201) {
+    const r = await apiClient.users.register(username, password, is_system);
+    if (r.ok) {
       // Account created. Because new accounts require admin approval, don't auto-login.
       return { ok: true, pending: true };
     }
-    const registerJson = r.json as { error?: string } | null | undefined;
-    return { ok: false, error: registerJson?.error ?? (r.text ?? null) };
+    return { ok: false, error: r.error ?? r.message ?? null };
   }
   async function logout() {
-    await apiLogout();
+    await apiClient.users.logout();
     setMe(null);
     setMustChange(false);
     setTokenExp(null);
@@ -182,20 +169,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
   async function changePassword(current: string, next: string) {
-    const res = await apiChangePassword(current, next);
-    if (res && res.status === 200) {
+    const res = await apiClient.users.changePassword(current, next);
+    if (res.ok) {
       setMustChange(false);
       try {
-        const m = await fetchMeVerified();
+        const m = await apiClient.users.sessionIfAuthenticated();
         setMe(m);
       } catch {
         // Ignore fetch errors
       }
       return { ok: true };
     }
-    const errJson = res?.json as { error?: string } | null | undefined;
-    const errText = res?.text;
-    const err = errJson?.error ?? errText ?? 'error';
+    const err = res.error ?? res.message ?? 'error';
     return { ok: false, error: String(err) };
   }
   return (
@@ -228,7 +213,7 @@ if (typeof window !== 'undefined') {
       window.__didhub_refreshing = true;
       (async () => {
         try {
-          const r = await refreshSession();
+          const r = await apiClient.users.refreshSession();
           if (r && r.ok && r.token) {
             localStorage.setItem('didhub_jwt', r.token);
             // Clear the refreshing flag immediately since the operation is complete

@@ -3,7 +3,7 @@ import { Button, IconButton, Tooltip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ShareIcon from '@mui/icons-material/Share';
 
-import { Group } from '@didhub/api-client';
+import type { Group } from '@didhub/api-client';
 import { useGroupShare } from '../../hooks/useGroupShare';
 import { SnackbarMessage } from '../NotificationSnackbar';
 import ConfirmDialog from '../../components/ConfirmDialog';

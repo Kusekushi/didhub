@@ -28,26 +28,30 @@ describe('useEntityData', () => {
   });
 
   it('should fetch data when activeTab matches targetTab and uid is provided', async () => {
-    const mockData = { items: [{ id: 1, name: 'Test Item' }] };
+    const mockData = [{ id: 1, name: 'Test Item' }];
     mockFetchFunction.mockResolvedValue(mockData);
 
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
-      expect(mockFetchFunction).toHaveBeenCalledWith('?owner_user_id=test-uid', true);
-      expect(result.current.items).toEqual(mockData.items);
+      expect(mockFetchFunction).toHaveBeenCalledWith({ ownerUserId: 'test-uid', query: '', includeMembers: true });
+      expect(result.current.items).toEqual(mockData);
     });
   });
 
   it('should include search query in fetch request', async () => {
-    const mockData = { items: [{ id: 1, name: 'Test Item' }] };
+    const mockData = [{ id: 1, name: 'Test Item' }];
     mockFetchFunction.mockResolvedValue(mockData);
 
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', 'search term', 0));
 
     await waitFor(() => {
-      expect(mockFetchFunction).toHaveBeenCalledWith('?owner_user_id=test-uid&q=search%20term', true);
-      expect(result.current.items).toEqual(mockData.items);
+      expect(mockFetchFunction).toHaveBeenCalledWith({
+        ownerUserId: 'test-uid',
+        query: 'search term',
+        includeMembers: true,
+      });
+      expect(result.current.items).toEqual(mockData);
     });
   });
 
@@ -57,7 +61,7 @@ describe('useEntityData', () => {
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
-      expect(mockFetchFunction).toHaveBeenCalledWith('?owner_user_id=test-uid', true);
+      expect(mockFetchFunction).toHaveBeenCalledWith({ ownerUserId: 'test-uid', query: '', includeMembers: true });
     });
 
     // Should still have empty array after error
@@ -76,21 +80,26 @@ describe('useEntityData', () => {
   });
 
   it('should refetch data when refresh is called', async () => {
-    const mockData = { items: [{ id: 1, name: 'Test Item' }] };
-    const refreshData = { items: [{ id: 2, name: 'Refreshed Item' }] };
+    const mockData = [{ id: 1, name: 'Test Item' }];
+    const refreshData = [{ id: 2, name: 'Refreshed Item' }];
     mockFetchFunction.mockResolvedValueOnce(mockData).mockResolvedValueOnce(refreshData);
 
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
-      expect(result.current.items).toEqual(mockData.items);
+      expect(result.current.items).toEqual(mockData);
     });
 
     await result.current.refresh();
 
     await waitFor(() => {
-      expect(mockFetchFunction).toHaveBeenCalledTimes(2);
-      expect(result.current.items).toEqual(refreshData.items);
+      expect(mockFetchFunction).toHaveBeenNthCalledWith(1, {
+        ownerUserId: 'test-uid',
+        query: '',
+        includeMembers: true,
+      });
+      expect(mockFetchFunction).toHaveBeenNthCalledWith(2, { ownerUserId: 'test-uid', query: '' });
+      expect(result.current.items).toEqual(refreshData);
     });
   });
 
@@ -103,8 +112,8 @@ describe('useEntityData', () => {
   });
 
   it('should refetch when search term changes', async () => {
-    const mockData1 = { items: [{ id: 1, name: 'Item 1' }] };
-    const mockData2 = { items: [{ id: 2, name: 'Item 2' }] };
+    const mockData1 = [{ id: 1, name: 'Item 1' }];
+    const mockData2 = [{ id: 2, name: 'Item 2' }];
     mockFetchFunction.mockResolvedValueOnce(mockData1).mockResolvedValueOnce(mockData2);
 
     const { result, rerender } = renderHook(
@@ -113,14 +122,18 @@ describe('useEntityData', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.items).toEqual(mockData1.items);
+      expect(result.current.items).toEqual(mockData1);
     });
 
     rerender({ search: 'new search' });
 
     await waitFor(() => {
-      expect(mockFetchFunction).toHaveBeenCalledWith('?owner_user_id=test-uid&q=new%20search', true);
-      expect(result.current.items).toEqual(mockData2.items);
+      expect(mockFetchFunction).toHaveBeenLastCalledWith({
+        ownerUserId: 'test-uid',
+        query: 'new search',
+        includeMembers: true,
+      });
+      expect(result.current.items).toEqual(mockData2);
     });
   });
 });

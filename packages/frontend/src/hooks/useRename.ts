@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { updateAlter, getAlter, Alter } from '@didhub/api-client';
+import { apiClient, type Alter } from '@didhub/api-client';
 
 interface UseRenameResult {
   /** Whether the rename operation is currently active */
@@ -68,21 +68,18 @@ export function useRename(alter: Alter | null, onRenamed?: (updatedAlter: Alter)
 
     try {
       setRenameError(null);
-      const resp = await updateAlter(alter.id as string | number, { name: newName });
-      if (resp && (resp as any).status === 200) {
-        const updated = await getAlter(alter.id as string | number);
-        if (updated && onRenamed) {
-          onRenamed(updated);
-        }
-        setRenaming(false);
-      } else if (resp && (resp as any).json && (resp as any).json.errors) {
-        const errs = (resp as any).json.errors;
-        setRenameError(errs.name || 'Rename failed');
-      } else {
-        setRenameError('Rename failed');
+      const updated = await apiClient.alters.update(alter.id as string | number, { name: newName });
+      if (updated && onRenamed) {
+        onRenamed(updated);
       }
+      setRenaming(false);
     } catch (e) {
-      setRenameError((e as any)?.message || 'Rename failed');
+      const fieldErrors = typeof (e as any)?.data === 'object' ? (e as any).data?.errors : undefined;
+      if (fieldErrors && typeof fieldErrors.name === 'string') {
+        setRenameError(fieldErrors.name);
+      } else {
+        setRenameError((e as any)?.message || 'Rename failed');
+      }
     }
   };
 

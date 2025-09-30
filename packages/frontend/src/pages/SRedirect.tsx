@@ -1,6 +1,6 @@
-import { getShortlinkRecord } from '@didhub/api-client';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { apiClient } from '@didhub/api-client';
 
 export default function SRedirect(): React.ReactElement {
   const { token } = useParams() as { token?: string };
@@ -11,10 +11,10 @@ export default function SRedirect(): React.ReactElement {
     (async () => {
       if (!token) return setMsg('Invalid token');
       try {
-        const record = await getShortlinkRecord(token);
-        if ('status' in record) return setMsg('Not found');
-        if (!record.target) return setMsg('Unknown target');
-        return nav(record.target);
+        const result = await apiClient.shortlinks.fetch(token);
+        if (!result.ok || !result.record) return setMsg('Not found');
+        if (!result.record.target) return setMsg('Unknown target');
+        return nav(result.record.target);
       } catch (e) {
         setMsg('Redirect failed');
       }

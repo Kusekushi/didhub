@@ -1,4 +1,4 @@
-import { createShortLink, getShortLinkUrl } from '@didhub/api-client';
+import { apiClient, getShortLinkUrl } from '@didhub/api-client';
 
 /**
  * Hook for handling group share link creation
@@ -9,7 +9,7 @@ export function useGroupShare() {
     setSnack: (snack: { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }) => void,
   ) => {
     try {
-      const record = await createShortLink('group', groupId).catch(() => null);
+      const record = await apiClient.shortlinks.create('group', groupId).catch(() => null);
       if (!record) {
         throw new Error('Failed to create share link');
       }

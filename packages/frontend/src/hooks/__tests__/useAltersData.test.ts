@@ -1,10 +1,10 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import { useAltersData } from '../useAltersData';
-import { fetchAltersBySystem, fetchAltersSearch } from '@didhub/api-client';
+import { fetchAltersBySystem, fetchAltersSearch } from '../../api';
 
-vi.mock('@didhub/api-client', async () => {
-  const actual = await vi.importActual('@didhub/api-client');
+vi.mock('../../api', async () => {
+  const actual = await vi.importActual('../../api');
   return {
     ...actual,
     fetchAltersBySystem: vi.fn(),

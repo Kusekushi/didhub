@@ -1,7 +1,7 @@
 import React from 'react';
 import { ListItem, ListItemText, ListItemAvatar, Divider } from '@mui/material';
 
-import { Group } from '@didhub/api-client';
+import type { Group } from '@didhub/api-client';
 import GroupAvatar from './GroupAvatar';
 import GroupActions from './GroupActions';
 import { SnackbarMessage } from '../NotificationSnackbar';

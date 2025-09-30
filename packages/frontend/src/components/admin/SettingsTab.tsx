@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Paper, TextField, Stack, Button, FormControlLabel, Switch } from '@mui/material';
-import { reloadUploadDir } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 
 export interface SettingsTabProps {
   webhook: string;
@@ -25,7 +25,7 @@ export default function SettingsTab(props: SettingsTabProps) {
   const handleReloadUploadDir = async () => {
     try {
       props.onStatusChange('Reloading upload dir...');
-      const r = await reloadUploadDir();
+      const r = await apiClient.admin.reloadUploadDirectory();
       const msg = r && r.dir ? `Reloaded upload dir: ${r.dir}` : 'Reloaded upload dir';
       props.onStatusChange(msg);
       props.onMessage({ open: true, text: msg, severity: 'success' });
@@ -98,7 +98,7 @@ export default function SettingsTab(props: SettingsTabProps) {
           <Button variant="outlined" onClick={handleReloadUploadDir}>
             Reload Upload Dir
           </Button>
-          <Typography variant="body2">{status}</Typography>
+          <Typography variant="body2">{props.status}</Typography>
         </Stack>
       </Paper>
     </>

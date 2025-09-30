@@ -1,10 +1,10 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import { useSystemList } from '../useSystemList';
-import { listSystems } from '@didhub/api-client';
+import { listSystems } from '../../api';
 
-vi.mock('@didhub/api-client', async () => {
-  const actual = await vi.importActual('@didhub/api-client');
+vi.mock('../../api', async () => {
+  const actual = await vi.importActual('../../api');
   return {
     ...actual,
     listSystems: vi.fn(),

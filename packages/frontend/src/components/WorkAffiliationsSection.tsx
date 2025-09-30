@@ -1,7 +1,7 @@
 import React from 'react';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { Alter, Group, Subsystem } from '@didhub/api-client';
+import type { Alter, Group, Subsystem } from '@didhub/api-client';
 
 export interface WorkAffiliationsSectionProps {
   alter: Alter;

@@ -1,4 +1,4 @@
-import { apiFetch, ApiFetchResult, ApiFetchResultError } from '../Util';
+import { HttpClient } from '../core/HttpClient';
 
 export type ShortLinkTargetType = 'alter' | 'group' | 'subsystem' | 'system';
 
@@ -45,51 +45,68 @@ export const parseShortLinkRecord = (value: unknown): ShortLinkRecord | null => 
     typeof rawId === 'number'
       ? rawId
       : typeof rawId === 'string' && rawId.trim() !== '' && Number.isFinite(Number(rawId))
-      ? Number(rawId)
-      : null;
+        ? Number(rawId)
+        : null;
   const token = typeof record.token === 'string' ? record.token : null;
   const target = typeof record.target === 'string' ? record.target : null;
   if (id === null || !token || !target) return null;
   return { id, token, target };
 };
 
-export async function createShortLink(
-  type: ShortLinkTargetType,
-  id: string | number,
-  options: CreateShortLinkOptions = {},
-): Promise<ShortLinkRecord> {
-  const resolver = defaultTargetResolvers[type];
-  if (!resolver) {
-    throw new Error(`Unknown shortlink type: ${type}`);
-  }
-  const target = options.target ?? resolver(id);
-  const response = await apiFetch('/api/shortlink', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target }),
-  });
-
-  if (response.status >= 400) {
-    const message =
-      (response.json && typeof (response.json as Record<string, unknown>).error === 'string'
-        ? String((response.json as Record<string, unknown>).error)
-        : null) || 'Failed to create shortlink';
-    throw new Error(message);
-  }
-
-  const record = parseShortLinkRecord(response.json);
-  if (!record) {
-    throw new Error('Unexpected shortlink response');
-  }
-
-  return record;
+export interface ShortLinkResult {
+  status: number;
+  ok: boolean;
+  record: ShortLinkRecord | null;
+  error?: string;
 }
 
-export async function getShortlinkRecord(token: string): Promise<ShortLinkRecord | ApiFetchResultError> {
-  const response = await apiFetch(`/api/shortlink/${encodeURIComponent(token)}`);
-  const record = parseShortLinkRecord(response.json);
-  if (record) {
+export class ShortlinksApi {
+  constructor(private readonly http: HttpClient) {}
+
+  async create(
+    type: ShortLinkTargetType,
+    id: string | number,
+    options: CreateShortLinkOptions = {},
+  ): Promise<ShortLinkRecord> {
+    const resolver = defaultTargetResolvers[type];
+    if (!resolver) {
+      throw new Error(`Unknown shortlink type: ${type}`);
+    }
+    const target = options.target ?? resolver(id);
+    const response = await this.http.request<Record<string, unknown> | null>({
+      path: '/api/shortlink',
+      method: 'POST',
+      json: { target },
+      throwOnError: false,
+    });
+
+    const record = parseShortLinkRecord(response.data);
+    if (!record) {
+      const message =
+        (response.data && typeof (response.data as { error?: string }).error === 'string'
+          ? (response.data as { error?: string }).error
+          : undefined) ?? 'Failed to create shortlink';
+      throw new Error(message);
+    }
+
     return record;
   }
-  return { status: response.status } as ApiFetchResultError;
+
+  async fetch(token: string): Promise<ShortLinkResult> {
+    const response = await this.http.request<Record<string, unknown> | null>({
+      path: `/api/shortlink/${encodeURIComponent(token)}`,
+      throwOnError: false,
+    });
+
+    const record = parseShortLinkRecord(response.data);
+    return {
+      status: response.status,
+      ok: response.ok && Boolean(record),
+      record,
+      error:
+        response.data && typeof (response.data as { error?: string }).error === 'string'
+          ? (response.data as { error?: string }).error
+          : undefined,
+    };
+  }
 }

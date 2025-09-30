@@ -12,7 +12,7 @@ import { ListsSection, NotesSection } from '../components/DetailSections';
 import DetailHeader from '../components/DetailHeader';
 import NotificationSnackbar from '../components/NotificationSnackbar';
 import logger from '../logger';
-import { deleteAlterImage } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 import { renderEmbeds } from '../utils/detailUtils';
 import { useAlterData } from '../hooks/useAlterData';
 import { useAlterLinks } from '../hooks/useAlterLinks';
@@ -185,12 +185,9 @@ export default function Detail(): React.ReactElement {
         onClose={() => setRemoveImageDialog({ open: false, url: '', id: null })}
         onConfirm={async () => {
           try {
-            const resp = await deleteAlterImage(removeImageDialog.id, removeImageDialog.url).catch(() => null);
-            if (!resp || resp.error) {
-              logger.warn('Failed to delete image', resp);
-            } else {
-              refetch();
-            }
+            if (removeImageDialog.id == null) return;
+            await apiClient.alters.removeImage(removeImageDialog.id, removeImageDialog.url);
+            await refetch();
           } catch (e) {
             logger.warn('delete image error', e);
           } finally {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, List, ListItem, ListItemText, Button, Stack } from '@mui/material';
-import { updateUser, listSystemRequests } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 
 interface PendingTabProps {
   pendingRegs: Array<{ id: number; username: string; created_at: string }>;
@@ -13,10 +13,10 @@ interface PendingTabProps {
 export default function PendingTab(props: PendingTabProps) {
   const handleApprove = async (user: { id: number; username: string }) => {
     try {
-      await updateUser(user.id, { is_approved: true });
+      await apiClient.users.update(user.id, { is_approved: true });
       props.onMessage({ open: true, text: `Approved ${user.username}`, severity: 'success' });
       props.onUserUpdate();
-      const sr = await listSystemRequests();
+      const sr = await apiClient.admin.listSystemRequests();
       props.onSystemRequestsUpdate((sr && sr) || []);
     } catch (e) {
       props.onMessage({ open: true, text: String(e || 'Failed'), severity: 'error' });
@@ -25,7 +25,7 @@ export default function PendingTab(props: PendingTabProps) {
 
   const handleReject = async (user: { id: number; username: string }) => {
     try {
-      await updateUser(user.id, { is_approved: false });
+      await apiClient.users.update(user.id, { is_approved: false });
       props.onMessage({ open: true, text: `Rejected ${user.username}`, severity: 'info' });
       props.onUserUpdate();
     } catch (e) {

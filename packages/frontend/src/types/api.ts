@@ -11,7 +11,18 @@ import type {
   SystemRequest,
 } from '@didhub/api-client';
 
-export type { Alter, Group, GroupMember, Subsystem, User, UploadInfo, HousekeepingJob, HousekeepingRun, AuditLogEntry, SystemRequest };
+export type {
+  Alter,
+  Group,
+  GroupMember,
+  Subsystem,
+  User,
+  UploadInfo,
+  HousekeepingJob,
+  HousekeepingRun,
+  AuditLogEntry,
+  SystemRequest,
+};
 
 export interface UploadRecord {
   id: number;
@@ -32,13 +43,7 @@ export interface UploadListResult {
   offset: number;
 }
 
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export type JsonRecord = Record<string, JsonValue>;
 

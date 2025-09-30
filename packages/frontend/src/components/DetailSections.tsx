@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper, Typography } from '@mui/material';
-import { Alter } from '@didhub/api-client';
+import type { Alter } from '@didhub/api-client';
 import ReactMarkdown from 'react-markdown';
 
 function normalizeToArray(raw: unknown): string[] {

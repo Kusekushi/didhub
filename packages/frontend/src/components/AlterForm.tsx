@@ -15,7 +15,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import RichEditor from './RichEditor';
 import GroupPicker from './GroupPicker';
 import SubsystemPicker from './SubsystemPicker';
-import { Alter, listGroups } from '@didhub/api-client';
+import { apiClient, type Alter } from '@didhub/api-client';
 import { StackItem } from './StackItem';
 
 export interface AlterFormFieldsProps {
@@ -464,13 +464,11 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
                   } else if (typeof item === 'string') {
                     // try to resolve a group by name to get its id
                     try {
-                      const lg = await listGroups(String(item) || '');
-                      const items =
-                        lg && (lg as any).items ? (lg as any).items : lg && Array.isArray(lg) ? (lg as any) : [];
-                      const found = (items as any[]).find(
+                      const groups = await apiClient.groups.list({ query: String(item) || '' });
+                      const found = groups.find(
                         (it) => it && it.name && String(it.name).toLowerCase() === String(item).toLowerCase(),
                       );
-                      if (found && typeof (found as any).id !== 'undefined') ids.push((found as any).id);
+                      if (found && typeof found.id !== 'undefined') ids.push(found.id as number | string);
                       else ids.push(item);
                     } catch (e) {
                       // fallback to pushing the raw string

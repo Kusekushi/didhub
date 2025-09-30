@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Tabs, Tab, Autocomplete, TextField, CircularProgress, InputAdornment, Alert } from '@mui/material';
-import { User } from '@didhub/api-client';
+import type { User } from '@didhub/api-client';
 
 export interface SystemHeaderProps {
   tab: number;

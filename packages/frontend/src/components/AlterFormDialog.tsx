@@ -1,19 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
 import AlterFormFields from './AlterForm';
-import {
-  Alter,
-  createAlter,
-  getAlter,
-  updateAlter,
-  fetchAlterNames,
-  fetchUserNames,
-  createUserAlterRelationship,
-  deleteUserAlterRelationship,
-  uploadFileWithProgress,
-  deleteAlterImage,
-} from '@didhub/api-client';
+import { apiClient, type Alter } from '@didhub/api-client';
 
 export interface AlterFormDialogProps {
   mode: 'create' | 'edit';
@@ -49,6 +38,17 @@ const empty: Alter = {
   is_merged: false,
 };
 
+type RelationshipType = 'partner' | 'parent' | 'child';
+
+interface RelationshipEntry {
+  userId: number;
+  type: RelationshipType;
+}
+
+function isRelationshipType(value: unknown): value is RelationshipType {
+  return value === 'partner' || value === 'parent' || value === 'child';
+}
+
 export default function AlterFormDialog(props: AlterFormDialogProps) {
   const { mode, open, onClose, onCreated, onSaved, id } = props;
 
@@ -61,6 +61,48 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
   const [userPartnerOptions, setUserPartnerOptions] = useState<string[]>([]);
   const [userPartnerMap, setUserPartnerMap] = useState<Record<string, number | string>>({});
   const [originalUserRelationships, setOriginalUserRelationships] = useState<any[]>([]);
+
+  function extractFieldErrors(error: unknown): Record<string, string> | undefined {
+    if (typeof error === 'object' && error !== null) {
+      const maybeData = (error as { data?: unknown }).data;
+      if (maybeData && typeof maybeData === 'object') {
+        if ('errors' in maybeData && typeof (maybeData as { errors?: unknown }).errors === 'object') {
+          return (maybeData as { errors?: Record<string, string> }).errors;
+        }
+        if ('error' in maybeData && typeof (maybeData as { error?: unknown }).error === 'string') {
+          return { general: (maybeData as { error?: string }).error ?? 'Request failed' };
+        }
+      }
+    }
+    if (error instanceof Error && error.message) {
+      return { general: error.message };
+    }
+    return undefined;
+  }
+
+  function resolveUserId(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const fromMap = userPartnerMap[trimmed];
+      if (typeof fromMap !== 'undefined') {
+        const numeric = Number(fromMap);
+        return Number.isNaN(numeric) ? undefined : numeric;
+      }
+      const numeric = Number(trimmed);
+      return Number.isNaN(numeric) ? undefined : numeric;
+    }
+    return undefined;
+  }
+
+  function buildRelationshipEntries(source: unknown, type: RelationshipType): RelationshipEntry[] {
+    if (!Array.isArray(source)) return [];
+    return source
+      .map((value) => resolveUserId(value))
+      .filter((id): id is number => typeof id === 'number')
+      .map((userId) => ({ userId, type }));
+  }
 
   useEffect(() => {
     fetchPartnerOptions();
@@ -79,9 +121,9 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
 
   async function fetchPartnerOptions() {
     try {
-      const result = (await fetchAlterNames()) as { items?: Array<{ id?: number | string; name?: string }> };
-      const items = (result.items || []).filter((it) => it && it.name);
-      const names = items.map((x) => x.name || '').filter(Boolean);
+      const result = await apiClient.alters.names();
+      const items = result.filter((it) => it && it.name);
+      const names = items.map((x) => x.name ?? '').filter(Boolean);
       const selfName = mode === 'edit' && values && values.name ? values.name : null;
       setPartnerOptions(selfName ? names.filter((n) => n !== selfName) : names);
       const m: Record<string, number | string> = {};
@@ -96,17 +138,17 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
 
   async function fetchUserPartnerOptions() {
     try {
-      const result = (await fetchUserNames()) as { items?: Array<{ id?: number | string; name?: string }> };
-      const items = (result.items || []).filter((it) => it && it.name);
-      setUserPartnerOptions(items.map((x) => x.name || '').filter(Boolean));
+      const result = await apiClient.users.list({ perPage: 200 });
+      const items = (result.items || []).filter((it) => it && it.username);
+      setUserPartnerOptions(items.map((x) => x.username || '').filter(Boolean));
       const m: Record<string, number | string> = {};
       for (const it of items) {
-        if (it && it.name && typeof it.id !== 'undefined') m[it.name] = it.id as number | string;
+        if (it && it.username && typeof it.id !== 'undefined') m[it.username] = it.id as number | string;
       }
       setUserPartnerMap(m);
       console.log(
         'User partner options:',
-        items.map((x) => x.name || ''),
+        items.map((x) => x.username || ''),
       );
       console.log('User partner map:', m);
     } catch (e) {
@@ -116,7 +158,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
 
   async function load() {
     if (mode !== 'edit' || !id) return;
-    const r = await getAlter(id);
+    const r = await apiClient.alters.get(id);
     if (r) {
       // Store original user relationships for comparison
       const userRelationships = r.user_relationships || [];
@@ -148,26 +190,22 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
 
   async function updateUserRelationships(alterId: number) {
     // Get desired relationships from form values
-    const desiredRelationships = [
-      ...((values.user_partners as any[]) || []).map((userId: any) => ({
-        userId: Number(userId),
-        type: 'partner' as const,
-      })),
-      ...((values.user_parents as any[]) || []).map((userId: any) => ({
-        userId: Number(userId),
-        type: 'parent' as const,
-      })),
-      ...((values.user_children as any[]) || []).map((userId: any) => ({
-        userId: Number(userId),
-        type: 'child' as const,
-      })),
+    const desiredRelationships: RelationshipEntry[] = [
+      ...buildRelationshipEntries(values.user_partners, 'partner'),
+      ...buildRelationshipEntries(values.user_parents, 'parent'),
+      ...buildRelationshipEntries(values.user_children, 'child'),
     ];
 
     // Get current relationships
-    const currentRelationships = originalUserRelationships.map((rel) => ({
-      userId: rel.user_id,
-      type: rel.relationship_type,
-    }));
+    const currentRelationships: RelationshipEntry[] = (
+      Array.isArray(originalUserRelationships) ? originalUserRelationships : []
+    )
+      .map((rel) => ({
+        userId: resolveUserId(rel?.user_id),
+        type: rel?.relationship_type,
+      }))
+      .filter((rel): rel is RelationshipEntry => typeof rel.userId === 'number' && isRelationshipType(rel.type))
+      .map((rel) => ({ userId: rel.userId, type: rel.type }));
 
     // Find relationships to add and remove
     const toAdd = desiredRelationships.filter(
@@ -184,7 +222,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     for (const rel of toRemove) {
       try {
         console.log('Removing user relationship:', rel);
-        await deleteUserAlterRelationship(alterId, rel.userId, rel.type);
+        await apiClient.alters.removeRelationship(alterId, rel.userId, rel.type);
         console.log('Successfully removed user relationship:', rel);
       } catch (e) {
         console.warn('Failed to remove user relationship:', e);
@@ -196,7 +234,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     for (const rel of toAdd) {
       try {
         console.log('Adding user relationship:', rel);
-        await createUserAlterRelationship(alterId, rel.userId, rel.type);
+        await apiClient.alters.addRelationship(alterId, rel.userId, rel.type);
         console.log('Successfully added user relationship:', rel);
       } catch (e) {
         console.warn('Failed to add user relationship:', e);
@@ -267,7 +305,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
       const urls: string[] = [];
       for (const f of values._files) {
         setProgressMap((pm) => ({ ...pm, [f.name]: 0 }));
-        const r = await uploadFileWithProgress(f, (pct: number) => {
+        const r = await apiClient.files.uploadWithProgress(f, (pct: number) => {
           setProgressMap((pm) => ({ ...pm, [f.name]: pct }));
         });
         if (r && r.url) urls.push(r.url as string);
@@ -281,28 +319,30 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
       }
     }
 
+    delete (payload as any)._files;
+
     if (mode === 'create') {
-      const r = await createAlter(payload);
-      if (r && typeof r.status === 'number' && r.status >= 200 && r.status < 300) {
-        // Create user relationships if any
-        const alterId = (r.json as any)?.id;
+      try {
+        const created = await apiClient.alters.create(payload);
+        const alterId = created?.id ? Number(created.id) : undefined;
         console.log('Alter created with ID:', alterId);
         console.log('User partners:', values.user_partners);
         console.log('User parents:', values.user_parents);
         console.log('User children:', values.user_children);
+
         if (alterId) {
-          const userRelationships = [
-            ...((values.user_partners as any[]) || []).map((userId: any) => ({ userId, type: 'partner' as const })),
-            ...((values.user_parents as any[]) || []).map((userId: any) => ({ userId, type: 'parent' as const })),
-            ...((values.user_children as any[]) || []).map((userId: any) => ({ userId, type: 'child' as const })),
+          const userRelationships: RelationshipEntry[] = [
+            ...buildRelationshipEntries(values.user_partners, 'partner'),
+            ...buildRelationshipEntries(values.user_parents, 'parent'),
+            ...buildRelationshipEntries(values.user_children, 'child'),
           ];
           console.log('User relationships to create:', userRelationships);
 
           for (const rel of userRelationships) {
             try {
               console.log('Creating relationship:', rel);
-              const result = await createUserAlterRelationship(alterId, Number(rel.userId), rel.type);
-              console.log('Relationship creation result:', result);
+              await apiClient.alters.addRelationship(alterId, rel.userId, rel.type);
+              console.log('Relationship creation result:', rel);
             } catch (e) {
               console.warn('Failed to create user relationship:', e);
               // Don't fail the whole creation for relationship errors
@@ -313,8 +353,11 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         setValues(empty);
         onCreated && onCreated();
         onClose();
-      } else if (r && r.json && r.json.errors) {
-        setErrors(r.json.errors);
+      } catch (err) {
+        console.error('Failed to create alter', err);
+        const fieldErrors = extractFieldErrors(err);
+        if (fieldErrors) setErrors(fieldErrors);
+        else setErrors({ general: 'Failed to create alter' });
       }
     } else if (mode === 'edit') {
       // For edit
@@ -358,7 +401,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         const urls: string[] = [];
         for (const f of values._files) {
           setProgressMap((pm) => ({ ...pm, [f.name]: 0 }));
-          const ur = await uploadFileWithProgress(f, (pct: number) => {
+          const ur = await apiClient.files.uploadWithProgress(f, (pct: number) => {
             setProgressMap((pm) => ({ ...pm, [f.name]: pct }));
           });
           if (ur && ur.url) urls.push(ur.url as string);
@@ -371,17 +414,18 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
           return;
         }
       }
-      const r = await updateAlter(id, editPayload);
-      if (r.status === 200) {
+      try {
+        await apiClient.alters.update(id, editPayload);
         // Update user relationships
         await updateUserRelationships(Number(id));
 
         onSaved && onSaved();
         onClose();
-      } else if (r.json && r.json.errors) {
-        setErrors(r.json.errors);
-      } else {
-        setErrors({ general: 'Save failed' });
+      } catch (err) {
+        console.error('Failed to update alter', err);
+        const fieldErrors = extractFieldErrors(err);
+        if (fieldErrors) setErrors(fieldErrors);
+        else setErrors({ general: 'Save failed' });
       }
     }
   }
@@ -401,9 +445,10 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
   async function handleDeleteImage(url: string) {
     if (mode !== 'edit' || !id) return;
     try {
-      const r = await deleteAlterImage(id, url);
-      if (r && r.images) {
-        setValues((prev) => ({ ...(prev as any), images: r.images }));
+      const r = await apiClient.alters.removeImage(id, url);
+      const images = (r as any)?.json?.images ?? (r as any)?.images;
+      if (Array.isArray(images)) {
+        setValues((prev) => ({ ...(prev as any), images }));
       } else {
         // fallback local removal
         setValues((prev) => {

@@ -1,17 +1,7 @@
 import { Tabs, Tab, type AlertColor } from '@mui/material';
 import React from 'react';
 import { useEffect, useState } from 'react';
-import {
-  getAdminSettings,
-  getAdminPosts,
-  listSystemRequests,
-  repostAdminPost,
-  updateAdminSettings,
-  setSystemRequestStatus,
-  fetchMeVerified,
-  listUsers,
-  SETTINGS as SETTINGS_KEYS,
-} from '@didhub/api-client';
+import { apiClient, SETTINGS as SETTINGS_KEYS } from '@didhub/api-client';
 import Housekeeping from './Housekeeping';
 import AdminUploads from '../components/AdminUploads';
 import SystemUpdates from '../components/SystemUpdates';
@@ -67,13 +57,19 @@ export default function Admin() {
   // Map common Redis INFO keys to friendly labels for display
   useEffect(() => {
     (async () => {
-      const m = await fetchMeVerified();
+      const m = await apiClient.users.sessionIfAuthenticated();
       setMe(m);
-      const s = await getAdminSettings();
+      const s = await apiClient.admin.settings();
       setSettings(s || {});
-      setWebhook(s && s[SETTINGS_KEYS.DISCORD_WEBHOOK_URL] ? s[SETTINGS_KEYS.DISCORD_WEBHOOK_URL] : '');
-      setRedisUrl(s && s[SETTINGS_KEYS.REDIS_URL] ? s[SETTINGS_KEYS.REDIS_URL] : '');
-      setRedisPrefixSetting(s && s[SETTINGS_KEYS.REDIS_PREFIX] ? s[SETTINGS_KEYS.REDIS_PREFIX] : '');
+      const toStringOrEmpty = (value: unknown, fallback = ''): string => {
+        if (typeof value === 'string') return value;
+        if (value == null) return fallback;
+        return String(value);
+      };
+
+      setWebhook(toStringOrEmpty(s?.[SETTINGS_KEYS.DISCORD_WEBHOOK_URL]));
+      setRedisUrl(toStringOrEmpty(s?.[SETTINGS_KEYS.REDIS_URL]));
+      setRedisPrefixSetting(toStringOrEmpty(s?.[SETTINGS_KEYS.REDIS_PREFIX]));
       setRedisTtlSecondsSetting(
         s && s[SETTINGS_KEYS.REDIS_TTL_SECONDS] ? String(s[SETTINGS_KEYS.REDIS_TTL_SECONDS]) : '',
       );
@@ -89,7 +85,7 @@ export default function Admin() {
       const rcEnabledRaw =
         s && s[SETTINGS_KEYS.REDIS_CACHE_ENABLED] ? String(s[SETTINGS_KEYS.REDIS_CACHE_ENABLED]) : null;
       setRedisCacheEnabled(rcEnabledRaw === '1' || rcEnabledRaw === 'true');
-      const parseBool = (v) => {
+      const parseBool = (v: unknown) => {
         if (v === null || typeof v === 'undefined') return false;
         const sv = String(v).toLowerCase();
         return sv === '1' || sv === 'true' || sv === 'yes';
@@ -107,10 +103,10 @@ export default function Admin() {
   async function loadPendingRegistrations() {
     setLoadingPending(true);
     try {
-      const r = await listUsers('', 1, 100, { is_approved: false });
-      const items = (r && r.items) || [];
+      const pageResult = await apiClient.users.list({ page: 1, perPage: 100, is_approved: false });
+      const items = pageResult.items ?? [];
       setPendingRegs(items);
-      setPendingRegsCount(r && r.total ? r.total : items.length);
+      setPendingRegsCount(pageResult.total ?? items.length);
     } catch {
       setPendingRegs([]);
       setPendingRegsCount(0);
@@ -120,10 +116,14 @@ export default function Admin() {
   }
   useEffect(() => {
     (async () => {
-      const p = await getAdminPosts(page, perPage);
-      setPosts((p && p.items) || []);
+      const p = await apiClient.admin.posts(page, perPage);
+      const postItems =
+        p && typeof p === 'object' && !Array.isArray(p) && Array.isArray((p as { items?: unknown[] }).items)
+          ? ((p as { items?: unknown[] }).items as unknown[])
+          : [];
+      setPosts(postItems);
       try {
-        const sr = await listSystemRequests();
+        const sr = await apiClient.admin.listSystemRequests();
         setSysRequests(sr || []);
       } catch {
         // Ignore errors when fetching system requests
@@ -136,7 +136,7 @@ export default function Admin() {
 
   async function doRepost(id) {
     setStatus('Reposting...');
-    const r = await repostAdminPost(id);
+    const r = await apiClient.admin.repostPost(id);
     if (r && r.reposted) setStatus('Reposted');
     else setStatus(r && r.error ? String(r.error) : 'Failed');
     setTimeout(() => setStatus(''), 2000);
@@ -144,7 +144,7 @@ export default function Admin() {
 
   async function save() {
     setStatus('Saving...');
-    const r = await updateAdminSettings({
+    await apiClient.admin.updateSettings({
       [SETTINGS_KEYS.DISCORD_WEBHOOK_URL]: webhook || null,
       [SETTINGS_KEYS.OIDC_PROVIDERS]: JSON.stringify(oidcProviders || []),
       [SETTINGS_KEYS.DISCORD_DIGEST_ENABLED]: discordDigestEnabled ? '1' : '0',
@@ -161,14 +161,15 @@ export default function Admin() {
       [SETTINGS_KEYS.REDIS_CACHE_ENABLED]: redisCacheEnabled ? '1' : '0',
       ['uploads.upload_dir_cache.ttl_secs']: uploadDirTtlSecs ? parseInt(uploadDirTtlSecs, 10) : 3600,
     });
-    setSettings(r || {});
+    const updatedSettings = await apiClient.admin.settings();
+    setSettings(updatedSettings || {});
     setStatus('Saved');
     setTimeout(() => setStatus(''), 2000);
   }
 
   async function refreshSystemRequests() {
     try {
-      const sr = await listSystemRequests();
+      const sr = await apiClient.admin.listSystemRequests();
       setSysRequests(sr || []);
     } catch {
       // ignore
@@ -177,12 +178,20 @@ export default function Admin() {
 
   async function doSetRequestStatus(id, status) {
     try {
-      const r = await setSystemRequestStatus(id, status);
-      if (r && r.request) {
-        setAdminMsg({ open: true, text: `Request ${status}`, severity: 'success' });
+      const result = await apiClient.admin.decideSystemRequest(id, status);
+      if (result.success !== false) {
+        setAdminMsg({
+          open: true,
+          text: result.message ?? `Request ${status}`,
+          severity: 'success',
+        });
         await refreshSystemRequests();
       } else {
-        setAdminMsg({ open: true, text: String((r && r.error) || 'Failed'), severity: 'error' });
+        setAdminMsg({
+          open: true,
+          text: result.message ?? 'Failed to update request status',
+          severity: 'error',
+        });
       }
     } catch (e) {
       setAdminMsg({ open: true, text: String(e || 'Failed'), severity: 'error' });

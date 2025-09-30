@@ -9,7 +9,8 @@ import NotificationSnackbar, { SnackbarMessage } from '../components/Notificatio
 import AltersTab from '../components/system-tabs/AltersTab';
 import GroupsTab from '../components/system-tabs/GroupsTab';
 import SubsystemsTab from '../components/SubsystemsTab';
-import { createShortLink, User } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
+import type { User } from '@didhub/api-client';
 import { useSettings } from '../contexts/SettingsContext';
 
 // Custom hooks
@@ -22,15 +23,6 @@ import { useGroupCreationState } from '../hooks/useGroupCreationState';
 import { useGroupEditingState } from '../hooks/useGroupEditingState';
 import { useSubsystemCreationState } from '../hooks/useSubsystemCreationState';
 import { uploadFiles } from '../utils/fileUpload';
-
-import {
-  listSystems,
-  deleteGroup,
-  updateGroup,
-  deleteAlter,
-  createSubsystem,
-  deleteSubsystem,
-} from '@didhub/api-client';
 
 export default function DIDSystemView(): React.ReactElement {
   const { uid } = useParams() as { uid?: string };
@@ -68,7 +60,7 @@ export default function DIDSystemView(): React.ReactElement {
   useEffect(() => {
     (async () => {
       try {
-        const s = await listSystems();
+        const s = await apiClient.users.systems();
         setSystems(s || []);
       } catch {
         // Ignore errors when fetching systems
@@ -127,7 +119,7 @@ export default function DIDSystemView(): React.ReactElement {
           editOpen={dialogStates.editOpen}
           setEditOpen={dialogStates.setEditOpen}
           onDelete={async (alterId) => {
-            await deleteAlter(alterId);
+            await apiClient.alters.remove(alterId);
             await refreshAlters();
             setSnack({ open: true, message: 'Alter deleted', severity: 'success' });
           }}
@@ -185,7 +177,7 @@ export default function DIDSystemView(): React.ReactElement {
           editingGroupSigilDrag={groupEditingState.editingGroupSigilDrag}
           setEditingGroupSigilDrag={groupEditingState.setEditingGroupSigilDrag}
           onDelete={async (groupId) => {
-            await deleteGroup(groupId);
+            await apiClient.groups.remove(groupId);
             await refreshGroups();
             setSnack({ open: true, message: 'Group deleted', severity: 'success' });
           }}
@@ -231,15 +223,15 @@ export default function DIDSystemView(): React.ReactElement {
           subsystems={subsystems}
           uid={uid || ''}
           onDelete={async (subsystemId) => {
-            await deleteSubsystem(subsystemId);
+            await apiClient.subsystems.remove(subsystemId);
             await refreshSubsystems();
             setSnack({ open: true, message: 'Subsystem deleted', severity: 'success' });
           }}
           settings={settings}
           setSnack={setSnack}
           refreshSubsystems={refreshSubsystems}
-          createSubsystem={createSubsystem}
-          createShortLink={createShortLink}
+          createSubsystem={(payload) => apiClient.subsystems.create(payload)}
+          createShortLink={(type, id, options) => apiClient.shortlinks.create(type, id, options)}
           nav={nav}
         />
       )}
@@ -248,7 +240,7 @@ export default function DIDSystemView(): React.ReactElement {
         open={snack.open}
         message={snack.message}
         severity={snack.severity}
-  onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

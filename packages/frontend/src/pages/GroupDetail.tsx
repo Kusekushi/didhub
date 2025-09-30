@@ -21,17 +21,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-import {
-  getGroup,
-  listGroupMembers,
-  getAlter,
-  updateGroup,
-  uploadFile,
-  type Alter,
-  type Group,
-  type GroupMembersResponse,
-  type User,
-} from '@didhub/api-client';
+import { apiClient, type Alter, type Group, type GroupMembersResponse } from '@didhub/api-client';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationSnackbar from '../components/NotificationSnackbar';
 
@@ -48,7 +38,7 @@ function normalizeStringId(value: unknown): string | undefined {
 
 function extractLeaderIds(group: Group | null): string[] {
   if (!group) return [];
-  const { leaders } = group;
+  const leaders = (group as { leaders?: unknown }).leaders;
   if (!leaders) return [];
   if (Array.isArray(leaders)) {
     return leaders
@@ -159,7 +149,7 @@ export default function GroupDetail() {
   const fetchMemberAlters = useCallback(
     async (groupId: string | number, ensureAlterIds: string[] = []): Promise<Alter[]> => {
       try {
-        const response: GroupMembersResponse = await listGroupMembers(groupId);
+        const response: GroupMembersResponse = await apiClient.groups.listMembers(groupId);
         const collectedIds = new Set<string>();
         if (Array.isArray(response.alters)) {
           response.alters.forEach((value) => {
@@ -173,7 +163,7 @@ export default function GroupDetail() {
         const alters = await Promise.all(
           Array.from(collectedIds).map(async (alterId) => {
             try {
-              const alter = await getAlter(alterId);
+              const alter = await apiClient.alters.get(alterId);
               return alter ?? null;
             } catch (err) {
               logger.warn('failed to fetch alter', alterId, err);
@@ -198,7 +188,7 @@ export default function GroupDetail() {
       if (!id) return;
       setLoading(true);
       try {
-        const groupData = await getGroup(id);
+        const groupData = await apiClient.groups.get(id);
         if (!mounted) return;
         if (!groupData || groupData.id == null) {
           setGroup(null);
@@ -309,8 +299,8 @@ export default function GroupDetail() {
         leaders: leaderIdsPayload,
         sigil: editSigilUrl || null,
       };
-      await updateGroup(group.id, payload);
-      const updated = await getGroup(group.id);
+      await apiClient.groups.update(group.id, payload);
+      const updated = await apiClient.groups.get(group.id);
       setGroup(updated);
       setEditing(false);
     } catch (err) {
@@ -333,9 +323,7 @@ export default function GroupDetail() {
       const alters = await fetchMemberAlters(group.id);
       if (!mounted) return;
       const query = leaderQuery.trim().toLowerCase();
-      const filtered = query
-        ? alters.filter((alter) => alter.name?.toLowerCase().includes(query))
-        : alters;
+      const filtered = query ? alters.filter((alter) => alter.name?.toLowerCase().includes(query)) : alters;
       const mapped = filtered
         .map((alter) => (alter.id != null ? ({ ...alter, id: alter.id } as LeaderOption) : null))
         .filter((option): option is LeaderOption => option !== null);
@@ -354,8 +342,12 @@ export default function GroupDetail() {
     setEditSigilUrl(localUrl); // immediate preview
     setSigilUploading(true);
     try {
-      const result = await uploadFile(file);
-      const remote = result.url ?? (typeof result.json?.url === 'string' ? result.json.url : undefined);
+      const result = await apiClient.files.upload(file);
+      const payload = result.payload ?? null;
+      const remote =
+        result.url ??
+        (typeof payload?.url === 'string' ? payload.url : undefined) ??
+        (typeof payload?.filename === 'string' ? payload.filename : undefined);
       if (remote) setEditSigilUrl(remote);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err));

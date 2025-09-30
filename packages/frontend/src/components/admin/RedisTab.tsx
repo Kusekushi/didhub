@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Paper, Stack, TextField, Button, FormControlLabel, Switch } from '@mui/material';
-import { getRedisStatus, updateAdminSettings } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 import type { AlertColor } from '@mui/material';
 
 export interface RedisTabProps {
@@ -22,11 +22,11 @@ export interface RedisTabProps {
   setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
 }
 
-function renderRedisInfo(info: Record<string, string> | undefined) {
+function renderRedisInfo(info: Record<string, unknown> | undefined) {
   if (!info) return null;
   const map: Array<[string, string]> = [];
   const push = (label: string, key: string) => {
-    if (info[key]) map.push([label, info[key]]);
+    if (info[key] != null) map.push([label, String(info[key])]);
   };
   push('Role', 'role');
   push('Redis version', 'redis_version');
@@ -44,7 +44,7 @@ function renderRedisInfo(info: Record<string, string> | undefined) {
   Object.keys(info)
     .filter((k) => k.startsWith('db'))
     .slice(0, 4)
-    .forEach((k) => map.push([k, info[k]]));
+    .forEach((k) => map.push([k, String(info[k])]));
 
   if (map.length === 0) return <div>{JSON.stringify(info)}</div>;
   return (
@@ -65,7 +65,7 @@ export default function RedisTab(props: RedisTabProps) {
   useEffect(() => {
     const loadStatus = async () => {
       try {
-        const rs = await getRedisStatus();
+        const rs = await apiClient.admin.redisStatus();
         setRedisStatusState(rs || null);
       } catch (e) {
         setRedisStatusState({ ok: false, error: String(e) });
@@ -142,7 +142,7 @@ export default function RedisTab(props: RedisTabProps) {
           disabled={!props.redisUrl}
           onClick={async () => {
             try {
-              await updateAdminSettings({
+              await apiClient.admin.updateSettings({
                 redis_url: props.redisUrl,
                 redis_prefix: props.redisPrefixSetting,
                 redis_ttl_seconds: props.redisTtlSecondsSetting,
@@ -167,7 +167,7 @@ export default function RedisTab(props: RedisTabProps) {
             variant="outlined"
             onClick={async () => {
               try {
-                const rs = await getRedisStatus();
+                const rs = await apiClient.admin.redisStatus();
                 setRedisStatusState(rs || null);
               } catch (e) {
                 setRedisStatusState({ ok: false, error: String(e) });

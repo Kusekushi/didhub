@@ -3,7 +3,7 @@ import { Button, Typography, Tooltip, Box } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ShareIcon from '@mui/icons-material/Share';
 import { IconButton } from '@mui/material';
-import { Alter, User } from '@didhub/api-client';
+import type { Alter, User } from '@didhub/api-client';
 import { useSettings } from '../contexts/SettingsContext';
 
 export interface DetailHeaderProps {

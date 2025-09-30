@@ -1,7 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Typography, Grid, Paper } from '@mui/material';
 
-import { fetchMeVerified, apiFetch } from '@didhub/api-client';
+import { apiClient, HttpClient } from '@didhub/api-client';
+
+const httpClient = new HttpClient();
+
+function extractTotal(value: unknown): number | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as { total?: unknown; items?: unknown };
+  if (typeof record.total === 'number' && Number.isFinite(record.total)) return record.total;
+  if (Array.isArray(record.items)) return record.items.length;
+  return null;
+}
 
 export default function DashboardSystem(): React.ReactElement {
   const [counts, setCounts] = useState<{ alters: number | null; groups: number | null; subsystems: number | null }>({
@@ -14,20 +24,32 @@ export default function DashboardSystem(): React.ReactElement {
   }, []);
   async function fetchOverview() {
     try {
-      const me = await fetchMeVerified();
+      const me = await apiClient.users.sessionIfAuthenticated();
       if (!me || !me.id) return;
       const uid = me.id;
       // use API endpoints that return totals when queried via owner_user_id
-      const aRes = await apiFetch(`/api/alters?user_id=${uid}&per_page=1`);
-      const gRes = await apiFetch(`/api/groups?owner_user_id=${uid}&per_page=1`);
-      const sRes = await apiFetch(`/api/subsystems?owner_user_id=${uid}&per_page=1`);
-      const aJson = aRes && aRes.json ? (aRes.json as any) : null;
-      const gJson = gRes && gRes.json ? (gRes.json as any) : null;
-      const sJson = sRes && sRes.json ? (sRes.json as any) : null;
+      const aRes = await httpClient.request<Record<string, unknown>>({
+        path: '/api/alters',
+        query: { user_id: uid, per_page: 1 },
+        throwOnError: false,
+      });
+      const gRes = await httpClient.request<Record<string, unknown>>({
+        path: '/api/groups',
+        query: { owner_user_id: uid, per_page: 1 },
+        throwOnError: false,
+      });
+      const sRes = await httpClient.request<Record<string, unknown>>({
+        path: '/api/subsystems',
+        query: { owner_user_id: uid, per_page: 1 },
+        throwOnError: false,
+      });
+      const aJson = aRes?.data ?? null;
+      const gJson = gRes?.data ?? null;
+      const sJson = sRes?.data ?? null;
       setCounts({
-        alters: aJson ? aJson.total || (aJson.items ? aJson.items.length : null) : null,
-        groups: gJson ? gJson.total || (gJson.items ? gJson.items.length : null) : null,
-        subsystems: sJson ? sJson.total || (sJson.items ? sJson.items.length : null) : null,
+        alters: extractTotal(aJson),
+        groups: extractTotal(gJson),
+        subsystems: extractTotal(sJson),
       });
     } catch (e) {}
   }

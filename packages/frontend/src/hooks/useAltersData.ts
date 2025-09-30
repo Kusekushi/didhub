@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchAltersBySystem, fetchAltersSearch, Alter } from '@didhub/api-client';
+import { apiClient, type Alter } from '@didhub/api-client';
 import logger from '../logger';
 
 /**
@@ -15,11 +15,7 @@ export function useAltersData(uid?: string, search: string = '') {
 
     (async () => {
       try {
-        const result = await fetchAltersBySystem(uid);
-        if ('status' in result) {
-          setItems([]);
-          return;
-        }
+        const result = await apiClient.alters.listBySystem(uid, { includeRelationships: true });
         setItems(result);
       } catch (e) {
         logger.warn('failed loading alters', e);
@@ -36,12 +32,8 @@ export function useAltersData(uid?: string, search: string = '') {
     const t = setTimeout(async () => {
       try {
         setLoading(true);
-        const result = await fetchAltersSearch(uid, search);
+        const result = await apiClient.alters.search({ userId: uid, query: search, includeRelationships: true });
         if (!mounted) return;
-        if ('status' in result) {
-          setItems([]);
-          return;
-        }
         setItems(result);
       } catch {
         // Ignore errors when searching alters
@@ -58,11 +50,7 @@ export function useAltersData(uid?: string, search: string = '') {
   const refresh = async () => {
     if (!uid) return;
     try {
-      const result = await fetchAltersSearch(uid, search);
-      if ('status' in result) {
-        setItems([]);
-        return;
-      }
+      const result = await apiClient.alters.search({ userId: uid, query: search, includeRelationships: true });
       setItems(result);
     } catch (e) {
       logger.warn('refreshAlters failed', e);

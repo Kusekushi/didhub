@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@mui/material';
 import * as d3 from 'd3';
-import { FamilyTreeResponse, FamilyTreeNodeData, FamilyTreeOwner } from '@didhub/api-client';
+import type { FamilyTreeResponse, FamilyTreeNodeData, FamilyTreeOwner } from '@didhub/api-client';
 
 interface GraphLink {
   source: number;

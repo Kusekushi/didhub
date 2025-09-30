@@ -11,12 +11,9 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material';
-import {
-  listHousekeepingJobs,
-  runHousekeepingJob,
-  listHousekeepingRuns,
-  clearHousekeepingRuns,
-} from '@didhub/api-client';
+import { HttpClient } from '@didhub/api-client';
+
+const httpClient = new HttpClient();
 
 export default function Housekeeping() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -30,10 +27,33 @@ export default function Housekeeping() {
   async function load() {
     setLoading(true);
     try {
-      const j = await listHousekeepingJobs();
-      setJobs((j && j.jobs) || []);
-      const r = await listHousekeepingRuns(1, 50);
-      setRuns((r && r.runs) || []);
+      const jobsResponse = await httpClient.request<Record<string, unknown>>({
+        path: '/api/housekeeping/jobs',
+        throwOnError: false,
+      });
+      const jobItems =
+        jobsResponse.data &&
+        typeof jobsResponse.data === 'object' &&
+        Array.isArray((jobsResponse.data as { jobs?: unknown[] }).jobs)
+          ? ((jobsResponse.data as { jobs?: unknown[] }).jobs as unknown[])
+          : [];
+      const jobNames = jobItems
+        .map((item) => (typeof item === 'string' ? item : (item as { name?: unknown }).name))
+        .filter((value): value is string => typeof value === 'string' && value.length > 0);
+      setJobs(jobNames);
+
+      const runsResponse = await httpClient.request<Record<string, unknown>>({
+        path: '/api/housekeeping/runs',
+        query: { limit: 50, offset: 0 },
+        throwOnError: false,
+      });
+      const runItems =
+        runsResponse.data &&
+        typeof runsResponse.data === 'object' &&
+        Array.isArray((runsResponse.data as { runs?: unknown[] }).runs)
+          ? ((runsResponse.data as { runs?: unknown[] }).runs as unknown[])
+          : [];
+      setRuns(runItems);
     } catch (e) {
       console.error('Failed to load housekeeping data:', e);
       setJobs([]);
@@ -49,15 +69,24 @@ export default function Housekeeping() {
 
   async function onRun(name: string, opts?: { dry?: boolean }) {
     try {
-      const res = await runHousekeepingJob(name, opts && opts.dry ? { dry: true } : {});
+      const res = await httpClient.request<Record<string, unknown>>({
+        path: `/api/housekeeping/trigger/${encodeURIComponent(name)}`,
+        method: 'POST',
+        json: opts?.dry ? { dry: true } : undefined,
+        throwOnError: false,
+      });
       await load();
       // if dry run returned candidates and dry=true, open confirm dialog
-      if (opts && opts.dry && res && res.result && res.result.result && res.result.result.candidates) {
+      const candidates =
+        res.data && typeof res.data === 'object'
+          ? ((res.data as { result?: { result?: { candidates?: unknown[] } } }).result?.result?.candidates ?? null)
+          : null;
+      if (opts && opts.dry && Array.isArray(candidates)) {
         setConfirmJob(name);
-        setConfirmCandidates(res.result.result.candidates || []);
+        setConfirmCandidates(candidates as unknown[]);
         setConfirmOpen(true);
       }
-      return res;
+      return res.data ?? null;
     } catch (e) {
       await load();
       return null;
@@ -67,7 +96,12 @@ export default function Housekeeping() {
   async function confirmExecute() {
     if (!confirmJob) return;
     try {
-      await runHousekeepingJob(confirmJob, { dry: false });
+      await httpClient.request({
+        path: `/api/housekeeping/trigger/${encodeURIComponent(confirmJob)}`,
+        method: 'POST',
+        json: { dry: false },
+        throwOnError: false,
+      });
     } catch (e) {
       // ignore
     } finally {
@@ -163,7 +197,11 @@ export default function Housekeeping() {
           onClick={async () => {
             try {
               setLoading(true);
-              await clearHousekeepingRuns();
+              await httpClient.request({
+                path: '/api/housekeeping/runs',
+                method: 'POST',
+                throwOnError: false,
+              });
             } catch (e) {
               // ignore
             } finally {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createShortLink, getShortLinkUrl } from '@didhub/api-client';
+import { apiClient, getShortLinkUrl } from '@didhub/api-client';
 import { useSettings } from '../contexts/SettingsContext';
 
 interface UseShareResult {
@@ -38,7 +38,7 @@ export function useShare(alterId?: string | number): UseShareResult {
       return;
     }
 
-    const record = await createShortLink('alter', alterId).catch(() => null);
+    const record = await apiClient.shortlinks.create('alter', alterId).catch(() => null);
     if (!record) {
       setShareDialog({ open: true, url: '', error: 'Failed to create share link' });
       return;

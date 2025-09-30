@@ -1,4 +1,4 @@
-import { Alter } from '@didhub/api-client';
+import { type Alter } from '@didhub/api-client';
 import { useEntityCreationState } from './useEntityCreationState';
 
 /**

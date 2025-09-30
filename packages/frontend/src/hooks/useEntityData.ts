@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 
+export interface EntityFetchFilters {
+  ownerUserId: string;
+  query?: string;
+  includeMembers?: boolean;
+}
+
 /**
  * Generic hook for managing entity data (groups, subsystems, etc.) for a system
  */
 export function useEntityData<T>(
   targetTab: number,
-  fetchFunction: (query: string, includeMembers?: boolean) => Promise<any>,
+  fetchFunction: (filters: EntityFetchFilters) => Promise<T[]>,
   uid?: string,
   search: string = '',
   activeTab: number = 0,
@@ -17,10 +23,12 @@ export function useEntityData<T>(
 
     (async () => {
       try {
-        const q = search ? '&q=' + encodeURIComponent(search) : '';
-        const query = q ? '?owner_user_id=' + encodeURIComponent(uid) + q : '?owner_user_id=' + encodeURIComponent(uid);
-        const j: any = await fetchFunction(query, true);
-        setItems((j as any).items || j || []);
+        const fetched = await fetchFunction({
+          ownerUserId: uid,
+          query: search,
+          includeMembers: true,
+        });
+        setItems(fetched || []);
       } catch {
         // Ignore errors when fetching entities
       }
@@ -30,10 +38,8 @@ export function useEntityData<T>(
   const refresh = async () => {
     if (!uid) return;
     try {
-      const q = search ? '&q=' + encodeURIComponent(search) : '';
-      const query = q ? '?owner_user_id=' + encodeURIComponent(uid) + q : '?owner_user_id=' + encodeURIComponent(uid);
-      const j: any = await fetchFunction(query);
-      setItems((j as any).items || j || []);
+      const fetched = await fetchFunction({ ownerUserId: uid, query: search });
+      setItems(fetched || []);
     } catch {
       // Ignore errors when refreshing entities
     }

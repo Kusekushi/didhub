@@ -16,7 +16,7 @@ import {
   DialogActions,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { postDiscordBirthdays, repostAdminPost, postCustomDigest } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 import type { AlertColor } from '@mui/material';
 
 export interface Post {
@@ -43,16 +43,18 @@ export default function MessagesTab(props: MessagesTabProps) {
   const [customDaysAhead, setCustomDaysAhead] = React.useState(7);
   async function postBirthdays() {
     props.setStatus('Posting...');
-    const r = await postDiscordBirthdays();
-    if (r && r.posted) props.setStatus(`Posted ${r.count} birthdays`);
-    else props.setStatus(r && r.message ? r.message : 'Nothing to post');
+    const result = await apiClient.admin.postDiscordBirthdays();
+    const posted = result.status >= 200 && result.status < 400;
+    const message = result.error ?? (posted ? 'Posted birthdays digest' : 'Nothing to post');
+    if (posted) props.setStatus('Posted birthdays digest');
+    else props.setStatus(message);
     setTimeout(() => props.setStatus(''), 4000);
   }
 
   async function postCustomDigestHandler() {
     props.setStatus('Posting custom digest...');
     setCustomDigestOpen(false);
-    const r = await postCustomDigest(customDaysAhead);
+    const r = await apiClient.admin.postCustomDigest(customDaysAhead);
     if (r && r.posted) props.setStatus(`Posted custom digest with ${r.count} birthdays`);
     else props.setStatus(r && r.message ? r.message : 'Failed to post custom digest');
     setTimeout(() => props.setStatus(''), 4000);
@@ -60,7 +62,7 @@ export default function MessagesTab(props: MessagesTabProps) {
 
   async function doRepost(id: string) {
     props.setStatus('Reposting...');
-    const r = await repostAdminPost(id);
+    const r = await apiClient.admin.repostPost(id);
     if (r && r.reposted) props.setStatus('Reposted');
     else props.setStatus(r && r.error ? String(r.error) : 'Failed');
     setTimeout(() => props.setStatus(''), 2000);

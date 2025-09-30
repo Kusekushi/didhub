@@ -1,5 +1,4 @@
-import { apiFetch, ApiFetchResult } from '../Util';
-import { updateUser } from './User';
+import { HttpClient } from '../core/HttpClient';
 import type {
   UpdateStatus,
   UpdateResult,
@@ -13,178 +12,278 @@ import type {
   HousekeepingRun,
 } from '../Types';
 
-export async function adminResetUserPassword(id: string | number, password: string): Promise<{ success?: boolean; message?: string }> {
-  return apiFetch('/api/users/' + id + '/reset', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-  }).then((r: ApiFetchResult) => r.json || {});
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
-export async function adminDisableUser(id: string | number): Promise<ApiFetchResult> {
-  const rnd = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  await adminResetUserPassword(id, rnd);
-  return updateUser(id, { is_approved: false });
+export interface AuditLogFilters {
+  page?: number;
+  perPage?: number;
+  action?: string;
+  userId?: number;
+  from?: string;
+  to?: string;
 }
 
-export async function fetchAuditLogs(
-  options: {
-    page?: number;
-    per_page?: number;
-    action?: string;
-    user_id?: number;
-    from?: string;
-    to?: string;
-  } = {},
-): Promise<AuditLogResponse> {
-  const params = new URLSearchParams();
-
-  // Add pagination params (legacy support)
-  if (options.page !== undefined) params.set('page', String(options.page));
-  if (options.per_page !== undefined) params.set('per_page', String(options.per_page));
-
-  // Add filtering params
-  if (options.action) params.set('action', options.action);
-  if (options.user_id !== undefined) params.set('user_id', String(options.user_id));
-  if (options.from) params.set('from', options.from);
-  if (options.to) params.set('to', options.to);
-
-  // Convert pagination to limit/offset for the API
-  const page = options.page || 1;
-  const per_page = options.per_page || 200;
-  const limit = per_page;
-  const offset = (page - 1) * per_page;
-
-  params.set('limit', String(limit));
-  params.set('offset', String(offset));
-
-  return apiFetch<AuditLogResponse | AuditLogEntry[]>(`/api/audit?${params.toString()}`).then((r) => {
-    const j = r.json ?? { items: [] };
-    // Normalize: server may return a raw array or an object with `items`.
-    if (Array.isArray(j)) {
-      return { items: j } as AuditLogResponse;
-    }
-    return j;
-  });
+export interface AdminAuditExportResult {
+  status: number;
+  ok: boolean;
+  content: string;
+  contentType: string;
 }
 
-export async function exportAdminAuditCsv(): Promise<ApiFetchResult> {
-  return apiFetch('/api/audit/export');
+export interface AdminMessageResult {
+  success?: boolean;
+  message?: string;
 }
 
-export async function clearAuditLogs(): Promise<{ success?: boolean; message?: string }> {
-  return apiFetch<{ success?: boolean; message?: string }>('/api/audit/clear', { method: 'POST' }).then((r) => r.json ?? {});
-}
+export class AdminApi {
+  constructor(private readonly http: HttpClient) {}
 
-export async function requestSystemApproval(): Promise<SystemRequest | null> {
-  return apiFetch<SystemRequest | null>('/api/me/request-system', { method: 'POST' }).then((r) => r.json ?? null);
-}
-
-export async function getMySystemRequest(): Promise<SystemRequest | null> {
-  return apiFetch<SystemRequest | null>('/api/me/request-system').then((r) => r.json ?? null);
-}
-
-export async function listSystemRequests(): Promise<SystemRequestAdmin[]> {
-  return apiFetch<SystemRequestAdmin[]>('/api/system-requests').then((r) => r.json ?? []);
-}
-
-export async function setSystemRequestStatus(
-  id: string | number,
-  status: unknown,
-): Promise<{ success?: boolean; message?: string } | null> {
-  return apiFetch<{ success?: boolean; message?: string } | null>(
-    '/api/system-requests/' + encodeURIComponent(String(id)) + '/decide',
-    {
+  async resetUserPassword(id: string | number, password: string): Promise<AdminMessageResult> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: `/api/users/${id}/reset`,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    },
-  ).then((r) => r.json ?? null);
-}
-
-export async function getAdminSettings(): Promise<AdminSettings> {
-  return apiFetch<AdminSettings>('/api/settings').then((r) => r.json ?? {});
-}
-
-export async function getSetting(key: string): Promise<unknown> {
-  return apiFetch<unknown>('/api/settings/' + encodeURIComponent(key)).then((r) => r.json ?? null);
-}
-
-export async function getRedisStatus(): Promise<{ ok: boolean; error?: string; info?: Record<string, unknown> }> {
-  return apiFetch<{ ok: boolean; error?: string; info?: Record<string, unknown> }>('/api/admin/redis').then(
-    (r) => r.json ?? { ok: false, error: 'no-response' },
-  );
-}
-
-export async function updateAdminSettings(payload: AdminSettings): Promise<{ success?: boolean; message?: string }> {
-  return apiFetch<{ success?: boolean; message?: string }>('/api/settings', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).then((r) => r.json ?? {});
-}
-
-// Discord birthdays endpoint not present in Rust server (placeholder retained)
-export async function postDiscordBirthdays(): Promise<{ status: number; error: string }> {
-  return { status: 404, error: 'not_implemented' };
-}
-
-export async function getAdminPosts(page = 1, per_page = 50): Promise<Record<string, unknown>> {
-  return apiFetch<Record<string, unknown>>(
-    '/api/posts?page=' + encodeURIComponent(page) + '&per_page=' + encodeURIComponent(per_page),
-  ).then((r) => r.json ?? {});
-}
-
-export async function repostAdminPost(id: string | number): Promise<Record<string, unknown>> {
-  return apiFetch<Record<string, unknown>>('/api/posts/' + encodeURIComponent(id) + '/repost', {
-    method: 'POST',
-  }).then((r) => r.json ?? {});
-}
-
-export async function listHousekeepingJobs(): Promise<{ jobs: HousekeepingJob[] }> {
-  return apiFetch<{ jobs: HousekeepingJob[] }>('/api/housekeeping/jobs').then(
-    (r) => r.json ?? { jobs: [] },
-  );
-}
-
-export async function runHousekeepingJob(name: string, opts?: { dry?: boolean }): Promise<HousekeepingRun> {
-  const init: RequestInit = { method: 'POST' };
-  if (opts && typeof opts.dry !== 'undefined') {
-    init.headers = { 'Content-Type': 'application/json' };
-    init.body = JSON.stringify({ dry: !!opts.dry });
+      json: { password },
+    });
+    const payload = isRecord(response.data) ? response.data : {};
+    return {
+      success: typeof payload.success === 'boolean' ? payload.success : undefined,
+      message: typeof payload.message === 'string' ? payload.message : undefined,
+    };
   }
-  return apiFetch<HousekeepingRun>('/api/housekeeping/trigger/' + encodeURIComponent(name), init).then((r) => {
+
+  async disableUser(id: string | number): Promise<void> {
+    const randomPassword = `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    await this.resetUserPassword(id, randomPassword);
+    await this.http.request({
+      path: `/api/users/${id}`,
+      method: 'PUT',
+      json: { is_approved: false },
+      parse: 'none',
+    });
+  }
+
+  async auditLogs(filters: AuditLogFilters = {}): Promise<AuditLogResponse> {
+    const params = new URLSearchParams();
+    const page = filters.page ?? 1;
+    const perPage = filters.perPage ?? 200;
+    const offset = (page - 1) * perPage;
+
+    params.set('limit', String(perPage));
+    params.set('offset', String(offset));
+
+    if (filters.action) params.set('action', filters.action);
+    if (typeof filters.userId === 'number') params.set('user_id', String(filters.userId));
+    if (filters.from) params.set('from', filters.from);
+    if (filters.to) params.set('to', filters.to);
+
+    const response = await this.http.request<AuditLogResponse | AuditLogEntry[]>({
+      path: '/api/audit',
+      query: Object.fromEntries(params.entries()),
+    });
+
+    if (Array.isArray(response.data)) {
+      return { items: response.data };
+    }
+
+    if (isRecord(response.data) && Array.isArray((response.data as { items?: unknown[] }).items)) {
+      const payload = response.data as AuditLogResponse;
+      return {
+        items: payload.items,
+        total: typeof payload.total === 'number' ? payload.total : payload.items.length,
+      };
+    }
+
+    return { items: [] };
+  }
+
+  async exportAuditCsv(): Promise<AdminAuditExportResult> {
+    const response = await this.http.request<string>({
+      path: '/api/audit/export',
+      parse: 'text',
+      throwOnError: false,
+    });
+
+    return {
+      status: response.status,
+      ok: response.ok,
+      content: response.data ?? '',
+      contentType: response.headers.get('content-type') ?? 'text/csv',
+    };
+  }
+
+  async clearAuditLogs(): Promise<AdminMessageResult> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: '/api/audit/clear',
+      method: 'POST',
+    });
+    const payload = isRecord(response.data) ? response.data : {};
+    return {
+      success: typeof payload.success === 'boolean' ? payload.success : undefined,
+      message: typeof payload.message === 'string' ? payload.message : undefined,
+    };
+  }
+
+  async requestSystemApproval(): Promise<SystemRequest | null> {
+    const response = await this.http.request<SystemRequest | null>({
+      path: '/api/me/request-system',
+      method: 'POST',
+      acceptStatuses: [400, 409],
+    });
+    return response.data ?? null;
+  }
+
+  async mySystemRequest(): Promise<SystemRequest | null> {
+    const response = await this.http.request<SystemRequest | null>({
+      path: '/api/me/request-system',
+      acceptStatuses: [404],
+    });
+    if (response.status === 404) return null;
+    return response.data ?? null;
+  }
+
+  async listSystemRequests(): Promise<SystemRequestAdmin[]> {
+    const response = await this.http.request<SystemRequestAdmin[]>({
+      path: '/api/system-requests',
+    });
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async decideSystemRequest(id: string | number, status: unknown): Promise<AdminMessageResult> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: `/api/system-requests/${encodeURIComponent(String(id))}/decide`,
+      method: 'POST',
+      json: { status },
+    });
+    const payload = isRecord(response.data) ? response.data : {};
+    return {
+      success: typeof payload.success === 'boolean' ? payload.success : undefined,
+      message: typeof payload.message === 'string' ? payload.message : undefined,
+    };
+  }
+
+  async settings(): Promise<AdminSettings> {
+    const response = await this.http.request<AdminSettings>({
+      path: '/api/settings',
+    });
+    return isRecord(response.data) ? (response.data as AdminSettings) : {};
+  }
+
+  async getSetting(key: string): Promise<unknown> {
+    const response = await this.http.request<unknown>({
+      path: `/api/settings/${encodeURIComponent(key)}`,
+      acceptStatuses: [404],
+    });
+    if (response.status === 404) return null;
+    return response.data ?? null;
+  }
+
+  async redisStatus(): Promise<{ ok: boolean; error?: string; info?: Record<string, unknown> }> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: '/api/admin/redis',
+      throwOnError: false,
+    });
+    const payload = isRecord(response.data) ? response.data : {};
+    return {
+      ok: Boolean(payload.ok),
+      error: typeof payload.error === 'string' ? payload.error : undefined,
+      info: isRecord(payload.info) ? (payload.info as Record<string, unknown>) : undefined,
+    };
+  }
+
+  async updateSettings(payload: AdminSettings): Promise<AdminMessageResult> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: '/api/settings',
+      method: 'PUT',
+      json: payload,
+    });
+    const body = isRecord(response.data) ? response.data : {};
+    return {
+      success: typeof body.success === 'boolean' ? body.success : undefined,
+      message: typeof body.message === 'string' ? body.message : undefined,
+    };
+  }
+
+  async postDiscordBirthdays(): Promise<{ status: number; error: string }> {
+    return { status: 404, error: 'not_implemented' };
+  }
+
+  async posts(page = 1, perPage = 50): Promise<Record<string, unknown>> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: '/api/posts',
+      query: { page, per_page: perPage },
+    });
+    return isRecord(response.data) ? response.data : {};
+  }
+
+  async repostPost(id: string | number): Promise<Record<string, unknown>> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: `/api/posts/${encodeURIComponent(String(id))}/repost`,
+      method: 'POST',
+    });
+    return isRecord(response.data) ? response.data : {};
+  }
+
+  async listHousekeepingJobs(): Promise<{ jobs: HousekeepingJob[] }> {
+    const response = await this.http.request<{ jobs?: unknown }>({
+      path: '/api/housekeeping/jobs',
+    });
+    const jobs =
+      isRecord(response.data) && Array.isArray((response.data as { jobs?: unknown }).jobs)
+        ? ((response.data as { jobs?: unknown }).jobs as HousekeepingJob[])
+        : [];
+    return { jobs };
+  }
+
+  async triggerHousekeepingJob(name: string, options: { dry?: boolean } = {}): Promise<HousekeepingRun> {
+    const response = await this.http.request<HousekeepingRun>({
+      path: `/api/housekeeping/trigger/${encodeURIComponent(name)}`,
+      method: 'POST',
+      json: typeof options.dry !== 'undefined' ? { dry: !!options.dry } : undefined,
+    });
     const fallback: HousekeepingRun = {
       id: -1,
       job_name: name,
       started_at: new Date().toISOString(),
       status: 'failed',
-      dry_run: !!opts?.dry,
+      dry_run: !!options.dry,
     };
-    return r.json ?? fallback;
-  });
-}
+    return isRecord(response.data) ? (response.data as HousekeepingRun) : fallback;
+  }
 
-export async function listHousekeepingRuns(page = 1, per_page = 100): Promise<{ runs: HousekeepingRun[] }> {
-  const limit = per_page;
-  const offset = (page - 1) * per_page;
-  return apiFetch<{ runs: HousekeepingRun[] }>(
-    `/api/housekeeping/runs?limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`,
-  ).then((r) => r.json ?? { runs: [] });
-}
+  async listHousekeepingRuns(page = 1, perPage = 100): Promise<{ runs: HousekeepingRun[] }> {
+    const limit = perPage;
+    const offset = (page - 1) * perPage;
+    const response = await this.http.request<{ runs?: unknown[] }>({
+      path: '/api/housekeeping/runs',
+      query: { limit, offset },
+    });
+    const runs = Array.isArray(response.data?.runs) ? (response.data?.runs as HousekeepingRun[]) : [];
+    return { runs };
+  }
 
-export async function clearHousekeepingRuns(): Promise<Record<string, unknown>> {
-  return apiFetch<Record<string, unknown>>('/api/housekeeping/runs', { method: 'POST' }).then((r) => r.json ?? {});
-}
+  async clearHousekeepingRuns(): Promise<Record<string, unknown>> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: '/api/housekeeping/runs',
+      method: 'POST',
+    });
+    return isRecord(response.data) ? response.data : {};
+  }
 
-export async function reloadUploadDir(): Promise<Record<string, unknown>> {
-  return apiFetch<Record<string, unknown>>('/api/admin/reload-upload-dir', { method: 'POST' }).then(
-    (r) => r.json ?? {},
-  );
-}
+  async reloadUploadDirectory(): Promise<Record<string, unknown>> {
+    const response = await this.http.request<Record<string, unknown>>({
+      path: '/api/admin/reload-upload-dir',
+      method: 'POST',
+    });
+    return isRecord(response.data) ? response.data : {};
+  }
 
-export async function checkForUpdates(): Promise<UpdateStatus> {
-  return apiFetch<UpdateStatus>('/api/admin/update/check').then((r) => {
+  async updateStatus(): Promise<UpdateStatus> {
+    const response = await this.http.request<UpdateStatus>({
+      path: '/api/admin/update/check',
+      throwOnError: false,
+    });
     const fallback: UpdateStatus = {
       available: false,
       current_version: 'unknown',
@@ -205,34 +304,36 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
         frontend: 'unknown',
       },
     };
-    return r.json ?? fallback;
-  });
-}
-
-export async function performUpdate(options: UpdateCheckQuery = {}): Promise<UpdateResult> {
-  const params = new URLSearchParams();
-  if (options.check_only) {
-    params.set('check_only', 'true');
+    return response.data ?? fallback;
   }
 
-  const url = '/api/admin/update' + (params.toString() ? '?' + params.toString() : '');
-  return apiFetch<UpdateResult>(url, { method: 'POST' }).then((r) => r.json ?? { success: false, message: 'Failed to perform update' });
+  async performUpdate(options: UpdateCheckQuery = {}): Promise<UpdateResult> {
+    const query: Record<string, string> = {};
+    if (options.check_only) query.check_only = 'true';
+
+    const response = await this.http.request<UpdateResult>({
+      path: '/api/admin/update',
+      method: 'POST',
+      query: Object.keys(query).length ? query : undefined,
+    });
+    return response.data ?? { success: false, message: 'Failed to perform update' };
+  }
+
+  async postCustomDigest(daysAhead?: number): Promise<CustomDigestResponse> {
+    const query: Record<string, string> = {};
+    if (typeof daysAhead === 'number') query.days_ahead = String(daysAhead);
+
+    const response = await this.http.request<CustomDigestResponse>({
+      path: '/api/admin/digest/custom',
+      method: 'POST',
+      query: Object.keys(query).length ? query : undefined,
+    });
+    return response.data ?? { posted: false, count: 0, message: 'Failed to post custom digest' };
+  }
 }
 
 export interface CustomDigestResponse {
   posted: boolean;
   count: number;
   message: string;
-}
-
-export async function postCustomDigest(daysAhead?: number): Promise<CustomDigestResponse> {
-  const params = new URLSearchParams();
-  if (daysAhead !== undefined) {
-    params.set('days_ahead', String(daysAhead));
-  }
-
-  const url = '/api/admin/digest/custom' + (params.toString() ? '?' + params.toString() : '');
-  return apiFetch<CustomDigestResponse>(url, { method: 'POST' }).then(
-    (r) => r.json ?? { posted: false, count: 0, message: 'Failed to post custom digest' },
-  );
 }

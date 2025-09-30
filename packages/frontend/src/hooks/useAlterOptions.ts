@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchAltersSearch, Alter } from '@didhub/api-client';
+import { apiClient, type Alter } from '@didhub/api-client';
 
 /**
  * Hook to manage alter options for leader selection
@@ -14,9 +14,9 @@ export function useAlterOptions(uid?: string, leaderQuery: string = '') {
     const t = setTimeout(async () => {
       try {
         const q = leaderQuery ? leaderQuery : '';
-        const j = (await fetchAltersSearch(uid, q)) as any;
+        const options = await apiClient.alters.search({ userId: uid, query: q, includeRelationships: true });
         if (!mounted) return;
-        setAltersOptions(j || j.items || []);
+        setAltersOptions(options);
       } catch {
         // Ignore errors when fetching alter options
       }

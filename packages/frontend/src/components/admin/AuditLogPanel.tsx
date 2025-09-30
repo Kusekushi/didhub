@@ -12,7 +12,7 @@ import {
   TableRow,
   Box,
 } from '@mui/material';
-import { fetchAuditLogs } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 
 export interface AuditLogEntry {
   id: string;
@@ -47,17 +47,28 @@ export default function AuditLogPanel(props: AuditLogPanelProps) {
   async function load() {
     setLoading(true);
     try {
-      const options = {
+      const parsedUserId = filters.user_id ? parseInt(filters.user_id, 10) : undefined;
+      const r = await apiClient.admin.auditLogs({
         page: 1,
-        per_page: 500,
-        ...(filters.action && { action: filters.action }),
-        ...(filters.user_id && { user_id: parseInt(filters.user_id) }),
-        ...(filters.from && { from: filters.from }),
-        ...(filters.to && { to: filters.to }),
-      };
-
-      const r = await fetchAuditLogs(options);
-      setRows((r && r.items) || []);
+        perPage: 500,
+        action: filters.action || undefined,
+        userId: Number.isNaN(parsedUserId ?? NaN) ? undefined : parsedUserId,
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+      });
+      const normalized: AuditLogEntry[] = Array.isArray(r?.items)
+        ? r.items.map((item: any, idx: number) => ({
+            id: String(item.id ?? item.timestamp ?? `entry-${idx}`),
+            created_at: String(item.timestamp ?? item.created_at ?? ''),
+            action: String(item.action ?? ''),
+            user_id: item.user_id ?? item.userId,
+            entity_type: item.entity_type ?? item.entityType,
+            entity_id: item.entity_id ?? item.entityId,
+            ip: item.ip_address ?? item.ipAddress ?? item.ip,
+            metadata: item.details ?? item.metadata ?? {},
+          }))
+        : [];
+      setRows(normalized);
     } catch (e) {
       setRows([]);
     } finally {

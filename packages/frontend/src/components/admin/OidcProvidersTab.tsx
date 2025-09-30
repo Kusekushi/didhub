@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Paper, Stack, TextField, Button, FormControlLabel, Switch } from '@mui/material';
-import {
-  getOidcProviderSecret,
-  updateOidcProviderSecret,
-  updateAdminSettings,
-  type OidcProviderAdminView,
-} from '@didhub/api-client';
+import { apiClient, type OidcProviderAdminView } from '@didhub/api-client';
 import type { AlertColor } from '@mui/material';
 
 export interface OidcProvidersTabProps {
@@ -92,7 +87,7 @@ export default function OidcProvidersTab(props: OidcProvidersTabProps) {
             onChange={async (e) => {
               const v = e.target.value;
               setSelectedOidcProvider(v);
-              const info = await getOidcProviderSecret(v);
+              const info = await apiClient.oidc.getSecret(v);
               setProviderAdminView(info);
             }}
             size="small"
@@ -108,7 +103,7 @@ export default function OidcProvidersTab(props: OidcProvidersTabProps) {
             variant="outlined"
             size="small"
             onClick={async () => {
-              const info = await getOidcProviderSecret(selectedOidcProvider);
+              const info = await apiClient.oidc.getSecret(selectedOidcProvider);
               setProviderAdminView(info);
             }}
           >
@@ -122,7 +117,7 @@ export default function OidcProvidersTab(props: OidcProvidersTabProps) {
             onSave={async (cid, secret, enabled) => {
               try {
                 setUpdatingProvider(true);
-                const updated = await updateOidcProviderSecret(selectedOidcProvider, {
+                const updated = await apiClient.oidc.updateSecret(selectedOidcProvider, {
                   client_id: cid || undefined,
                   client_secret: secret || undefined,
                   enabled,
