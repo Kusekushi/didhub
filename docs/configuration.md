@@ -12,150 +12,99 @@ DIDHub supports multiple ways to configure the application:
 
 ## Environment Variables
 
-### Core Configuration
+> ℹ️ **Precedence:** Environment variables override JSON config values, which override compiled defaults. When `AppConfig::from_env` resolves settings, it also normalizes a few related values (for example, promoting `LOG_LEVEL` into `RUST_LOG`).
 
-#### `DIDHUB_DB`
-Database connection URL.
+### Core configuration
 
-**Default**: `sqlite:///data/didhub.sqlite`
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `DIDHUB_SECRET` | HMAC secret for JWT signing. **Set this in production.** | `dev-secret-change-me` (development only) |
+| `DIDHUB_DB` | Database connection string (`sqlite://`, `postgres://`, `mysql://`). | `sqlite://data/didhub.sqlite` |
+| `DIDHUB_DB_CONFIG` / `DIDHUB_CONFIG_FILE` | Path to a JSON config file merged into env defaults. | _unset_ |
+| `HOST` | Host address to bind. | `0.0.0.0` |
+| `PORT` | HTTP port. | `6000` |
+| `UPLOAD_DIR` | Writable directory for uploaded files. | `uploads` |
 
-**Examples**:
+Examples:
+
 ```bash
-# SQLite
-export DIDHUB_DB=sqlite:///absolute/path/to/didhub.sqlite
+# SQLite (default)
+export DIDHUB_DB=sqlite:///$(pwd)/server-rs/data/didhub.sqlite
 
 # PostgreSQL
 export DIDHUB_DB=postgres://user:pass@localhost:5432/didhub
 
 # MySQL
 export DIDHUB_DB=mysql://user:pass@localhost:3306/didhub
+
+# Use JSON config for derived values
+export DIDHUB_DB_CONFIG=./config.prod.json
 ```
 
-#### `DIDHUB_SECRET`
-Secret key for JWT token signing. **Required for production**.
+### Logging & security headers
 
-**Default**: None (development only)
+| Variable | Purpose | Notes |
+| --- | --- | --- |
+| `RUST_LOG` | Full tracing filter string (`info`, `didhub=debug,sqlx=warn`, …). | Highest precedence. |
+| `LOG_LEVEL` | Shorthand log level. | Promoted into `RUST_LOG` when unset. |
+| `LOG_FORMAT` | Set to `json` to enable structured logs. | Any other value keeps human-readable logs. |
+| `DIDHUB_ENABLE_HSTS` | Enables the HSTS header. | Accepts `true/1/yes`. |
+| `DIDHUB_CSP` | Overrides the Content-Security-Policy header. | Applied verbatim. |
 
-**Example**:
+### Frontend origin policy
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `FRONTEND_BASE_URL` | Comma-separated list or JSON array of allowed origins. | `http://localhost:5173,http://localhost:5174` |
+| `ALLOW_ALL_FRONTEND_ORIGINS` | When truthy, CORS allows any origin (development convenience). | `false` |
+
+### Caching & rate limiting
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `DIDHUB_REDIS_URL` | Enables Redis-backed cache + rate-limit governor. | _unset_ (in-memory fallback) |
+
+Examples:
+
 ```bash
-export DIDHUB_SECRET=your-super-secure-random-key-here-at-least-32-chars
+export DIDHUB_REDIS_URL=redis://localhost:6379/0
+export DIDHUB_REDIS_URL=redis://user:pass@cache.internal:6380/1
 ```
 
-#### `DIDHUB_DB_CONFIG` / `DIDHUB_CONFIG_FILE`
-Path to JSON configuration file.
+### Auto-update
 
-**Default**: None
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `AUTO_UPDATE_ENABLED` | Allow the updater to download and stage releases. | `false` |
+| `AUTO_UPDATE_CHECK` | Periodically check for updates in the background. | `false` |
+| `UPDATE_REPO` | GitHub repository used for update manifests. | `Kusekushi/didhub` |
+| `UPDATE_CHECK_INTERVAL_HOURS` | Interval between checks. | `24` |
 
-**Example**:
+> These flags are no-ops when the binary is compiled without the `updater` feature.
+
+### Bootstrap admin
+
+| Variable | Purpose | Notes |
+| --- | --- | --- |
+| `DIDHUB_BOOTSTRAP_ADMIN_USERNAME` | Username for a one-time admin account. | Only honoured on the first boot. |
+| `DIDHUB_BOOTSTRAP_ADMIN_PASSWORD` | Password for the bootstrap admin. | Must be set with the username. |
+
 ```bash
-export DIDHUB_DB_CONFIG=./config.json
+export DIDHUB_BOOTSTRAP_ADMIN_USERNAME=admin
+export DIDHUB_BOOTSTRAP_ADMIN_PASSWORD=mysecurepassword
+# Run the server once, then unset these for security.
 ```
 
-### Server Configuration
+### Upload-related runtime settings
 
-#### `PORT`
-Port for the server to listen on.
+The following keys live in the settings table (see **Runtime Settings** below) and can be edited without restarting:
 
-**Default**: `6000`
-
-#### `HOST`
-Host address to bind to.
-
-**Default**: `0.0.0.0`
-
-#### `LOG_LEVEL`
-Logging level (error, warn, info, debug, trace).
-
-**Default**: `debug` (dev), `info` (prod)
-
-#### `LOG_JSON`
-Enable structured JSON logging.
-
-**Default**: `false` (dev), `true` (prod)
-
-### CORS Configuration
-
-#### `FRONTEND_BASE_URL`
-Comma-separated list of allowed frontend origins.
-
-**Default**: `http://localhost:5173,http://localhost:5174`
-
-**Example**:
-```bash
-export FRONTEND_BASE_URL=https://myapp.com,https://app.myapp.com
-```
-
-#### `ALLOW_ALL_FRONTEND_ORIGINS`
-Allow requests from any origin (development only).
-
-**Default**: `false`
-
-**Example**:
-```bash
-export ALLOW_ALL_FRONTEND_ORIGINS=true
-```
-
-### Caching and Performance
-
-#### `REDIS_URL`
-Redis URL for caching and sessions.
-
-**Default**: None (in-memory cache)
-
-**Examples**:
-```bash
-export REDIS_URL=redis://localhost:6379/0
-export REDIS_URL=redis://user:pass@host:port/db
-```
-
-### File Upload Configuration
-
-#### `DIDHUB_DIST_DIR`
-Directory containing built frontend assets.
-
-**Default**: `./static`
-
-#### Upload Settings (Database)
-
-These settings are stored in the database and can be changed at runtime:
-
-- `app.upload_dir`: Upload directory path
-- `uploads.count_cache.ttl_secs`: Cache TTL for upload counts (default: 30)
-- `uploads.max_file_size`: Maximum file size in bytes
-- `uploads.allowed_types`: Comma-separated allowed MIME types
-
-### Auto-Update Configuration
-
-#### `AUTO_UPDATE_ENABLED`
-Enable auto-update functionality.
-
-**Default**: `false`
-
-#### `AUTO_UPDATE_CHECK`
-Enable periodic update checks.
-
-**Default**: `false`
-
-#### `UPDATE_ENABLED`
-Enable or disable the update functionality entirely.
-
-**Default**: `true`
-
-**Examples**:
-```bash
-export UPDATE_ENABLED=false  # Disable updates completely
-export UPDATE_ENABLED=true   # Enable updates (default)
-```
-
-#### `UPDATE_REPO`
-GitHub repository for updates.
-
-**Default**: `Kusekushi/didhub`
-
-#### `UPDATE_CHECK_INTERVAL_HOURS`
-Hours between update checks.
-
-**Default**: `24`
+- `app.upload_dir`: Mirrors `UPLOAD_DIR` and controls where new uploads land.
+- `uploads.count_cache.ttl_secs`: Cache TTL (seconds) for upload counters (default `30`).
+- `uploads.max_file_size`: Maximum upload size in bytes.
+- `uploads.allowed_types`: Comma-separated MIME allowlist.
+- `security.rate_limit.requests_per_minute`: Default per-key rate limit budget.
+- `housekeeping.audit_retention_days`: Audit log retention window.
 
 ### Bootstrap Configuration
 
@@ -234,25 +183,23 @@ Instead of environment variables, you can use a JSON configuration file:
 
 ## Runtime Settings
 
-Some settings can be changed while the server is running via the admin API:
-
-### Upload Settings
+Admin users can edit settings without restarting the server. Each key is exposed under `/api/settings/{key}` and accepts/returns JSON values.
 
 ```bash
-# Set upload directory
-curl -X PUT http://localhost:6000/api/admin/settings \
+# Update upload directory
+curl -X PUT http://localhost:6000/api/settings/app.upload_dir \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"key": "app.upload_dir", "value": "/var/uploads"}'
+  -d '{"value":"/var/uploads"}'
 
-# Set cache TTL
-curl -X PUT http://localhost:6000/api/admin/settings \
+# Bump the upload count cache TTL to 60 seconds
+curl -X PUT http://localhost:6000/api/settings/uploads.count_cache.ttl_secs \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"key": "uploads.count_cache.ttl_secs", "value": "60"}'
+  -d '{"value":60}'
 ```
 
-### Available Runtime Settings
+### Available keys
 
 | Key | Description | Default | Type |
 |-----|-------------|---------|------|
@@ -260,8 +207,8 @@ curl -X PUT http://localhost:6000/api/admin/settings \
 | `uploads.count_cache.ttl_secs` | Upload count cache TTL | `30` | number |
 | `uploads.max_file_size` | Max file size in bytes | `10485760` | number |
 | `uploads.allowed_types` | Allowed MIME types (comma-separated) | `image/*` | string |
-| `security.rate_limit.requests_per_minute` | Rate limit | `60` | number |
-| `housekeeping.audit_retention_days` | Audit log retention | `365` | number |
+| `security.rate_limit.requests_per_minute` | Default rate limit budget | `60` | number |
+| `housekeeping.audit_retention_days` | Audit log retention window | `365` | number |
 
 ## Development Configuration
 
@@ -275,7 +222,7 @@ DIDHUB_SECRET=dev-secret-key-change-in-production
 PORT=6000
 HOST=127.0.0.1
 LOG_LEVEL=debug
-LOG_JSON=false
+LOG_FORMAT=text
 FRONTEND_BASE_URL=http://localhost:5173
 ALLOW_ALL_FRONTEND_ORIGINS=false
 
@@ -283,7 +230,7 @@ ALLOW_ALL_FRONTEND_ORIGINS=false
 DIDHUB_DB=sqlite://../data/didhub.sqlite
 
 # Optional: Redis for development
-# REDIS_URL=redis://localhost:6379/0
+# DIDHUB_REDIS_URL=redis://localhost:6379/0
 ```
 
 ### Docker Development
@@ -334,7 +281,7 @@ export DIDHUB_SECRET=very-long-random-secret-key-32-chars-minimum
 export PORT=8080
 export HOST=127.0.0.1
 export LOG_LEVEL=info
-export LOG_JSON=true
+export LOG_FORMAT=json
 
 # Database
 export DIDHUB_DB=postgres://didhub:strong-password@db.internal:5432/didhub
@@ -343,7 +290,7 @@ export DIDHUB_DB=postgres://didhub:strong-password@db.internal:5432/didhub
 export FRONTEND_BASE_URL=https://myapp.com
 
 # Redis
-export REDIS_URL=redis://redis.internal:6379/0
+export DIDHUB_REDIS_URL=redis://redis.internal:6379/0
 
 # Auto-updates (optional)
 export AUTO_UPDATE_ENABLED=true

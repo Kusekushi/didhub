@@ -151,9 +151,9 @@ services:
     ports:
       - "8080:6000"
     environment:
-      - DIDHUB_SECRET=your-secret-key
-      - DIDHUB_DB=postgres://didhub:password@postgres:5432/didhub
-      - REDIS_URL=redis://redis:6379/0
+  - DIDHUB_SECRET=your-secret-key
+  - DIDHUB_DB=postgres://didhub:password@postgres:5432/didhub
+  - DIDHUB_REDIS_URL=redis://redis:6379/0
     volumes:
       - didhub_uploads:/app/uploads
     depends_on:
@@ -347,7 +347,7 @@ cargo run
 
 ```bash
 # Structured JSON logging
-export LOG_JSON=true
+export LOG_FORMAT=json
 export LOG_LEVEL=info
 ```
 

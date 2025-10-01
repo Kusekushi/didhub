@@ -1,15 +1,15 @@
 ## DIDHub Packaging (Rust + Frontend)
 
-The project ships a Rust backend binary and a Vite-built frontend. A release
-bundle aggregates:
+The project ships a Rust backend binary with embedded frontend assets
+(`embed_static` feature) alongside helper binaries. A release bundle currently
+contains:
 
-- `didhub-server` (Rust release binary)
-- `static/` (built frontend assets)
-- `migrations/`, `migrations_postgres/`, `migrations_mysql/` (SQLx migrations)
+- `didhub-server` (release binary built with `embed_static,updater` features)
+- `seed` and `config_generator` helper binaries
 - `config.example.json` (database config example)
-- `RUN.md` (quick usage)
+- `RUN.md` (copied from `docs/running.md`)
 - `VERSION`
-- SBOM files (`SBOM.syft.json`, `SBOM.spdx.json` when Syft available)
+- Optional SBOMs (`SBOM.syft.json`, `SBOM.spdx.json` when Syft is available)
 
 ### Creating a Release Bundle (Local)
 
@@ -22,8 +22,8 @@ Output directory (example):
 ```
 dist/release/didhub-1.0.0-20250101123000/
   didhub-server
-  static/
-  migrations*/
+  seed
+  config_generator
   config.example.json
   RUN.md
   VERSION
@@ -31,8 +31,9 @@ dist/release/didhub-1.0.0-20250101123000/
   SBOM.spdx.json
 ```
 
-An archive (`.zip` on Windows or `.tar.gz` on Unix) is also created if the
-system tools are present.
+> The bundler writes binaries directly; migrations are bundled into the Rust
+> executable via `didhub-migrations`, and frontend assets are embedded through
+> `embed_static`.
 
 ### SBOM Generation
 
@@ -55,7 +56,7 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) performs:
 4. Build bundle with SBOM
 5. Upload artifact
 6. (Main branch) Build and push multi-arch container image for the Rust server
-   (`server-rs/Dockerfile.rust`)
+  (`server-rs/Dockerfile.rust`)
 7. (Tag starting with `v`) Publish a GitHub Release attaching all bundle files
 
 ### Container Image
@@ -66,20 +67,26 @@ assets during the Docker build, reducing the need to mount `static/` externally.
 
 ### Database Migrations
 
-Migrations are run automatically at startup by the server code using SQLx. If
-you need an explicit migration-only action, consider adding a `--migrate-only`
-flag or a dedicated small binary (not yet implemented).
+Migrations are run automatically at startup by the server code using SQLx and
+the `didhub-migrations` crate. A dedicated migration-only subcommand is not yet
+implemented.
 
 ### Seeding
 
-Use the included seed binary:
+Use the included `seed` binary from the bundle:
 
 ```bash
-cargo run --bin seed --release -- -c server-rs/config.example.json
+./seed -c ./config.example.json
 ```
 
-This creates a demo user and a bootstrap admin (if bootstrap credentials are
-provided via env/config).
+During development you can achieve the same via Cargo:
+
+```bash
+cargo run --bin seed -- -c server-rs/config.example.json
+```
+
+Both commands create a demo user and, if `DIDHUB_BOOTSTRAP_ADMIN_USERNAME` and
+`DIDHUB_BOOTSTRAP_ADMIN_PASSWORD` are supplied, a bootstrap admin.
 
 ### Adding Vulnerability Scanning & Signing (Planned)
 

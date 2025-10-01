@@ -47,4 +47,4 @@ For questions or issues not covered in this documentation, please check:
 
 ## License
 
-DIDHub is licensed under MIT OR Apache-2.0.
+DIDHub is licensed under MIT.

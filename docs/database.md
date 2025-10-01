@@ -202,26 +202,19 @@ CREATE TABLE subsystem_members (
 
 ### Migration Structure
 
-Migrations are stored in driver-specific folders:
+Migrations live in the `didhub-migrations` crate and are bundled per driver:
 
 ```
-server-rs/migrations/
-├── migrations.sqlite/     # SQLite migrations
-├── migrations_postgres/   # PostgreSQL migrations
-├── migrations_mysql/      # MySQL migrations
+server-rs/didhub-migrations/
+└── src/
+    ├── migrations/           # SQLite migrations (default)
+    ├── migrations_postgres/  # PostgreSQL migrations
+    └── migrations_mysql/     # MySQL migrations
 ```
 
 ### Migration Files
 
-Each migration is a SQL file with up/down scripts:
-
-```sql
--- migrations.sqlite/001_initial_schema.up.sql
-CREATE TABLE users (...);
-
--- migrations.sqlite/001_initial_schema.down.sql
-DROP TABLE users;
-```
+Each migration is a SQL file containing the forward (`.up.sql`) and rollback (`.down.sql`) statements inside the driver-specific folder. SQLx loads them at runtime via the `didhub-migrations` crate, so new migrations should be added there.
 
 ### Running Migrations
 
@@ -241,8 +234,8 @@ Migrations run automatically on server startup. For manual control:
 For development and testing, you can seed initial data:
 
 ```bash
-# Run the seed utility (if available)
-cargo run --bin seed -- -c config.example.json
+# Run the seed utility
+cargo run --bin seed --release -c server-rs/config.example.json
 ```
 
 ### Backup and Restore

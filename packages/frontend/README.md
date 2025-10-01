@@ -1,129 +1,81 @@
 # DIDHub Frontend
 
-A modern React application built with Vite, Material-UI, and TypeScript for
-managing alters and systems in DID (Dissociative Identity Disorder) communities.
+React + Vite application that powers the DIDHub user interface. It consumes the
+typed `@didhub/api-client` package and renders a MUI-based dashboard for alters
+and system management.
 
-## Features
+## Quick start
 
-- **System Management**: Create and manage multiple systems and alters
-- **User Authentication**: Secure login/logout with JWT tokens
-- **File Uploads**: Upload and manage avatars and other media
-- **Admin Panel**: Administrative functions for managing users and system
-  requests
-- **Responsive Design**: Mobile-friendly interface using Material-UI
-- **Real-time Updates**: Live updates for system changes and notifications
-
-## Tech Stack
-
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **UI Library**: Material-UI (MUI)
-- **Routing**: React Router
-- **State Management**: React Context API
-- **API Client**: Custom `@didhub/api-client` library
-- **Testing**: Vitest for unit tests, Playwright for E2E tests
-- **Linting**: ESLint with TypeScript support
-
-## Development Setup
-
-### Prerequisites
-
-- Node.js >= 20
-- pnpm package manager
-- Rust backend running (see root README)
-
-### Installation
-
-From the workspace root:
+From the repository root:
 
 ```bash
 pnpm install
-```
-
-### Running in Development
-
-Start the Vite dev server:
-
-```bash
 pnpm -F @didhub/frontend dev
 ```
 
-The app will be available at `http://localhost:5173` by default.
-
-### Building for Production
-
-```bash
-pnpm -F @didhub/frontend build
-```
-
-### Testing
-
-#### Unit Tests
+By default the dev server runs on `http://localhost:5173`. Point requests at the
+Rust API by setting a proxy target (matches the root README):
 
 ```bash
-pnpm -F @didhub/frontend test
+echo "VITE_API_PROXY_TARGET=http://localhost:6000" > .env.local
 ```
 
-#### End-to-End Tests
+The backend can run separately with `cargo run` from `server-rs/`.
+
+## Available scripts
 
 ```bash
-pnpm -F @didhub/frontend e2e
+pnpm -F @didhub/frontend dev      # Vite dev server
+pnpm -F @didhub/frontend build    # Production build (outputs to dist/)
+pnpm -F @didhub/frontend preview  # Preview built assets
+pnpm -F @didhub/frontend test     # Vitest unit tests
+pnpm -F @didhub/frontend e2e      # Playwright end-to-end tests
+pnpm -F @didhub/frontend lint     # ESLint (via workspace script)
 ```
 
-Note: E2E tests require Playwright browsers to be installed. Run
-`npx playwright install` if needed.
+Playwright downloads are triggered on `pnpm install`, but if you skip
+postinstall run `pnpm -F @didhub/frontend exec npx playwright install` once.
 
-## Project Structure
+## Project structure
 
 ```
 src/
-├── components/          # Reusable UI components
-│   ├── common/         # Generic components (buttons, forms, etc.)
-│   ├── layout/         # Layout components (header, sidebar, etc.)
-│   └── specific/       # Feature-specific components
-├── pages/              # Page components (routed views)
-├── hooks/              # Custom React hooks
-├── contexts/           # React context providers
-├── utils/              # Utility functions
-├── test/               # Test utilities
-└── main.tsx            # Application entry point
+├── components/        reusable UI building blocks
+├── contexts/          React context providers (auth, settings, theme)
+├── hooks/             custom hooks (API, forms, feature flags)
+├── pages/             router views
+├── routes/            route definitions
+├── system-tabs/       major dashboard tabs (e.g., AltersTab)
+├── utils/             shared helpers
+└── main.tsx           application entry point
 ```
 
-## Environment Variables
+Styling follows the central MUI theme defined in `src/theme/`. Components favor
+the `@didhub/api-client` helpers instead of direct `fetch` calls.
 
-Create a `.env.local` file in this directory:
+## Environment & configuration
 
-```env
-# API proxy target for development
-VITE_API_PROXY_TARGET=http://localhost:6000
-```
+- `VITE_API_PROXY_TARGET` — development proxy target for API calls
+- `VITE_APP_TITLE` (optional) — customize the document title
+- `VITE_SENTRY_DSN` (optional) — enable error reporting when configured
 
-## Authentication
+Document new variables in [`README.md`](../../README.md) and
+[`docs/configuration.md`](../../docs/configuration.md) when adding them.
 
-The frontend integrates with the Rust backend's JWT-based authentication:
+## Testing notes
 
-- Tokens are stored in `localStorage` under `didhub_jwt`
-- Automatic token refresh is handled by the API client
-- Unauthorized requests trigger a logout and redirect to login
-
-## API Integration
-
-Uses the `@didhub/api-client` package for all backend communication. The client
-automatically:
-
-- Attaches JWT tokens to requests
-- Handles token refresh on 401 responses
-- Dispatches custom events for auth state changes
-
-## Contributing
-
-- Follow the existing code style and component patterns
-- Add tests for new features
-- Update this README when adding new features
-- Ensure accessibility compliance with Material-UI standards
+- Unit tests live alongside components (`*.test.tsx`) and use Vitest + Testing
+  Library.
+- E2E specs live in `e2e/` and expect the backend to be running with seeded
+  data (`./seed -c config.example.json`). Use `pnpm -F @didhub/frontend e2e -- --ui`
+  for interactive mode.
 
 ## Deployment
 
-The built frontend is served by the Rust backend from the `static/` directory.
-For production deployment, build the frontend and ensure the backend is
-configured to serve static files.
+Production builds are emitted during the release bundle (`pnpm bundle:release`)
+and embedded into the Rust server when the `embed_static` feature is enabled.
+Standalone builds land in `packages/frontend/dist/`; the release script copies
+them into `server-rs/static/` before embedding.
+
+For deployment scenarios see [`docs/deployment.md`](../../docs/deployment.md)
+and [`docs/packaging.md`](../../docs/packaging.md).

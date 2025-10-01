@@ -9,27 +9,22 @@ DIDHub is a web application for managing alters and systems in Dissociative Iden
 ## High-Level Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Web Browser   │────│   React App     │────│   API Client    │
-│                 │    │   (Frontend)    │    │   (TypeScript)  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │                       │
-                                └───────────────────────┼───────────────────────┐
-                                                        │                       │
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Rust Server   │────│   Axum Router   │────│   Services      │────│   Database      │
-│   (Backend)     │    │   (HTTP)        │    │                 │    │   (SQLx)        │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                                             │
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐            │
-│   File System   │    │   Cache         │    │   Message       │            │
-│   (Uploads)     │    │   (Redis)       │    │   Queue         │            │
-└─────────────────┘    └─────────────────┘    └─────────────────┘            │
-                                                                             │
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐            │
-│   SQLite        │    │   PostgreSQL    │    │   MySQL         │            │
-│   (Default)     │    │   (Production)  │    │   (Production)  │            │
-└─────────────────┘    └─────────────────┘    └─────────────────┘            │
+┌─────────────────┐    ┌─────────────────┐    ┌──────────────────────┐
+│   Web Browser   │────│   React App     │────│   @didhub/api-client │
+│                 │    │   (Frontend)    │    │   (TypeScript)       │
+└─────────────────┘    └─────────────────┘    └──────────────────────┘
+        │
+        ▼
+      ┌────────────────────┐
+      │ Rust Server (Axum) │
+      └────────────────────┘
+        │
+   ┌──────────────────────┼───────────────────────────────┐
+   ▼                      ▼                               ▼
+  Uploads File System     Redis Cache (optional)        SQL Database (SQLx)
+   │                      │                               │
+   ▼                      ▼                               ▼
+ Housekeeping Jobs      Metrics & Rate Limiters      SQLite / PostgreSQL / MySQL
 ```
 
 ## Components
@@ -39,13 +34,14 @@ DIDHub is a web application for managing alters and systems in Dissociative Iden
 #### Core Server (`didhub-server`)
 
 - **Framework**: Axum (async web framework)
-- **Database**: SQLx with support for SQLite, PostgreSQL, and MySQL
-- **Authentication**: JWT-based with HS256 signing
-- **Middleware**: CORS, rate limiting, logging, security headers
+- **Database layer**: SQLx with adapters for SQLite (default), PostgreSQL, and MySQL
+- **Authentication**: JWT-based with HS256 signing and an auth middleware that hydrates the request context
+- **Middleware**: CORS, CSRF protection, request logging, rate limiting, security headers, request IDs, compression
 - **Features**:
-  - Auto-updates (optional)
-  - Static file serving
-  - Background job processing
+  - Optional auto-update support (guarded behind the `updater` feature flag)
+  - Static asset embedding/serving (via the `embed_static` feature flag)
+  - Housekeeping job runner (audit retention, cache maintenance, etc.)
+  - Upload directory cache with runtime reload
 
 #### Supporting Crates
 
@@ -66,15 +62,15 @@ DIDHub is a web application for managing alters and systems in Dissociative Iden
 #### Core Application (`@didhub/frontend`)
 
 - **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **UI Library**: Material-UI (MUI)
-- **Routing**: React Router
-- **State Management**: React Context API
-- **Features**:
-  - Responsive design
-  - Dark/light theme support
-  - Real-time updates
-  - File uploads with drag-and-drop
+- **Build Tooling**: Vite + pnpm workspace scripts
+- **UI Library**: Material UI (MUI)
+- **Routing**: React Router with code-split route modules
+- **State Management**: React Context and hook-based data stores consuming the API client
+- **Notable capabilities**:
+  - Responsive layout with theme toggles
+  - Rich alter/system management flows (roles, relationships, short links, PDFs)
+  - Drag-and-drop uploads with progress tracking
+  - Short-link generation and sharing
 
 #### API Client (`@didhub/api-client`)
 
@@ -102,12 +98,12 @@ DIDHub is a web application for managing alters and systems in Dissociative Iden
 ### Authentication Flow
 
 ```
-Login Request ──► Validate Credentials ──► Generate JWT ──► Return Token
-     │                       │                       │             │
-     │                       │                       │             │
-     ▼                       ▼                       ▼             ▼
-Store Token ─────────────► Attach to Requests ──► Verify Token ──► Allow Access
-in localStorage              (API Client)         (Middleware)    (Handler)
+Login Request ──► Validate Credentials ──► Sign 7‑day JWT ──► Return Token
+  │                       │                        │              │
+  │                       │                        │              │
+  ▼                       ▼                        ▼              ▼
+Store Token ─────────────► Attach to Requests ──► Middleware ───► Handler Executes
+in storage helper             (API Client)           verifies       (adds user context)
 ```
 
 ## Database Design
@@ -146,19 +142,20 @@ users (authentication, profiles)
 
 ### Authentication & Authorization
 
-- **JWT Tokens**: Stateless authentication with 7-day expiry
-- **Password Hashing**: bcrypt with salt
-- **Role-Based Access**: Admin vs regular user permissions
-- **Session Management**: Automatic token refresh
+- **JWT tokens**: Stateless authentication with 7-day expiry (sliding refresh endpoint under `/api/auth/refresh`)
+- **Password hashing**: bcrypt with per-user salts
+- **Role & approval checks**: Middleware injects `CurrentUser`, admin guard uses `AdminFlag`, and `must_change_password` enforcement gates sensitive routes
+- **Session management**: API client stores tokens in browser storage and refreshes on demand
 
 ### Security Features
 
-- **CORS Protection**: Configurable allowed origins
-- **Rate Limiting**: Request throttling by IP
-- **Security Headers**: HSTS, CSP, X-Frame-Options
-- **Input Validation**: Comprehensive validation on all inputs
-- **SQL Injection Protection**: Parameterized queries via SQLx
-- **Audit Logging**: All sensitive operations logged
+- **CORS**: Origin allowlist drawn from `FRONTEND_BASE_URL`, with an opt-in allow-all flag for development
+- **CSRF**: Token rotation headers + middleware enforcing `x-csrf-token` for cookie-auth flows
+- **Rate limiting**: Governor middleware backed by Redis (if configured) with 429 logging
+- **Security headers**: HSTS and CSP toggles via config (`DIDHUB_ENABLE_HSTS`, `DIDHUB_CSP`)
+- **Input validation**: JSON payload validation with explicit ownership checks before mutating operations
+- **SQL injection protection**: SQLx prepared statements across all queries
+- **Audit logging**: Mutating endpoints emit audit rows (`didhub-db::audit`) for compliance trails
 
 ### Data Protection
 

@@ -53,10 +53,10 @@ services:
     environment:
       - DIDHUB_SECRET=your-super-secret-key-here
       - DIDHUB_DB=postgres://didhub:password@postgres:5432/didhub
-      - REDIS_URL=redis://redis:6379/0
-      - FRONTEND_BASE_URL=https://yourdomain.com
-      - LOG_LEVEL=info
-      - LOG_JSON=true
+  - DIDHUB_REDIS_URL=redis://redis:6379/0
+  - FRONTEND_BASE_URL=https://yourdomain.com
+  - LOG_LEVEL=info
+  - LOG_FORMAT=json
     volumes:
       - didhub_uploads:/app/uploads
     depends_on:
@@ -160,11 +160,11 @@ docker run -d \
    Group=didhub
    Environment=DIDHUB_SECRET=your-secret-key
    Environment=DIDHUB_DB=postgres://user:pass@localhost:5432/didhub
-   Environment=REDIS_URL=redis://localhost:6379/0
+  Environment=DIDHUB_REDIS_URL=redis://localhost:6379/0
    Environment=UPLOAD_DIR=/var/lib/didhub/uploads
    Environment=PORT=8080
    Environment=LOG_LEVEL=info
-   Environment=LOG_JSON=true
+  Environment=LOG_FORMAT=json
    WorkingDirectory=/var/lib/didhub
    ExecStart=/usr/local/bin/didhub-server
    Restart=always
@@ -425,13 +425,11 @@ sudo systemctl start didhub
 - Use HTTPS in production
 - Restrict database access to application servers
 - Use internal networks for service communication
-- Implement rate limiting
 
 ### Application Security
 
 - Keep `DIDHUB_SECRET` secure and rotate regularly
 - Use strong database passwords
-- Enable audit logging
 - Keep dependencies updated
 
 ### File Security
@@ -474,7 +472,7 @@ psql "postgres://user:pass@host:5432/didhub" -c "SELECT 1"
 export DATABASE_URL="postgres://user:pass@host:port/db?max_connections=20"
 
 # Redis for caching
-export REDIS_URL=redis://redis:6379/0
+export DIDHUB_REDIS_URL=redis://redis:6379/0
 
 # Upload caching
 # Set uploads.count_cache.ttl_secs to higher value

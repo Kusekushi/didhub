@@ -1,144 +1,78 @@
 # @didhub/api-client
 
-A TypeScript client library for interacting with the DIDHub REST API. Provides typed functions for all API endpoints, automatic JWT token management, and error handling.
+Typed TypeScript bindings for the DIDHub REST API. This package powers the
+frontend but can also be used independently in scripts, CLIs, or other web
+apps.
 
-## Installation
+## Install
 
-This package is part of the DIDHub workspace. Install from the workspace root:
+This repository is a pnpm workspace. From the repo root run:
 
 ```bash
 pnpm install
 ```
 
-## Usage
-
-Import functions from the main module:
-
-```typescript
-import {
-  loginUser,
-  fetchMe,
-  listAlters,
-  createAlter,
-  uploadFile
-} from '@didhub/api-client';
-```
-
-### Authentication
-
-```typescript
-// Register a new user
-const registerResult = await registerUser('username', 'password');
-
-// Login (automatically stores JWT token)
-const loginResult = await loginUser('username', 'password');
-if (loginResult.status === 200) {
-  console.log('Logged in successfully');
-}
-
-// Get current user info
-const user = await fetchMe();
-
-// Logout (clears stored token)
-await logoutUser();
-```
-
-### Working with Alters
-
-```typescript
-// List alters with pagination
-const alters = await listAlters({ page: 1, per_page: 20 });
-
-// Create a new alter
-const newAlter = await createAlter({
-  name: 'Alter Name',
-  description: 'Description',
-  system_id: 1
-});
-
-// Update an alter
-const updatedAlter = await updateAlter(alterId, {
-  name: 'New Name',
-  avatar_url: 'https://example.com/avatar.jpg'
-});
-
-// Delete an alter
-await deleteAlter(alterId);
-```
-
-### File Uploads
-
-```typescript
-// Upload a file
-const uploadResult = await uploadFile(file, {
-  alt_text: 'Description of the image',
-  is_public: true
-});
-
-// List uploaded files
-const files = await listFiles({ page: 1, per_page: 10 });
-```
-
-### Admin Functions
-
-```typescript
-// List users (admin only)
-const users = await listUsers('', 1, 50, { is_approved: false });
-
-// Approve a user
-await approveUser(userId);
-
-// View audit logs
-const auditLogs = await listAuditLogs({ page: 1 });
-```
-
-## API Response Format
-
-All functions return an `ApiFetchResult` object:
-
-```typescript
-interface ApiFetchResult {
-  status: number;
-  json?: any;
-  text?: string;
-  ok: boolean;
-}
-```
-
-## Automatic Token Management
-
-The client automatically:
-- Attaches JWT tokens from `localStorage['didhub_jwt']` to requests
-- Refreshes expired tokens using `/api/auth/refresh`
-- Dispatches `didhub:unauthorized` events on auth failures
-- Handles CORS and content-type headers
-
-## Error Handling
-
-Check the `status` and `ok` properties:
-
-```typescript
-const result = await createAlter(alterData);
-if (!result.ok) {
-  console.error('Failed to create alter:', result.status, result.json);
-}
-```
-
-## Available Modules
-
-- **Alter**: Functions for managing alters (create, read, update, delete)
-- **User**: User registration, login, profile management
-- **Files**: File upload, download, and management
-- **Admin**: Administrative functions (user approval, audit logs, settings)
-- **Group**: Group management for organizing alters
-- **Subsystem**: Subsystem operations
-- **Shortlink**: URL shortening functionality
-- **OIDC**: OpenID Connect integration
-
-## Building
+To build the client on its own:
 
 ```bash
 pnpm --filter @didhub/api-client build
+```
+
+## Quick start
+
+Instantiate the shared client (singleton):
+
+```ts
+import { apiClient } from '@didhub/api-client';
+
+const alters = await apiClient.alters.list({ page: 1, per_page: 20 });
+```
+
+Or create an instance with custom configuration:
+
+```ts
+import { createApiClient } from '@didhub/api-client';
+
+const client = createApiClient({
+  baseUrl: 'https://didhub.example.com',
+  storage: window.sessionStorage, // override token store
+});
+
+await client.users.login({ username: 'demo', password: 'demo1234' });
+const me = await client.users.me();
+```
+
+Each module exposes typed helpers, for example:
+
+- `alters`: CRUD, relationships, notes
+- `files`: uploads, downloads, metadata
+- `users`: auth, profile, approvals
+- `admin`: audit logs, runtime settings, housekeeping
+- `shortlinks`, `groups`, `subsystems`, `oidc`
+
+`src/Types.ts` contains the shared entity shapes (`Alter`, `User`, etc.).
+
+## Authentication helpers
+
+The default `apiClient` automatically:
+
+- Stores JWTs in `localStorage['didhub_jwt']`
+- Refreshes tokens using `/api/auth/refresh` before expiry
+- Dispatches a `didhub:unauthorized` event if refresh fails
+
+You can swap the storage layer or hook into events via the `HttpClientConfig`
+options.
+
+## Error handling
+
+All calls resolve to an `ApiFetchResult<T>` which wraps the HTTP status, JSON
+payload, and `ok` flag:
+
+```ts
+const res = await apiClient.alters.create({ name: 'New alter' });
+if (!res.ok) {
+  console.error('Failed:', res.status, res.json?.message);
+}
 ```
 
 ## Testing
@@ -147,10 +81,14 @@ pnpm --filter @didhub/api-client build
 pnpm --filter @didhub/api-client test
 ```
 
-## Development
+Vitest covers the HTTP client and selected modules. When adding endpoints,
+please add or update the fixture-driven tests in `tests/`.
 
-When adding new API endpoints:
-1. Add the function to the appropriate module in `src/modules/`
-2. Export it from `src/index.ts`
-3. Add JSDoc comments for TypeScript intellisense
-4. Update this README with usage examples
+## Contributing
+
+When extending the client:
+
+1. Implement the endpoint in `src/modules/<Area>.ts`
+2. Export new helpers through `src/index.ts`
+3. Update the associated types and tests
+4. Document the change in this README or the relevant package docs
