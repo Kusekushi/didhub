@@ -5,28 +5,38 @@ import logger from '../logger';
 /**
  * Hook to manage alters data for a system
  */
-export function useAltersData(uid?: string, search: string = '') {
+export function useAltersData(uid?: string, search: string = '', activeTab: number = 0) {
   const [items, setItems] = useState<Alter[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Initial load
   useEffect(() => {
-    if (!uid) return;
+    // Only load when UID is present and the alters tab is active (tab 0)
+    if (!uid || activeTab !== 0) return;
 
+    let mounted = true;
     (async () => {
       try {
+        setLoading(true);
         const result = await apiClient.alters.listBySystem(uid, { includeRelationships: true });
+        if (!mounted) return;
         setItems(result);
       } catch (e) {
         logger.warn('failed loading alters', e);
-        setItems([]);
+        if (mounted) setItems([]);
+      } finally {
+        if (mounted) setLoading(false);
       }
     })();
-  }, [uid]);
+    return () => {
+      mounted = false;
+    };
+  }, [uid, activeTab]);
 
   // Search with debouncing
   useEffect(() => {
-    if (!uid) return;
+    // Only search when the alters tab is active
+    if (!uid || activeTab !== 0) return;
 
     let mounted = true;
     const t = setTimeout(async () => {

@@ -104,10 +104,13 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
       .map((userId) => ({ userId, type }));
   }
 
+  // Only fetch partner/user options when the dialog is actually open.
   useEffect(() => {
+    if (!open) return;
     fetchPartnerOptions();
     fetchUserPartnerOptions();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (mode === 'edit' && open && id) {

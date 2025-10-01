@@ -39,13 +39,15 @@ export default function DIDSystemView(): React.ReactElement {
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
 
   // Custom hooks for data management
-  const { items: alters, loading: altersLoading, refresh: refreshAlters } = useAltersData(uid, search);
+  const { items: alters, loading: altersLoading, refresh: refreshAlters } = useAltersData(uid, search, tab);
   const { items: groups, refresh: refreshGroups } = useGroupsData(uid, search, tab);
   const { items: subsystems, refresh: refreshSubsystems } = useSubsystemsData(uid, search, tab);
-  const { altersOptions } = useAlterOptions(uid, '');
-
   // Dialog state management
   const dialogStates = useDialogStates();
+
+  // Only enable alter options fetching when groups tab or edit/create dialogs may need them
+  const enableAlterOptions = tab === 1 || dialogStates.createOpen || dialogStates.editOpen || dialogStates.editGroupOpen;
+  const { altersOptions } = useAlterOptions(uid, '', enableAlterOptions);
 
   // Group creation state
   const groupCreationState = useGroupCreationState();
