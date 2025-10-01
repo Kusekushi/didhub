@@ -4,6 +4,7 @@ export interface ThumbnailWithHoverProps {
   image: string;
   alt: string;
   onClick?: () => void;
+  loading?: 'lazy' | 'eager';
 }
 
 export default function ThumbnailWithHover(props: ThumbnailWithHoverProps) {
@@ -17,6 +18,7 @@ export default function ThumbnailWithHover(props: ThumbnailWithHoverProps) {
       <img
         src={props.image}
         alt={props.alt}
+        loading={props.loading}
         style={{
           width: 40,
           height: 40,
