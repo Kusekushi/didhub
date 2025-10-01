@@ -1,54 +1,55 @@
-import { useEffect, useState } from 'react';
-import { Container, Typography, Dialog, DialogTitle, DialogContent, Box, CircularProgress } from '@mui/material';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Container,
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Box,
+  CircularProgress,
+  Stack,
+  Button,
+  ToggleButtonGroup,
+  ToggleButton,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Link as MuiLink,
+} from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 
-import { apiClient } from '@didhub/api-client';
+import ThumbnailWithHover from '../components/ThumbnailWithHover';
+import { apiClient, type Alter, type User } from '@didhub/api-client';
+import {
+  addDays,
+  addMonths,
+  BirthdayLike,
+  generateCalendarWeeks,
+  getOccurrenceForYear,
+  isSameDay,
+  parseBirthdayToDate,
+  startOfMonth,
+  startOfWeek,
+} from './birthdays/utils';
 
-const localizer = momentLocalizer(moment as any);
-
-function parseBirthdayToDate(bday: any, year: number) {
-  if (!bday) return null;
-  const s = String(bday).trim();
-  const formats = ['DD-MM', 'D-M', 'DD/MM', 'D/M', 'D MMMM', 'D MMM'];
-  for (const fmt of formats) {
-    const m = moment(s, fmt, true);
-    if (m.isValid()) return new Date(year, m.month(), m.date());
-  }
-  const loose = moment(s);
-  if (loose.isValid()) return new Date(year, loose.month(), loose.date());
-  const nums = s.match(/\d+/g);
-  if (!nums || nums.length === 0) return null;
-  let month: any = null;
-  let day: any = null;
-  if (nums.length >= 3) {
-    const [n1, n2, n3] = nums.map(Number);
-    if (n1 > 31) {
-      month = n2;
-      day = n3;
-    } else if (n3 > 31) {
-      month = n2;
-      day = n1;
-    } else {
-      month = n1;
-      day = n2;
-    }
-  } else if (nums.length === 2) {
-    const [n1, n2] = nums.map(Number);
-    month = n1;
-    day = n2;
-  }
-  if (!month || !day || month < 1 || month > 12 || day < 1 || day > 31) return null;
-  return new Date(year, month - 1, day);
+interface BirthdayEntry extends BirthdayLike {
+  alter: Alter;
+  owner: User | null;
+  label: string;
 }
 
+type CalendarView = 'month' | 'agenda';
+
 export default function Birthdays() {
-  const [events, setEvents] = useState<any[]>([]);
+  const [entries, setEntries] = useState<BirthdayEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<any>(null);
-  const [selected, setSelected] = useState<any>(null);
+  const [selected, setSelected] = useState<{ entry: BirthdayEntry; date: Date } | null>(null);
+  const [view, setView] = useState<CalendarView>('month');
+  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
+  const navigate = useNavigate();
 
   useEffect(() => {
     let mounted = true;
@@ -56,36 +57,37 @@ export default function Birthdays() {
       setLoading(true);
       try {
         const res = await apiClient.alters.list({ perPage: 1000 });
-        const list = res.items || [];
-        const curYear = new Date().getFullYear();
-        const evts: any[] = [];
-        const ownerIds = Array.from(new Set(list.map((a: any) => a.owner_user_id).filter(Boolean)));
-        const usersMap: any = {};
+        const list = (res.items || []) as Alter[];
+        const ownerIds = Array.from(new Set(list.map((a) => a?.owner_user_id).filter(Boolean)));
+        const owners = new Map<string | number, User>();
         await Promise.all(
-          ownerIds.map(async (id: any) => {
+          ownerIds.map(async (id) => {
             try {
-              const u = await apiClient.users.get(id);
-              if (u) usersMap[id] = u;
-            } catch (e) {}
+              const owner = await apiClient.users.get(id as number | string);
+              if (owner) owners.set(id as string | number, owner as User);
+            } catch (e) {
+              // ignore missing owners
+            }
           }),
         );
-        for (const a of list) {
-          if (!a || !a.birthday) continue;
-          for (const y of [curYear - 1, curYear, curYear + 1]) {
-            const start = parseBirthdayToDate(a.birthday, y);
-            if (!start) continue;
-            evts.push({
-              title: a.name || '(no name)',
-              start,
-              end: start,
-              allDay: true,
-              alter: a,
-              owner: a.owner_user_id ? usersMap[a.owner_user_id] : null,
-            });
-          }
+
+        const year = new Date().getFullYear();
+        const nextEntries: BirthdayEntry[] = [];
+        for (const alter of list) {
+          if (!alter || !alter.birthday) continue;
+          const parsed = parseBirthdayToDate(alter.birthday, year);
+          if (!parsed) continue;
+          nextEntries.push({
+            alter,
+            owner: alter.owner_user_id ? owners.get(alter.owner_user_id) ?? null : null,
+            month: parsed.getMonth(),
+            day: parsed.getDate(),
+            label: alter.name || '(no name)',
+          });
         }
+
         if (!mounted) return;
-        setEvents(evts);
+        setEntries(nextEntries);
       } catch (e) {
         if (!mounted) return;
         setError(String(e));
@@ -100,66 +102,48 @@ export default function Birthdays() {
   }, []);
 
   const theme = useTheme();
-  useEffect(() => {
-    const id = 'rbc-theme-overrides';
-    let styleEl = document.getElementById(id) as HTMLStyleElement;
-    const bg = theme.palette.background.paper;
-    const bodyBg = theme.palette.background.default;
-    const text = theme.palette.text.primary;
-    const muted = theme.palette.text.secondary;
-    const today = theme.palette.action.selected || theme.palette.divider;
-    const eventText = theme.palette.getContrastText(theme.palette.primary.main);
-    const css = `
-      :root {
-        --rbc-bg: ${bg};
-        --rbc-body-bg: ${bodyBg};
-        --rbc-text: ${text};
-        --rbc-text-muted: ${muted};
-        --rbc-text-disabled: ${theme.palette.text.disabled};
-        --rbc-today: ${today};
-        --rbc-event-text: ${eventText};
-        --rbc-divider: ${theme.palette.divider};
-      }
-      .rbc-calendar { background: var(--rbc-bg); color: var(--rbc-text); }
-      .rbc-toolbar { background: transparent; color: var(--rbc-text); }
-      .rbc-toolbar .rbc-toolbar-label { color: var(--rbc-text); }
-      .rbc-toolbar button { color: var(--rbc-text); background: transparent; border: 1px solid var(--rbc-divider); pointer-events: auto; z-index: 5; }
-      .rbc-toolbar .rbc-btn-group>button { cursor: pointer; }
-      .rbc-toolbar .rbc-btn-group .rbc-btn { color: var(--rbc-text); border-color: transparent; }
-      .rbc-toolbar button.rbc-active { box-shadow: none; }
-      .rbc-month-view .rbc-row .rbc-header { color: var(--rbc-text-muted); }
-      .rbc-day-bg { background: var(--rbc-body-bg); }
-      .rbc-off-range { color: var(--rbc-text-disabled); }
-      .rbc-today { background: var(--rbc-today) !important; }
-      .rbc-event, .rbc-event-label { color: var(--rbc-event-text) !important; box-shadow: none; }
-      .rbc-month-view .rbc-row, .rbc-month-view .rbc-row .rbc-date-cell { border-color: rgba(0,0,0,0.12); }
-    `;
+  const today = new Date();
 
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = id;
-      document.head.appendChild(styleEl);
-    }
-    styleEl.textContent = css;
-    return () => {
-      if (styleEl && styleEl.parentNode) styleEl.parentNode.removeChild(styleEl);
-    };
-  }, [
-    theme.palette.mode,
-    theme.palette.background.paper,
-    theme.palette.background.default,
-    theme.palette.text.primary,
-    theme.palette.text.secondary,
-    theme.palette.action.selected,
-    theme.palette.primary.main,
-    theme.palette.text.disabled,
-  ]);
+  const weekdayFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { weekday: 'short' }), []);
+  const monthLabelFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }), []);
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric' }), []);
 
-  const onSelectEvent = (evt: any) => setSelected(evt);
-  const eventStyleGetter = (event: any) => {
-    const bg = theme.palette.mode === 'dark' ? theme.palette.primary.dark : theme.palette.primary.light;
-    const color = theme.palette.getContrastText(bg);
-    return { style: { backgroundColor: bg, color, borderRadius: 4, padding: '2px 4px', border: 'none' } };
+  const calendarWeeks = useMemo(() => generateCalendarWeeks(currentMonth), [currentMonth]);
+
+  const weekdayLabels = useMemo(() => {
+    const start = startOfWeek(new Date());
+    return Array.from({ length: 7 }, (_, index) => weekdayFormatter.format(addDays(start, index)));
+  }, [weekdayFormatter]);
+
+  const entriesByMonthDay = useMemo(() => {
+    const map = new Map<string, BirthdayEntry[]>();
+    entries.forEach((entry) => {
+      const key = `${entry.month}-${entry.day}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(entry);
+    });
+    map.forEach((list) => list.sort((a, b) => a.label.localeCompare(b.label)));
+    return map;
+  }, [entries]);
+
+  const agendaItems = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    return entries
+      .map((entry) => ({ entry, date: getOccurrenceForYear(entry, year) }))
+      .filter(({ date }) => date.getMonth() === currentMonth.getMonth())
+      .sort((a, b) => a.date.getDate() - b.date.getDate());
+  }, [entries, currentMonth]);
+
+  const handlePrevMonth = () => {
+    setCurrentMonth((prev) => addMonths(prev, -1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth((prev) => addMonths(prev, 1));
+  };
+
+  const handleToday = () => {
+    setCurrentMonth(startOfMonth(new Date()));
   };
 
   if (loading)
@@ -170,53 +154,208 @@ export default function Birthdays() {
     );
   if (error) return <Container sx={{ mt: 4, color: 'red' }}>Error: {String(error)}</Container>;
 
+  const renderMonthView = () => (
+    <Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, mb: 1 }}>
+        {weekdayLabels.map((label) => (
+          <Typography key={label} variant="subtitle2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+            {label}
+          </Typography>
+        ))}
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
+        {calendarWeeks.flat().map((date) => {
+          const key = date.toISOString();
+          const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+          const isTodayCell = isSameDay(date, today);
+          const dayEntries = entriesByMonthDay.get(`${date.getMonth()}-${date.getDate()}`) ?? [];
+
+          return (
+            <Box
+              key={key}
+              sx={{
+                border: '1px solid',
+                borderColor: isTodayCell ? theme.palette.primary.main : 'divider',
+                borderRadius: 1,
+                minHeight: { xs: 120, md: 140 },
+                p: 1,
+                backgroundColor: isCurrentMonth ? 'background.paper' : theme.palette.action.hover,
+                opacity: isCurrentMonth ? 1 : 0.65,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.75,
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ textAlign: 'right', fontWeight: isTodayCell ? 700 : 500 }}>
+                {date.getDate()}
+              </Typography>
+              <Stack spacing={0.5} sx={{ flexGrow: 1 }}>
+                {dayEntries.map((entry) => (
+                  <Button
+                    key={`${entry.alter.id}-${entry.day}-${entry.month}`}
+                    onClick={() => setSelected({ entry, date })}
+                    size="small"
+                    variant="text"
+                    sx={{
+                      justifyContent: 'flex-start',
+                      textTransform: 'none',
+                      px: 1,
+                      py: 0.5,
+                      fontSize: '0.8rem',
+                      borderRadius: 1,
+                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(144,202,249,0.16)' : 'rgba(25,118,210,0.08)',
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor:
+                          theme.palette.mode === 'dark' ? 'rgba(144,202,249,0.24)' : 'rgba(25,118,210,0.16)',
+                      },
+                    }}
+                  >
+                    {entry.label}
+                  </Button>
+                ))}
+              </Stack>
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+
+  const renderAgendaView = () => (
+    <Box>
+      {agendaItems.length === 0 ? (
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+          No birthdays recorded for this month yet.
+        </Typography>
+      ) : (
+        <List>
+          {agendaItems.map(({ entry, date }, idx) => (
+            <Box key={`${entry.alter.id}-${date.getTime()}`}>
+              <ListItem disableGutters alignItems="flex-start">
+                <ListItemText
+                  primary={
+                    <MuiLink component={RouterLink} to={`/detail/${entry.alter.id}`} underline="hover">
+                      {entry.label}
+                    </MuiLink>
+                  }
+                  secondary={
+                    <Typography variant="body2" color="text.secondary">
+                      {dateFormatter.format(date)}
+                    </Typography>
+                  }
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => setSelected({ entry, date })}
+                />
+              </ListItem>
+              {idx < agendaItems.length - 1 && <Divider component="li" sx={{ my: 1 }} />}
+            </Box>
+          ))}
+        </List>
+      )}
+    </Box>
+  );
+
   return (
     <Container sx={{ mt: 4 }}>
       <Typography variant="h4" gutterBottom>
         Birthdays
       </Typography>
-      <Box sx={{ height: '70vh' }}>
-        <Calendar
-          localizer={localizer as any}
-          events={events}
-          startAccessor="start"
-          endAccessor="end"
-          onSelectEvent={onSelectEvent}
-          eventPropGetter={eventStyleGetter}
-          views={{ month: true, agenda: true }}
-          defaultView="month"
-          popup={true}
-          max={new Date(2099, 11)}
-          showMultiDayTimes
-          step={60}
-        />
-      </Box>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={2}
+        alignItems={{ xs: 'flex-start', md: 'center' }}
+        justifyContent="space-between"
+        sx={{ mb: 3 }}
+      >
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" onClick={handlePrevMonth}>
+            Previous
+          </Button>
+          <Button variant="outlined" onClick={handleToday}>
+            Today
+          </Button>
+          <Button variant="outlined" onClick={handleNextMonth}>
+            Next
+          </Button>
+        </Stack>
+        <Typography variant="h6">{monthLabelFormatter.format(currentMonth)}</Typography>
+        <ToggleButtonGroup
+          color="primary"
+          value={view}
+          exclusive
+          onChange={(_, next: CalendarView | null) => next && setView(next)}
+          size="small"
+        >
+          <ToggleButton value="month">Month</ToggleButton>
+          <ToggleButton value="agenda">Agenda</ToggleButton>
+        </ToggleButtonGroup>
+      </Stack>
+
+      {view === 'month' ? renderMonthView() : renderAgendaView()}
       <Dialog
         open={!!selected}
         onClose={() => setSelected(null)}
         aria-labelledby="birthday-dialog-title"
         aria-describedby="birthday-dialog-desc"
+        maxWidth="sm"
+        fullWidth
       >
-        <DialogTitle id="birthday-dialog-title">{selected ? selected.title : ''}</DialogTitle>
+        <DialogTitle id="birthday-dialog-title">
+          {selected ? (
+            <MuiLink component={RouterLink} to={`/detail/${selected.entry.alter.id}`} underline="hover">
+              {selected.entry.label}
+            </MuiLink>
+          ) : null}
+        </DialogTitle>
         <DialogContent id="birthday-dialog-desc">
           {selected ? (
-            <div>
-              <div>Birthday: {selected.start.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}</div>
-              <div>
-                Alter: <a href={`/detail/${selected.alter.id}`}>{selected.alter.name}</a>
-              </div>
-              <div>
-                System:{' '}
-                {selected.owner ? (
-                  <a href={`/did-system/${selected.owner.id}`}>{selected.owner.username}</a>
-                ) : selected.alter.owner_user_id ? (
-                  <a href={`/did-system/${selected.alter.owner_user_id}`}>#{selected.alter.owner_user_id}</a>
-                ) : (
-                  ''
-                )}
-              </div>
-              <div style={{ marginTop: 8 }}>{selected.alter.description}</div>
-            </div>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+              {Array.isArray(selected.entry.alter.images) && selected.entry.alter.images.length ? (
+                <ThumbnailWithHover
+                  image={selected.entry.alter.images[0] as string}
+                  alt={selected.entry.alter.name || ''}
+                  onClick={() => {
+                    setSelected(null);
+                    navigate(`/detail/${selected.entry.alter.id}`);
+                  }}
+                  loading="lazy"
+                />
+              ) : null}
+              <Stack spacing={1} sx={{ flex: 1 }}>
+                <Typography variant="body1">
+                  <MuiLink component={RouterLink} to={`/detail/${selected.entry.alter.id}`} underline="hover">
+                    {selected.entry.label}
+                  </MuiLink>
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Birthday: {dateFormatter.format(selected.date)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  System:{' '}
+                  {selected.entry.owner ? (
+                    <MuiLink component={RouterLink} to={`/did-system/${selected.entry.owner.id}`} underline="hover">
+                      {selected.entry.owner.username || `#${selected.entry.owner.id}`}
+                    </MuiLink>
+                  ) : selected.entry.alter.owner_user_id ? (
+                    <MuiLink
+                      component={RouterLink}
+                      to={`/did-system/${selected.entry.alter.owner_user_id}`}
+                      underline="hover"
+                    >
+                      #{selected.entry.alter.owner_user_id}
+                    </MuiLink>
+                  ) : (
+                    '—'
+                  )}
+                </Typography>
+                {selected.entry.alter.description ? (
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {selected.entry.alter.description}
+                  </Typography>
+                ) : null}
+              </Stack>
+            </Stack>
           ) : null}
         </DialogContent>
       </Dialog>
