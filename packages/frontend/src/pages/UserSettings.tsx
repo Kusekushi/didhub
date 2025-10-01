@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button, Avatar, Typography, TextField, type AlertColor } from '@mui/material';
 
 import NotificationSnackbar from '../components/NotificationSnackbar';
+import ThemeEditor from '../components/settings/ThemeEditor';
 import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '@didhub/api-client';
 import type { SystemRequest } from '@didhub/api-client';
@@ -138,6 +139,8 @@ export default function UserSettings() {
           </div>
         </div>
       </div>
+      <hr style={{ margin: '16px 0' }} />
+      <ThemeEditor />
       <hr style={{ margin: '16px 0' }} />
       {!(user?.is_admin || user?.is_system) && (
         <div style={{ marginBottom: 12 }}>

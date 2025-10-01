@@ -89,9 +89,11 @@ function AppWithToolpad(): React.ReactElement {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <SettingsProvider>
-          <InnerToolpadApp />
-        </SettingsProvider>
+        <ThemeContextProvider>
+          <SettingsProvider>
+            <InnerToolpadApp />
+          </SettingsProvider>
+        </ThemeContextProvider>
       </AuthProvider>
     </BrowserRouter>
   );
@@ -99,8 +101,6 @@ function AppWithToolpad(): React.ReactElement {
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <ThemeContextProvider>
-      <AppWithToolpad />
-    </ThemeContextProvider>
+    <AppWithToolpad />
   </React.StrictMode>,
 );
