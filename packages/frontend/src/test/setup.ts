@@ -10,13 +10,17 @@ vi.mock('react-router-dom', () => ({
   Navigate: vi.fn(),
 }));
 
-// Mock MUI components that might cause issues in tests
-vi.mock('@mui/material', () => ({
-  ...vi.importActual('@mui/material'),
-  Dialog: vi.fn(),
-  Drawer: vi.fn(),
-  Snackbar: vi.fn(),
-}));
+// Mock MUI components that might cause issues in tests while preserving the rest
+vi.mock('@mui/material', async () => {
+  const actual = await vi.importActual<typeof import('@mui/material')>('@mui/material');
+
+  return {
+    ...actual,
+    Dialog: vi.fn(() => null),
+    Drawer: vi.fn(() => null),
+    Snackbar: vi.fn(() => null),
+  };
+});
 
 // Global test utilities
 global.matchMedia =

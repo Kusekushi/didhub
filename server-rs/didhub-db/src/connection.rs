@@ -232,6 +232,14 @@ impl Db {
         })
     }
 
+    pub fn from_any_pool(pool: sqlx::AnyPool, backend: DbBackend, url: impl Into<String>) -> Self {
+        Self {
+            pool,
+            backend,
+            url: url.into(),
+        }
+    }
+
     /// Create bootstrap admin user if configured and doesn't already exist
     pub async fn ensure_bootstrap_admin(&self, cfg: &didhub_config::AppConfig) -> Result<()> {
         use crate::models::{NewUser, UpdateUserFields};

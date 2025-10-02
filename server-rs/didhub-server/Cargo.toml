@@ -70,6 +70,7 @@ jsonwebtoken = { version = "9", default-features = false, features = ["use_pem"]
 pem = "3"
 rsa = "0.9"
 pkcs8 = "0.10"
+tempfile = "3"
 
 [features]
 # Enable this to compile in self-update logic
@@ -77,6 +78,7 @@ updater = ["didhub-updater/updater"]
 # Embed frontend static assets into the binary when enabled.
 # Disable this feature during local dev to serve assets from disk.
 embed_static = []
+oidc_integration_tests = []
 
 [profile.release]
 codegen-units = 1

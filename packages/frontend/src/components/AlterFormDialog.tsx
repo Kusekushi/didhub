@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
 import AlterFormFields, { type RelationshipOption } from './AlterForm';
@@ -78,43 +78,87 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
   const [partnerMap, setPartnerMap] = useState<Record<string, number | string>>({});
   const [alterIdNameMap, setAlterIdNameMap] = useState<Record<string, string>>({});
 
-  const { partners, parents, children } = relationships;
+  const relationshipsRef = useRef<RelationshipSources>({ partners: relationships.partners, parents: relationships.parents, children: relationships.children });
+  const namesCacheRef = useRef<AlterName[] | null>(null);
+  const namesFetchRef = useRef<Promise<AlterName[]> | null>(null);
+  const lastNamesFetchRef = useRef<number>(0);
+
+  useEffect(() => {
+    relationshipsRef.current = {
+      partners: relationships.partners,
+      parents: relationships.parents,
+      children: relationships.children,
+    };
+  }, [relationships.partners, relationships.parents, relationships.children]);
+
+  const loadAlterNameCandidates = useCallback(async (forceReload = false): Promise<AlterName[]> => {
+    const now = Date.now();
+    const cacheAge = now - lastNamesFetchRef.current;
+    if (!forceReload && namesCacheRef.current && cacheAge < 60_000) {
+      return namesCacheRef.current;
+    }
+    if (!forceReload && namesFetchRef.current) {
+      return namesFetchRef.current;
+    }
+
+    const fetchPromise = (async () => {
+      let items = await apiClient.alters.names();
+      if (!Array.isArray(items)) {
+        debugLog('Alter names endpoint returned non-array payload, normalizing to empty array', items);
+        items = [];
+      }
+
+      if (!items.length) {
+        debugLog('Alter names endpoint returned empty; falling back to alters.list');
+        try {
+          const listPage = await apiClient.alters.list({ perPage: 1000 });
+          items = listPage.items
+            .filter((alter): alter is Alter => Boolean(alter) && typeof alter.id !== 'undefined')
+            .map((alter) => {
+              const numericId = typeof alter.id === 'number' ? alter.id : Number(alter.id);
+              return {
+                id: Number.isNaN(numericId) ? (alter.id as number) : numericId,
+                name: alter.name ?? '',
+                username:
+                  typeof (alter as { username?: unknown }).username === 'string'
+                    ? String((alter as { username?: unknown }).username)
+                    : undefined,
+                user_id:
+                  typeof (alter as { user_id?: unknown }).user_id === 'number'
+                    ? Number((alter as { user_id?: number }).user_id)
+                    : null,
+              } as AlterName;
+            });
+          debugLog('Fallback alters.list loaded', { count: items.length, sample: items.slice(0, 5) });
+        } catch (fallbackError) {
+          debugLog('Fallback alters.list failed', fallbackError);
+        }
+      }
+
+      const filtered = items.filter((it): it is AlterName => Boolean(it) && typeof it.id !== 'undefined');
+      lastNamesFetchRef.current = Date.now();
+      namesCacheRef.current = filtered;
+      return filtered;
+    })()
+      .catch((error) => {
+        debugLog('Failed to load alter name candidates', error);
+        return [] as AlterName[];
+      })
+      .finally(() => {
+        namesFetchRef.current = null;
+      });
+
+    namesFetchRef.current = fetchPromise;
+    return fetchPromise;
+  }, []);
 
   const refreshPartnerOptions = useCallback(
-    async (existingAlter?: Alter | null) => {
+    async (existingAlter?: Alter | null, opts?: { forceReload?: boolean }) => {
       try {
-        let items = await apiClient.alters.names();
-        if (!items.length) {
-          debugLog('Alter names endpoint returned empty; falling back to alters.list');
-          try {
-            const listPage = await apiClient.alters.list({ perPage: 1000 });
-            items = listPage.items
-              .filter((alter): alter is Alter => Boolean(alter) && typeof alter.id !== 'undefined')
-              .map((alter) => {
-                const numericId = typeof alter.id === 'number' ? alter.id : Number(alter.id);
-                return {
-                  id: Number.isNaN(numericId) ? (alter.id as number) : numericId,
-                  name: alter.name ?? '',
-                  username:
-                    typeof (alter as { username?: unknown }).username === 'string'
-                      ? String((alter as { username?: unknown }).username)
-                      : undefined,
-                  user_id:
-                    typeof (alter as { user_id?: unknown }).user_id === 'number'
-                      ? Number((alter as { user_id?: number }).user_id)
-                      : null,
-                } as AlterName;
-              });
-            debugLog('Fallback alters.list loaded', { count: items.length, sample: items.slice(0, 5) });
-          } catch (fallbackError) {
-            debugLog('Fallback alters.list failed', fallbackError);
-          }
-        }
+        const baseItems = await loadAlterNameCandidates(opts?.forceReload ?? false);
+        debugLog('Fetched alter names', { count: baseItems.length, sample: baseItems.slice(0, 5) });
 
-        const filteredItems = items.filter((it): it is AlterName => Boolean(it) && typeof it.id !== 'undefined');
-        debugLog('Fetched alter names', { count: filteredItems.length, sample: filteredItems.slice(0, 5) });
-
-        const options: RelationshipOption[] = [];
+        const optionsList: RelationshipOption[] = [];
         const aliasMap: Record<string, number | string> = {};
         const idName: Record<string, string> = {};
         const optionById = new Map<string, RelationshipOption>();
@@ -133,7 +177,7 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
         };
 
         const addOption = (option: RelationshipOption) => {
-          options.push(option);
+          optionsList.push(option);
           optionById.set(String(option.id), option);
         };
 
@@ -168,7 +212,7 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
           idName[String(idValue)] = fallbackLabel;
         };
 
-        for (const it of filteredItems) {
+        for (const it of baseItems) {
           const idValue = it.id as number | string;
           const display = formatAlterDisplayName(it);
           idName[String(idValue)] = display;
@@ -182,7 +226,8 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
           addOption({ id: idValue, label: display, aliases: Array.from(aliases) });
         }
 
-        const relationshipSources = [partners, parents, children];
+        const { partners: currentPartners, parents: currentParents, children: currentChildren } = relationshipsRef.current;
+        const relationshipSources = [currentPartners, currentParents, currentChildren];
         if (existingAlter) {
           relationshipSources.push(existingAlter.partners, existingAlter.parents, existingAlter.children);
         }
@@ -198,21 +243,21 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
           await ensureOptionForId(identifier);
         }
 
-        options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-        setPartnerOptions(options);
+        optionsList.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+        setPartnerOptions(optionsList);
         setPartnerMap(aliasMap);
         setAlterIdNameMap(idName);
         debugLog('Processed partner options', {
-          optionCount: options.length,
+          optionCount: optionsList.length,
           aliasKeys: Object.keys(aliasMap).length,
           idLookupKeys: Object.keys(idName).length,
-          example: options.slice(0, 5),
+          example: optionsList.slice(0, 5),
         });
       } catch (e) {
         debugLog('Failed to fetch partner options', e);
       }
     },
-    [partners, parents, children],
+    [loadAlterNameCandidates],
   );
 
   return { partnerOptions, partnerMap, alterIdNameMap, refreshPartnerOptions };
@@ -379,7 +424,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
   useEffect(() => {
     if (!open) return;
     debugLog('Dialog opened; fetching options');
-    void refreshPartnerOptions();
+    void refreshPartnerOptions(undefined, { forceReload: true });
     void refreshUserOptions();
   }, [open, refreshPartnerOptions, refreshUserOptions]);
 

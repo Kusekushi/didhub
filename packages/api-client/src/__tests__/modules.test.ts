@@ -456,6 +456,42 @@ describe('api-client modules', () => {
       expect(fetchMock.mock.calls[1][0]).toBe('/api/alters/1/relationships/2/partner');
       expect(fetchMock.mock.calls[1][1]).toEqual(expect.objectContaining({ method: 'DELETE' }));
     });
+
+    it('names normalizes array responses', async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse([
+          { id: '7', name: 'Alpha', user_id: '11', username: 'owner' },
+          { id: 8 },
+        ]),
+      );
+
+      const names = await client.alters.names('alp');
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/alters/names?q=alp'),
+        expect.objectContaining({ method: 'GET' }),
+      );
+      expect(names).toEqual([
+        { id: 7, name: 'Alpha', user_id: 11, username: 'owner' },
+        { id: 8, name: '', user_id: 0, username: '' },
+      ]);
+    });
+
+    it('namesByUser normalizes search payload', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse(['9', { id: '10', name: 123 }]));
+
+      const names = await client.alters.namesByUser('42', 'beta');
+
+      const [url, options] = fetchMock.mock.calls.at(-1)!;
+      expect(String(url)).toContain('/api/alters/names?');
+      expect(String(url)).toContain('q=beta');
+      expect(String(url)).toContain('user_id=42');
+      expect(options).toEqual(expect.objectContaining({ method: 'GET' }));
+      expect(names).toEqual([
+        { id: 9, name: '', user_id: 0, username: '' },
+        { id: 10, name: '123', user_id: 0, username: '' },
+      ]);
+    });
   });
 
   describe('shortlinks', () => {

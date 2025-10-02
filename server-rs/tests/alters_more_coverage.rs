@@ -214,7 +214,11 @@ async fn alters_names_search_projection_and_delete() {
     // list names
     let (st_names, names_body) = auth_req(&app, axum::http::Method::GET, "/api/alters/names", &token_u1, None).await;
     assert_eq!(st_names, StatusCode::OK);
-    assert!(names_body["items"].as_array().unwrap().iter().any(|i| i["name"]==json!("Alpha")));
+    assert!(names_body
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|i| i["name"] == json!("Alpha")));
 
     // search
     let (st_search, search_body) = auth_req(&app, axum::http::Method::GET, "/api/alters/search?q=Alpha", &token_u1, None).await;

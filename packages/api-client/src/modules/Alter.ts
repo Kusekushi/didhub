@@ -42,9 +42,9 @@ function normalizeAlter(input: unknown): Alter {
     const raw = Array.isArray(alter.images)
       ? alter.images
       : safeJsonParse<string[]>(
-          alter.images,
-          typeof alter.images === 'string' ? normalizeStringArray(alter.images) : [],
-        );
+        alter.images,
+        typeof alter.images === 'string' ? normalizeStringArray(alter.images) : [],
+      );
     if (!Array.isArray(raw)) return [];
     return raw
       .map((img) => String(img))
@@ -70,6 +70,36 @@ function normalizeAlter(input: unknown): Alter {
   } as Alter;
 }
 
+function normalizeAlterName(input: unknown): AlterName {
+  if (!isRecord(input)) {
+    return {
+      id: Number(input ?? 0) || 0,
+      name: '',
+      user_id: 0,
+      username: '',
+    };
+  }
+
+  const idRaw = (input as { id?: unknown }).id;
+  const id = typeof idRaw === 'number' ? idRaw : Number(idRaw ?? 0) || 0;
+  const nameRaw = (input as { name?: unknown }).name;
+  const name = typeof nameRaw === 'string' ? nameRaw : nameRaw == null ? '' : String(nameRaw);
+  const userIdRaw = (input as { user_id?: unknown }).user_id;
+  const user_id = typeof userIdRaw === 'number'
+    ? userIdRaw
+    : typeof userIdRaw === 'string' && userIdRaw.trim() !== ''
+      ? Number(userIdRaw)
+      : 0;
+  const usernameRaw = (input as { username?: unknown }).username;
+  const username = typeof usernameRaw === 'string'
+    ? usernameRaw
+    : usernameRaw == null
+      ? ''
+      : String(usernameRaw);
+
+  return { id, name, user_id, username };
+}
+
 export interface AlterListFilters {
   query?: string;
   includeRelationships?: boolean;
@@ -82,7 +112,7 @@ export interface AlterSearchFilters extends AlterListFilters {
 }
 
 export class AltersApi {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) { }
 
   async list(filters: AlterListFilters = {}): Promise<Page<Alter>> {
     const query: Record<string, string | number | undefined> = {};
@@ -202,7 +232,9 @@ export class AltersApi {
       path: '/api/alters/names',
       query: query ? { q: query } : undefined,
     });
-    return Array.isArray(response.data) ? response.data : [];
+    return Array.isArray(response.data)
+      ? response.data.map((item) => normalizeAlterName(item))
+      : [];
   }
 
   async namesByUser(userId: string | number | undefined, query = ''): Promise<AlterName[]> {
@@ -213,7 +245,9 @@ export class AltersApi {
       path: '/api/alters/names',
       query: Object.keys(search).length ? search : undefined,
     });
-    return Array.isArray(response.data) ? response.data : [];
+    return Array.isArray(response.data)
+      ? response.data.map((item) => normalizeAlterName(item))
+      : [];
   }
 
   async familyTree(): Promise<FamilyTreeResponse> {

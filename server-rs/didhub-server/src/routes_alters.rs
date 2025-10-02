@@ -10,6 +10,8 @@ use didhub_db::{
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
+use sqlx::QueryBuilder;
+use std::collections::HashMap;
 use tracing::{debug, error, info, warn};
 
 #[derive(Deserialize)]
@@ -322,36 +324,65 @@ pub async fn list_alters(
 pub struct NamesItem {
     pub id: i64,
     pub name: String,
+    pub user_id: Option<i64>,
+    pub username: Option<String>,
 }
 
 pub async fn list_alter_names(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     Query(q): Query<ListQuery>,
-) -> Result<Json<crate::routes_alters::ListResponse<NamesItem>>, AppError> {
+) -> Result<Json<Vec<NamesItem>>, AppError> {
     let limit = q.limit.unwrap_or(500).clamp(1, 2000);
     let offset = q.offset.unwrap_or(0).max(0);
     let rows = db
         .list_alters_scoped(q.q.clone(), limit, offset, &user, q.user_id)
         .await
         .map_err(|_| AppError::Internal)?;
-    let total = db
-        .count_alters_scoped(q.q.clone(), &user, q.user_id)
-        .await
-        .map_err(|_| AppError::Internal)?;
+
+    let mut owner_ids: Vec<i64> = rows.iter().filter_map(|a| a.owner_user_id).collect();
+    owner_ids.sort_unstable();
+    owner_ids.dedup();
+
+    let mut username_lookup: HashMap<i64, String> = HashMap::new();
+    if !owner_ids.is_empty() {
+        let mut qb = QueryBuilder::<sqlx::Any>::new("SELECT id, username FROM users WHERE id IN (");
+        {
+            let mut separated = qb.separated(", ");
+            for owner_id in &owner_ids {
+                separated.push_bind(owner_id);
+            }
+        }
+        qb.push(")");
+
+        match qb
+            .build_query_as::<(i64, String)>()
+            .fetch_all(&db.pool)
+            .await
+        {
+            Ok(rows) => {
+                for (id, username) in rows {
+                    username_lookup.insert(id, username);
+                }
+            }
+            Err(err) => {
+                warn!(error = %err, "Failed to load usernames for alter names response");
+            }
+        }
+    }
+
     let items = rows
         .into_iter()
         .map(|a| NamesItem {
             id: a.id,
             name: a.name,
+            user_id: a.owner_user_id,
+            username: a
+                .owner_user_id
+                .and_then(|owner| username_lookup.get(&owner).cloned()),
         })
         .collect();
-    Ok(Json(ListResponse {
-        items,
-        total,
-        limit,
-        offset,
-    }))
+    Ok(Json(items))
 }
 
 pub async fn search_alters(
@@ -364,11 +395,47 @@ pub async fn search_alters(
         .list_alters_scoped(q.q.clone(), limit, 0, &user, q.user_id)
         .await
         .map_err(|_| AppError::Internal)?;
+
+    let mut owner_ids: Vec<i64> = rows.iter().filter_map(|a| a.owner_user_id).collect();
+    owner_ids.sort_unstable();
+    owner_ids.dedup();
+
+    let mut username_lookup: HashMap<i64, String> = HashMap::new();
+    if !owner_ids.is_empty() {
+        let mut qb = QueryBuilder::<sqlx::Any>::new("SELECT id, username FROM users WHERE id IN (");
+        {
+            let mut separated = qb.separated(", ");
+            for owner_id in &owner_ids {
+                separated.push_bind(owner_id);
+            }
+        }
+        qb.push(")");
+
+        match qb
+            .build_query_as::<(i64, String)>()
+            .fetch_all(&db.pool)
+            .await
+        {
+            Ok(rows) => {
+                for (id, username) in rows {
+                    username_lookup.insert(id, username);
+                }
+            }
+            Err(err) => {
+                warn!(error = %err, "Failed to load usernames for alter search response");
+            }
+        }
+    }
+
     let items: Vec<NamesItem> = rows
         .into_iter()
         .map(|a| NamesItem {
             id: a.id,
             name: a.name,
+            user_id: a.owner_user_id,
+            username: a
+                .owner_user_id
+                .and_then(|owner| username_lookup.get(&owner).cloned()),
         })
         .collect();
     let total_items = items.len() as i64;

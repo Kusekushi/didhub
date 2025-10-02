@@ -64,8 +64,11 @@ pub mod router;
 pub mod services;
 
 use axum::Router;
-use didhub_config as config;
-use didhub_db as db;
+pub use didhub_auth as auth;
+pub use didhub_config as config;
+pub use didhub_db as db;
+pub use didhub_middleware as middleware;
+pub use didhub_oidc as oidc;
 
 use router::AppRouterBuilder;
 

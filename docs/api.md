@@ -57,7 +57,7 @@ The DIDHub server exposes a REST-style API backed by the Rust services under `se
 | --- | --- | --- |
 | `GET` | `/api/alters` | List alters. Supports `q`, `fields`, `per_page`, `offset`, `user_id`. Returns `{ items, total?, per_page?, offset? }` with normalized records. |
 | `POST` | `/api/alters` | Create an alter. Accepts JSON body with alter fields. |
-| `GET` | `/api/alters/names` | Returns lightweight `{ id, name, user_id, username }` for autocomplete. Query params: `q`, `user_id`. |
+| `GET` | `/api/alters/names` | Returns an array of lightweight `{ id, name, user_id?, username? }` records for autocomplete. Query params: `q`, `user_id`, supports pagination via `limit`/`offset`. |
 | `GET` | `/api/alters/search` | Search alters by user. Query: `user_id` (required), `q`, `per_page`, `fields`. |
 | `GET` | `/api/alters/family-tree` | Returns the full family tree graph structure (`{ nodes, edges, roots, owners? }`). |
 | `GET` | `/api/alters/{id}` | Fetch a single alter (404 if missing). |

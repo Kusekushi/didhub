@@ -11,7 +11,7 @@ use didhub_server::routes_oidc::AuthorizeQuery;
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use rsa::pkcs8::EncodePrivateKey;
 use rsa::traits::PublicKeyParts;
-use rand::rngs::OsRng;
+use rsa::rand_core::OsRng;
 use jsonwebtoken::{EncodingKey, Header};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
@@ -108,9 +108,9 @@ async fn test_google_authorize_integration() {
     if let Some(p) = tmp.parent() { std::fs::create_dir_all(p).ok(); }
     let _ = std::fs::OpenOptions::new().create(true).write(true).open(&tmp).expect("create sqlite file");
     sqlx::any::install_default_drivers();
-    if std::path::Path::new(tmp.as_ref()).exists() { let _ = std::fs::remove_file(tmp.as_ref()); }
-    if let Some(p) = tmp.as_ref().parent() { std::fs::create_dir_all(p).ok(); }
-    let _ = std::fs::OpenOptions::new().create(true).write(true).open(tmp.as_ref()).expect("create sqlite file");
+    if tmp.as_path().exists() { let _ = std::fs::remove_file(tmp.as_path()); }
+    if let Some(p) = tmp.as_path().parent() { std::fs::create_dir_all(p).ok(); }
+    let _ = std::fs::OpenOptions::new().create(true).write(true).open(tmp.as_path()).expect("create sqlite file");
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(tmp.to_string_lossy().as_ref()).await.expect("db connect");
 
@@ -165,9 +165,9 @@ async fn test_discord_authorize_integration() {
     if let Some(p) = tmp.parent() { std::fs::create_dir_all(p).ok(); }
     let _ = std::fs::OpenOptions::new().create(true).write(true).open(&tmp).expect("create sqlite file");
     sqlx::any::install_default_drivers();
-    if std::path::Path::new(tmp.as_ref()).exists() { let _ = std::fs::remove_file(tmp.as_ref()); }
-    if let Some(p) = tmp.as_ref().parent() { std::fs::create_dir_all(p).ok(); }
-    let _ = std::fs::OpenOptions::new().create(true).write(true).open(tmp.as_ref()).expect("create sqlite file");
+    if tmp.as_path().exists() { let _ = std::fs::remove_file(tmp.as_path()); }
+    if let Some(p) = tmp.as_path().parent() { std::fs::create_dir_all(p).ok(); }
+    let _ = std::fs::OpenOptions::new().create(true).write(true).open(tmp.as_path()).expect("create sqlite file");
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(tmp.to_string_lossy().as_ref()).await.expect("db connect");
 
