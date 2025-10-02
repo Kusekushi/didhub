@@ -1,6 +1,6 @@
 {
   "name": "@didhub/frontend",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "React frontend for DIDHub - a web application for managing alters and systems in DID communities",
   "license": "MIT",
   "private": true,
