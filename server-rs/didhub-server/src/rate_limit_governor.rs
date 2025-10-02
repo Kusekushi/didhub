@@ -306,8 +306,8 @@ pub fn default_rules() -> Vec<GovernorRule> {
         GovernorRule::new("POST", "/api/password-reset/consume", 5, 300),
         GovernorRule::new("POST", "/api/me/password", 5, 600),
         GovernorRule::new("POST", "/api/me/request-system", 3, 3600),
-        GovernorRule::new("POST", "/api/alters", 30, 3600),
+        GovernorRule::new("POST", "/api/alters", 60, 3600),
         GovernorRule::new("POST", "/api/avatar", 10, 3600),
-        GovernorRule::new("POST", "/api/uploads", 60, 3600),
+        GovernorRule::new("POST", "/api/uploads", 600, 3600),
     ]
 }
