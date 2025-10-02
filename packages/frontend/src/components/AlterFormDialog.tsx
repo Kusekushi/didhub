@@ -1,8 +1,268 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
-import AlterFormFields from './AlterForm';
-import { apiClient, type Alter } from '@didhub/api-client';
+import AlterFormFields, { type RelationshipOption } from './AlterForm';
+import { apiClient, type Alter, type AlterName } from '@didhub/api-client';
+
+function debugLog(...args: unknown[]) {
+  console.debug('[AlterFormDialog]', ...args);
+}
+
+function formatAlterDisplayName(item: Pick<AlterName, 'id' | 'name' | 'username'>): string {
+  const idPart = typeof item.id !== 'undefined' ? `#${item.id}` : '';
+  const baseName = (item.name ?? '').trim();
+  const username = (item.username ?? '').trim();
+  const segments: string[] = [];
+  if (baseName) segments.push(baseName);
+  if (username) segments.push(`(@${username})`);
+  if (!segments.length) {
+    return idPart ? `Alter ${idPart}` : 'Alter';
+  }
+  if (idPart) segments.push(idPart);
+  return segments.join(' ');
+}
+
+function collectRelationshipIds(source: unknown): Array<number | string> {
+  if (!source) return [];
+  if (Array.isArray(source)) {
+    return source
+      .map((item) => {
+        if (item == null) return null;
+        if (typeof item === 'number') return item;
+        if (typeof item === 'string') {
+          const trimmed = item.trim();
+          if (!trimmed) return null;
+          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (Array.isArray(parsed)) return collectRelationshipIds(parsed as unknown[]);
+            } catch (e) {
+              return trimmed;
+            }
+          }
+          return trimmed;
+        }
+        return null;
+      })
+      .flat()
+      .filter((value): value is number | string => value !== null && value !== '');
+  }
+  if (typeof source === 'number') return [source];
+  if (typeof source === 'string') {
+    const trimmed = source.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return collectRelationshipIds(parsed as unknown[]);
+      } catch (e) {
+        // fall through to comma split
+      }
+    }
+    return trimmed
+      .split(',')
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+interface RelationshipSources {
+  partners?: unknown;
+  parents?: unknown;
+  children?: unknown;
+}
+
+export function useAlterRelationshipOptions(relationships: RelationshipSources) {
+  const [partnerOptions, setPartnerOptions] = useState<RelationshipOption[]>([]);
+  const [partnerMap, setPartnerMap] = useState<Record<string, number | string>>({});
+  const [alterIdNameMap, setAlterIdNameMap] = useState<Record<string, string>>({});
+
+  const { partners, parents, children } = relationships;
+
+  const refreshPartnerOptions = useCallback(
+    async (existingAlter?: Alter | null) => {
+      try {
+        let items = await apiClient.alters.names();
+        if (!items.length) {
+          debugLog('Alter names endpoint returned empty; falling back to alters.list');
+          try {
+            const listPage = await apiClient.alters.list({ perPage: 1000 });
+            items = listPage.items
+              .filter((alter): alter is Alter => Boolean(alter) && typeof alter.id !== 'undefined')
+              .map((alter) => {
+                const numericId = typeof alter.id === 'number' ? alter.id : Number(alter.id);
+                return {
+                  id: Number.isNaN(numericId) ? (alter.id as number) : numericId,
+                  name: alter.name ?? '',
+                  username:
+                    typeof (alter as { username?: unknown }).username === 'string'
+                      ? String((alter as { username?: unknown }).username)
+                      : undefined,
+                  user_id:
+                    typeof (alter as { user_id?: unknown }).user_id === 'number'
+                      ? Number((alter as { user_id?: number }).user_id)
+                      : null,
+                } as AlterName;
+              });
+            debugLog('Fallback alters.list loaded', { count: items.length, sample: items.slice(0, 5) });
+          } catch (fallbackError) {
+            debugLog('Fallback alters.list failed', fallbackError);
+          }
+        }
+
+        const filteredItems = items.filter((it): it is AlterName => Boolean(it) && typeof it.id !== 'undefined');
+        debugLog('Fetched alter names', { count: filteredItems.length, sample: filteredItems.slice(0, 5) });
+
+        const options: RelationshipOption[] = [];
+        const aliasMap: Record<string, number | string> = {};
+        const idName: Record<string, string> = {};
+        const optionById = new Map<string, RelationshipOption>();
+
+        const register = (
+          alias: string | number | null | undefined,
+          idValue: number | string,
+          collector: Set<string>,
+        ) => {
+          if (alias == null) return;
+          const text = String(alias).trim();
+          if (!text) return;
+          aliasMap[text] = idValue;
+          aliasMap[text.toLowerCase()] = idValue;
+          collector.add(text.toLowerCase());
+        };
+
+        const addOption = (option: RelationshipOption) => {
+          options.push(option);
+          optionById.set(String(option.id), option);
+        };
+
+        const ensureOptionForId = async (identifier: number | string) => {
+          const idValue = identifier as number | string;
+          if (aliasMap[String(idValue)] || aliasMap[String(idValue).toLowerCase()]) return;
+          try {
+            const fetched = await apiClient.alters.get(idValue);
+            if (fetched && typeof fetched.id !== 'undefined') {
+              const display = formatAlterDisplayName({
+                id: fetched.id as number,
+                name: fetched.name ?? undefined,
+                username: (fetched as { username?: string }).username,
+              });
+              const aliases = new Set<string>();
+              register(display, fetched.id as number | string, aliases);
+              register(fetched.name, fetched.id as number | string, aliases);
+              register((fetched as { username?: string }).username, fetched.id as number | string, aliases);
+              const option = { id: fetched.id as number | string, label: display, aliases: Array.from(aliases) };
+              addOption(option);
+              idName[String(fetched.id)] = display;
+              return;
+            }
+          } catch (fetchErr) {
+            debugLog('Failed to fetch alter for relationship option', { id: identifier, error: fetchErr });
+          }
+          const fallbackLabel = `Alter #${idValue}`;
+          const aliases = new Set<string>();
+          register(fallbackLabel, idValue, aliases);
+          const option = { id: idValue, label: fallbackLabel, aliases: Array.from(aliases) };
+          addOption(option);
+          idName[String(idValue)] = fallbackLabel;
+        };
+
+        for (const it of filteredItems) {
+          const idValue = it.id as number | string;
+          const display = formatAlterDisplayName(it);
+          idName[String(idValue)] = display;
+          const aliases = new Set<string>();
+          register(display, idValue, aliases);
+          register(it.name, idValue, aliases);
+          register(it.username ? `@${it.username}` : null, idValue, aliases);
+          register(it.username, idValue, aliases);
+          register(idValue, idValue, aliases);
+          register(`#${idValue}`, idValue, aliases);
+          addOption({ id: idValue, label: display, aliases: Array.from(aliases) });
+        }
+
+        const relationshipSources = [partners, parents, children];
+        if (existingAlter) {
+          relationshipSources.push(existingAlter.partners, existingAlter.parents, existingAlter.children);
+        }
+        const ensureIds = new Set<string>();
+        relationshipSources.forEach((source) => {
+          collectRelationshipIds(source).forEach((identifier) => {
+            ensureIds.add(String(identifier));
+          });
+        });
+
+        for (const identifier of ensureIds) {
+          if (optionById.has(identifier)) continue;
+          await ensureOptionForId(identifier);
+        }
+
+        options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+        setPartnerOptions(options);
+        setPartnerMap(aliasMap);
+        setAlterIdNameMap(idName);
+        debugLog('Processed partner options', {
+          optionCount: options.length,
+          aliasKeys: Object.keys(aliasMap).length,
+          idLookupKeys: Object.keys(idName).length,
+          example: options.slice(0, 5),
+        });
+      } catch (e) {
+        debugLog('Failed to fetch partner options', e);
+      }
+    },
+    [partners, parents, children],
+  );
+
+  return { partnerOptions, partnerMap, alterIdNameMap, refreshPartnerOptions };
+}
+
+export function useUserRelationshipOptions() {
+  const [userPartnerOptions, setUserPartnerOptions] = useState<string[]>([]);
+  const [userPartnerMap, setUserPartnerMap] = useState<Record<string, number | string>>({});
+  const [userIdNameMap, setUserIdNameMap] = useState<Record<string, string>>({});
+
+  const refreshUserOptions = useCallback(async () => {
+    try {
+      const result = await apiClient.users.list({ perPage: 200 });
+      const items = (result.items || []).filter((it) => it && it.username && !it.is_system);
+      debugLog('Fetched user options', { count: items.length, sample: items.slice(0, 5) });
+      const suggestionSet = new Set<string>();
+      const m: Record<string, number | string> = {};
+      const idName: Record<string, string> = {};
+      for (const it of items) {
+        if (!it || typeof it.id === 'undefined') continue;
+        const idValue = it.id as number | string;
+        const username = it.username ? String(it.username) : '';
+        const displayName = it.display_name ? String(it.display_name) : '';
+        if (displayName) {
+          suggestionSet.add(displayName);
+          m[displayName] = idValue;
+          m[displayName.toLowerCase()] = idValue;
+        }
+        if (username) {
+          suggestionSet.add(username);
+          m[username] = idValue;
+          m[username.toLowerCase()] = idValue;
+        }
+        idName[String(idValue)] = displayName || username;
+      }
+      setUserPartnerOptions(Array.from(suggestionSet));
+      setUserPartnerMap(m);
+      setUserIdNameMap(idName);
+      debugLog('Processed user suggestions', {
+        suggestionCount: suggestionSet.size,
+        mapKeys: Object.keys(m).length,
+        idLookupKeys: Object.keys(idName).length,
+      });
+    } catch (e) {
+      console.warn('Failed to fetch user options:', e);
+    }
+  }, []);
+
+  return { userPartnerOptions, userPartnerMap, userIdNameMap, refreshUserOptions };
+}
 
 export interface AlterFormDialogProps {
   mode: 'create' | 'edit';
@@ -56,11 +316,22 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<boolean>(false);
   const [progressMap, setProgressMap] = useState<Record<string, number>>({});
-  const [partnerOptions, setPartnerOptions] = useState<string[]>([]);
-  const [partnerMap, setPartnerMap] = useState<Record<string, number | string>>({});
-  const [userPartnerOptions, setUserPartnerOptions] = useState<string[]>([]);
-  const [userPartnerMap, setUserPartnerMap] = useState<Record<string, number | string>>({});
   const [originalUserRelationships, setOriginalUserRelationships] = useState<any[]>([]);
+
+  const relationshipValues = useMemo(
+    () => ({
+      partners: values.partners,
+      parents: values.parents,
+      children: values.children,
+    }),
+    [values.partners, values.parents, values.children],
+  );
+
+  const { partnerOptions, partnerMap, alterIdNameMap, refreshPartnerOptions } = useAlterRelationshipOptions(
+    relationshipValues,
+  );
+
+  const { userPartnerOptions, userPartnerMap, userIdNameMap, refreshUserOptions } = useUserRelationshipOptions();
 
   function extractFieldErrors(error: unknown): Record<string, string> | undefined {
     if (typeof error === 'object' && error !== null) {
@@ -85,7 +356,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     if (typeof value === 'string') {
       const trimmed = value.trim();
       if (!trimmed) return undefined;
-      const fromMap = userPartnerMap[trimmed];
+      const fromMap = userPartnerMap[trimmed] ?? userPartnerMap[trimmed.toLowerCase()];
       if (typeof fromMap !== 'undefined') {
         const numeric = Number(fromMap);
         return Number.isNaN(numeric) ? undefined : numeric;
@@ -107,65 +378,25 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
   // Only fetch partner/user options when the dialog is actually open.
   useEffect(() => {
     if (!open) return;
-    fetchPartnerOptions();
-    fetchUserPartnerOptions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    debugLog('Dialog opened; fetching options');
+    void refreshPartnerOptions();
+    void refreshUserOptions();
+  }, [open, refreshPartnerOptions, refreshUserOptions]);
 
-  useEffect(() => {
-    if (mode === 'edit' && open && id) {
-      load();
-    } else if (mode === 'create' && open) {
-      setValues(empty);
-      setErrors({});
-      setOriginalUserRelationships([]);
-    }
-  }, [mode, open, id]);
-
-  async function fetchPartnerOptions() {
-    try {
-      const result = await apiClient.alters.names();
-      const items = result.filter((it) => it && it.name);
-      const names = items.map((x) => x.name ?? '').filter(Boolean);
-      const selfName = mode === 'edit' && values && values.name ? values.name : null;
-      setPartnerOptions(selfName ? names.filter((n) => n !== selfName) : names);
-      const m: Record<string, number | string> = {};
-      for (const it of items) {
-        if (it && it.name && typeof it.id !== 'undefined') m[String(it.name).toLowerCase()] = it.id as number | string;
-      }
-      setPartnerMap(m);
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  async function fetchUserPartnerOptions() {
-    try {
-      const result = await apiClient.users.list({ perPage: 200 });
-      const items = (result.items || []).filter((it) => it && it.username);
-      setUserPartnerOptions(items.map((x) => x.username || '').filter(Boolean));
-      const m: Record<string, number | string> = {};
-      for (const it of items) {
-        if (it && it.username && typeof it.id !== 'undefined') m[it.username] = it.id as number | string;
-      }
-      setUserPartnerMap(m);
-      console.log(
-        'User partner options:',
-        items.map((x) => x.username || ''),
-      );
-      console.log('User partner map:', m);
-    } catch (e) {
-      console.warn('Failed to fetch user options:', e);
-    }
-  }
-
-  async function load() {
+  const load = useCallback(async () => {
     if (mode !== 'edit' || !id) return;
+    debugLog('Loading alter for edit', { id });
     const r = await apiClient.alters.get(id);
     if (r) {
       // Store original user relationships for comparison
       const userRelationships = r.user_relationships || [];
       setOriginalUserRelationships(userRelationships);
+      debugLog('Loaded alter data', {
+        partners: r.partners,
+        parents: r.parents,
+        children: r.children,
+        userRelationships,
+      });
 
       // Transform user_relationships into form fields
       const user_partners = userRelationships
@@ -184,12 +415,28 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         user_parents,
         user_children,
       });
+      debugLog('Prepared form values after load', {
+        user_partners,
+        user_parents,
+        user_children,
+      });
+      await refreshPartnerOptions(r);
     } else {
       setValues({});
       setOriginalUserRelationships([]);
     }
     setErrors({});
-  }
+  }, [id, mode, refreshPartnerOptions]);
+
+  useEffect(() => {
+    if (mode === 'edit' && open && id) {
+      void load();
+    } else if (mode === 'create' && open) {
+      setValues(empty);
+      setErrors({});
+      setOriginalUserRelationships([]);
+    }
+  }, [mode, open, id, load]);
 
   async function updateUserRelationships(alterId: number) {
     // Get desired relationships from form values
@@ -327,6 +574,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     if (mode === 'create') {
       try {
         const created = await apiClient.alters.create(payload);
+        debugLog('Alter creation response', created);
         const alterId = created?.id ? Number(created.id) : undefined;
         console.log('Alter created with ID:', alterId);
         console.log('User partners:', values.user_partners);
@@ -419,6 +667,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
       }
       try {
         await apiClient.alters.update(id, editPayload);
+        debugLog('Alter update payload sent', editPayload);
         // Update user relationships
         await updateUserRelationships(Number(id));
 
@@ -496,6 +745,8 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
           userParentMap={userPartnerMap}
           userChildOptions={userPartnerOptions}
           userChildMap={userPartnerMap}
+          alterIdNameMap={alterIdNameMap}
+          userIdNameMap={userIdNameMap}
           onChange={change}
           onFile={onFile}
           onRemovePendingFile={removePending}

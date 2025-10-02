@@ -10,7 +10,9 @@ import {
   Tooltip,
   LinearProgress,
   Typography,
+  Chip,
 } from '@mui/material';
+import { createFilterOptions, type AutocompleteRenderGetTagProps } from '@mui/material/Autocomplete';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RichEditor from './RichEditor';
 import GroupPicker from './GroupPicker';
@@ -18,14 +20,26 @@ import SubsystemPicker from './SubsystemPicker';
 import { apiClient, type Alter } from '@didhub/api-client';
 import { StackItem } from './StackItem';
 
+function debugLog(...args: unknown[]) {
+  console.debug('[AlterForm]', ...args);
+}
+
+export interface RelationshipOption {
+  id: number | string;
+  label: string;
+  aliases?: string[];
+}
+
+type TagValue = string | RelationshipOption;
+
 export interface AlterFormFieldsProps {
   values: Partial<Alter> & { _files?: File[] };
   errors: Record<string, string>;
-  partnerOptions: string[];
+  partnerOptions: RelationshipOption[];
   partnerMap?: Record<string, number | string>;
-  parentOptions?: string[];
+  parentOptions?: RelationshipOption[];
   parentMap?: Record<string, number | string>;
-  childOptions?: string[];
+  childOptions?: RelationshipOption[];
   childMap?: Record<string, number | string>;
   userPartnerOptions?: string[];
   userPartnerMap?: Record<string, number | string>;
@@ -33,6 +47,8 @@ export interface AlterFormFieldsProps {
   userParentMap?: Record<string, number | string>;
   userChildOptions?: string[];
   userChildMap?: Record<string, number | string>;
+  alterIdNameMap?: Record<string, string>;
+  userIdNameMap?: Record<string, string>;
   onChange: (k: string, v: unknown) => void;
   onFile: (f: File[]) => void;
   onRemovePendingFile?: (idx: number) => void;
@@ -43,6 +59,212 @@ export interface AlterFormFieldsProps {
   partnerLabel?: string;
   useSwitchForHost?: boolean;
   progressMap?: Record<string, number>; // filename -> percent
+}
+
+function coerceIdentifier(value: number | string): number | string {
+  if (typeof value === 'number') return value;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? value : parsed;
+}
+
+function toDisplayLabel(value: unknown, idLookup: Record<string, string>): string | null {
+  if (value == null) return null;
+  if (typeof value === 'object') {
+    const maybeNamed =
+      (value as { name?: unknown }).name ??
+      (value as { label?: unknown }).label ??
+      (value as { display_name?: unknown }).display_name ??
+      (value as { username?: unknown }).username;
+    if (maybeNamed != null && maybeNamed !== '') return String(maybeNamed);
+    if ('id' in (value as Record<string, unknown>)) {
+      const idValue = (value as { id?: unknown }).id;
+      if (idValue != null) {
+        const label = idLookup[String(idValue)];
+        if (label) return label;
+      }
+    }
+  }
+  const label = idLookup[String(value)];
+  if (label) return label;
+  const str = String(value);
+  if (!str || str === '[object Object]') return null;
+  return str;
+}
+
+function stripTrailingId(label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed) return trimmed;
+  const withoutTrailingId = trimmed.replace(/\s*#\d+$/u, '').trim();
+  return withoutTrailingId || trimmed;
+}
+
+function mapToLabels(source: unknown, idLookup: Record<string, string>): string[] {
+  if (!Array.isArray(source)) return [];
+  return (source as unknown[])
+    .map((item) => {
+      const label = toDisplayLabel(item, idLookup);
+      return label ? label.trim() : '';
+    })
+    .filter((label) => Boolean(label));
+}
+
+function buildNameLookup(
+  primary?: Record<string, number | string>,
+  idLookup?: Record<string, string>,
+): Record<string, number | string> {
+  const result: Record<string, number | string> = {};
+  if (primary) {
+    Object.entries(primary).forEach(([name, id]) => {
+      if (!name) return;
+      result[name] = id;
+      result[name.toLowerCase()] = id;
+    });
+  }
+  if (idLookup) {
+    Object.entries(idLookup).forEach(([id, label]) => {
+      if (!label) return;
+      const coerced = coerceIdentifier(id);
+      result[label] = coerced;
+      result[label.toLowerCase()] = coerced;
+    });
+  }
+  return result;
+}
+
+function convertLabelsToIdentifiers(
+  selections: TagValue[],
+  primary?: Record<string, number | string>,
+  idLookup?: Record<string, string>,
+): Array<number | string> {
+  const lookup = buildNameLookup(primary, idLookup);
+  debugLog('Converting selections to identifiers', {
+    selections,
+    primaryKeys: primary ? Object.keys(primary) : [],
+    idLookupKeys: idLookup ? Object.keys(idLookup) : [],
+  });
+  return selections.map((selection) => {
+    if (selection && typeof selection === 'object') {
+      return coerceIdentifier(selection.id);
+    }
+    const trimmed = String(selection ?? '').trim();
+    if (!trimmed) return trimmed;
+    const match = lookup[trimmed] ?? lookup[trimmed.toLowerCase()];
+    if (typeof match !== 'undefined') return coerceIdentifier(match);
+    if (trimmed.startsWith('#')) {
+      const numericFromHash = Number(trimmed.slice(1));
+      if (!Number.isNaN(numericFromHash)) return numericFromHash;
+    }
+    const numeric = Number(trimmed);
+    return Number.isNaN(numeric) ? trimmed : numeric;
+  });
+}
+
+function buildOptionIndexes(options: RelationshipOption[]) {
+  const byId = new Map<string, RelationshipOption>();
+  const byAlias = new Map<string, RelationshipOption>();
+  options.forEach((option) => {
+    const idKey = String(option.id);
+    byId.set(idKey, option);
+    byAlias.set(idKey, option);
+    byAlias.set(`#${idKey}`, option);
+    const labelLower = option.label.toLowerCase();
+    byAlias.set(labelLower, option);
+    if (option.aliases) {
+      option.aliases
+        .map((alias) => alias.trim().toLowerCase())
+        .filter(Boolean)
+        .forEach((alias) => {
+          if (!byAlias.has(alias)) byAlias.set(alias, option);
+        });
+    }
+  });
+  return { byId, byAlias };
+}
+
+function mapSelectionsToTagValues(
+  source: unknown,
+  options: RelationshipOption[],
+  idLookup: Record<string, string>,
+): TagValue[] {
+  if (!Array.isArray(source)) return [];
+  if (!options.length && Object.keys(idLookup).length === 0) {
+    debugLog('No options or lookup available; falling back to raw labels', { source });
+    return mapToLabels(source, idLookup);
+  }
+  const { byId, byAlias } = buildOptionIndexes(options);
+  debugLog('Mapping selections to tag values', { source, optionsCount: options.length, idLookupKeys: Object.keys(idLookup) });
+  return (source as unknown[])
+    .map((item) => {
+      if (item == null) return null;
+
+      const potentialIds: string[] = [];
+      if (typeof item === 'number') {
+        potentialIds.push(String(item));
+      } else if (typeof item === 'string') {
+        const trimmed = item.trim();
+        if (trimmed) {
+          potentialIds.push(trimmed);
+          if (trimmed.startsWith('#')) potentialIds.push(trimmed.slice(1));
+        }
+      } else if (typeof item === 'object' && 'id' in (item as Record<string, unknown>)) {
+        const idValue = (item as { id?: unknown }).id;
+        if (idValue != null) potentialIds.push(String(idValue));
+      }
+
+      for (const candidate of potentialIds) {
+        if (!candidate) continue;
+        if (byId.has(candidate)) return byId.get(candidate)!;
+        const lower = candidate.toLowerCase();
+        if (byAlias.has(lower)) return byAlias.get(lower)!;
+      }
+
+      const label = toDisplayLabel(item, idLookup);
+      if (label) {
+        const trimmed = label.trim();
+        if (trimmed) {
+          const lower = trimmed.toLowerCase();
+          if (byAlias.has(lower)) return byAlias.get(lower)!;
+          const candidateId = potentialIds.find(Boolean);
+          if (candidateId) {
+            const normalized = candidateId.startsWith('#') ? candidateId.slice(1) : candidateId;
+            const mapped = { id: coerceIdentifier(normalized), label: trimmed, aliases: [] };
+            debugLog('Constructed synthetic option from label', mapped);
+            return mapped;
+          }
+          return trimmed;
+        }
+      }
+
+      if (typeof item === 'string') {
+        const trimmed = item.trim();
+        if (!trimmed) return null;
+        const lower = trimmed.toLowerCase();
+        if (byAlias.has(lower)) return byAlias.get(lower)!;
+        const normalized = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
+        const inferred = idLookup[normalized] ?? idLookup[trimmed];
+        if (inferred) {
+          const mapped = { id: coerceIdentifier(normalized), label: inferred, aliases: [] };
+          debugLog('Constructed synthetic option from string', mapped);
+          return mapped;
+        }
+        return trimmed;
+      }
+
+      if (typeof item === 'number') {
+        const idKey = String(item);
+        if (byId.has(idKey)) return byId.get(idKey)!;
+        const inferred = idLookup[idKey];
+        if (inferred) {
+          const mapped = { id: coerceIdentifier(idKey), label: inferred, aliases: [] };
+          debugLog('Constructed synthetic option from number', mapped);
+          return mapped;
+        }
+        return idKey;
+      }
+
+      return null;
+    })
+    .filter((value): value is TagValue => Boolean(value));
 }
 
 export default function AlterFormFields(props: AlterFormFieldsProps) {
@@ -61,6 +283,145 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
     onReorderImages,
     progressMap,
   } = props;
+
+  const alterIdLookup = props.alterIdNameMap ?? {};
+  const userIdLookup = props.userIdNameMap ?? {};
+
+  const partnerOptionList = partnerOptions ?? [];
+  const parentOptionList = props.parentOptions ?? partnerOptionList;
+  const childOptionList = props.childOptions ?? partnerOptionList;
+
+  const partnerTagValue = React.useMemo(
+    () => mapSelectionsToTagValues(values.partners, partnerOptionList, alterIdLookup),
+    [values.partners, partnerOptionList, alterIdLookup],
+  );
+
+  const parentTagValue = React.useMemo(
+    () => mapSelectionsToTagValues(values.parents, parentOptionList, alterIdLookup),
+    [values.parents, parentOptionList, alterIdLookup],
+  );
+
+  const childTagValue = React.useMemo(
+    () => mapSelectionsToTagValues(values.children, childOptionList, alterIdLookup),
+    [values.children, childOptionList, alterIdLookup],
+  );
+
+  const relationshipFilter = React.useMemo(
+    () =>
+      createFilterOptions<RelationshipOption>({
+        stringify: (option) =>
+          [
+            option.label,
+            String(option.id),
+            `#${option.id}`,
+            ...(option.aliases ?? []),
+          ]
+            .map((segment) => segment.trim().toLowerCase())
+            .filter(Boolean)
+            .join(' '),
+        matchFrom: 'any',
+        trim: true,
+      }),
+    [],
+  );
+
+  React.useEffect(() => {
+    debugLog('Partner option list updated', { count: partnerOptionList.length, example: partnerOptionList.slice(0, 5) });
+  }, [partnerOptionList]);
+
+  React.useEffect(() => {
+    debugLog('Parent option list updated', { count: parentOptionList.length, example: parentOptionList.slice(0, 5) });
+  }, [parentOptionList]);
+
+  React.useEffect(() => {
+    debugLog('Child option list updated', { count: childOptionList.length, example: childOptionList.slice(0, 5) });
+  }, [childOptionList]);
+
+  const resolveAlterTagLabel = React.useCallback(
+    (item: TagValue): string => {
+      if (item && typeof item === 'object') {
+        const idKey = String((item as RelationshipOption).id);
+        const label = alterIdLookup[idKey] ?? (item as RelationshipOption).label;
+        return stripTrailingId(label);
+      }
+      const raw = String(item ?? '').trim();
+      if (!raw) return '';
+      const direct = alterIdLookup[raw];
+      if (direct) return stripTrailingId(direct);
+      if (raw.startsWith('#')) {
+        const hashMatch = alterIdLookup[raw.slice(1)];
+        if (hashMatch) return stripTrailingId(hashMatch);
+      }
+      const numericKey = raw.startsWith('#') ? raw.slice(1) : raw;
+      const numericMatch = alterIdLookup[numericKey];
+      if (numericMatch) return stripTrailingId(numericMatch);
+      const lower = raw.toLowerCase();
+      const matchedValue = Object.entries(alterIdLookup).find(([, label]) => label.toLowerCase() === lower);
+      if (matchedValue) return stripTrailingId(matchedValue[1]);
+      return stripTrailingId(raw);
+    },
+    [alterIdLookup],
+  );
+
+  const renderAlterRelationshipTags = React.useCallback(
+    (
+      tagValue: readonly (RelationshipOption | string)[],
+      getTagProps: AutocompleteRenderGetTagProps,
+    ) =>
+      (tagValue as TagValue[]).map((item, index) => {
+        const { key, ...chipProps } = getTagProps({ index });
+        const label = resolveAlterTagLabel(item);
+        return <Chip key={key} variant="outlined" label={label} {...chipProps} />;
+      }),
+    [resolveAlterTagLabel],
+  );
+
+  React.useEffect(() => {
+    debugLog('Partner tag value recalculated', partnerTagValue);
+  }, [partnerTagValue]);
+
+  React.useEffect(() => {
+    debugLog('Parent tag value recalculated', parentTagValue);
+  }, [parentTagValue]);
+
+  React.useEffect(() => {
+    debugLog('Child tag value recalculated', childTagValue);
+  }, [childTagValue]);
+
+  const resolveUserTagLabel = React.useCallback(
+    (item: TagValue): string => {
+      if (item && typeof item === 'object') {
+        const idKey = String((item as RelationshipOption).id);
+        return userIdLookup[idKey] ?? (item as RelationshipOption).label;
+      }
+      const raw = String(item ?? '').trim();
+      if (!raw) return '';
+      const direct = userIdLookup[raw];
+      if (direct) return direct;
+      if (raw.startsWith('#')) {
+        const hashMatch = userIdLookup[raw.slice(1)];
+        if (hashMatch) return hashMatch;
+      }
+      const lower = raw.toLowerCase();
+      const matchedValue = Object.entries(userIdLookup).find(([, label]) => label.toLowerCase() === lower);
+      if (matchedValue) return matchedValue[1];
+      return raw;
+    },
+    [userIdLookup],
+  );
+
+  const renderUserRelationshipTags = React.useCallback(
+    (
+      tagValue: readonly (RelationshipOption | string)[],
+      getTagProps: AutocompleteRenderGetTagProps,
+    ) =>
+      (tagValue as TagValue[]).map((item, index) => {
+        const { key, ...chipProps } = getTagProps({ index });
+        const label = resolveUserTagLabel(item);
+        return <Chip key={key} variant="outlined" label={label} {...chipProps} />;
+      }),
+    [resolveUserTagLabel],
+  );
 
   function dragStart(e: React.DragEvent<HTMLDivElement>, idx: number) {
     e.dataTransfer.setData('text/plain', String(idx));
@@ -208,36 +569,36 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
       </StackItem>
 
       <StackItem>
-        <Autocomplete
+        <Autocomplete<RelationshipOption, true, false, true>
           multiple
           freeSolo
-          options={partnerOptions}
-          value={(() => {
-            const vals = (values.partners && Array.isArray(values.partners) ? values.partners : []) as any[];
-            const idToName: Record<string, string> = {};
-            if (props.partnerMap) {
-              Object.keys(props.partnerMap).forEach((name) => {
-                const id = String((props.partnerMap as any)[name]);
-                idToName[id] = name;
-              });
+          options={partnerOptionList}
+          filterSelectedOptions
+          disableCloseOnSelect
+          openOnFocus
+          autoHighlight
+          onOpen={() => debugLog('Partner autocomplete opened', { optionCount: partnerOptionList.length })}
+          onInputChange={(event, value, reason) =>
+            debugLog('Partner autocomplete input', { value, reason })
+          }
+          getOptionLabel={(option: RelationshipOption | string) =>
+            typeof option === 'string' ? option : option.label
+          }
+          isOptionEqualToValue={(option, value) => {
+            if (value && typeof value === 'object') {
+              return String(option.id) === String((value as RelationshipOption).id);
             }
-            return vals.map((v) =>
-              v == null
-                ? ''
-                : typeof v === 'string' || typeof v === 'number'
-                  ? idToName[String(v)] || String(v)
-                  : String(v),
-            );
-          })()}
-          onChange={(e: React.SyntheticEvent, v: string[] | null) => {
-            const names = v || [];
-            const map = props.partnerMap || {};
-            const converted = names.map((n) => {
-              const id = map[String(n).toLowerCase()];
-              return typeof id !== 'undefined' ? id : n;
-            });
+            return option.label.toLowerCase() === String(value ?? '').toLowerCase();
+          }}
+          filterOptions={relationshipFilter}
+          value={partnerTagValue}
+          onChange={(e: React.SyntheticEvent, v: (RelationshipOption | string)[] | null) => {
+            const selections = (v || []) as TagValue[];
+            const converted = convertLabelsToIdentifiers(selections, props.partnerMap, alterIdLookup);
+            debugLog('Partner selection changed', { raw: selections, converted });
             onChange('partners', converted);
           }}
+          renderTags={renderAlterRelationshipTags}
           renderInput={(params) => (
             <TextField {...params} label={partnerLabel || 'Partner(s)'} placeholder="Add partner(s)" />
           )}
@@ -246,72 +607,72 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
       </StackItem>
 
       <StackItem>
-        <Autocomplete
+        <Autocomplete<RelationshipOption, true, false, true>
           multiple
           freeSolo
-          options={props.parentOptions || partnerOptions}
-          value={(() => {
-            const vals = (values.parents && Array.isArray(values.parents) ? values.parents : []) as any[];
-            const idToName: Record<string, string> = {};
-            if (props.parentMap) {
-              Object.keys(props.parentMap).forEach((name) => {
-                const id = String((props.parentMap as any)[name]);
-                idToName[id] = name;
-              });
+          options={parentOptionList}
+          filterSelectedOptions
+          disableCloseOnSelect
+          openOnFocus
+          autoHighlight
+          onOpen={() => debugLog('Parent autocomplete opened', { optionCount: parentOptionList.length })}
+          onInputChange={(event, value, reason) =>
+            debugLog('Parent autocomplete input', { value, reason })
+          }
+          getOptionLabel={(option: RelationshipOption | string) =>
+            typeof option === 'string' ? option : option.label
+          }
+          isOptionEqualToValue={(option, value) => {
+            if (value && typeof value === 'object') {
+              return String(option.id) === String((value as RelationshipOption).id);
             }
-            return vals.map((v) =>
-              v == null
-                ? ''
-                : typeof v === 'string' || typeof v === 'number'
-                  ? idToName[String(v)] || String(v)
-                  : String(v),
-            );
-          })()}
-          onChange={(e: React.SyntheticEvent, v: string[] | null) => {
-            const names = v || [];
-            const map = props.parentMap || {};
-            const converted = names.map((n) => {
-              const id = map[String(n).toLowerCase()];
-              return typeof id !== 'undefined' ? id : n;
-            });
+            return option.label.toLowerCase() === String(value ?? '').toLowerCase();
+          }}
+          filterOptions={relationshipFilter}
+          value={parentTagValue}
+          onChange={(e: React.SyntheticEvent, v: (RelationshipOption | string)[] | null) => {
+            const selections = (v || []) as TagValue[];
+            const converted = convertLabelsToIdentifiers(selections, props.parentMap, alterIdLookup);
+            debugLog('Parent selection changed', { raw: selections, converted });
             onChange('parents', converted);
           }}
+          renderTags={renderAlterRelationshipTags}
           renderInput={(params) => <TextField {...params} label={'Parent(s)'} placeholder="Add parent(s)" />}
           fullWidth
         />
       </StackItem>
 
       <StackItem>
-        <Autocomplete
+        <Autocomplete<RelationshipOption, true, false, true>
           multiple
           freeSolo
-          options={props.childOptions || partnerOptions}
-          value={(() => {
-            const vals = (values.children && Array.isArray(values.children) ? values.children : []) as any[];
-            const idToName: Record<string, string> = {};
-            if (props.childMap) {
-              Object.keys(props.childMap).forEach((name) => {
-                const id = String((props.childMap as any)[name]);
-                idToName[id] = name;
-              });
+          options={childOptionList}
+          filterSelectedOptions
+          disableCloseOnSelect
+          openOnFocus
+          autoHighlight
+          onOpen={() => debugLog('Child autocomplete opened', { optionCount: childOptionList.length })}
+          onInputChange={(event, value, reason) =>
+            debugLog('Child autocomplete input', { value, reason })
+          }
+          getOptionLabel={(option: RelationshipOption | string) =>
+            typeof option === 'string' ? option : option.label
+          }
+          isOptionEqualToValue={(option, value) => {
+            if (value && typeof value === 'object') {
+              return String(option.id) === String((value as RelationshipOption).id);
             }
-            return vals.map((v) =>
-              v == null
-                ? ''
-                : typeof v === 'string' || typeof v === 'number'
-                  ? idToName[String(v)] || String(v)
-                  : String(v),
-            );
-          })()}
-          onChange={(e: React.SyntheticEvent, v: string[] | null) => {
-            const names = v || [];
-            const map = props.childMap || {};
-            const converted = names.map((n) => {
-              const id = map[String(n).toLowerCase()];
-              return typeof id !== 'undefined' ? id : n;
-            });
+            return option.label.toLowerCase() === String(value ?? '').toLowerCase();
+          }}
+          filterOptions={relationshipFilter}
+          value={childTagValue}
+          onChange={(e: React.SyntheticEvent, v: (RelationshipOption | string)[] | null) => {
+            const selections = (v || []) as TagValue[];
+            const converted = convertLabelsToIdentifiers(selections, props.childMap, alterIdLookup);
+            debugLog('Child selection changed', { raw: selections, converted });
             onChange('children', converted);
           }}
+          renderTags={renderAlterRelationshipTags}
           renderInput={(params) => <TextField {...params} label={'Child(ren)'} placeholder="Add child(ren)" />}
           fullWidth
         />
@@ -322,39 +683,23 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           multiple
           freeSolo={false}
           options={props.userPartnerOptions || []}
-          value={(() => {
-            const vals = (
-              values.user_partners && Array.isArray(values.user_partners) ? values.user_partners : []
-            ) as any[];
-            console.log('User partners values:', vals);
-            const idToName: Record<string, string> = {};
-            if (props.userPartnerMap) {
-              Object.keys(props.userPartnerMap).forEach((name) => {
-                const id = String((props.userPartnerMap as any)[name]);
-                idToName[id] = name;
-              });
-            }
-            const result = vals.map((v) =>
-              v == null
-                ? ''
-                : typeof v === 'string' || typeof v === 'number'
-                  ? idToName[String(v)] || String(v)
-                  : String(v),
-            );
-            console.log('User partners display value:', result);
-            return result;
-          })()}
+          filterSelectedOptions
+          disableCloseOnSelect
+          openOnFocus
+          autoHighlight
+          onOpen={() => debugLog('User partner autocomplete opened', {
+            optionCount: props.userPartnerOptions?.length ?? 0,
+          })}
+          onInputChange={(event, value, reason) =>
+            debugLog('User partner autocomplete input', { value, reason })
+          }
+          value={mapToLabels(values.user_partners, userIdLookup)}
           onChange={(e: React.SyntheticEvent, v: string[] | null) => {
-            const names = v || [];
-            const map = props.userPartnerMap || {};
-            const converted = names.map((n) => {
-              const id = map[n];
-              console.log('Converting user partner name:', n, 'to ID:', id);
-              return typeof id !== 'undefined' ? id : n;
-            });
-            console.log('Setting user_partners to:', converted);
+            const names = (v || []).map((name) => (name == null ? '' : String(name).trim())).filter(Boolean);
+            const converted = convertLabelsToIdentifiers(names, props.userPartnerMap, userIdLookup);
             onChange('user_partners', converted);
           }}
+          renderTags={renderUserRelationshipTags}
           renderInput={(params) => (
             <TextField {...params} label={'User Partner(s)'} placeholder="Add user partner(s)" />
           )}
@@ -367,34 +712,23 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           multiple
           freeSolo={false}
           options={props.userParentOptions || []}
-          value={(() => {
-            const vals = (
-              values.user_parents && Array.isArray(values.user_parents) ? values.user_parents : []
-            ) as any[];
-            const idToName: Record<string, string> = {};
-            if (props.userParentMap) {
-              Object.keys(props.userParentMap).forEach((name) => {
-                const id = String((props.userParentMap as any)[name]);
-                idToName[id] = name;
-              });
-            }
-            return vals.map((v) =>
-              v == null
-                ? ''
-                : typeof v === 'string' || typeof v === 'number'
-                  ? idToName[String(v)] || String(v)
-                  : String(v),
-            );
-          })()}
+          filterSelectedOptions
+          disableCloseOnSelect
+          openOnFocus
+          autoHighlight
+          onOpen={() => debugLog('User parent autocomplete opened', {
+            optionCount: props.userParentOptions?.length ?? 0,
+          })}
+          onInputChange={(event, value, reason) =>
+            debugLog('User parent autocomplete input', { value, reason })
+          }
+          value={mapToLabels(values.user_parents, userIdLookup)}
           onChange={(e: React.SyntheticEvent, v: string[] | null) => {
-            const names = v || [];
-            const map = props.userParentMap || {};
-            const converted = names.map((n) => {
-              const id = map[n];
-              return typeof id !== 'undefined' ? id : n;
-            });
+            const names = (v || []).map((name) => (name == null ? '' : String(name).trim())).filter(Boolean);
+            const converted = convertLabelsToIdentifiers(names, props.userParentMap, userIdLookup);
             onChange('user_parents', converted);
           }}
+          renderTags={renderUserRelationshipTags}
           renderInput={(params) => <TextField {...params} label={'User Parent(s)'} placeholder="Add user parent(s)" />}
           fullWidth
         />
@@ -405,34 +739,23 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           multiple
           freeSolo={false}
           options={props.userChildOptions || []}
-          value={(() => {
-            const vals = (
-              values.user_children && Array.isArray(values.user_children) ? values.user_children : []
-            ) as any[];
-            const idToName: Record<string, string> = {};
-            if (props.userChildMap) {
-              Object.keys(props.userChildMap).forEach((name) => {
-                const id = String((props.userChildMap as any)[name]);
-                idToName[id] = name;
-              });
-            }
-            return vals.map((v) =>
-              v == null
-                ? ''
-                : typeof v === 'string' || typeof v === 'number'
-                  ? idToName[String(v)] || String(v)
-                  : String(v),
-            );
-          })()}
+          filterSelectedOptions
+          disableCloseOnSelect
+          openOnFocus
+          autoHighlight
+          onOpen={() => debugLog('User child autocomplete opened', {
+            optionCount: props.userChildOptions?.length ?? 0,
+          })}
+          onInputChange={(event, value, reason) =>
+            debugLog('User child autocomplete input', { value, reason })
+          }
+          value={mapToLabels(values.user_children, userIdLookup)}
           onChange={(e: React.SyntheticEvent, v: string[] | null) => {
-            const names = v || [];
-            const map = props.userChildMap || {};
-            const converted = names.map((n) => {
-              const id = map[n];
-              return typeof id !== 'undefined' ? id : n;
-            });
+            const names = (v || []).map((name) => (name == null ? '' : String(name).trim())).filter(Boolean);
+            const converted = convertLabelsToIdentifiers(names, props.userChildMap, userIdLookup);
             onChange('user_children', converted);
           }}
+          renderTags={renderUserRelationshipTags}
           renderInput={(params) => (
             <TextField {...params} label={'User Child(ren)'} placeholder="Add user child(ren)" />
           )}
