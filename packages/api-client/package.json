@@ -1,6 +1,6 @@
 {
   "name": "@didhub/api-client",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "TypeScript API client library for DIDHub backend - provides typed functions for all REST endpoints",
   "license": "MIT",
   "exports": {
