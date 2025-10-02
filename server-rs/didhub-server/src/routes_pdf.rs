@@ -11,17 +11,78 @@ use didhub_db::subsystems::SubsystemOperations;
 use didhub_db::Db;
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
+use genpdf::error::Error as GenPdfError;
 use genpdf::Element;
 use genpdf::{elements as genpdf_elements, fonts as genpdf_fonts, style as genpdf_style};
+use once_cell::sync::OnceCell;
 use serde_json;
+use std::collections::HashSet;
 use std::env;
+use std::path::{Path as StdPath, PathBuf};
 use tracing::{debug, error, info, warn};
+
+static FONT_FAMILY_CACHE: OnceCell<genpdf_fonts::FontFamily<genpdf_fonts::FontData>> =
+    OnceCell::new();
+
+struct FontCandidate {
+    label: &'static str,
+    regular: &'static [&'static str],
+    bold: &'static [&'static str],
+    italic: &'static [&'static str],
+    bold_italic: &'static [&'static str],
+}
+
+const FONT_CANDIDATES: &[FontCandidate] = &[
+    FontCandidate {
+        label: "Hack",
+        regular: &["Hack-Regular.ttf", "hack-regular.ttf"],
+        bold: &["Hack-Bold.ttf", "hack-bold.ttf"],
+        italic: &["Hack-Italic.ttf", "hack-italic.ttf"],
+        bold_italic: &["Hack-BoldItalic.ttf", "hack-bolditalic.ttf"],
+    },
+    FontCandidate {
+        label: "DejaVu Sans",
+        regular: &["DejaVuSans.ttf"],
+        bold: &["DejaVuSans-Bold.ttf"],
+        italic: &["DejaVuSans-Oblique.ttf", "DejaVuSans-Italic.ttf"],
+        bold_italic: &["DejaVuSans-BoldOblique.ttf", "DejaVuSans-BoldItalic.ttf"],
+    },
+    FontCandidate {
+        label: "Liberation Sans",
+        regular: &["LiberationSans-Regular.ttf"],
+        bold: &["LiberationSans-Bold.ttf"],
+        italic: &["LiberationSans-Italic.ttf"],
+        bold_italic: &["LiberationSans-BoldItalic.ttf"],
+    },
+    FontCandidate {
+        label: "Noto Sans",
+        regular: &["NotoSans-Regular.ttf"],
+        bold: &["NotoSans-Bold.ttf"],
+        italic: &["NotoSans-Italic.ttf"],
+        bold_italic: &["NotoSans-BoldItalic.ttf"],
+    },
+    FontCandidate {
+        label: "Arial",
+        regular: &["arial.ttf", "Arial.ttf"],
+        bold: &["arialbd.ttf", "Arial-Bold.ttf"],
+        italic: &["ariali.ttf", "Arial-Italic.ttf"],
+        bold_italic: &["arialbi.ttf", "Arial-BoldItalic.ttf"],
+    },
+    FontCandidate {
+        label: "Segoe UI",
+        regular: &["segoeui.ttf"],
+        bold: &["segoeuib.ttf"],
+        italic: &["segoeuii.ttf"],
+        bold_italic: &["segoeuiz.ttf"],
+    },
+];
 
 fn get_font_directories() -> Vec<String> {
     let mut dirs = Vec::new();
 
     // Add relative fonts directory first
     dirs.push("./fonts".to_string());
+    dirs.push(format!("{}/fonts", env!("CARGO_MANIFEST_DIR")));
 
     // Platform-specific font directories
     if cfg!(target_os = "windows") {
@@ -54,29 +115,256 @@ fn get_font_directories() -> Vec<String> {
     dirs
 }
 
-fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<Vec<u8>, AppError> {
-    // Create a new PDF document
-    let mut font_family = None;
+fn load_default_font_family() -> Result<genpdf_fonts::FontFamily<genpdf_fonts::FontData>, AppError>
+{
+    if let Some(family) = FONT_FAMILY_CACHE.get() {
+        return Ok(family.clone());
+    }
 
-    // Try loading fonts from all platform-appropriate directories
-    for font_dir in get_font_directories() {
-        if let Ok(ff) = genpdf_fonts::from_files(&font_dir, "Hack", None) {
-            font_family = Some(ff);
-            break;
-        }
-        // Also try common font names as fallbacks
-        for fallback_font in &["DejaVu Sans", "Liberation Sans", "Arial", "Helvetica"] {
-            if let Ok(ff) = genpdf_fonts::from_files(&font_dir, fallback_font, None) {
-                font_family = Some(ff);
-                break;
-            }
-        }
-        if font_family.is_some() {
-            break;
+    let family = discover_font_family()?;
+    if FONT_FAMILY_CACHE.set(family.clone()).is_err() {
+        if let Some(existing) = FONT_FAMILY_CACHE.get() {
+            return Ok(existing.clone());
         }
     }
 
-    let font_family = font_family.ok_or(AppError::Internal)?;
+    Ok(family)
+}
+
+fn discover_font_family() -> Result<genpdf_fonts::FontFamily<genpdf_fonts::FontData>, AppError> {
+    let mut seen = HashSet::new();
+
+    for dir in get_font_directories() {
+        let path = PathBuf::from(&dir);
+        let canonical_or_original = path.canonicalize().unwrap_or_else(|_| path.clone());
+
+        if !seen.insert(canonical_or_original.clone()) {
+            continue;
+        }
+
+        if !canonical_or_original.exists() {
+            continue;
+        }
+
+        if let Some((family, label)) = load_family_from_dir(&canonical_or_original) {
+            info!(
+                font_family = %label,
+                font_dir = %canonical_or_original.display(),
+                "Using font family for PDF export"
+            );
+            return Ok(family);
+        }
+    }
+
+    error!("Unable to locate a usable font family for PDF export");
+    Err(AppError::Internal)
+}
+
+fn load_family_from_dir(
+    dir: &StdPath,
+) -> Option<(
+    genpdf_fonts::FontFamily<genpdf_fonts::FontData>,
+    &'static str,
+)> {
+    for candidate in FONT_CANDIDATES {
+        match load_family_with_candidate(dir, candidate) {
+            Ok(Some(family)) => {
+                return Some((family, candidate.label));
+            }
+            Ok(None) => continue,
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    font_family = %candidate.label,
+                    font_dir = %dir.display(),
+                    "Failed to load font family candidate"
+                );
+            }
+        }
+    }
+    None
+}
+
+fn load_family_with_candidate(
+    dir: &StdPath,
+    candidate: &FontCandidate,
+) -> Result<Option<genpdf_fonts::FontFamily<genpdf_fonts::FontData>>, GenPdfError> {
+    let Some((regular, regular_path)) =
+        load_font_if_exists(dir, candidate.label, "regular", candidate.regular)?
+    else {
+        return Ok(None);
+    };
+    debug!(
+        font_family = %candidate.label,
+        font_style = "regular",
+        font_path = %regular_path.display(),
+        "Loaded PDF font"
+    );
+
+    let bold = load_font_if_exists(dir, candidate.label, "bold", candidate.bold)?
+        .map(|(font, path)| {
+            debug!(
+                font_family = %candidate.label,
+                font_style = "bold",
+                font_path = %path.display(),
+                "Loaded PDF font"
+            );
+            font
+        })
+        .unwrap_or_else(|| {
+            warn!(
+                font_family = %candidate.label,
+                font_dir = %dir.display(),
+                "Missing bold font variant, falling back to regular"
+            );
+            regular.clone()
+        });
+
+    let italic = load_font_if_exists(dir, candidate.label, "italic", candidate.italic)?
+        .map(|(font, path)| {
+            debug!(
+                font_family = %candidate.label,
+                font_style = "italic",
+                font_path = %path.display(),
+                "Loaded PDF font"
+            );
+            font
+        })
+        .unwrap_or_else(|| {
+            warn!(
+                font_family = %candidate.label,
+                font_dir = %dir.display(),
+                "Missing italic font variant, falling back to regular"
+            );
+            regular.clone()
+        });
+
+    let bold_italic =
+        load_font_if_exists(dir, candidate.label, "bold_italic", candidate.bold_italic)?
+            .map(|(font, path)| {
+                debug!(
+                    font_family = %candidate.label,
+                    font_style = "bold_italic",
+                    font_path = %path.display(),
+                    "Loaded PDF font"
+                );
+                font
+            })
+            .unwrap_or_else(|| {
+                warn!(
+                    font_family = %candidate.label,
+                    font_dir = %dir.display(),
+                    "Missing bold italic font variant, falling back to regular"
+                );
+                regular.clone()
+            });
+
+    Ok(Some(genpdf_fonts::FontFamily {
+        regular,
+        bold,
+        italic,
+        bold_italic,
+    }))
+}
+
+fn load_font_if_exists(
+    dir: &StdPath,
+    family_label: &str,
+    style_label: &str,
+    file_names: &[&'static str],
+) -> Result<Option<(genpdf_fonts::FontData, PathBuf)>, GenPdfError> {
+    for name in file_names {
+        let path = dir.join(name);
+        if !path.exists() {
+            continue;
+        }
+
+        match genpdf_fonts::FontData::load(&path, None) {
+            Ok(font) => return Ok(Some((font, path))),
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    font_family = %family_label,
+                    font_style = %style_label,
+                    font_path = %path.display(),
+                    "Failed to parse font file"
+                );
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+fn prepare_image_for_pdf(image_path: &str) -> Result<Vec<u8>, String> {
+    let data =
+        std::fs::read(image_path).map_err(|err| format!("failed to read image data: {err}"))?;
+
+    match image::load_from_memory(&data) {
+        Ok(image) => {
+            if !image.color().has_alpha() {
+                return Ok(data);
+            }
+
+            debug!(
+                image_path = %image_path,
+                "Flattening image alpha channel for PDF export"
+            );
+
+            let rgba_image = image.to_rgba8();
+            let flattened = flatten_rgba_to_rgb(&rgba_image);
+            let mut encoded = std::io::Cursor::new(Vec::new());
+
+            image::DynamicImage::ImageRgb8(flattened)
+                .write_to(&mut encoded, image::ImageFormat::Png)
+                .map_err(|err| format!("failed to encode flattened image: {err}"))?;
+
+            Ok(encoded.into_inner())
+        }
+        Err(err) => {
+            debug!(
+                error = %err,
+                image_path = %image_path,
+                "Unable to decode image when preparing for PDF; using raw bytes"
+            );
+            Ok(data)
+        }
+    }
+}
+
+fn flatten_rgba_to_rgb(rgba_image: &image::RgbaImage) -> image::RgbImage {
+    let (width, height) = rgba_image.dimensions();
+    let mut rgb_image = image::RgbImage::new(width, height);
+
+    for (x, y, pixel) in rgba_image.enumerate_pixels() {
+        let [r, g, b, a] = pixel.0;
+        if a == 0 {
+            rgb_image.put_pixel(x, y, image::Rgb([255, 255, 255]));
+            continue;
+        }
+
+        if a == u8::MAX {
+            rgb_image.put_pixel(x, y, image::Rgb([r, g, b]));
+            continue;
+        }
+
+        let alpha = f32::from(a) / 255.0;
+        let inv_alpha = 1.0 - alpha;
+
+        let blend = |channel: u8| -> u8 {
+            ((f32::from(channel) * alpha) + (255.0 * inv_alpha))
+                .round()
+                .clamp(0.0, 255.0) as u8
+        };
+
+        rgb_image.put_pixel(x, y, image::Rgb([blend(r), blend(g), blend(b)]));
+    }
+
+    rgb_image
+}
+
+fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<Vec<u8>, AppError> {
+    let font_family = load_default_font_family()?;
     let mut doc = genpdf::Document::new(font_family);
     doc.set_title(title);
 
@@ -99,13 +387,40 @@ fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<V
     }
 
     // Add images
-    for image_path in image_paths {
-        if let Ok(image_data) = std::fs::read(image_path) {
-            if let Ok(image) =
-                genpdf::elements::Image::from_reader(std::io::Cursor::new(image_data))
-            {
-                doc.push(image);
-                doc.push(genpdf_elements::Break::new(1));
+    for (index, image_path) in image_paths.iter().enumerate() {
+        match prepare_image_for_pdf(image_path) {
+            Ok(image_bytes) => {
+                match genpdf::elements::Image::from_reader(std::io::Cursor::new(image_bytes)) {
+                    Ok(mut image) => {
+                        image.set_alignment(genpdf::Alignment::Center);
+                        if index == 0 {
+                            image.set_scale(genpdf::Scale::new(1.0, 1.0));
+                        } else {
+                            image.set_scale(genpdf::Scale::new(0.5, 0.5));
+                        }
+
+                        doc.push(image);
+                        doc.push(genpdf_elements::Break::new(if index == 0 {
+                            1.5
+                        } else {
+                            0.75
+                        }));
+                    }
+                    Err(err) => {
+                        warn!(
+                            error = %err,
+                            image_path = %image_path,
+                            "Failed to decode image for PDF export"
+                        );
+                    }
+                }
+            }
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    image_path = %image_path,
+                    "Failed to prepare image for PDF export"
+                );
             }
         }
     }
