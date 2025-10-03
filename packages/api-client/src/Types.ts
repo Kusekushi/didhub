@@ -18,7 +18,6 @@ export interface Alter {
   interests?: string[] | string;
   triggers?: string;
   notes?: string;
-  affiliation?: string[] | string;
   affiliations?: Array<number | string>; // Backend returns array of group IDs
   subsystem?: number | string;
   system_roles?: string[] | string;

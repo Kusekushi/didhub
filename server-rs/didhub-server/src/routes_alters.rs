@@ -495,14 +495,6 @@ pub async fn create_alter(
                 }
             }
         }
-        // also accept singular "affiliation" key
-        if rel_affiliations.is_none() {
-            if let Some(v) = obj.get("affiliation") {
-                if let Some(arr) = v.as_array() {
-                    rel_affiliations = Some(arr.iter().filter_map(|x| x.as_i64()).collect());
-                }
-            }
-        }
     }
 
     let created = db
@@ -705,14 +697,6 @@ pub async fn update_alter(
             if let Some(v) = obj.get(k) {
                 if let Some(arr) = v.as_array() {
                     *target = Some(arr.iter().filter_map(|x| x.as_i64()).collect());
-                }
-            }
-        }
-        // also accept singular "affiliation" key
-        if rel_affiliations.is_none() {
-            if let Some(v) = obj.get("affiliation") {
-                if let Some(arr) = v.as_array() {
-                    rel_affiliations = Some(arr.iter().filter_map(|x| x.as_i64()).collect());
                 }
             }
         }

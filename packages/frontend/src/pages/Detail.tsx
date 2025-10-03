@@ -62,31 +62,7 @@ export default function Detail(): React.ReactElement {
   if (!alter) return <Container sx={{ mt: 4 }}>Alter not found</Container>;
 
   // Computed normalized arrays
-  const affiliationsNormalized = (() => {
-    const raw = alter.affiliation || alter.affiliations;
-    if (!raw && raw !== '') return [];
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === 'string') {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed))
-          return parsed
-            .map((s: string) => (typeof s === 'string' ? s.trim() : String(s)))
-            .filter((s: string) => s.length > 0);
-      } catch (e) {
-        // not JSON
-      }
-      // comma-separated fallback
-      if (raw.indexOf(',') !== -1)
-        return raw
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-      if (raw.trim() === '') return [];
-      return [raw];
-    }
-    return [String(raw)];
-  })();
+  const affiliationsNormalized = Array.isArray(alter.affiliations) ? alter.affiliations : [];
 
   const partnersNormalized = (() => {
     const raw = (alter as any).partners;

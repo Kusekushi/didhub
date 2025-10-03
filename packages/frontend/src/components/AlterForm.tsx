@@ -767,17 +767,17 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
         <GroupPicker
           multiple={true}
           value={
-            (Array.isArray(values.affiliation) && values.affiliation.length
-              ? values.affiliation
+            (Array.isArray(values.affiliations) && values.affiliations.length
+              ? values.affiliations
               : Array.isArray(values.group)
-                ? (values.group as any)
-                : values.affiliation || values.group || []) as any
+                  ? (values.group as any)
+                  : values.affiliations || values.group || []) as any
           }
           onChange={async (v: number | string | (number | string)[] | null) => {
             onChange('group', v);
             try {
               if (!v || !(Array.isArray(v) ? v.length : true)) {
-                onChange('affiliation', []);
+                onChange('affiliations', []);
               } else {
                 const ids: Array<number | string> = [];
                 const arr = Array.isArray(v) ? v : [v];
@@ -792,14 +792,17 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
                         (it) => it && it.name && String(it.name).toLowerCase() === String(item).toLowerCase(),
                       );
                       if (found && typeof found.id !== 'undefined') ids.push(found.id as number | string);
-                      else ids.push(item);
+                      else {
+                        const numeric = Number(item);
+                        ids.push(Number.isNaN(numeric) ? item : numeric);
+                      }
                     } catch (e) {
-                      // fallback to pushing the raw string
-                      ids.push(item);
+                      const numericFallback = Number(item);
+                      ids.push(Number.isNaN(numericFallback) ? item : numericFallback);
                     }
                   }
                 }
-                onChange('affiliation', ids);
+                onChange('affiliations', ids);
               }
             } catch (e) {
               // ignore

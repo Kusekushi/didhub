@@ -44,7 +44,7 @@ export function useAlterData(id?: string) {
           setGroupObj(null);
           setAffiliationGroup(null);
           // Handle affiliations
-          const affiliationData = alterResult?.affiliation || alterResult?.affiliations;
+          const affiliationData = alterResult?.affiliations;
           if (alterResult && affiliationData) {
             await resolveAffiliations(affiliationData);
           }
@@ -158,7 +158,7 @@ export function useAlterData(id?: string) {
         setGroupObj(null);
         setAffiliationGroup(null);
         // Handle affiliations
-        const affiliationData = alterResult?.affiliation || alterResult?.affiliations;
+        const affiliationData = alterResult?.affiliations;
         if (alterResult && affiliationData) {
           await resolveAffiliations(affiliationData);
         }

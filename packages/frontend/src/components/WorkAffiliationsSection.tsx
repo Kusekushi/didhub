@@ -59,8 +59,6 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
       clickable
       size="small"
     />
-  ) : props.alter.affiliation ? (
-    String(props.alter.affiliation)
   ) : (
     '-'
   );
@@ -72,7 +70,7 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
         <strong>Job:</strong> {props.alter.job || '-'}
       </div>
       <div>
-        <strong>Affiliation:</strong> {affiliationsNormalized}
+        <strong>Affiliations:</strong> {affiliationsNormalized}
       </div>
       <div>
         <strong>Weapon:</strong> {props.alter.weapon || '-'}

@@ -86,6 +86,8 @@ export default function GroupPicker(props: GroupPickerProps) {
     return { name: props.value };
   })();
 
+  const label = multiple ? 'Affiliations' : 'Affiliation';
+
   return (
     <>
       <Autocomplete
@@ -96,7 +98,13 @@ export default function GroupPicker(props: GroupPickerProps) {
         inputValue={inputValue}
         onInputChange={(e, v) => setInputValue(v)}
         onChange={handleChange}
-        renderInput={(params) => <TextField {...params} label="Affiliation" />}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={label}
+            placeholder={multiple ? 'Select affiliations' : 'Select affiliation'}
+          />
+        )}
         freeSolo
         clearOnBlur={false}
       />

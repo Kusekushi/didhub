@@ -334,7 +334,7 @@ const empty: Alter = {
   interests: '',
   triggers: '',
   notes: '',
-  affiliation: [],
+  affiliations: [],
   subsystem: '',
   group: '',
   system_roles: [],
@@ -352,6 +352,62 @@ interface RelationshipEntry {
 
 function isRelationshipType(value: unknown): value is RelationshipType {
   return value === 'partner' || value === 'parent' || value === 'child';
+}
+
+function normalizeAffiliationIds(source: unknown): Array<number | string> | null {
+  if (source == null) return null;
+
+  const rawItems: unknown[] = (() => {
+    if (Array.isArray(source)) return source;
+    if (typeof source === 'string') {
+      const trimmed = source.trim();
+      if (!trimmed) return [];
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) return parsed as unknown[];
+        } catch {
+          // fall through to comma split
+        }
+      }
+      return trimmed
+        .split(',')
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+    }
+    if (typeof source === 'number') return [source];
+    return null;
+  })();
+
+  if (!rawItems) return null;
+
+  const normalized = rawItems
+    .map((item) => {
+      if (item == null) return null;
+      if (typeof item === 'number') return item;
+      if (typeof item === 'string') {
+        const trimmed = item.trim();
+        if (!trimmed) return null;
+        const numeric = Number(trimmed);
+        return Number.isNaN(numeric) ? trimmed : numeric;
+      }
+      if (typeof item === 'object') {
+        const candidate = item as { id?: unknown };
+        if (candidate && typeof candidate.id !== 'undefined') {
+          if (typeof candidate.id === 'number') return candidate.id;
+          if (typeof candidate.id === 'string') {
+            const trimmed = candidate.id.trim();
+            if (!trimmed) return null;
+            const numeric = Number(trimmed);
+            return Number.isNaN(numeric) ? trimmed : numeric;
+          }
+        }
+      }
+      return null;
+    })
+    .filter((value): value is number | string => value !== null);
+
+  return normalized;
 }
 
 export default function AlterFormDialog(props: AlterFormDialogProps) {
@@ -454,8 +510,11 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         .filter((rel) => rel.relationship_type === 'child')
         .map((rel) => rel.user_id);
 
+      const affiliationIds = normalizeAffiliationIds(r.affiliations) ?? [];
+
       setValues({
         ...r,
+        affiliations: affiliationIds,
         user_partners,
         user_parents,
         user_children,
@@ -467,7 +526,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
       });
       await refreshPartnerOptions(r);
     } else {
-      setValues({});
+      setValues(empty);
       setOriginalUserRelationships([]);
     }
     setErrors({});
@@ -570,6 +629,10 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     payload.is_system_host = !!payload.is_system_host;
     payload.is_dormant = !!payload.is_dormant;
     payload.is_merged = !!payload.is_merged;
+    const normalizedAffiliations = normalizeAffiliationIds((payload as { affiliations?: unknown }).affiliations);
+    if (normalizedAffiliations !== null) {
+      (payload as any).affiliations = normalizedAffiliations;
+    }
     // Normalize partners: accept `partner` or `partners` (string or array)
     // Normalize partners: ensure `partners` is an array of non-empty trimmed strings
     if (Array.isArray((payload as any).partners)) {

@@ -63,7 +63,7 @@ function normalizeAlter(input: unknown): Alter {
     children: normalizeIdArray(alter.children),
     soul_songs: normalizeStringArray(alter.soul_songs),
     interests: normalizeStringArray(alter.interests),
-    affiliation: normalizeStringArray(alter.affiliation),
+    affiliations: normalizeIdArray(alter.affiliations),
     system_roles: normalizeStringArray(alter.system_roles),
     images,
     user_relationships: Array.isArray(alter.user_relationships) ? alter.user_relationships : [],
