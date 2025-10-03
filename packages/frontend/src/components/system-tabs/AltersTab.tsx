@@ -1,5 +1,17 @@
 import React from 'react';
-import { Button, List, ListItem, ListItemText, ListItemAvatar, Avatar, Divider, Chip, Stack } from '@mui/material';
+import {
+  Avatar,
+  Button,
+  Chip,
+  Divider,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Pagination,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
 
@@ -16,6 +28,7 @@ interface AltersTabProps {
   createOpen: boolean;
   setCreateOpen: (open: boolean) => void;
   items: Alter[];
+  loading: boolean;
   search: string;
   hideDormant: boolean;
   hideMerged: boolean;
@@ -23,6 +36,10 @@ interface AltersTabProps {
   setEditingAlter: (id: number | string | null) => void;
   editOpen: boolean;
   setEditOpen: (open: boolean) => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
   onDelete: (alterId: number | string) => Promise<void>;
   settings: SettingsState;
   setSnack: (snack: SnackbarMessage) => void;
@@ -31,6 +48,15 @@ interface AltersTabProps {
 
 export default function AltersTab(props: AltersTabProps) {
   const nav = useNavigate();
+  const filteredItems = props.items
+    .filter(
+      (alter: Alter) => !props.search || (alter.name || '').toLowerCase().includes(props.search.toLowerCase()),
+    )
+    .filter((alter: Alter) => (props.hideDormant ? !alter?.is_dormant : true))
+    .filter((alter: Alter) => (props.hideMerged ? !alter?.is_merged : true));
+  const pageCount = Math.max(1, Math.ceil((props.total || 0) / Math.max(1, props.pageSize)));
+  const displayStart = props.total === 0 ? 0 : props.page * props.pageSize + 1;
+  const displayEnd = props.total === 0 ? 0 : Math.min(props.total, (props.page + 1) * props.pageSize);
 
   return (
     <div>
@@ -51,13 +77,7 @@ export default function AltersTab(props: AltersTabProps) {
         </div>
       )}
       <List>
-        {props.items
-          .filter(
-            (alter: Alter) => !props.search || (alter.name || '').toLowerCase().includes(props.search.toLowerCase()),
-          )
-          .filter((alter: Alter) => (props.hideDormant ? !alter?.is_dormant : true))
-          .filter((alter: Alter) => (props.hideMerged ? !alter?.is_merged : true))
-          .map((it: Alter, idx: number) => (
+        {filteredItems.map((it: Alter, idx: number) => (
             <React.Fragment key={it.id}>
               <ListItem
                 alignItems="flex-start"
@@ -155,10 +175,37 @@ export default function AltersTab(props: AltersTabProps) {
                   secondaryTypographyProps={{ component: 'div' }}
                 />
               </ListItem>
-              {idx < props.items.length - 1 && <Divider component="li" />}
+              {idx < filteredItems.length - 1 && <Divider component="li" />}
             </React.Fragment>
           ))}
       </List>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: 16,
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          {props.loading && props.total === 0
+            ? 'Loading…'
+            : props.total === 0
+              ? 'No alters to display'
+              : `Showing ${displayStart}-${displayEnd} of ${props.total}`}
+        </Typography>
+        <Pagination
+          count={pageCount}
+          page={Math.min(props.page + 1, pageCount)}
+          onChange={(_event, value) => props.onPageChange(value - 1)}
+          color="primary"
+          size="small"
+          disabled={pageCount <= 1}
+        />
+      </div>
 
       <AlterFormDialog
         mode="edit"

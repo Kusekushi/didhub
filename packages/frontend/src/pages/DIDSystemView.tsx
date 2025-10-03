@@ -37,11 +37,30 @@ export default function DIDSystemView(): React.ReactElement {
   const [tab, setTab] = useState(0);
   const [systems, setSystems] = useState<User[]>([]);
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
+  const PAGE_SIZE = 20;
+  const [alterPage, setAlterPage] = useState(0);
+  const [groupPage, setGroupPage] = useState(0);
+  const [subsystemPage, setSubsystemPage] = useState(0);
 
   // Custom hooks for data management
-  const { items: alters, loading: altersLoading, refresh: refreshAlters } = useAltersData(uid, search, tab);
-  const { items: groups, refresh: refreshGroups } = useGroupsData(uid, search, tab);
-  const { items: subsystems, refresh: refreshSubsystems } = useSubsystemsData(uid, search, tab);
+  const {
+    items: alters,
+    loading: altersLoading,
+    total: altersTotal,
+    refresh: refreshAlters,
+  } = useAltersData(uid, search, tab, alterPage, PAGE_SIZE);
+  const {
+    items: groups,
+    loading: groupsLoading,
+    total: groupsTotal,
+    refresh: refreshGroups,
+  } = useGroupsData(uid, search, tab, groupPage, PAGE_SIZE);
+  const {
+    items: subsystems,
+    loading: subsystemsLoading,
+    total: subsystemsTotal,
+    refresh: refreshSubsystems,
+  } = useSubsystemsData(uid, search, tab, subsystemPage, PAGE_SIZE);
   // Dialog state management
   const dialogStates = useDialogStates();
 
@@ -81,6 +100,27 @@ export default function DIDSystemView(): React.ReactElement {
     }
   }, [uid, me, nav]);
 
+  useEffect(() => {
+    setAlterPage(0);
+    setGroupPage(0);
+    setSubsystemPage(0);
+  }, [uid, search]);
+
+  useEffect(() => {
+    const maxAlterPage = Math.max(0, Math.ceil(altersTotal / PAGE_SIZE) - 1);
+    if (alterPage > maxAlterPage) setAlterPage(maxAlterPage);
+  }, [altersTotal, alterPage, PAGE_SIZE]);
+
+  useEffect(() => {
+    const maxGroupPage = Math.max(0, Math.ceil(groupsTotal / PAGE_SIZE) - 1);
+    if (groupPage > maxGroupPage) setGroupPage(maxGroupPage);
+  }, [groupsTotal, groupPage, PAGE_SIZE]);
+
+  useEffect(() => {
+    const maxSubsystemPage = Math.max(0, Math.ceil(subsystemsTotal / PAGE_SIZE) - 1);
+    if (subsystemPage > maxSubsystemPage) setSubsystemPage(maxSubsystemPage);
+  }, [subsystemsTotal, subsystemPage, PAGE_SIZE]);
+
   // Computed values
   const currentSystem = systems.find((s) => String(s.user_id) === String(uid));
   const canManage = me && (me.is_admin || (me.is_system && String(me.id) === String(uid)));
@@ -113,6 +153,7 @@ export default function DIDSystemView(): React.ReactElement {
           createOpen={dialogStates.createOpen}
           setCreateOpen={dialogStates.setCreateOpen}
           items={alters}
+          loading={altersLoading}
           search={search}
           hideDormant={hideDormant}
           hideMerged={hideMerged}
@@ -120,6 +161,10 @@ export default function DIDSystemView(): React.ReactElement {
           setEditingAlter={dialogStates.setEditingAlter}
           editOpen={dialogStates.editOpen}
           setEditOpen={dialogStates.setEditOpen}
+          page={alterPage}
+          pageSize={PAGE_SIZE}
+          total={altersTotal}
+          onPageChange={setAlterPage}
           onDelete={async (alterId) => {
             await apiClient.alters.remove(alterId);
             await refreshAlters();
@@ -170,6 +215,11 @@ export default function DIDSystemView(): React.ReactElement {
           setLeaderQuery={groupCreationState.setLeaderQuery}
           altersOptions={altersOptions}
           groups={groups}
+          loading={groupsLoading}
+          page={groupPage}
+          pageSize={PAGE_SIZE}
+          total={groupsTotal}
+          onPageChange={setGroupPage}
           editingGroup={dialogStates.editingGroup}
           setEditingGroup={dialogStates.setEditingGroup}
           editGroupOpen={dialogStates.editGroupOpen}
@@ -223,6 +273,11 @@ export default function DIDSystemView(): React.ReactElement {
           newSubsystemType={subsystemCreationState.newSubsystemType}
           setNewSubsystemType={subsystemCreationState.setNewSubsystemType}
           subsystems={subsystems}
+          loading={subsystemsLoading}
+          page={subsystemPage}
+          pageSize={PAGE_SIZE}
+          total={subsystemsTotal}
+          onPageChange={setSubsystemPage}
           uid={uid || ''}
           onDelete={async (subsystemId) => {
             await apiClient.subsystems.remove(subsystemId);

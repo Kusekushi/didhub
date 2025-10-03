@@ -14,6 +14,8 @@ import {
   Divider,
   IconButton,
   Tooltip,
+  Pagination,
+  Typography,
 } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import { getShortLinkUrl } from '@didhub/api-client';
@@ -32,6 +34,11 @@ export interface SubsystemsTabProps {
   newSubsystemType: string;
   setNewSubsystemType: (type: string) => void;
   subsystems: Subsystem[];
+  loading: boolean;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
   uid: string;
   onDelete: (subsystemId: number | string) => Promise<void>;
   settings: SettingsState;
@@ -43,6 +50,10 @@ export interface SubsystemsTabProps {
 }
 
 export default function SubsystemsTab(props: SubsystemsTabProps) {
+  const pageCount = Math.max(1, Math.ceil((props.total || 0) / Math.max(1, props.pageSize)));
+  const displayStart = props.total === 0 ? 0 : props.page * props.pageSize + 1;
+  const displayEnd = props.total === 0 ? 0 : Math.min(props.total, (props.page + 1) * props.pageSize);
+
   return (
     <div>
       {props.canManage && (
@@ -187,6 +198,33 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
           </React.Fragment>
         ))}
       </List>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: 16,
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          {props.loading && props.total === 0
+            ? 'Loading…'
+            : props.total === 0
+              ? 'No subsystems to display'
+              : `Showing ${displayStart}-${displayEnd} of ${props.total}`}
+        </Typography>
+        <Pagination
+          count={pageCount}
+          page={Math.min(props.page + 1, pageCount)}
+          onChange={(_event, value) => props.onPageChange(value - 1)}
+          color="primary"
+          size="small"
+          disabled={pageCount <= 1}
+        />
+      </div>
     </div>
   );
 }

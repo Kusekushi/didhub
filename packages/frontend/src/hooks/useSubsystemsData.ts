@@ -7,12 +7,18 @@ const { subsystems } = apiClient;
 /**
  * Hook to manage subsystems data for a system
  */
-export function useSubsystemsData(uid?: string, search: string = '', activeTab: number = 0) {
+export function useSubsystemsData(
+  uid?: string,
+  search: string = '',
+  activeTab: number = 0,
+  page: number = 0,
+  pageSize: number = 20,
+) {
   const fetchSubsystems = useCallback(
-    ({ ownerUserId, query, includeMembers }: EntityFetchFilters) =>
-      subsystems.list({ ownerUserId, query, includeMembers }),
+    ({ ownerUserId, query, includeMembers, limit, offset }: EntityFetchFilters) =>
+      subsystems.listPaged({ ownerUserId, query, includeMembers, limit, offset }),
     [subsystems],
   );
 
-  return useEntityData<Subsystem>(2, fetchSubsystems, uid, search, activeTab);
+  return useEntityData<Subsystem>(2, fetchSubsystems, uid, search, activeTab, page, pageSize);
 }

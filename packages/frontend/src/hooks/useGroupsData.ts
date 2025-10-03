@@ -7,12 +7,18 @@ const { groups } = apiClient;
 /**
  * Hook to manage groups data for a system
  */
-export function useGroupsData(uid?: string, search: string = '', activeTab: number = 0) {
+export function useGroupsData(
+  uid?: string,
+  search: string = '',
+  activeTab: number = 0,
+  page: number = 0,
+  pageSize: number = 20,
+) {
   const fetchGroups = useCallback(
-    ({ ownerUserId, query, includeMembers }: EntityFetchFilters) =>
-      groups.list({ ownerUserId, query, includeMembers }),
+    ({ ownerUserId, query, includeMembers, limit, offset }: EntityFetchFilters) =>
+      groups.listPaged({ ownerUserId, query, includeMembers, limit, offset }),
     [groups],
   );
 
-  return useEntityData<Group>(1, fetchGroups, uid, search, activeTab);
+  return useEntityData<Group>(1, fetchGroups, uid, search, activeTab, page, pageSize);
 }

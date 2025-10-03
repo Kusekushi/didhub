@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEntityData } from '../useEntityData';
 
 const mockFetchFunction = vi.fn();
@@ -9,49 +9,72 @@ describe('useEntityData', () => {
     vi.clearAllMocks();
   });
 
-  it('should initialize with empty items array', () => {
-    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
-
-    expect(result.current.items).toEqual([]);
-  });
-
-  it('should not fetch data when activeTab does not match targetTab', () => {
-    renderHook(() => useEntityData(1, mockFetchFunction, 'test-uid', '', 0));
+  it('should initialize with empty state when inactive', () => {
+    const { result } = renderHook(() => useEntityData(1, mockFetchFunction, 'uid', '', 0));
 
     expect(mockFetchFunction).not.toHaveBeenCalled();
+    expect(result.current.items).toEqual([]);
+    expect(result.current.total).toBe(0);
+    expect(result.current.loading).toBe(false);
   });
 
-  it('should not fetch data when uid is not provided', () => {
+  it('should not fetch data when uid is missing', () => {
     renderHook(() => useEntityData(0, mockFetchFunction, undefined, '', 0));
 
     expect(mockFetchFunction).not.toHaveBeenCalled();
   });
 
-  it('should fetch data when activeTab matches targetTab and uid is provided', async () => {
+  it('should fetch data with pagination when active', async () => {
     const mockData = [{ id: 1, name: 'Test Item' }];
-    mockFetchFunction.mockResolvedValue(mockData);
+    mockFetchFunction.mockResolvedValue({ items: mockData, total: 5, limit: 20, offset: 0 });
 
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
-      expect(mockFetchFunction).toHaveBeenCalledWith({ ownerUserId: 'test-uid', query: '', includeMembers: true });
+      expect(mockFetchFunction).toHaveBeenCalledWith({
+        ownerUserId: 'test-uid',
+        query: '',
+        includeMembers: true,
+        limit: 20,
+        offset: 0,
+      });
       expect(result.current.items).toEqual(mockData);
+      expect(result.current.total).toBe(5);
+    });
+  });
+
+  it('passes trimmed owner ids to the fetch function', async () => {
+    mockFetchFunction.mockResolvedValue({ items: [], total: 0, limit: 20, offset: 0 });
+
+    renderHook(() => useEntityData(0, mockFetchFunction, ' 42 ', '', 0));
+
+    await waitFor(() => {
+      expect(mockFetchFunction).toHaveBeenCalledWith({
+        ownerUserId: '42',
+        query: '',
+        includeMembers: true,
+        limit: 20,
+        offset: 0,
+      });
     });
   });
 
   it('should include search query in fetch request', async () => {
-    const mockData = [{ id: 1, name: 'Test Item' }];
-    mockFetchFunction.mockResolvedValue(mockData);
+    const mockData = [{ id: 2, name: 'Filtered' }];
+    mockFetchFunction.mockResolvedValue({ items: mockData, total: 1, limit: 20, offset: 0 });
 
-    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', 'search term', 0));
+    const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', 'team', 0));
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenCalledWith({
         ownerUserId: 'test-uid',
-        query: 'search term',
+        query: 'team',
         includeMembers: true,
+        limit: 20,
+        offset: 0,
       });
       expect(result.current.items).toEqual(mockData);
+      expect(result.current.total).toBe(1);
     });
   });
 
@@ -61,28 +84,36 @@ describe('useEntityData', () => {
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
-      expect(mockFetchFunction).toHaveBeenCalledWith({ ownerUserId: 'test-uid', query: '', includeMembers: true });
+      expect(mockFetchFunction).toHaveBeenCalledWith({
+        ownerUserId: 'test-uid',
+        query: '',
+        includeMembers: true,
+        limit: 20,
+        offset: 0,
+      });
+      expect(result.current.items).toEqual([]);
+      expect(result.current.total).toBe(0);
     });
-
-    // Should still have empty array after error
-    expect(result.current.items).toEqual([]);
   });
 
-  it('should handle response without items property', async () => {
-    const mockData = [{ id: 1, name: 'Test Item' }];
+  it('should accept array results as fallback', async () => {
+    const mockData = [{ id: 3, name: 'Array Item' }];
     mockFetchFunction.mockResolvedValue(mockData);
 
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
     await waitFor(() => {
       expect(result.current.items).toEqual(mockData);
+      expect(result.current.total).toBe(mockData.length);
     });
   });
 
-  it('should refetch data when refresh is called', async () => {
-    const mockData = [{ id: 1, name: 'Test Item' }];
-    const refreshData = [{ id: 2, name: 'Refreshed Item' }];
-    mockFetchFunction.mockResolvedValueOnce(mockData).mockResolvedValueOnce(refreshData);
+  it('should refresh using the same pagination parameters', async () => {
+    const mockData = [{ id: 1, name: 'Initial' }];
+    const refreshed = [{ id: 2, name: 'Refreshed' }];
+    mockFetchFunction
+      .mockResolvedValueOnce({ items: mockData, total: 2, limit: 20, offset: 0 })
+      .mockResolvedValueOnce({ items: refreshed, total: 2, limit: 20, offset: 0 });
 
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, 'test-uid', '', 0));
 
@@ -93,17 +124,18 @@ describe('useEntityData', () => {
     await result.current.refresh();
 
     await waitFor(() => {
-      expect(mockFetchFunction).toHaveBeenNthCalledWith(1, {
+      expect(mockFetchFunction).toHaveBeenNthCalledWith(2, {
         ownerUserId: 'test-uid',
         query: '',
         includeMembers: true,
+        limit: 20,
+        offset: 0,
       });
-      expect(mockFetchFunction).toHaveBeenNthCalledWith(2, { ownerUserId: 'test-uid', query: '' });
-      expect(result.current.items).toEqual(refreshData);
+      expect(result.current.items).toEqual(refreshed);
     });
   });
 
-  it('should not refresh when uid is not provided', async () => {
+  it('should not refresh when uid is missing', async () => {
     const { result } = renderHook(() => useEntityData(0, mockFetchFunction, undefined, '', 0));
 
     await result.current.refresh();
@@ -112,28 +144,32 @@ describe('useEntityData', () => {
   });
 
   it('should refetch when search term changes', async () => {
-    const mockData1 = [{ id: 1, name: 'Item 1' }];
-    const mockData2 = [{ id: 2, name: 'Item 2' }];
-    mockFetchFunction.mockResolvedValueOnce(mockData1).mockResolvedValueOnce(mockData2);
+    const first = [{ id: 1, name: 'Item 1' }];
+    const second = [{ id: 2, name: 'Item 2' }];
+    mockFetchFunction
+      .mockResolvedValueOnce({ items: first, total: 2, limit: 20, offset: 0 })
+      .mockResolvedValueOnce({ items: second, total: 2, limit: 20, offset: 0 });
 
     const { result, rerender } = renderHook(
-      ({ search }) => useEntityData(0, mockFetchFunction, 'test-uid', search, 0),
-      { initialProps: { search: '' } },
+      ({ term }) => useEntityData(0, mockFetchFunction, 'test-uid', term, 0),
+      { initialProps: { term: '' } },
     );
 
     await waitFor(() => {
-      expect(result.current.items).toEqual(mockData1);
+      expect(result.current.items).toEqual(first);
     });
 
-    rerender({ search: 'new search' });
+    rerender({ term: 'update' });
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenLastCalledWith({
         ownerUserId: 'test-uid',
-        query: 'new search',
+        query: 'update',
         includeMembers: true,
+        limit: 20,
+        offset: 0,
       });
-      expect(result.current.items).toEqual(mockData2);
+      expect(result.current.items).toEqual(second);
     });
   });
 });

@@ -5,67 +5,75 @@ import logger from '../logger';
 /**
  * Hook to manage alters data for a system
  */
-export function useAltersData(uid?: string, search: string = '', activeTab: number = 0) {
+export function useAltersData(
+  uid?: string,
+  search: string = '',
+  activeTab: number = 0,
+  page: number = 0,
+  pageSize: number = 20,
+) {
   const [items, setItems] = useState<Alter[]>([]);
   const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
 
-  // Initial load
   useEffect(() => {
-    // Only load when UID is present and the alters tab is active (tab 0)
-    if (!uid || activeTab !== 0) return;
+    if (!uid || activeTab !== 0) {
+      setItems([]);
+      setTotal(0);
+      return;
+    }
 
-    let mounted = true;
-    (async () => {
+    let cancelled = false;
+    const offset = Math.max(0, page) * Math.max(1, pageSize);
+
+    const load = async () => {
       try {
         setLoading(true);
-        const result = await apiClient.alters.listBySystem(uid, { includeRelationships: true });
-        if (!mounted) return;
-        setItems(result);
+        const pageResult = await apiClient.alters.list({
+          userId: uid,
+          query: search,
+          includeRelationships: true,
+          perPage: pageSize,
+          offset,
+        });
+        if (cancelled) return;
+        setItems(pageResult.items);
+        setTotal(pageResult.total);
       } catch (e) {
         logger.warn('failed loading alters', e);
-        if (mounted) setItems([]);
+        if (!cancelled) {
+          setItems([]);
+          setTotal(0);
+        }
       } finally {
-        if (mounted) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    })();
-    return () => {
-      mounted = false;
     };
-  }, [uid, activeTab]);
 
-  // Search with debouncing
-  useEffect(() => {
-    // Only search when the alters tab is active
-    if (!uid || activeTab !== 0) return;
+    void load();
 
-    let mounted = true;
-    const t = setTimeout(async () => {
-      try {
-        setLoading(true);
-        const result = await apiClient.alters.search({ userId: uid, query: search, includeRelationships: true });
-        if (!mounted) return;
-        setItems(result);
-      } catch {
-        // Ignore errors when searching alters
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }, 350);
     return () => {
-      mounted = false;
-      clearTimeout(t);
+      cancelled = true;
     };
-  }, [search, uid]);
+  }, [uid, activeTab, search, page, pageSize]);
 
   const refresh = async () => {
-    if (!uid) return;
+    if (!uid || activeTab !== 0) return;
     try {
-      const result = await apiClient.alters.search({ userId: uid, query: search, includeRelationships: true });
-      setItems(result);
+      const offset = Math.max(0, page) * Math.max(1, pageSize);
+      const pageResult = await apiClient.alters.list({
+        userId: uid,
+        query: search,
+        includeRelationships: true,
+        perPage: pageSize,
+        offset,
+      });
+      setItems(pageResult.items);
+      setTotal(pageResult.total);
     } catch (e) {
       logger.warn('refreshAlters failed', e);
     }
   };
 
-  return { items, loading, refresh };
+  return { items, loading, total, refresh };
 }

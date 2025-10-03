@@ -1,17 +1,31 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Alter } from '@didhub/api-client';
 import { useAltersData } from '../useAltersData';
 
-const { listBySystemMock, searchMock } = vi.hoisted(() => ({
-  listBySystemMock: vi.fn(),
-  searchMock: vi.fn(),
+type ListParams = {
+  userId?: string;
+  query?: string;
+  includeRelationships?: boolean;
+  perPage?: number;
+  offset?: number;
+};
+
+type MockPage<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+const { listMock } = vi.hoisted(() => ({
+  listMock: vi.fn<(params: ListParams) => Promise<MockPage<Alter>>>(),
 }));
 
 vi.mock('@didhub/api-client', () => ({
   apiClient: {
     alters: {
-      listBySystem: listBySystemMock,
-      search: searchMock,
+      list: listMock,
     },
   },
 }));
@@ -19,8 +33,7 @@ vi.mock('@didhub/api-client', () => ({
 describe('useAltersData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listBySystemMock.mockReset();
-    searchMock.mockReset();
+    listMock.mockReset();
   });
 
   it('returns empty items and not loading by default', () => {
@@ -32,75 +45,97 @@ describe('useAltersData', () => {
 
   it('does not request data without uid', () => {
     renderHook(() => useAltersData());
-    expect(listBySystemMock).not.toHaveBeenCalled();
-    expect(searchMock).not.toHaveBeenCalled();
+    expect(listMock).not.toHaveBeenCalled();
   });
 
   it('loads alters when uid provided', async () => {
     const alters = [{ id: 1, name: 'Alpha' }];
-    listBySystemMock.mockResolvedValue(alters);
+    listMock.mockResolvedValue({ items: alters, total: 3, limit: 20, offset: 0 });
 
     const { result } = renderHook(() => useAltersData('uid-1'));
 
     await waitFor(() => {
-      expect(listBySystemMock).toHaveBeenCalledWith('uid-1', { includeRelationships: true });
+      expect(listMock).toHaveBeenCalledWith({
+        userId: 'uid-1',
+        query: '',
+        includeRelationships: true,
+        perPage: 20,
+        offset: 0,
+      });
       expect(result.current.items).toEqual(alters);
+      expect(result.current.total).toBe(3);
     });
   });
 
   it('falls back to empty list when load fails', async () => {
-    listBySystemMock.mockRejectedValue(new Error('boom'));
+    listMock.mockRejectedValue(new Error('boom'));
 
     const { result } = renderHook(() => useAltersData('uid-1'));
 
     await waitFor(() => {
-      expect(listBySystemMock).toHaveBeenCalled();
+      expect(listMock).toHaveBeenCalled();
       expect(result.current.items).toEqual([]);
       expect(result.current.loading).toBe(false);
     });
   });
 
-  it('debounces search queries', async () => {
-    listBySystemMock.mockResolvedValue([]);
-    searchMock.mockResolvedValue([{ id: 2, name: 'Beta' }]);
+  it('includes search query when fetching', async () => {
+    const alters = [{ id: 2, name: 'Beta' }];
+    listMock.mockResolvedValue({ items: alters, total: 1, limit: 20, offset: 0 });
 
     const { result } = renderHook(() => useAltersData('uid-1', 'bet'));
 
     await waitFor(() => {
-      expect(listBySystemMock).toHaveBeenCalled();
-    });
-
-    await waitFor(() => {
-      expect(searchMock).toHaveBeenCalledWith({
+      expect(listMock).toHaveBeenCalledWith({
         userId: 'uid-1',
         query: 'bet',
         includeRelationships: true,
+        perPage: 20,
+        offset: 0,
       });
-      expect(result.current.items).toEqual([{ id: 2, name: 'Beta' }]);
+      expect(result.current.items).toEqual(alters);
+      expect(result.current.total).toBe(1);
     });
   });
 
-  it('refreshes using current search criteria', async () => {
-    listBySystemMock.mockResolvedValue([]);
-    searchMock.mockResolvedValue([{ id: 5, name: 'Gamma' }]);
+  it('refreshes using current pagination parameters', async () => {
+  const first: MockPage<Alter> = { items: [{ id: 5, name: 'Gamma' }], total: 5, limit: 20, offset: 0 };
+  const second: MockPage<Alter> = { items: [{ id: 6, name: 'Delta' }], total: 5, limit: 20, offset: 0 };
+  listMock.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
 
     const { result } = renderHook(() => useAltersData('uid-1', 'gamma'));
 
     await waitFor(() => {
-      expect(result.current.items).toEqual([{ id: 5, name: 'Gamma' }]);
+      expect(result.current.items).toEqual(first.items);
     });
-
-    searchMock.mockResolvedValue([{ id: 6, name: 'Delta' }]);
 
     await act(async () => {
       await result.current.refresh();
     });
 
-    expect(searchMock).toHaveBeenCalledWith({
+    expect(listMock).toHaveBeenLastCalledWith({
       userId: 'uid-1',
       query: 'gamma',
       includeRelationships: true,
+      perPage: 20,
+      offset: 0,
     });
-    expect(result.current.items).toEqual([{ id: 6, name: 'Delta' }]);
+    expect(result.current.items).toEqual(second.items);
+  });
+
+  it('requests subsequent pages with computed offset', async () => {
+    listMock.mockResolvedValue({ items: [{ id: 9 }], total: 25, limit: 10, offset: 20 });
+
+    renderHook(() => useAltersData('uid-9', '', 0, 2, 10));
+
+    await waitFor(() => {
+      expect(listMock).toHaveBeenCalledWith({
+        userId: 'uid-9',
+        query: '',
+        includeRelationships: true,
+        perPage: 10,
+        offset: 20,
+      });
+    });
   });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, List } from '@mui/material';
+import { Button, List, Pagination, Typography } from '@mui/material';
 
 import GroupDialog from './GroupDialog';
 import GroupListItem from './GroupListItem';
@@ -29,6 +29,11 @@ export interface GroupsTabProps {
   setLeaderQuery: (query: string) => void;
   altersOptions: Alter[];
   groups: Group[];
+  loading: boolean;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
   editingGroup: Group | null;
   setEditingGroup: (group: Group | null) => void;
   editGroupOpen: boolean;
@@ -45,6 +50,10 @@ export interface GroupsTabProps {
 }
 
 export default function GroupsTab(props: GroupsTabProps) {
+  const pageCount = Math.max(1, Math.ceil((props.total || 0) / Math.max(1, props.pageSize)));
+  const displayStart = props.total === 0 ? 0 : props.page * props.pageSize + 1;
+  const displayEnd = props.total === 0 ? 0 : Math.min(props.total, (props.page + 1) * props.pageSize);
+
   return (
     <div>
       {props.canManage && (
@@ -95,6 +104,33 @@ export default function GroupsTab(props: GroupsTabProps) {
           />
         ))}
       </List>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: 16,
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          {props.loading && props.total === 0
+            ? 'Loading…'
+            : props.total === 0
+              ? 'No groups to display'
+              : `Showing ${displayStart}-${displayEnd} of ${props.total}`}
+        </Typography>
+        <Pagination
+          count={pageCount}
+          page={Math.min(props.page + 1, pageCount)}
+          onChange={(_event, value) => props.onPageChange(value - 1)}
+          color="primary"
+          size="small"
+          disabled={pageCount <= 1}
+        />
+      </div>
 
       <GroupDialog
         mode="edit"

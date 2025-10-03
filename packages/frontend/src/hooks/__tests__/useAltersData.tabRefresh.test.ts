@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('useAltersData tab-aware refresh', () => {
   beforeEach(() => {
@@ -10,10 +10,13 @@ describe('useAltersData tab-aware refresh', () => {
   it('only loads initial data when activeTab is 0 and reloads when returning to tab 0', async () => {
     const mod = await import('@didhub/api-client');
 
-    const listMock = vi.fn().mockResolvedValue([{ id: 'initial' }]);
-    const searchMock = vi.fn().mockResolvedValue([{ id: 'search' }]);
-    (mod as any).apiClient.alters.listBySystem = listMock;
-    (mod as any).apiClient.alters.search = searchMock;
+    const listMock = vi.fn().mockResolvedValue({
+      items: [{ id: 'initial' }],
+      total: 1,
+      limit: 20,
+      offset: 0,
+    });
+    (mod as any).apiClient.alters.list = listMock;
 
     const { useAltersData } = await import('../useAltersData');
 
@@ -23,7 +26,7 @@ describe('useAltersData tab-aware refresh', () => {
     });
     const { result, rerender } = hook1;
 
-    // Should not have called listBySystem yet
+  // Should not have called list yet
     expect(listMock).not.toHaveBeenCalled();
 
     // Switch to tab 0 (alters) - initial load should occur
@@ -34,7 +37,13 @@ describe('useAltersData tab-aware refresh', () => {
     });
 
     await waitFor(() => {
-      expect(listMock).toHaveBeenCalledWith('sys-1', { includeRelationships: true });
+      expect(listMock).toHaveBeenCalledWith({
+        userId: 'sys-1',
+        query: '',
+        includeRelationships: true,
+        perPage: 20,
+        offset: 0,
+      });
       expect(result.current.items).toEqual([{ id: 'initial' }]);
     });
 
@@ -50,7 +59,7 @@ describe('useAltersData tab-aware refresh', () => {
     // allow effect to run
     await new Promise((r) => setTimeout(r, 100));
 
-    // listBySystem should have been called once on remount
+    // list should have been called once on remount
     await waitFor(() => {
       expect(listMock).toHaveBeenCalledTimes(1);
       expect(r2.current.items).toEqual([{ id: 'initial' }]);

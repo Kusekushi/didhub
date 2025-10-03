@@ -105,6 +105,7 @@ export interface AlterListFilters {
   includeRelationships?: boolean;
   perPage?: number;
   offset?: number;
+  userId?: string | number;
 }
 
 export interface AlterSearchFilters extends AlterListFilters {
@@ -123,6 +124,8 @@ export class AltersApi {
     }
     if (typeof filters.perPage === 'number') query.per_page = filters.perPage;
     if (typeof filters.offset === 'number') query.offset = filters.offset;
+    if (typeof filters.userId !== 'undefined') query.user_id =
+      typeof filters.userId === 'number' ? filters.userId : String(filters.userId);
 
     const response = await this.http.request<Record<string, unknown>>({
       path: '/api/alters',
@@ -140,26 +143,26 @@ export class AltersApi {
     return createPage<Alter>({
       items,
       total: typeof payload.total === 'number' ? payload.total : undefined,
-      limit: typeof payload.per_page === 'number' ? payload.per_page : filters.perPage,
+      limit:
+        typeof payload.limit === 'number'
+          ? payload.limit
+          : typeof payload.per_page === 'number'
+            ? payload.per_page
+            : filters.perPage,
       offset: typeof payload.offset === 'number' ? payload.offset : filters.offset,
     });
   }
 
-  async listBySystem(userId: string, options: Omit<AlterSearchFilters, 'userId' | 'query'> = {}): Promise<Alter[]> {
-    const query: Record<string, string | number> = { user_id: userId };
-    if (options.includeRelationships) {
-      query.fields =
-        'id,name,age,pronouns,system_roles,is_system_host,is_dormant,is_merged,owner_user_id,images,relationships';
-    }
-    if (typeof options.perPage === 'number') query.per_page = options.perPage;
-
-    const response = await this.http.request<{ items?: unknown[] }>({
-      path: '/api/alters',
-      query,
+  async listBySystem(
+    userId: string,
+    options: Omit<AlterSearchFilters, 'userId' | 'query'> = {},
+  ): Promise<Page<Alter>> {
+    return this.list({
+      userId,
+      includeRelationships: options.includeRelationships,
+      perPage: options.perPage,
+      offset: options.offset,
     });
-
-    const items = Array.isArray(response.data?.items) ? response.data.items : [];
-    return items.map((item) => normalizeAlter(item));
   }
 
   async search(filters: AlterSearchFilters): Promise<Alter[]> {

@@ -1,4 +1,5 @@
 import { HttpClient } from '../core/HttpClient';
+import { createPage, Page } from '../core/Pagination';
 import { safeJsonParse } from '../Util';
 import type { Subsystem, SubsystemMember } from '../Types';
 
@@ -21,31 +22,46 @@ export interface SubsystemListFilters {
   ownerUserId?: string | number;
   includeMembers?: boolean;
   rawQuery?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export class SubsystemsApi {
   constructor(private readonly http: HttpClient) {}
 
-  async list(filters: SubsystemListFilters = {}): Promise<Subsystem[]> {
+  async listPaged(filters: SubsystemListFilters = {}): Promise<Page<Subsystem>> {
     const searchParams = new URLSearchParams(filters.rawQuery ? filters.rawQuery.replace(/^\?/, '') : '');
     if (filters.query) searchParams.set('q', filters.query);
     if (typeof filters.ownerUserId !== 'undefined') searchParams.set('owner_user_id', String(filters.ownerUserId));
     if (filters.includeMembers) searchParams.set('fields', 'members');
+    if (typeof filters.limit === 'number') searchParams.set('limit', String(filters.limit));
+    if (typeof filters.offset === 'number') searchParams.set('offset', String(filters.offset));
 
     const response = await this.http.request<unknown>({
       path: '/api/subsystems',
       query: Object.fromEntries(searchParams.entries()),
     });
 
+    const payload = isRecord(response.data) ? response.data : {};
+    let items: Subsystem[] = [];
+
     if (Array.isArray(response.data)) {
-      return response.data.map((item) => normalizeSubsystem(item));
+      items = response.data.map((item) => normalizeSubsystem(item));
+    } else if (Array.isArray((payload as { items?: unknown[] }).items)) {
+      items = ((payload as { items?: unknown[] }).items ?? []).map((item) => normalizeSubsystem(item));
     }
 
-    if (isRecord(response.data) && Array.isArray(response.data.items)) {
-      return response.data.items.map((item) => normalizeSubsystem(item));
-    }
+    return createPage<Subsystem>({
+      items,
+      total: typeof payload.total === 'number' ? payload.total : undefined,
+      limit: typeof payload.limit === 'number' ? payload.limit : filters.limit,
+      offset: typeof payload.offset === 'number' ? payload.offset : filters.offset,
+    });
+  }
 
-    return [];
+  async list(filters: SubsystemListFilters = {}): Promise<Subsystem[]> {
+    const page = await this.listPaged(filters);
+    return page.items;
   }
 
   async get(id: string | number): Promise<Subsystem | null> {

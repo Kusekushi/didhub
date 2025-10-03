@@ -1,4 +1,5 @@
 import { HttpClient } from '../core/HttpClient';
+import { createPage, Page } from '../core/Pagination';
 import { Group, GroupMembersResponse } from '../Types';
 import { safeJsonParse } from '../Util';
 
@@ -22,12 +23,14 @@ export interface GroupListFilters {
   includeMembers?: boolean;
   ownerUserId?: string | number;
   rawQuery?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export class GroupsApi {
   constructor(private readonly http: HttpClient) {}
 
-  async list(filters: GroupListFilters = {}): Promise<Group[]> {
+  async listPaged(filters: GroupListFilters = {}): Promise<Page<Group>> {
     const fields: Record<string, string> = {};
     if (filters.includeMembers) fields.fields = 'members';
 
@@ -45,21 +48,34 @@ export class GroupsApi {
     Object.entries(fields).forEach(([key, value]) => {
       query.set(key, value);
     });
+    if (typeof filters.limit === 'number') query.set('limit', String(filters.limit));
+    if (typeof filters.offset === 'number') query.set('offset', String(filters.offset));
 
     const response = await this.http.request<unknown>({
       path: '/api/groups',
       query: Object.fromEntries(query.entries()),
     });
 
+    const payload = isRecord(response.data) ? response.data : {};
+    let items: Group[] = [];
+
     if (Array.isArray(response.data)) {
-      return response.data.map((item) => normalizeGroup(item));
+      items = response.data.map((item) => normalizeGroup(item));
+    } else if (Array.isArray((payload as { items?: unknown[] }).items)) {
+      items = ((payload as { items?: unknown[] }).items ?? []).map((item) => normalizeGroup(item));
     }
 
-    if (isRecord(response.data) && Array.isArray(response.data.items)) {
-      return response.data.items.map((item) => normalizeGroup(item));
-    }
+    return createPage<Group>({
+      items,
+      total: typeof payload.total === 'number' ? payload.total : undefined,
+      limit: typeof payload.limit === 'number' ? payload.limit : filters.limit,
+      offset: typeof payload.offset === 'number' ? payload.offset : filters.offset,
+    });
+  }
 
-    return [];
+  async list(filters: GroupListFilters = {}): Promise<Group[]> {
+    const page = await this.listPaged(filters);
+    return page.items;
   }
 
   async get(id: string | number): Promise<Group | null> {

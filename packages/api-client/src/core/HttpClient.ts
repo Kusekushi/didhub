@@ -38,6 +38,52 @@ export interface HttpResponse<T = unknown> {
 
 const MUTATING_METHODS: HttpMethod[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
+const HTTP_DEBUG_STORE_KEY = '__DIDHUB_HTTP_LOGS__';
+const MAX_HTTP_DEBUG_ENTRIES = 200;
+let httpRequestCounter = 0;
+
+function isHttpDebugEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  const globalAny = window as unknown as Record<string, unknown>;
+  if (globalAny.__DIDHUB_HTTP_DEBUG__ === false) return false;
+  if (globalAny.__DIDHUB_HTTP_DEBUG__ === true) return true;
+  try {
+    const stored = window.localStorage.getItem('didhub-debug-http');
+    if (stored && ['1', 'true', 'yes', 'on'].includes(stored.toLowerCase())) return true;
+  } catch {
+    // ignore storage access issues
+  }
+  return false;
+}
+
+interface HttpDebugEntry {
+  event: 'start' | 'complete' | 'error';
+  id: number;
+  ts: number;
+  [key: string]: unknown;
+}
+
+function recordHttpDebug(entry: HttpDebugEntry): void {
+  if (!isHttpDebugEnabled()) return;
+  if (typeof window !== 'undefined') {
+    const globalAny = window as unknown as Record<string, unknown>;
+    const store = (globalAny[HTTP_DEBUG_STORE_KEY] as HttpDebugEntry[]) ?? [];
+    if (!Array.isArray(store)) {
+      globalAny[HTTP_DEBUG_STORE_KEY] = [entry];
+    } else {
+      store.push(entry);
+      if (store.length > MAX_HTTP_DEBUG_ENTRIES) {
+        store.splice(0, store.length - MAX_HTTP_DEBUG_ENTRIES);
+      }
+      globalAny[HTTP_DEBUG_STORE_KEY] = store;
+    }
+    globalAny.__DIDHUB_HTTP_LAST__ = entry;
+  }
+  if (typeof console !== 'undefined' && typeof console.debug === 'function') {
+    console.debug('[HttpClient]', entry);
+  }
+}
+
 export class HttpClient {
   private readonly baseUrl: string;
   private readonly credentials?: RequestCredentials;
@@ -53,6 +99,9 @@ export class HttpClient {
     const method: HttpMethod = (options.method ?? 'GET').toUpperCase() as HttpMethod;
     const url = this.buildUrl(options.path, options.query);
     const headers = new Headers(this.defaultHeaders);
+    const debugEnabled = isHttpDebugEnabled();
+    const requestId = debugEnabled ? ++httpRequestCounter : 0;
+    const startedAt = debugEnabled ? Date.now() : 0;
 
     if (options.headers) {
       new Headers(options.headers).forEach((value, key) => headers.set(key, value));
@@ -94,8 +143,41 @@ export class HttpClient {
       if (csrf) headers.set('x-csrf-token', csrf);
     }
 
-    const response = await fetch(url, init);
-    const text = await response.text();
+    if (debugEnabled) {
+      recordHttpDebug({
+        event: 'start',
+        id: requestId,
+        ts: startedAt,
+        method,
+        url,
+        path: options.path,
+        query: options.query ?? null,
+        hasJsonBody: typeof options.json !== 'undefined',
+        hasBody: typeof options.body !== 'undefined',
+        headers: Array.from(headers.entries()),
+      });
+    }
+
+    let response: Response;
+    let text = '';
+    try {
+      response = await fetch(url, init);
+      text = await response.text();
+    } catch (error) {
+      if (debugEnabled) {
+        recordHttpDebug({
+          event: 'error',
+          id: requestId,
+          ts: Date.now(),
+          method,
+          url,
+          path: options.path,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      throw error;
+    }
+
     const contentType = response.headers.get('content-type') ?? '';
     const parseMode = options.parse ?? 'json';
     let data: unknown = undefined;
@@ -141,6 +223,24 @@ export class HttpClient {
     const ok = response.ok;
     const accept = options.acceptStatuses ?? [];
     const shouldThrow = options.throwOnError !== false && !ok && !accept.includes(response.status);
+
+    if (debugEnabled) {
+      const finishedAt = Date.now();
+      recordHttpDebug({
+        event: 'complete',
+        id: requestId,
+        ts: finishedAt,
+        durationMs: finishedAt - startedAt,
+        method,
+        url,
+        path: options.path,
+        status: response.status,
+        ok,
+        parseMode,
+        responseLength: text.length,
+        responsePreview: text.length > 160 ? `${text.slice(0, 160)}…` : text,
+      });
+    }
 
     if (shouldThrow) {
       throw new ApiError(response.statusText || 'API request failed', {
