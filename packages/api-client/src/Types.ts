@@ -287,3 +287,16 @@ export interface GroupMembersResponse {
   alters: Array<number | string>;
   [k: string]: unknown;
 }
+
+export interface DatabaseQueryRequest {
+  sql: string;
+  limit?: number;
+}
+
+export interface DatabaseQueryResponse {
+  success: boolean;
+  columns: string[];
+  rows: Record<string, unknown>[];
+  row_count: number;
+  message?: string;
+}

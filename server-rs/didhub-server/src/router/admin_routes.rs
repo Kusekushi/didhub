@@ -65,6 +65,10 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
             "/admin/digest/custom",
             post(crate::routes_admin_misc::post_custom_digest),
         )
+        .route(
+            "/admin/db/query",
+            post(crate::routes_admin_misc::query_database),
+        )
         .route("/oidc/{id}/enabled", post(crate::routes_oidc::set_enabled))
         .route("/oidc/{id}/secret", get(crate::routes_oidc::get_secret))
         .route("/oidc/{id}/secret", post(crate::routes_oidc::update_secret))

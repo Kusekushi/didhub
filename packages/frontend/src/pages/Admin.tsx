@@ -16,6 +16,7 @@ import {
   MessagesTab,
   AuditTab,
   MetricsTab,
+  DatabaseTab,
 } from '../components/admin';
 import TabPanel from '../components/TabPanel';
 import NotificationSnackbar from '../components/NotificationSnackbar';
@@ -314,6 +315,7 @@ export default function Admin() {
     },
     { key: 'audit', label: 'Audit Logs', render: () => <AuditTab setAdminMsg={setAdminMsg} /> },
     { key: 'housekeeping', label: 'Housekeeping', render: () => <Housekeeping /> },
+    { key: 'database', label: 'Database', render: () => <DatabaseTab setAdminMsg={setAdminMsg} /> },
     { key: 'metrics', label: 'Metrics', render: () => <MetricsTab /> },
   ];
   // Helper renderers for each panel — keeps the JSX organized and allows easy reordering.

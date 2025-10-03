@@ -10,6 +10,8 @@ import type {
   AdminSettings,
   HousekeepingJob,
   HousekeepingRun,
+  DatabaseQueryRequest,
+  DatabaseQueryResponse,
 } from '../Types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -329,6 +331,15 @@ export class AdminApi {
       query: Object.keys(query).length ? query : undefined,
     });
     return response.data ?? { posted: false, count: 0, message: 'Failed to post custom digest' };
+  }
+
+  async queryDatabase(request: DatabaseQueryRequest): Promise<DatabaseQueryResponse> {
+    const response = await this.http.request<DatabaseQueryResponse>({
+      path: '/api/admin/db/query',
+      method: 'POST',
+      json: request,
+    });
+    return response.data ?? { success: false, columns: [], rows: [], row_count: 0, message: 'Query failed' };
   }
 }
 
