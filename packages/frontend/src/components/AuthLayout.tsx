@@ -10,13 +10,13 @@ export interface AuthLayoutProps {
 }
 
 export default function AuthLayout(props: AuthLayoutProps) {
-  if (props.maxWidth === undefined) props.maxWidth = 600;
+  const maxWidth = props.maxWidth === undefined ? 600 : props.maxWidth;
   const theme = useTheme();
 
   return (
     <AppProvider theme={theme}>
       <Container sx={{ mt: 6, display: 'flex', justifyContent: 'center', ...(props.containerSx || {}) }}>
-        <Box sx={{ width: '100%', maxWidth: props.maxWidth, px: 2 }}>
+        <Box sx={{ width: '100%', maxWidth, px: 2 }}>
           {props.title ? (
             <Typography variant="h4" gutterBottom>
               {props.title}

@@ -350,8 +350,8 @@ export interface AlterFormDialogProps {
   mode: 'create' | 'edit';
   open: boolean;
   onClose: () => void;
-  onCreated?: () => void;
-  onSaved?: () => void;
+  onCreated?: () => Promise<void> | void;
+  onSaved?: () => Promise<void> | void;
   id?: string | number;
   routeUid?: string | number | null;
 }
@@ -475,6 +475,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     useAlterRelationshipOptions(relationshipValues);
 
   const { userPartnerOptions, userPartnerMap, userIdNameMap, refreshUserOptions } = useUserRelationshipOptions();
+  const auth = useAuth();
 
   function extractFieldErrors(error: unknown): Record<string, string> | undefined {
     if (typeof error === 'object' && error !== null) {
@@ -726,13 +727,9 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     delete (payload as any)._files;
 
     if (mode === 'create') {
-      const auth = useAuth();
       try {
         // include explicit owner_user_id when creating on behalf of a system route
-        const owner = getEffectiveOwnerId(
-          props.routeUid == null ? undefined : String(props.routeUid),
-          auth.user?.id ?? null,
-        );
+        const owner = getEffectiveOwnerId(props.routeUid == null ? undefined : String(props.routeUid), auth.user?.id ?? null);
         if (typeof owner === 'number') (payload as any).owner_user_id = owner;
         const created = await apiClient.alters.create(payload);
         debugLog('Alter creation response', created);
@@ -763,8 +760,16 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         }
 
         setValues(empty);
-        onCreated && onCreated();
-        onClose();
+        if (onCreated) {
+          try {
+            // allow parent to refresh data and close the dialog
+            await onCreated();
+          } catch (e) {
+            // ignore parent handler errors, still close locally
+          }
+        } else {
+          onClose();
+        }
       } catch (err) {
         console.error('Failed to create alter', err);
         const fieldErrors = extractFieldErrors(err);
@@ -830,8 +835,16 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         // Update user relationships
         await updateUserRelationships(Number(id));
 
-        onSaved && onSaved();
-        onClose();
+        if (onSaved) {
+          try {
+            await onSaved();
+          } catch (e) {
+            // ignore errors from parent handler
+            onClose();
+          }
+        } else {
+          onClose();
+        }
       } catch (err) {
         console.error('Failed to update alter', err);
         const fieldErrors = extractFieldErrors(err);

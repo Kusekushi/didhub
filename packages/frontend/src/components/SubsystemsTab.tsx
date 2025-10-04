@@ -26,7 +26,7 @@ import type { SettingsState } from '../contexts/SettingsContext';
 export interface SubsystemsTabProps {
   canManage: boolean;
   createSubsystemOpen: boolean;
-  setCreateSubsystemOpen: (open: boolean) => void;
+  setCreateSubsystemOpen: (open: boolean) => Promise<void> | void;
   newSubsystemName: string;
   setNewSubsystemName: (name: string) => void;
   newSubsystemDesc: string;
@@ -43,7 +43,7 @@ export interface SubsystemsTabProps {
   onDelete: (subsystemId: number | string) => Promise<void>;
   settings: SettingsState;
   setSnack: (snack: SnackbarMessage) => void;
-  refreshSubsystems: () => Promise<void>;
+  refreshSubsystems: () => Promise<void> | void;
   createSubsystem: (payload: Record<string, unknown>) => Promise<Subsystem>;
   createShortLink: (type: string, id: number, options?: { target?: string }) => Promise<ShortLinkRecord>;
   nav: (path: string) => void;
@@ -83,12 +83,24 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                     };
                     if (props.uid) payload.owner_user_id = Number(props.uid);
                     await props.createSubsystem(payload);
-                    await props.refreshSubsystems();
+                    try {
+                      await props.refreshSubsystems();
+                    } catch (e) {
+                      // ignore refresh errors
+                    }
                     props.setSnack({ open: true, message: 'Subsystem created', severity: 'success' });
                     props.setNewSubsystemName('');
                     props.setNewSubsystemDesc('');
                     props.setNewSubsystemType('normal');
-                    props.setCreateSubsystemOpen(false);
+                    // If parent handler returns a promise for closing, await it; otherwise call synchronously
+                    try {
+                      const maybe = props.setCreateSubsystemOpen(false) as unknown;
+                      if (maybe && typeof (maybe as { then?: unknown }).then === 'function') {
+                        await (maybe as Promise<void>);
+                      }
+                    } catch (e) {
+                      // ignore
+                    }
                   } catch (err) {
                     props.setSnack({ open: true, message: String(err || 'create failed'), severity: 'error' });
                   }

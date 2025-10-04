@@ -55,7 +55,7 @@ export interface GroupDialogProps {
 
   // Common props
   setSnack: (snack: SnackbarMessage) => void;
-  refreshGroups: () => Promise<void>;
+  refreshGroups: () => Promise<void> | void;
   uploadFiles: (files: File[]) => Promise<string[]>;
   uid?: string;
 }
@@ -348,7 +348,12 @@ export default function GroupDialog(props: GroupDialogProps) {
         console.debug('[GroupDialog] create payload', payload);
         await groups.create(payload);
 
-        await props.refreshGroups();
+        // Allow parent refresh handler to complete before closing so callers (and tests) can rely on updated data
+        try {
+          await props.refreshGroups();
+        } catch (e) {
+          // ignore refresh errors
+        }
         props.setSnack({ open: true, message: 'Group created', severity: 'success' });
 
         props.setNewGroupName?.('');
