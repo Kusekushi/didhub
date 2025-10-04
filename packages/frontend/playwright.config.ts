@@ -7,6 +7,10 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173',
     headless: true,
+    // record traces and videos/screenshots on failure to aid debugging
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined

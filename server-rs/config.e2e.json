@@ -1,0 +1,6 @@
+{
+  "database": {
+    "driver": "sqlite",
+    "path": "./data/didhub-e2e.sqlite"
+  }
+}
