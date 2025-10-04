@@ -1,4 +1,7 @@
-use crate::upload_dir::UploadDirCache;
+use crate::{
+    routes_common::{normalize_image_list, normalize_string_list},
+    upload_dir::UploadDirCache,
+};
 use axum::{
     extract::{Extension, Path},
     http::{HeaderMap, HeaderValue},
@@ -15,7 +18,6 @@ use genpdf::error::Error as GenPdfError;
 use genpdf::Element;
 use genpdf::{elements as genpdf_elements, fonts as genpdf_fonts, style as genpdf_style};
 use once_cell::sync::OnceCell;
-use serde_json;
 use std::collections::HashSet;
 use std::env;
 use std::path::{Path as StdPath, PathBuf};
@@ -515,6 +517,11 @@ pub async fn export_alter(
         }
     }
 
+    let system_roles = normalize_string_list(alter.system_roles.as_deref());
+    let soul_songs = normalize_string_list(alter.soul_songs.as_deref());
+    let interests = normalize_string_list(alter.interests.as_deref());
+    let images = normalize_image_list(alter.images.as_deref());
+
     let mut lines = Vec::new();
 
     // Basic information
@@ -555,8 +562,8 @@ pub async fn export_alter(
     }
 
     // System information
-    if let Some(system_roles) = &alter.system_roles {
-        lines.push(format!("System Roles: {}", system_roles));
+    if !system_roles.is_empty() {
+        lines.push(format!("System Roles: {}", system_roles.join(", ")));
     }
     lines.push(format!(
         "System Host: {}",
@@ -592,11 +599,11 @@ pub async fn export_alter(
     }
 
     // Personal details
-    if let Some(soul_songs) = &alter.soul_songs {
-        lines.push(format!("Soul Songs: {}", soul_songs));
+    if !soul_songs.is_empty() {
+        lines.push(format!("Soul Songs: {}", soul_songs.join(", ")));
     }
-    if let Some(interests) = &alter.interests {
-        lines.push(format!("Interests: {}", interests));
+    if !interests.is_empty() {
+        lines.push(format!("Interests: {}", interests.join(", ")));
     }
     if let Some(triggers) = &alter.triggers {
         lines.push(format!("Triggers: {}", triggers));
@@ -612,14 +619,25 @@ pub async fn export_alter(
     let upload_dir = udc.current().await;
 
     // Collect image paths
-    let mut image_paths = Vec::new();
-    if let Some(images) = &alter.images {
-        if let Ok(image_list) = serde_json::from_str::<Vec<String>>(images) {
-            for image_filename in image_list {
-                let full_path = std::path::Path::new(&upload_dir).join(&image_filename);
-                if full_path.exists() {
-                    image_paths.push(full_path.to_string_lossy().to_string());
-                }
+    let mut image_paths: Vec<String> = Vec::new();
+    if !images.is_empty() {
+        for image in &images {
+            let trimmed = image.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+                // Skip remote images for PDF embedding.
+                continue;
+            }
+            let relative = if let Some(rest) = trimmed.strip_prefix("/uploads/") {
+                rest
+            } else {
+                trimmed.trim_start_matches('/')
+            };
+            let full_path = std::path::Path::new(&upload_dir).join(relative);
+            if full_path.exists() {
+                image_paths.push(full_path.to_string_lossy().to_string());
             }
         }
     }

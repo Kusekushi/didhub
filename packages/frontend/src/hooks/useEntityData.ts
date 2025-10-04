@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export interface EntityFetchFilters {
-  ownerUserId: string | number;
+  owner_user_id: string | number;
   query?: string;
   includeMembers?: boolean;
   limit?: number;
@@ -83,19 +83,19 @@ export function useEntityData<T>(
     const load = async () => {
       try {
         setLoading(true);
-        const ownerUserId = normalizeOwnerId(uid);
+        const ownerId = normalizeOwnerId(uid);
         recordEntityDebug('load:init', {
           hook: 'useEntityData',
           targetTab,
           activeTab,
           uid,
-          ownerUserId,
+          owner_user_id: ownerId,
           search,
           page,
           pageSize,
           offset,
         });
-        if (ownerUserId == null) {
+        if (ownerId == null) {
           recordEntityDebug('load:skipped', {
             reason: 'missing-owner',
             targetTab,
@@ -107,14 +107,14 @@ export function useEntityData<T>(
           return;
         }
         recordEntityDebug('load:fetch:start', {
-          ownerUserId,
+          owner_user_id: ownerId,
           targetTab,
           activeTab,
           limit: pageSize,
           offset,
         });
         const fetched = await fetchFunction({
-          ownerUserId,
+          owner_user_id: ownerId,
           query: search,
           includeMembers: true,
           limit: pageSize,
@@ -127,7 +127,7 @@ export function useEntityData<T>(
           setItems(pageResult.items || []);
           setTotal(typeof pageResult.total === 'number' ? pageResult.total : pageResult.items.length);
           recordEntityDebug('load:fetch:success', {
-            ownerUserId,
+            owner_user_id: ownerId,
             itemCount: pageResult.items?.length ?? 0,
             total: pageResult.total,
             offset,
@@ -137,7 +137,7 @@ export function useEntityData<T>(
           setItems(fetched);
           setTotal(fetched.length);
           recordEntityDebug('load:fetch:success', {
-            ownerUserId,
+            owner_user_id: ownerId,
             itemCount: fetched.length,
             total: fetched.length,
             offset,
@@ -148,7 +148,7 @@ export function useEntityData<T>(
         recordEntityDebug('load:error', {
           targetTab,
           activeTab,
-          ownerUserId: normalizeOwnerId(uid),
+          owner_user_id: normalizeOwnerId(uid),
           message: error instanceof Error ? error.message : String(error),
         });
         if (!cancelled) {
@@ -161,7 +161,7 @@ export function useEntityData<T>(
           recordEntityDebug('load:complete', {
             targetTab,
             activeTab,
-            ownerUserId: normalizeOwnerId(uid),
+            owner_user_id: normalizeOwnerId(uid),
             cancelled,
           });
         }
@@ -179,19 +179,19 @@ export function useEntityData<T>(
     if (!uid || activeTab !== targetTab) return;
     try {
       const offset = Math.max(0, page) * Math.max(1, pageSize);
-      const ownerUserId = normalizeOwnerId(uid);
-      if (ownerUserId == null) return;
+      const ownerId = normalizeOwnerId(uid);
+      if (ownerId == null) return;
       recordEntityDebug('refresh:start', {
         targetTab,
         activeTab,
-        ownerUserId,
+        owner_user_id: ownerId,
         search,
         page,
         pageSize,
         offset,
       });
       const fetched = await fetchFunction({
-        ownerUserId,
+        owner_user_id: ownerId,
         query: search,
         includeMembers: true,
         limit: pageSize,
@@ -202,7 +202,7 @@ export function useEntityData<T>(
         setItems(pageResult.items || []);
         setTotal(typeof pageResult.total === 'number' ? pageResult.total : pageResult.items.length);
         recordEntityDebug('refresh:success', {
-          ownerUserId,
+          owner_user_id: ownerId,
           itemCount: pageResult.items?.length ?? 0,
           total: pageResult.total,
         });
@@ -210,7 +210,7 @@ export function useEntityData<T>(
         setItems(fetched || []);
         setTotal(fetched.length);
         recordEntityDebug('refresh:success', {
-          ownerUserId,
+          owner_user_id: ownerId,
           itemCount: fetched.length,
           total: fetched.length,
         });
@@ -220,7 +220,7 @@ export function useEntityData<T>(
       recordEntityDebug('refresh:error', {
         targetTab,
         activeTab,
-        ownerUserId: normalizeOwnerId(uid),
+        owner_user_id: normalizeOwnerId(uid),
         message: error instanceof Error ? error.message : String(error),
       });
     }

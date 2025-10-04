@@ -5,8 +5,8 @@ import InputPromptDialog from './InputPromptDialog';
 import { apiClient, type Subsystem } from '@didhub/api-client';
 
 export interface SubsystemPickerProps {
-  value?: number | string | { id?: number; name?: string } | null;
-  onChange?: (v: number | string | null) => void;
+  value?: number | { id?: number; name?: string } | null;
+  onChange?: (v: number | null) => void;
 }
 
 export default function SubsystemPicker(props: SubsystemPickerProps) {
@@ -35,14 +35,31 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
     };
   }, [inputValue]);
 
+  const parseNumericId = (value: unknown): number | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const numeric = Number(trimmed.replace(/^#/u, ''));
+      return Number.isFinite(numeric) ? numeric : undefined;
+    }
+    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+      return parseNumericId((value as { id?: unknown }).id);
+    }
+    return undefined;
+  };
+
   async function handleChange(e: React.SyntheticEvent, v: Subsystem | string | number | null) {
     if (typeof v === 'string') {
       setCreateDialog({ open: true, name: v });
       return;
+    } else if (typeof v === 'number') {
+      const numeric = parseNumericId(v);
+      props.onChange && props.onChange(numeric ?? null);
+      return;
     } else if (v && typeof v === 'object' && 'id' in v) {
-      props.onChange && props.onChange((v as Subsystem).id);
-    } else if (v && typeof v === 'object' && 'name' in v) {
-      props.onChange && props.onChange((v as { name?: string }).name || null);
+      const numeric = parseNumericId((v as Subsystem).id);
+      props.onChange && props.onChange(numeric ?? null);
     } else {
       props.onChange && props.onChange(null);
     }
@@ -52,9 +69,11 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
     props.value &&
     (typeof props.value === 'object'
       ? (props.value as Subsystem)
-      : typeof props.value === 'number'
-        ? options.find((x) => x.id === props.value) || { name: String(props.value) }
-        : { name: String(props.value) });
+      : (() => {
+          const numeric = parseNumericId(props.value);
+          if (numeric == null) return null;
+          return options.find((x) => x.id === numeric) || { name: String(numeric) };
+        })());
 
   return (
     <>
@@ -80,14 +99,15 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
             const type = value || 'normal';
             try {
               const subsystem = await apiClient.subsystems.create({ name: createDialog.name, type });
-              if (subsystem && subsystem.id != null) {
+              const createdId = parseNumericId(subsystem?.id);
+              if (subsystem && createdId != null) {
                 setOptions((prev) => [subsystem, ...prev]);
-                props.onChange && props.onChange(subsystem.id);
+                props.onChange && props.onChange(createdId);
               } else {
-                props.onChange && props.onChange(createDialog.name);
+                props.onChange && props.onChange(null);
               }
             } catch (e) {
-              props.onChange && props.onChange(createDialog.name);
+              props.onChange && props.onChange(null);
             } finally {
               setCreateDialog({ open: false, name: '' });
             }

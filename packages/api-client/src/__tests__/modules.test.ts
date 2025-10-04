@@ -342,16 +342,16 @@ describe('api-client modules', () => {
   describe('groups', () => {
     it('list normalizes JSON fields and supports filters', async () => {
       fetchMock.mockResolvedValueOnce(
-        jsonResponse([{ id: 1, sigil: '{"icon":"a"}', leaders: '["l"]', metadata: '{"m":1}' }]),
+        jsonResponse([{ id: 1, sigil: '{"icon":"a"}', leaders: '[1]', metadata: '{"m":1}' }]),
       );
 
-      const groups = await client.groups.list({ includeMembers: true, query: 'team', ownerUserId: 3 });
+      const groups = await client.groups.list({ includeMembers: true, query: 'team', owner_user_id: 3 });
 
       const [url] = fetchMock.mock.calls[0];
       expect(String(url)).toContain('q=team');
       expect(String(url)).toContain('fields=members');
       expect(String(url)).toContain('owner_user_id=3');
-      expect(groups[0].leaders).toEqual(['l']);
+      expect(groups[0].leaders).toEqual([1]);
       expect(groups[0].metadata).toEqual({ m: 1 });
     });
 
@@ -369,7 +369,7 @@ describe('api-client modules', () => {
       const members = await client.groups.listMembers(1);
 
       expect(fetchMock).toHaveBeenCalledWith('/api/groups/1/members', expect.anything());
-      expect(members).toEqual({ group_id: 1, alters: [1, '2'] });
+      expect(members).toEqual({ group_id: 1, alters: [1, 2] });
     });
   });
 
@@ -377,7 +377,7 @@ describe('api-client modules', () => {
     it('list applies query params and normalizes metadata', async () => {
       fetchMock.mockResolvedValueOnce(jsonResponse({ items: [{ id: 2, metadata: '{"foo":1}' }] }));
 
-      const subsystems = await client.subsystems.list({ query: 'alpha', ownerUserId: 4, includeMembers: true });
+      const subsystems = await client.subsystems.list({ query: 'alpha', owner_user_id: 4, includeMembers: true });
 
       const [url] = fetchMock.mock.calls[0];
       expect(String(url)).toContain('q=alpha');
@@ -459,10 +459,7 @@ describe('api-client modules', () => {
 
     it('names normalizes array responses', async () => {
       fetchMock.mockResolvedValueOnce(
-        jsonResponse([
-          { id: '7', name: 'Alpha', user_id: '11', username: 'owner' },
-          { id: 8 },
-        ]),
+        jsonResponse([{ id: '7', name: 'Alpha', user_id: '11', username: 'owner' }, { id: 8 }]),
       );
 
       const names = await client.alters.names('alp');

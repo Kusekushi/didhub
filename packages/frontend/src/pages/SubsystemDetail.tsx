@@ -38,11 +38,16 @@ export default function SubsystemDetail() {
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [saving, setSaving] = useState(false);
+  const subsystemOwnerSource = (subsystem as Record<string, unknown> | null)?.owner_user_id;
   const subsystemOwnerId =
-    subsystem?.owner_user_id ??
-    (typeof subsystem?.ownerUserId === 'number' || typeof subsystem?.ownerUserId === 'string'
-      ? subsystem.ownerUserId
-      : undefined);
+    typeof subsystemOwnerSource === 'number' || typeof subsystemOwnerSource === 'string'
+      ? subsystemOwnerSource
+      : subsystemOwnerSource != null
+        ? (() => {
+            const text = String(subsystemOwnerSource).trim();
+            return text ? text : undefined;
+          })()
+        : undefined;
   const canEdit = Boolean(
     me &&
       subsystem &&
@@ -128,12 +133,14 @@ export default function SubsystemDetail() {
     if (!sid) return;
     try {
       const membershipRows = await apiClient.subsystems.listMembers(sid);
-      const byId: Record<string, { alterId: string | number; roles: string[] }> = {};
+      const byId: Record<string, { alterId: number; roles: string[] }> = {};
       membershipRows.forEach((row: SubsystemMember) => {
-        const alterId = row.alter_id ?? row.alterId;
+        const alterId = row.alterId;
         if (alterId == null) return;
+        const numericId = Number(alterId);
+        if (!Number.isFinite(numericId)) return;
         const roles = parseRoles(row.roles);
-        byId[String(alterId)] = { alterId, roles };
+        byId[String(numericId)] = { alterId: numericId, roles };
       });
       // always also gather alters referencing this subsystem (implicit members)
       try {
@@ -143,8 +150,10 @@ export default function SubsystemDetail() {
           .filter((al) => String(al.subsystem) === String(sid))
           .forEach((al) => {
             if (al?.id == null) return;
-            const key = String(al.id);
-            if (!byId[key]) byId[key] = { alterId: al.id, roles: [] };
+            const numericId = Number(al.id);
+            if (!Number.isFinite(numericId)) return;
+            const key = String(numericId);
+            if (!byId[key]) byId[key] = { alterId: numericId, roles: [] };
           });
       } catch {
         /* ignore implicit errors */
@@ -171,7 +180,9 @@ export default function SubsystemDetail() {
     if (!selectedAlter || !sid) return;
     setMemberBusy(true);
     try {
-      await apiClient.subsystems.toggleLeader(sid, selectedAlter.id, true);
+      const alterId = Number(selectedAlter.id);
+      if (!Number.isFinite(alterId)) throw new Error('Invalid alter id');
+      await apiClient.subsystems.toggleLeader(sid, alterId, true);
       // server side handles non-host roles via same endpoint (role param optional)
       await refreshMembers();
       setSelectedAlter(null);
@@ -184,7 +195,7 @@ export default function SubsystemDetail() {
     }
   }
 
-  async function removeMember(alterId: string | number, roles: string[] | undefined) {
+  async function removeMember(alterId: number, roles: string[] | undefined) {
     if (!sid || !roles || roles.length === 0) return;
     setMemberBusy(true);
     try {
@@ -200,7 +211,7 @@ export default function SubsystemDetail() {
     }
   }
 
-  async function toggleRole(alterId: string | number, _role: string, add: boolean) {
+  async function toggleRole(alterId: number, _role: string, add: boolean) {
     void _role;
     if (!sid) return;
     setMemberBusy(true);
@@ -214,7 +225,7 @@ export default function SubsystemDetail() {
     }
   }
 
-  function onAddCustomRole(alterId: string | number) {
+  function onAddCustomRole(alterId: number) {
     const key = String(alterId);
     const val = roleInputMap[key] ?? '';
     const trimmed = val.trim();
@@ -465,8 +476,10 @@ export default function SubsystemDetail() {
             </ListItem>
           )}
           {members.map((m) => {
-            const memberId = m.id;
-            if (memberId == null) return null;
+            const memberIdRaw = m.id;
+            if (memberIdRaw == null) return null;
+            const memberId = Number(memberIdRaw);
+            if (!Number.isFinite(memberId)) return null;
             const roles = Array.isArray(m.roles) ? m.roles : [];
             const secondary = [m.species || '', roles.length ? `Roles: ${roles.join(', ')}` : '']
               .filter(Boolean)

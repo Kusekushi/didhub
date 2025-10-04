@@ -15,8 +15,8 @@ export function useGroupsData(
   pageSize: number = 20,
 ) {
   const fetchGroups = useCallback(
-    ({ ownerUserId, query, includeMembers, limit, offset }: EntityFetchFilters) =>
-      groups.listPaged({ ownerUserId, query, includeMembers, limit, offset }),
+    ({ owner_user_id, query, includeMembers, limit, offset }: EntityFetchFilters) =>
+      groups.listPaged({ owner_user_id, query, includeMembers, limit, offset }),
     [groups],
   );
 

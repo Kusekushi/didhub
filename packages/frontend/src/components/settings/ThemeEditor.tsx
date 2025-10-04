@@ -45,8 +45,18 @@ const BORDER_RADIUS_RANGE: [number, number] = [0, 24];
 
 export default function ThemeEditor() {
   const theme = useTheme();
-  const { settings, mode, setMode, toggle, updatePalette, updateBase, presets, applyPreset, resetToDefault, currentPresetId } =
-    useContext(ThemeToggleContext);
+  const {
+    settings,
+    mode,
+    setMode,
+    toggle,
+    updatePalette,
+    updateBase,
+    presets,
+    applyPreset,
+    resetToDefault,
+    currentPresetId,
+  } = useContext(ThemeToggleContext);
 
   const palette = settings[mode];
 
@@ -94,7 +104,11 @@ export default function ThemeEditor() {
                         {preset.label}
                       </Typography>
                       {preset.description && (
-                        <Typography variant="caption" sx={{ whiteSpace: 'normal', maxWidth: 320 }} color="text.secondary">
+                        <Typography
+                          variant="caption"
+                          sx={{ whiteSpace: 'normal', maxWidth: 320 }}
+                          color="text.secondary"
+                        >
                           {preset.description}
                         </Typography>
                       )}
@@ -206,9 +220,7 @@ export default function ThemeEditor() {
                   max={FONT_SIZE_RANGE[1]}
                   step={1}
                   marks
-                  onChange={(_, value) =>
-                    updateBase({ fontSize: Array.isArray(value) ? value[0] : (value as number) })
-                  }
+                  onChange={(_, value) => updateBase({ fontSize: Array.isArray(value) ? value[0] : (value as number) })}
                   valueLabelDisplay="auto"
                 />
               </Box>
@@ -287,8 +299,8 @@ export default function ThemeEditor() {
                   Sample content
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  This preview automatically reflects your typography, density, and border radius settings. Use it as a quick
-                  check to see how cards and text will look across the app.
+                  This preview automatically reflects your typography, density, and border radius settings. Use it as a
+                  quick check to see how cards and text will look across the app.
                 </Typography>
               </CardContent>
             </Card>

@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useState,
-  useEffect,
-  ReactNode,
-  useMemo,
-  useCallback,
-} from 'react';
+import { createContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { createTheme, ThemeProvider, alpha } from '@mui/material/styles';
 import type { PaletteMode } from '@mui/material';
 import { useAuth } from './contexts/AuthContext';
@@ -283,7 +276,13 @@ function luminance(hexColor: string): number {
   if (!hexColor) return 0;
   const hex = hexColor.replace('#', '');
   if (![3, 6].includes(hex.length)) return 0;
-  const normalize = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+  const normalize =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : hex;
   const parsed = Number.parseInt(normalize, 16);
   if (Number.isNaN(parsed)) return 0;
   const r = (parsed >> 16) & 255;
@@ -323,17 +322,14 @@ export default function ThemeContextProvider({ children }: { children: ReactNode
     }
   }, [settings, storageKey]);
 
-  const applyPreset = useCallback(
-    (presetId: string, keepCurrentMode = false) => {
-      const preset = THEME_PRESETS.find((p) => p.id === presetId);
-      if (!preset) return;
-      setSettings((prev) => ({
-        ...createSettingsFromPreset(preset, keepCurrentMode ? prev.mode : undefined),
-        mode: keepCurrentMode ? prev.mode : preset.initialMode,
-      }));
-    },
-    [],
-  );
+  const applyPreset = useCallback((presetId: string, keepCurrentMode = false) => {
+    const preset = THEME_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    setSettings((prev) => ({
+      ...createSettingsFromPreset(preset, keepCurrentMode ? prev.mode : undefined),
+      mode: keepCurrentMode ? prev.mode : preset.initialMode,
+    }));
+  }, []);
 
   const resetToDefault = useCallback(
     (mode?: PaletteMode) => {
@@ -359,16 +355,13 @@ export default function ThemeContextProvider({ children }: { children: ReactNode
     }));
   }, []);
 
-  const updateBase = useCallback(
-    (patch: Partial<Omit<ThemeSettings, 'light' | 'dark' | 'mode' | 'presetId'>>) => {
-      setSettings((prev) => ({
-        ...prev,
-        ...patch,
-        presetId: null,
-      }));
-    },
-    [],
-  );
+  const updateBase = useCallback((patch: Partial<Omit<ThemeSettings, 'light' | 'dark' | 'mode' | 'presetId'>>) => {
+    setSettings((prev) => ({
+      ...prev,
+      ...patch,
+      presetId: null,
+    }));
+  }, []);
 
   const setMode = useCallback((mode: PaletteMode) => {
     setSettings((prev) => ({ ...prev, mode }));

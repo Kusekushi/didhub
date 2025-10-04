@@ -110,9 +110,7 @@ export default function DatabaseTab(props: DatabaseTabProps) {
                   {results.rows.map((row, i) => (
                     <TableRow key={i}>
                       {results.columns.map((col) => (
-                        <TableCell key={col}>
-                          {String(row[col] ?? '')}
-                        </TableCell>
+                        <TableCell key={col}>{String(row[col] ?? '')}</TableCell>
                       ))}
                     </TableRow>
                   ))}

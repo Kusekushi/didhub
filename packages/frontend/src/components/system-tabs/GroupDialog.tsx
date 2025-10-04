@@ -68,45 +68,54 @@ const leaderOptionLabel = (option: Alter | string | null): string => {
   return String(option);
 };
 
-const parseLeaderIds = (leaders: Group['leaders'] | string | null | undefined): Array<string | number> => {
-  if (!leaders) return [];
-  if (Array.isArray(leaders)) {
-    return leaders
-      .map((value) => {
-        if (!value) return null;
-        if (typeof value === 'object') return (value as { id?: string | number }).id ?? null;
-        return value;
-      })
-      .filter((value): value is string | number => value !== null && value !== undefined && value !== '');
-  }
+const parseLeaderIds = (leaders: Group['leaders'] | string | null | undefined): number[] => {
+  const attemptParse = (value: unknown): number | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim().replace(/^#/u, '');
+      if (!trimmed) return undefined;
+      const numeric = Number(trimmed);
+      return Number.isFinite(numeric) ? numeric : undefined;
+    }
+    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+      return attemptParse((value as { id?: unknown }).id);
+    }
+    return undefined;
+  };
 
+  const fromArray = (arr: unknown[]): number[] => {
+    const seen = new Set<number>();
+    const result: number[] = [];
+    arr.forEach((entry) => {
+      const numeric = attemptParse(entry);
+      if (typeof numeric === 'number' && !seen.has(numeric)) {
+        seen.add(numeric);
+        result.push(numeric);
+      }
+    });
+    return result;
+  };
+
+  if (!leaders) return [];
+  if (Array.isArray(leaders)) return fromArray(leaders);
   if (typeof leaders === 'string') {
     const trimmed = leaders.trim();
     if (!trimmed) return [];
-
     if (trimmed.startsWith('[')) {
       try {
         const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((value): value is string | number => value !== null && value !== undefined);
-        }
+        if (Array.isArray(parsed)) return fromArray(parsed);
       } catch {
         return [];
       }
     }
-
-    return trimmed
-      .split(',')
-      .map((segment) => segment.trim())
-      .map((segment) => segment.replace(/^#/, '').replace(/^\[/, '').replace(/\]$/, ''))
-      .filter(Boolean);
+    return fromArray(trimmed.split(','));
   }
-
   return [];
 };
 
-const toAlterOption = (id: string | number, options: Alter[]): Alter => {
-  const match = options.find((option) => String(option.id) === String(id));
+const toAlterOption = (id: number, options: Alter[]): Alter => {
+  const match = options.find((option) => Number(option.id) === Number(id));
   if (match) return match;
   return { id, name: `#${id}` } as Alter;
 };
@@ -116,17 +125,26 @@ const getLeadersFromGroup = (group: Group | null, options: Alter[]): Alter[] => 
   return parseLeaderIds(group.leaders).map((id) => toAlterOption(id, options));
 };
 
-const mapLeadersToIds = (leaders: Array<Alter | string | number>): Array<string | number> =>
-  leaders
-    .map((leader) => {
-      if (!leader) return null;
-      if (typeof leader === 'object') {
-        const alter = leader as Alter;
-        return alter.id ?? null;
-      }
-      return leader;
-    })
-    .filter((value): value is string | number => value !== null && value !== undefined && value !== '');
+const mapLeadersToIds = (leaders: Array<Alter | string | number>): number[] => {
+  const seen = new Set<number>();
+  const result: number[] = [];
+  leaders.forEach((leader) => {
+    const raw = typeof leader === 'object' ? (leader as Alter).id : leader;
+    let numeric: number | null = null;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      numeric = raw;
+    } else if (typeof raw === 'string') {
+      const trimmed = raw.trim().replace(/^#/u, '');
+      const parsed = Number(trimmed);
+      if (Number.isFinite(parsed)) numeric = parsed;
+    }
+    if (numeric != null && !seen.has(numeric)) {
+      seen.add(numeric);
+      result.push(numeric);
+    }
+  });
+  return result;
+};
 
 const getSigilUrlFromGroup = (group: Group | null): string | null => {
   if (!group) return null;

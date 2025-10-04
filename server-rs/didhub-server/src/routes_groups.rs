@@ -43,12 +43,17 @@ pub struct GroupOut {
     pub alters: Vec<i64>,
 }
 
+fn deserialize_leader_ids(raw: Option<&str>) -> Vec<i64> {
+    match raw {
+        Some(text) => serde_json::from_str::<serde_json::Value>(text)
+            .map(|value| parse_leaders(&value))
+            .unwrap_or_else(|_| parse_leaders(&serde_json::Value::String(text.to_string()))),
+        None => Vec::new(),
+    }
+}
+
 fn project(g: didhub_db::Group) -> GroupOut {
-    let leaders: Vec<i64> = g
-        .leaders
-        .as_ref()
-        .and_then(|s| serde_json::from_str::<Vec<i64>>(s).ok())
-        .unwrap_or_default();
+    let leaders = deserialize_leader_ids(g.leaders.as_deref());
     GroupOut {
         id: g.id,
         name: g.name,
@@ -71,11 +76,7 @@ async fn batch_load_group_members(
 }
 
 fn project_group_with_members(g: didhub_db::Group, members: &[i64]) -> GroupOut {
-    let leaders: Vec<i64> = g
-        .leaders
-        .as_ref()
-        .and_then(|s| serde_json::from_str::<Vec<i64>>(s).ok())
-        .unwrap_or_default();
+    let leaders = deserialize_leader_ids(g.leaders.as_deref());
     GroupOut {
         id: g.id,
         name: g.name,
@@ -268,10 +269,20 @@ pub async fn update_group(
         warn!(user_id=%user.id, group_id=%id, "group update failed - no update fields provided");
         return Err(AppError::BadRequest("no update fields".into()));
     }
-    debug!(user_id=%user.id, group_id=%id, update_fields=?payload.rest, "updating group");
+    let mut rest = payload.rest;
+    debug!(user_id=%user.id, group_id=%id, update_fields=?rest, "updating group");
     check_group_ownership(&db, &user, id).await?;
+    if let Some(obj) = rest.as_object_mut() {
+        if let Some(raw) = obj.get("leaders").cloned() {
+            let ids = parse_leaders(&raw);
+            obj.insert(
+                "leaders".to_string(),
+                serde_json::Value::Array(ids.into_iter().map(serde_json::Value::from).collect()),
+            );
+        }
+    }
     let updated = db
-        .update_group(id, &payload.rest)
+        .update_group(id, &rest)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
@@ -316,11 +327,7 @@ pub async fn toggle_leader(
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
     check_ownership_with_existing(&user, existing.owner_user_id)?;
-    let mut leaders: Vec<i64> = existing
-        .leaders
-        .as_ref()
-        .and_then(|s| serde_json::from_str::<Vec<i64>>(s).ok())
-        .unwrap_or_default();
+    let mut leaders = deserialize_leader_ids(existing.leaders.as_deref());
     let add = payload.add.unwrap_or(true);
     if add {
         if !leaders.contains(&payload.alter_id) {

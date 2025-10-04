@@ -79,7 +79,7 @@ export default function Birthdays() {
           if (!parsed) continue;
           nextEntries.push({
             alter,
-            owner: alter.owner_user_id ? owners.get(alter.owner_user_id) ?? null : null,
+            owner: alter.owner_user_id ? (owners.get(alter.owner_user_id) ?? null) : null,
             month: parsed.getMonth(),
             day: parsed.getDate(),
             label: alter.name || '(no name)',
@@ -203,7 +203,8 @@ export default function Birthdays() {
                       py: 0.5,
                       fontSize: '0.8rem',
                       borderRadius: 1,
-                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(144,202,249,0.16)' : 'rgba(25,118,210,0.08)',
+                      backgroundColor:
+                        theme.palette.mode === 'dark' ? 'rgba(144,202,249,0.16)' : 'rgba(25,118,210,0.08)',
                       color: 'primary.main',
                       '&:hover': {
                         backgroundColor:

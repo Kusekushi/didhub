@@ -7,21 +7,110 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function normalizeLeaderIds(value: unknown): number[] {
+  const attemptParse = (entry: unknown): number | undefined => {
+    if (typeof entry === 'number' && Number.isFinite(entry)) return entry;
+    if (typeof entry === 'string') {
+      const trimmed = entry.trim();
+      if (!trimmed) return undefined;
+      const numeric = Number(trimmed.replace(/^#/u, ''));
+      return Number.isFinite(numeric) ? numeric : undefined;
+    }
+    if (entry && typeof entry === 'object' && 'id' in (entry as Record<string, unknown>)) {
+      return attemptParse((entry as { id?: unknown }).id);
+    }
+    return undefined;
+  };
+
+  const dedupe = (ids: number[]): number[] => {
+    const seen = new Set<number>();
+    const result: number[] = [];
+    ids.forEach((id) => {
+      if (!seen.has(id)) {
+        seen.add(id);
+        result.push(id);
+      }
+    });
+    return result;
+  };
+
+  if (Array.isArray(value)) {
+    return dedupe(
+      value.map((entry) => attemptParse(entry)).filter((entry): entry is number => typeof entry === 'number'),
+    );
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      const parsed = safeJsonParse<unknown>(trimmed, []);
+      return normalizeLeaderIds(parsed);
+    }
+    return dedupe(
+      trimmed
+        .split(',')
+        .map((segment) => attemptParse(segment))
+        .filter((segment): segment is number => typeof segment === 'number'),
+    );
+  }
+
+  if (typeof value === 'number') return [value];
+
+  if (value && typeof value === 'object') {
+    return normalizeLeaderIds([value]);
+  }
+
+  return [];
+}
+
 function normalizeGroup(input: unknown): Group {
   if (!isRecord(input)) return input as Group;
-  const group = input as Partial<Group> & Record<string, unknown>;
-  return {
+  const group = input as Record<string, unknown>;
+
+  const parseOptionalNumber = (value: unknown): number | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const numeric = Number(trimmed.replace(/^#/u, ''));
+      return Number.isFinite(numeric) ? numeric : undefined;
+    }
+    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+      return parseOptionalNumber((value as { id?: unknown }).id);
+    }
+    return undefined;
+  };
+
+  const normalized: Record<string, unknown> = {
     ...group,
+    leaders: normalizeLeaderIds(group.leaders),
     sigil: safeJsonParse<unknown>(group.sigil, group.sigil ?? null),
-    leaders: safeJsonParse<string[]>(group.leaders, []),
     metadata: safeJsonParse<unknown>(group.metadata, null),
-  } as Group;
+  };
+
+  const id = parseOptionalNumber(group.id);
+  if (typeof id === 'number') {
+    normalized.id = id;
+  } else {
+    delete normalized.id;
+  }
+
+  const ownerId = parseOptionalNumber(group.owner_user_id);
+  delete normalized.owner_user_id;
+  if (typeof ownerId === 'number') {
+    normalized.owner_user_id = ownerId;
+  } else if (group.owner_user_id != null) {
+    normalized.owner_user_id = null;
+  }
+
+  return normalized as Group;
 }
 
 export interface GroupListFilters {
   query?: string;
   includeMembers?: boolean;
-  ownerUserId?: string | number;
+  owner_user_id?: string | number;
   rawQuery?: string;
   limit?: number;
   offset?: number;
@@ -34,8 +123,8 @@ export class GroupsApi {
     const fields: Record<string, string> = {};
     if (filters.includeMembers) fields.fields = 'members';
 
-    if (typeof filters.ownerUserId !== 'undefined') {
-      fields.owner_user_id = String(filters.ownerUserId);
+    if (typeof filters.owner_user_id !== 'undefined') {
+      fields.owner_user_id = String(filters.owner_user_id);
     }
 
     const queryString = filters.rawQuery
@@ -115,20 +204,38 @@ export class GroupsApi {
   }
 
   async listMembers(groupId: string | number): Promise<GroupMembersResponse> {
+    const parseId = (value: unknown): number | undefined => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return undefined;
+        const numeric = Number(trimmed.replace(/^#/u, ''));
+        return Number.isFinite(numeric) ? numeric : undefined;
+      }
+      return undefined;
+    };
+
+    const fallbackGroupId = parseId(groupId);
     const response = await this.http.request<GroupMembersResponse>({
       path: `/api/groups/${groupId}/members`,
     });
-    const fallback: GroupMembersResponse = { group_id: groupId, alters: [] };
+    const fallback: GroupMembersResponse =
+      fallbackGroupId != null ? { group_id: fallbackGroupId, alters: [] } : { alters: [] };
     if (!response.data || typeof response.data !== 'object') return fallback;
-    const payload = response.data as GroupMembersResponse;
-    const alters = Array.isArray(payload.alters)
-      ? payload.alters.filter(
-          (value): value is number | string => typeof value === 'number' || typeof value === 'string',
-        )
-      : [];
-    return {
-      group_id: payload.group_id ?? groupId,
-      alters,
-    };
+    const payload = response.data as Record<string, unknown>;
+    const rawAlters = Array.isArray(payload.alters) ? (payload.alters as unknown[]) : [];
+    const alters = rawAlters
+      .map((value) => {
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+        if (typeof value === 'string') {
+          const numeric = Number(value.trim());
+          return Number.isFinite(numeric) ? numeric : undefined;
+        }
+        return undefined;
+      })
+      .filter((value): value is number => typeof value === 'number');
+    const payloadGroupId = parseId(payload.group_id);
+    const resolvedGroupId = payloadGroupId ?? fallbackGroupId;
+    return resolvedGroupId != null ? { group_id: resolvedGroupId, alters } : { alters };
   }
 }

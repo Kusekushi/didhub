@@ -674,7 +674,9 @@ pub async fn query_database(
     let mut json_rows = vec![];
 
     if let Some(first_row) = limited_rows.first() {
-        columns = (0..first_row.len()).map(|i| first_row.column(i).name().to_string()).collect();
+        columns = (0..first_row.len())
+            .map(|i| first_row.column(i).name().to_string())
+            .collect();
     }
 
     for row in limited_rows {
@@ -689,7 +691,8 @@ pub async fn query_database(
                     } else if let Ok(v) = row.try_get::<i64, _>(i) {
                         serde_json::Value::Number(v.into())
                     } else if let Ok(v) = row.try_get::<f64, _>(i) {
-                        serde_json::Number::from_f64(v).map_or(serde_json::Value::Null, serde_json::Value::Number)
+                        serde_json::Number::from_f64(v)
+                            .map_or(serde_json::Value::Null, serde_json::Value::Number)
                     } else if let Ok(v) = row.try_get::<bool, _>(i) {
                         serde_json::Value::Bool(v)
                     } else {

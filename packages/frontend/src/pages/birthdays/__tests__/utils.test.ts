@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  generateCalendarWeeks,
-  getOccurrenceForYear,
-  parseBirthdayToDate,
-  startOfWeek,
-} from '../utils';
+import { generateCalendarWeeks, getOccurrenceForYear, parseBirthdayToDate, startOfWeek } from '../utils';
 
 describe('birthday calendar utils', () => {
   it('parses a variety of birthday formats', () => {

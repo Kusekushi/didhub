@@ -26,7 +26,7 @@ describe('useAltersData tab-aware refresh', () => {
     });
     const { result, rerender } = hook1;
 
-  // Should not have called list yet
+    // Should not have called list yet
     expect(listMock).not.toHaveBeenCalled();
 
     // Switch to tab 0 (alters) - initial load should occur
@@ -51,10 +51,10 @@ describe('useAltersData tab-aware refresh', () => {
     listMock.mockClear();
 
     // Simulate leaving the tab by unmounting the hook
-  hook1.unmount();
+    hook1.unmount();
 
-  // Remount the hook (simulate returning to the view)
-  const { result: r2 } = renderHook(() => useAltersData('sys-1', '', 0));
+    // Remount the hook (simulate returning to the view)
+    const { result: r2 } = renderHook(() => useAltersData('sys-1', '', 0));
 
     // allow effect to run
     await new Promise((r) => setTimeout(r, 100));

@@ -15,8 +15,8 @@ export function useSubsystemsData(
   pageSize: number = 20,
 ) {
   const fetchSubsystems = useCallback(
-    ({ ownerUserId, query, includeMembers, limit, offset }: EntityFetchFilters) =>
-      subsystems.listPaged({ ownerUserId, query, includeMembers, limit, offset }),
+    ({ owner_user_id, query, includeMembers, limit, offset }: EntityFetchFilters) =>
+      subsystems.listPaged({ owner_user_id, query, includeMembers, limit, offset }),
     [subsystems],
   );
 

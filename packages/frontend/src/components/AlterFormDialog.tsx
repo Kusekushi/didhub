@@ -67,6 +67,33 @@ function collectRelationshipIds(source: unknown): Array<number | string> {
   return [];
 }
 
+function extractNumericIds(items: unknown[], aliasMap?: Record<string, number | string>): number[] {
+  const seen = new Set<number>();
+  const result: number[] = [];
+  for (const item of items) {
+    let candidate: unknown = item;
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (!trimmed) continue;
+      const mapped = aliasMap?.[trimmed] ?? aliasMap?.[trimmed.toLowerCase()];
+      if (typeof mapped !== 'undefined') {
+        candidate = mapped;
+      }
+      const numeric = Number(String(candidate).trim().replace(/^#/u, ''));
+      if (!Number.isFinite(numeric)) continue;
+      candidate = numeric;
+    }
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      const id = candidate;
+      if (!seen.has(id)) {
+        seen.add(id);
+        result.push(id);
+      }
+    }
+  }
+  return result;
+}
+
 interface RelationshipSources {
   partners?: unknown;
   parents?: unknown;
@@ -78,7 +105,11 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
   const [partnerMap, setPartnerMap] = useState<Record<string, number | string>>({});
   const [alterIdNameMap, setAlterIdNameMap] = useState<Record<string, string>>({});
 
-  const relationshipsRef = useRef<RelationshipSources>({ partners: relationships.partners, parents: relationships.parents, children: relationships.children });
+  const relationshipsRef = useRef<RelationshipSources>({
+    partners: relationships.partners,
+    parents: relationships.parents,
+    children: relationships.children,
+  });
   const namesCacheRef = useRef<AlterName[] | null>(null);
   const namesFetchRef = useRef<Promise<AlterName[]> | null>(null);
   const lastNamesFetchRef = useRef<number>(0);
@@ -226,7 +257,11 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
           addOption({ id: idValue, label: display, aliases: Array.from(aliases) });
         }
 
-        const { partners: currentPartners, parents: currentParents, children: currentChildren } = relationshipsRef.current;
+        const {
+          partners: currentPartners,
+          parents: currentParents,
+          children: currentChildren,
+        } = relationshipsRef.current;
         const relationshipSources = [currentPartners, currentParents, currentChildren];
         if (existingAlter) {
           relationshipSources.push(existingAlter.partners, existingAlter.parents, existingAlter.children);
@@ -330,13 +365,13 @@ const empty: Alter = {
   alter_type: '',
   job: '',
   weapon: '',
-  soul_songs: '',
-  interests: '',
+  soul_songs: [],
+  interests: [],
   triggers: '',
   notes: '',
   affiliations: [],
-  subsystem: '',
-  group: '',
+  subsystem: null,
+  group: null,
   system_roles: [],
   is_system_host: false,
   is_dormant: false,
@@ -354,7 +389,7 @@ function isRelationshipType(value: unknown): value is RelationshipType {
   return value === 'partner' || value === 'parent' || value === 'child';
 }
 
-function normalizeAffiliationIds(source: unknown): Array<number | string> | null {
+function normalizeAffiliationIds(source: unknown): number[] | null {
   if (source == null) return null;
 
   const rawItems: unknown[] = (() => {
@@ -381,31 +416,36 @@ function normalizeAffiliationIds(source: unknown): Array<number | string> | null
 
   if (!rawItems) return null;
 
-  const normalized = rawItems
-    .map((item) => {
-      if (item == null) return null;
-      if (typeof item === 'number') return item;
-      if (typeof item === 'string') {
-        const trimmed = item.trim();
-        if (!trimmed) return null;
-        const numeric = Number(trimmed);
-        return Number.isNaN(numeric) ? trimmed : numeric;
-      }
-      if (typeof item === 'object') {
-        const candidate = item as { id?: unknown };
-        if (candidate && typeof candidate.id !== 'undefined') {
-          if (typeof candidate.id === 'number') return candidate.id;
-          if (typeof candidate.id === 'string') {
-            const trimmed = candidate.id.trim();
-            if (!trimmed) return null;
-            const numeric = Number(trimmed);
-            return Number.isNaN(numeric) ? trimmed : numeric;
-          }
+  const seen = new Set<number>();
+  const normalized: number[] = [];
+
+  for (const item of rawItems) {
+    let candidate: number | null = null;
+    if (typeof item === 'number' && Number.isFinite(item)) {
+      candidate = item;
+    } else if (typeof item === 'string') {
+      const trimmed = item.trim();
+      if (!trimmed) continue;
+      const numeric = Number(trimmed.replace(/^#/u, ''));
+      if (Number.isFinite(numeric)) candidate = numeric;
+    } else if (typeof item === 'object' && item !== null) {
+      const obj = item as { id?: unknown };
+      if (typeof obj.id === 'number' && Number.isFinite(obj.id)) {
+        candidate = obj.id;
+      } else if (typeof obj.id === 'string') {
+        const trimmed = obj.id.trim();
+        if (trimmed) {
+          const numeric = Number(trimmed.replace(/^#/u, ''));
+          if (Number.isFinite(numeric)) candidate = numeric;
         }
       }
-      return null;
-    })
-    .filter((value): value is number | string => value !== null);
+    }
+
+    if (candidate != null && !seen.has(candidate)) {
+      seen.add(candidate);
+      normalized.push(candidate);
+    }
+  }
 
   return normalized;
 }
@@ -428,9 +468,8 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     [values.partners, values.parents, values.children],
   );
 
-  const { partnerOptions, partnerMap, alterIdNameMap, refreshPartnerOptions } = useAlterRelationshipOptions(
-    relationshipValues,
-  );
+  const { partnerOptions, partnerMap, alterIdNameMap, refreshPartnerOptions } =
+    useAlterRelationshipOptions(relationshipValues);
 
   const { userPartnerOptions, userPartnerMap, userIdNameMap, refreshUserOptions } = useUserRelationshipOptions();
 
@@ -647,16 +686,20 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         .filter(Boolean);
       if (!(payload as any).partners.length) delete (payload as any).partners;
     }
-    // Convert partner names to IDs when possible
     if (Array.isArray((payload as any).partners)) {
-      (payload as any).partners = (payload as any).partners.map((p: any) => {
-        if (typeof p === 'number') return p;
-        if (typeof p === 'string') {
-          const id = partnerMap[String(p).toLowerCase()];
-          return typeof id !== 'undefined' ? id : p;
-        }
-        return p;
-      });
+      const normalizedPartners = extractNumericIds((payload as any).partners, partnerMap);
+      if (normalizedPartners.length) (payload as any).partners = normalizedPartners;
+      else delete (payload as any).partners;
+    }
+    if (Array.isArray((payload as any).parents)) {
+      const normalizedParents = extractNumericIds((payload as any).parents, partnerMap);
+      if (normalizedParents.length) (payload as any).parents = normalizedParents;
+      else delete (payload as any).parents;
+    }
+    if (Array.isArray((payload as any).children)) {
+      const normalizedChildren = extractNumericIds((payload as any).children, partnerMap);
+      if (normalizedChildren.length) (payload as any).children = normalizedChildren;
+      else delete (payload as any).children;
     }
     if (values._files && values._files.length) {
       setUploading(true);
@@ -745,16 +788,14 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
           .filter(Boolean);
         // Keep empty array if user removed all
       }
-      // convert partner names to ids when possible
       if (Array.isArray((editPayload as any).partners)) {
-        (editPayload as any).partners = (editPayload as any).partners.map((p: any) => {
-          if (typeof p === 'number') return p;
-          if (typeof p === 'string') {
-            const id = partnerMap[String(p).toLowerCase()];
-            return typeof id !== 'undefined' ? id : p;
-          }
-          return p;
-        });
+        (editPayload as any).partners = extractNumericIds((editPayload as any).partners, partnerMap);
+      }
+      if (Array.isArray((editPayload as any).parents)) {
+        (editPayload as any).parents = extractNumericIds((editPayload as any).parents, partnerMap);
+      }
+      if (Array.isArray((editPayload as any).children)) {
+        (editPayload as any).children = extractNumericIds((editPayload as any).children, partnerMap);
       }
       if (values._files && values._files.length) {
         const urls: string[] = [];

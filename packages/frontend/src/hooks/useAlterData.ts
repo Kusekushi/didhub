@@ -10,7 +10,7 @@ export function useAlterData(id?: string) {
   const [groupObj, setGroupObj] = useState<Group | null>(null);
   const [affiliationGroup, setAffiliationGroup] = useState<Group | null>(null);
   const [affiliationGroupsMap, setAffiliationGroupsMap] = useState<Record<string, Group>>({});
-  const [affiliationIdMap, setAffiliationIdMap] = useState<Record<number | string, Group>>({});
+  const [affiliationIdMap, setAffiliationIdMap] = useState<Record<number, Group>>({});
   const [subsystemObj, setSubsystemObj] = useState<Subsystem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,19 +68,24 @@ export function useAlterData(id?: string) {
     try {
       const affiliations = Array.isArray(affiliationData) ? affiliationData : [affiliationData];
       const map: Record<string, Group> = {};
-      const idMap: Record<number | string, Group> = {};
+      const idMap: Record<number, Group> = {};
 
       for (const rawName of affiliations) {
         // Try numeric ID first
-        if (typeof rawName === 'number' || (!Number.isNaN(Number(rawName)) && String(rawName).trim() !== '')) {
-          const maybeId = typeof rawName === 'number' ? rawName : Number(rawName);
-          if (!Number.isNaN(maybeId)) {
-            try {
-              const group = await apiClient.groups.get(maybeId);
-              if (group) idMap[maybeId] = group;
-              continue;
-            } catch (e) {
-              // Fall through to name-based lookup
+        if (typeof rawName === 'number' || typeof rawName === 'string') {
+          const trimmed = typeof rawName === 'string' ? rawName.trim() : String(rawName);
+          if (trimmed.length > 0) {
+            const maybeId = Number(trimmed);
+            if (!Number.isNaN(maybeId)) {
+              try {
+                const group = await apiClient.groups.get(maybeId);
+                if (group) {
+                  idMap[maybeId] = group;
+                  continue;
+                }
+              } catch (e) {
+                // Fall through to name-based lookup
+              }
             }
           }
         }
@@ -102,6 +107,7 @@ export function useAlterData(id?: string) {
       setAffiliationIdMap(idMap);
     } catch (e) {
       setAffiliationGroupsMap({});
+      setAffiliationIdMap({});
     }
   }
 

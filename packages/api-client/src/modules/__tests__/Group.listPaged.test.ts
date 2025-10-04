@@ -8,7 +8,7 @@ describe('GroupsApi.listPaged', () => {
     const http = { request } as unknown as HttpClient;
     const api = new GroupsApi(http);
 
-    await api.listPaged({ ownerUserId: 42, includeMembers: true, limit: 15, offset: 30, query: 'alpha' });
+    await api.listPaged({ owner_user_id: 42, includeMembers: true, limit: 15, offset: 30, query: 'alpha' });
 
     expect(request).toHaveBeenCalledWith({
       path: '/api/groups',

@@ -99,9 +99,9 @@ describe('useAltersData', () => {
   });
 
   it('refreshes using current pagination parameters', async () => {
-  const first: MockPage<Alter> = { items: [{ id: 5, name: 'Gamma' }], total: 5, limit: 20, offset: 0 };
-  const second: MockPage<Alter> = { items: [{ id: 6, name: 'Delta' }], total: 5, limit: 20, offset: 0 };
-  listMock.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    const first: MockPage<Alter> = { items: [{ id: 5, name: 'Gamma' }], total: 5, limit: 20, offset: 0 };
+    const second: MockPage<Alter> = { items: [{ id: 6, name: 'Delta' }], total: 5, limit: 20, offset: 0 };
+    listMock.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
 
     const { result } = renderHook(() => useAltersData('uid-1', 'gamma'));
 

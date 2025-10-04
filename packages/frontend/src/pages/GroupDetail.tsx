@@ -68,10 +68,12 @@ function extractLeaderIds(group: Group | null): string[] {
 
 function extractOwnerId(group: Group | null): number | string | undefined {
   if (!group) return undefined;
-  if (group.owner_user_id != null) return group.owner_user_id;
-  if (group.ownerUserId != null) return group.ownerUserId;
-  const raw = (group as Record<string, unknown>).owner_user_id;
-  if (typeof raw === 'number' || typeof raw === 'string') return raw;
+  const candidate = (group as Record<string, unknown>).owner_user_id;
+  if (typeof candidate === 'number' || typeof candidate === 'string') return candidate;
+  if (candidate != null) {
+    const text = String(candidate).trim();
+    if (text) return text;
+  }
   return undefined;
 }
 
@@ -291,8 +293,16 @@ export default function GroupDetail() {
     try {
       if (sigilUploading) throw new Error('Please wait for sigil upload to finish');
       const leaderIdsPayload = editLeaders
-        .map((leader) => leader.id)
-        .filter((value): value is string | number => typeof value === 'string' || typeof value === 'number');
+        .map((leader) => {
+          const raw = leader.id;
+          if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+          if (typeof raw === 'string') {
+            const numeric = Number(raw.trim().replace(/^#/u, ''));
+            return Number.isFinite(numeric) ? numeric : null;
+          }
+          return null;
+        })
+        .filter((value): value is number => value !== null);
       const payload: Record<string, unknown> = {
         name: editName.trim() ? editName.trim() : null,
         description: editDesc ? editDesc : null,

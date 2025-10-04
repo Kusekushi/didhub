@@ -16,10 +16,10 @@ describe('useAlterOptions', () => {
     const { useAlterOptions } = await import('../useAlterOptions');
     renderHook(() => useAlterOptions());
 
-  // wait past debounce
-  await new Promise((r) => setTimeout(r, 500));
+    // wait past debounce
+    await new Promise((r) => setTimeout(r, 500));
 
-  expect((mod as any).apiClient.alters.search).not.toHaveBeenCalled();
+    expect((mod as any).apiClient.alters.search).not.toHaveBeenCalled();
   });
 
   it('does not fetch when enabled is false', async () => {
@@ -29,8 +29,8 @@ describe('useAlterOptions', () => {
     const { useAlterOptions } = await import('../useAlterOptions');
     renderHook(() => useAlterOptions('system-1', '', false));
 
-  await new Promise((r) => setTimeout(r, 500));
-  expect((mod as any).apiClient.alters.search).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 500));
+    expect((mod as any).apiClient.alters.search).not.toHaveBeenCalled();
   });
 
   it('fetches options when uid is provided and leaderQuery set', async () => {
@@ -53,9 +53,7 @@ describe('useAlterOptions', () => {
   it('coalesces inflight identical requests across multiple hook instances', async () => {
     const mod = await import('@didhub/api-client');
     // Simulate a slow network call
-    const mockSearch = vi.fn(
-      () => new Promise((resolve) => setTimeout(() => resolve([{ id: 'coalesced' }]), 100)),
-    );
+    const mockSearch = vi.fn(() => new Promise((resolve) => setTimeout(() => resolve([{ id: 'coalesced' }]), 100)));
     (mod as any).apiClient.alters.search = mockSearch;
 
     const { useAlterOptions } = await import('../useAlterOptions');

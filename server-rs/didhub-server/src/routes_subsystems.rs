@@ -44,12 +44,17 @@ pub struct SubsystemOut {
     pub alters: Vec<i64>,
 }
 
+fn deserialize_leader_ids(raw: Option<&str>) -> Vec<i64> {
+    match raw {
+        Some(text) => serde_json::from_str::<serde_json::Value>(text)
+            .map(|value| parse_leaders(&value))
+            .unwrap_or_else(|_| parse_leaders(&serde_json::Value::String(text.to_string()))),
+        None => Vec::new(),
+    }
+}
+
 fn project(s: didhub_db::Subsystem) -> SubsystemOut {
-    let leaders: Vec<i64> = s
-        .leaders
-        .as_ref()
-        .and_then(|v| serde_json::from_str::<Vec<i64>>(v).ok())
-        .unwrap_or_default();
+    let leaders = deserialize_leader_ids(s.leaders.as_deref());
     SubsystemOut {
         id: s.id,
         name: s.name,
@@ -71,11 +76,7 @@ async fn batch_load_subsystem_members(
 }
 
 fn project_subsystem_with_members(s: didhub_db::Subsystem, members: &[i64]) -> SubsystemOut {
-    let leaders: Vec<i64> = s
-        .leaders
-        .as_ref()
-        .and_then(|v| serde_json::from_str::<Vec<i64>>(v).ok())
-        .unwrap_or_default();
+    let leaders = deserialize_leader_ids(s.leaders.as_deref());
     SubsystemOut {
         id: s.id,
         name: s.name,
@@ -369,8 +370,19 @@ pub async fn update_subsystem(
         "Permission check passed, proceeding with update"
     );
 
+    let mut rest = payload.rest;
+    if let Some(obj) = rest.as_object_mut() {
+        if let Some(raw) = obj.get("leaders").cloned() {
+            let ids = parse_leaders(&raw);
+            obj.insert(
+                "leaders".to_string(),
+                serde_json::Value::Array(ids.into_iter().map(serde_json::Value::from).collect()),
+            );
+        }
+    }
+
     let updated = db
-        .update_subsystem(id, &payload.rest)
+        .update_subsystem(id, &rest)
         .await
         .map_err(|e| {
             error!(
@@ -525,11 +537,7 @@ pub async fn toggle_leader(
         "Permission check passed, proceeding with leader toggle"
     );
 
-    let mut leaders: Vec<i64> = existing
-        .leaders
-        .as_ref()
-        .and_then(|s| serde_json::from_str::<Vec<i64>>(s).ok())
-        .unwrap_or_default();
+    let mut leaders = deserialize_leader_ids(existing.leaders.as_deref());
 
     let add = payload.add.unwrap_or(true);
     let was_present = leaders.contains(&payload.alter_id);

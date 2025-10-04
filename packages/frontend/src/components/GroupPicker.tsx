@@ -8,8 +8,8 @@ import InputPromptDialog from './InputPromptDialog';
 type Option = Group | { name: string };
 
 export interface GroupPickerProps {
-  value?: number | string | (number | string)[] | { id?: number; name?: string } | null;
-  onChange?: (v: number | string | (number | string)[] | null) => void;
+  value?: number | number[] | { id?: number; name?: string } | null;
+  onChange?: (v: number | number[] | null) => void;
   multiple?: boolean;
 }
 
@@ -39,29 +39,37 @@ export default function GroupPicker(props: GroupPickerProps) {
     };
   }, [inputValue]);
 
+  const parseNumericId = (value: unknown): number | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const numeric = Number(trimmed.replace(/^#/u, ''));
+      return Number.isFinite(numeric) ? numeric : undefined;
+    }
+    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+      return parseNumericId((value as { id?: unknown }).id);
+    }
+    return undefined;
+  };
+
   async function handleChange(e: React.SyntheticEvent, v: Option | Option[] | string | number | null) {
     if (multiple) {
       const arr = Array.isArray(v) ? v : [];
-      const result = arr
-        .map((item) => {
-          if (!item) return null;
-          if (typeof item === 'string') return item;
-          if (typeof item === 'number') return item;
-          if ('id' in item && item.id) return (item as Group).id;
-          if ('name' in item && item.name) return (item as any).name;
-          return null;
-        })
-        .filter((x) => x != null) as (number | string)[];
+      const result = arr.map((item) => parseNumericId(item)).filter((id): id is number => typeof id === 'number');
       props.onChange?.(result);
       return;
     }
     if (typeof v === 'string') {
       setCreateDialog({ open: true, name: v });
       return;
+    } else if (typeof v === 'number') {
+      const numeric = parseNumericId(v);
+      props.onChange?.(numeric ?? null);
+      return;
     } else if (v && typeof v === 'object' && 'id' in v) {
-      props.onChange?.((v as Group).id);
-    } else if (v && typeof v === 'object' && 'name' in v) {
-      props.onChange?.((v as any).name);
+      const numeric = parseNumericId((v as Group).id);
+      props.onChange?.(numeric ?? null);
     } else {
       props.onChange?.(null);
     }
@@ -71,19 +79,18 @@ export default function GroupPicker(props: GroupPickerProps) {
     if (multiple) {
       if (!props.value) return [];
       const arr = Array.isArray(props.value) ? props.value : [props.value];
-      return arr.map((v) =>
-        typeof v === 'number'
-          ? options.find((x) => x.id === v) || { name: String(v) }
-          : typeof v === 'object'
-            ? (v as Option)
-            : { name: String(v) },
-      );
+      return arr
+        .map((v) => parseNumericId(v))
+        .filter((id): id is number => typeof id === 'number')
+        .map((id) => options.find((x) => x.id === id) || { name: String(id) });
     }
     if (!props.value) return null;
     if (typeof props.value === 'object') return props.value as Option;
-    if (typeof props.value === 'number')
-      return options.find((x) => x.id === props.value) || { name: String(props.value) };
-    return { name: props.value };
+    const numeric = parseNumericId(props.value);
+    if (typeof numeric === 'number') {
+      return options.find((x) => x.id === numeric) || { name: String(numeric) };
+    }
+    return null;
   })();
 
   const label = multiple ? 'Affiliations' : 'Affiliation';
@@ -99,11 +106,7 @@ export default function GroupPicker(props: GroupPickerProps) {
         onInputChange={(e, v) => setInputValue(v)}
         onChange={handleChange}
         renderInput={(params) => (
-          <TextField
-            {...params}
-            label={label}
-            placeholder={multiple ? 'Select affiliations' : 'Select affiliation'}
-          />
+          <TextField {...params} label={label} placeholder={multiple ? 'Select affiliations' : 'Select affiliation'} />
         )}
         freeSolo
         clearOnBlur={false}
@@ -118,14 +121,15 @@ export default function GroupPicker(props: GroupPickerProps) {
           onSubmit={async () => {
             try {
               const group = await apiClient.groups.create({ name: createDialog.name });
-              if (group && group.id != null) {
+              const createdId = parseNumericId(group?.id);
+              if (group && createdId != null) {
                 setOptions((prev) => [group, ...prev]);
-                props.onChange?.(group.id);
+                props.onChange?.(createdId);
               } else {
-                props.onChange?.(createDialog.name);
+                props.onChange?.(null);
               }
             } catch {
-              props.onChange?.(createDialog.name);
+              props.onChange?.(null);
             } finally {
               setCreateDialog({ open: false, name: '' });
             }

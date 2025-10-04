@@ -297,12 +297,12 @@ impl AlterOperations for Db {
         body: &serde_json::Value,
     ) -> Result<Option<Alter>> {
         let mut sets: Vec<String> = Vec::new();
-        let mut vals: Vec<(i32, serde_json::Value)> = Vec::new();
+        let mut vals: Vec<(i32, String, serde_json::Value)> = Vec::new();
         let mut idx = 1;
         let mut bind_field = |key: &str| {
             if let Some(v) = body.get(key) {
                 sets.push(format!("{}=?{}", key, idx));
-                vals.push((idx, v.clone()));
+                vals.push((idx, key.to_string(), v.clone()));
                 idx += 1;
             }
         };
@@ -340,21 +340,68 @@ impl AlterOperations for Db {
         }
         let sql = format!("UPDATE alters SET {} WHERE id=?{}", sets.join(","), idx);
         let mut q = sqlx::query(&sql);
-        vals.sort_by_key(|(i, _)| *i);
-        for (_, v) in vals {
-            q = match v {
-                serde_json::Value::String(s) => q.bind(s),
-                serde_json::Value::Number(n) => {
-                    if let Some(i) = n.as_i64() {
-                        q.bind(i)
-                    } else if let Some(f) = n.as_f64() {
-                        q.bind(f)
-                    } else {
-                        q.bind(n.to_string())
+        vals.sort_by_key(|(i, _, _)| *i);
+        for (_, key, value) in vals {
+            use serde_json::Value;
+
+            q = match key.as_str() {
+                "owner_user_id" => match value {
+                    Value::Number(n) => {
+                        if let Some(i) = n.as_i64() {
+                            q.bind(i)
+                        } else {
+                            q.bind(n.to_string())
+                        }
                     }
-                }
-                serde_json::Value::Bool(b) => q.bind(if b { 1 } else { 0 }),
-                _ => q.bind(v.to_string()),
+                    Value::Null => q.bind::<Option<i64>>(None),
+                    Value::String(s) => {
+                        if let Ok(parsed) = s.trim().parse::<i64>() {
+                            q.bind(parsed)
+                        } else if s.trim().is_empty() {
+                            q.bind::<Option<i64>>(None)
+                        } else {
+                            q.bind(s)
+                        }
+                    }
+                    Value::Bool(b) => q.bind(if b { 1 } else { 0 }),
+                    other => q.bind(other.to_string()),
+                },
+                "is_system_host" | "is_dormant" | "is_merged" => match value {
+                    Value::Bool(b) => q.bind(if b { 1 } else { 0 }),
+                    Value::Number(n) => {
+                        if let Some(i) = n.as_i64() {
+                            q.bind(i)
+                        } else {
+                            q.bind(n.to_string())
+                        }
+                    }
+                    Value::Null => q.bind::<Option<i64>>(None),
+                    Value::String(s) => {
+                        if let Ok(parsed) = s.trim().parse::<i64>() {
+                            q.bind(parsed)
+                        } else if s.trim().is_empty() {
+                            q.bind::<Option<i64>>(None)
+                        } else {
+                            q.bind(s)
+                        }
+                    }
+                    other => q.bind(other.to_string()),
+                },
+                _ => match value {
+                    Value::String(s) => q.bind(s),
+                    Value::Number(n) => {
+                        if let Some(i) = n.as_i64() {
+                            q.bind(i)
+                        } else if let Some(f) = n.as_f64() {
+                            q.bind(f)
+                        } else {
+                            q.bind(n.to_string())
+                        }
+                    }
+                    Value::Bool(b) => q.bind(if b { 1 } else { 0 }),
+                    Value::Null => q.bind::<Option<String>>(None),
+                    other => q.bind(other.to_string()),
+                },
             };
         }
         q = q.bind(id);

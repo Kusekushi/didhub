@@ -1,3 +1,4 @@
+use crate::routes_common::{normalize_image_list, normalize_string_list};
 use axum::{
     extract::{Extension, Path, Query, State},
     Json,
@@ -59,12 +60,16 @@ pub struct AlterOut {
     pub weapon: Option<String>,
     pub triggers: Option<String>,
     pub metadata: Option<String>,
-    pub soul_songs: Option<String>,
-    pub interests: Option<String>,
+    #[serde(default)]
+    pub soul_songs: Vec<String>,
+    #[serde(default)]
+    pub interests: Vec<String>,
     pub notes: Option<String>,
-    pub images: Option<String>,
-    pub subsystem: Option<String>,
-    pub system_roles: Option<String>,
+    #[serde(default)]
+    pub images: Vec<String>,
+    pub subsystem: Option<i64>,
+    #[serde(default)]
+    pub system_roles: Vec<String>,
     pub is_system_host: i64,
     pub is_dormant: i64,
     pub is_merged: i64,
@@ -91,6 +96,12 @@ async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
         (Ok(vec![]), Ok(vec![]), Ok(vec![]), Ok(vec![]), Ok(vec![]))
     };
 
+    let soul_songs = normalize_string_list(a.soul_songs.as_deref());
+    let interests = normalize_string_list(a.interests.as_deref());
+    let images = normalize_image_list(a.images.as_deref());
+    let system_roles = normalize_string_list(a.system_roles.as_deref());
+    let subsystem = parse_optional_i64(a.subsystem.as_deref());
+
     AlterOut {
         id: a.id,
         name: a.name,
@@ -106,12 +117,12 @@ async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
         weapon: a.weapon,
         triggers: a.triggers,
         metadata: a.metadata,
-        soul_songs: a.soul_songs,
-        interests: a.interests,
+        soul_songs,
+        interests,
         notes: a.notes,
-        images: a.images,
-        subsystem: a.subsystem,
-        system_roles: a.system_roles,
+        images,
+        subsystem,
+        system_roles,
         is_system_host: a.is_system_host,
         is_dormant: a.is_dormant,
         is_merged: a.is_merged,
@@ -127,8 +138,60 @@ async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
 
 static EMPTY_RELS: (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>) = (vec![], vec![], vec![], vec![]);
 
+fn parse_optional_i64(raw: Option<&str>) -> Option<i64> {
+    raw.and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            trimmed.parse::<i64>().ok()
+        }
+    })
+}
+
+fn normalize_subsystem_field(body: &mut serde_json::Value) {
+    use serde_json::Value;
+
+    let Some(obj) = body.as_object_mut() else {
+        return;
+    };
+
+    if let Some(current) = obj.get("subsystem").cloned() {
+        let replacement = match current {
+            Value::Number(num) => num.as_i64().map(|id| Value::String(id.to_string())),
+            Value::String(raw) => {
+                let trimmed = raw.trim();
+                if trimmed.is_empty() {
+                    None
+                } else if let Ok(id) = trimmed.parse::<i64>() {
+                    Some(Value::String(id.to_string()))
+                } else {
+                    None
+                }
+            }
+            Value::Null => None,
+            _ => None,
+        };
+
+        match replacement {
+            Some(v) => {
+                obj.insert("subsystem".to_string(), v);
+            }
+            None => {
+                obj.insert("subsystem".to_string(), Value::Null);
+            }
+        }
+    }
+}
+
 fn project_with_rel_batch(a: Alter, rels: &(Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)) -> AlterOut {
     let (partners, parents, children, affiliations) = rels;
+    let soul_songs = normalize_string_list(a.soul_songs.as_deref());
+    let interests = normalize_string_list(a.interests.as_deref());
+    let images = normalize_image_list(a.images.as_deref());
+    let system_roles = normalize_string_list(a.system_roles.as_deref());
+    let subsystem = parse_optional_i64(a.subsystem.as_deref());
+
     AlterOut {
         id: a.id,
         name: a.name,
@@ -144,12 +207,12 @@ fn project_with_rel_batch(a: Alter, rels: &(Vec<i64>, Vec<i64>, Vec<i64>, Vec<i6
         weapon: a.weapon,
         triggers: a.triggers,
         metadata: a.metadata,
-        soul_songs: a.soul_songs,
-        interests: a.interests,
+        soul_songs,
+        interests,
         notes: a.notes,
-        images: a.images,
-        subsystem: a.subsystem,
-        system_roles: a.system_roles,
+        images,
+        subsystem,
+        system_roles,
         is_system_host: a.is_system_host,
         is_dormant: a.is_dormant,
         is_merged: a.is_merged,
@@ -476,6 +539,8 @@ pub async fn create_alter(
         body["name"] = serde_json::json!(n.trim());
     }
 
+    normalize_subsystem_field(&mut body);
+
     // Create the minimal record (DB create reads name + owner_user_id), then persist other fields via update_alter_fields
     // Extract relationship arrays (if present) so we can apply them after create
     let mut rel_partners: Option<Vec<i64>> = None;
@@ -674,20 +739,24 @@ pub async fn update_alter(
             return Err(AppError::Forbidden);
         }
     }
+    let mut body = payload.rest.clone();
+
     // Non-admin cannot reassign ownership
     if !user.is_admin {
-        if let Some(obj) = payload.rest.as_object() {
+        if let Some(obj) = body.as_object() {
             if obj.contains_key("owner_user_id") {
                 return Err(AppError::Forbidden);
             }
         }
     }
+
+    normalize_subsystem_field(&mut body);
     // Extract relationship arrays before generic update
     let mut rel_partners: Option<Vec<i64>> = None;
     let mut rel_parents: Option<Vec<i64>> = None;
     let mut rel_children: Option<Vec<i64>> = None;
     let mut rel_affiliations: Option<Vec<i64>> = None;
-    if let Some(obj) = payload.rest.as_object() {
+    if let Some(obj) = body.as_object() {
         for (k, target) in [
             ("partners", &mut rel_partners),
             ("parents", &mut rel_parents),
@@ -702,7 +771,7 @@ pub async fn update_alter(
         }
     }
     let updated = db
-        .update_alter_fields(id, &payload.rest)
+        .update_alter_fields(id, &body)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
@@ -992,6 +1061,10 @@ pub async fn family_tree(
                 .map(|r| r.user_id)
                 .collect();
 
+            let system_roles = alter
+                .map(|a| normalize_string_list(a.system_roles.as_deref()))
+                .unwrap_or_default();
+
             (
                 id.to_string(),
                 serde_json::json!({
@@ -1001,7 +1074,7 @@ pub async fn family_tree(
                     "parents": node.parents,
                     "children": node.children,
                     "age": alter.and_then(|a| a.age.clone()),
-                    "system_roles": alter.and_then(|a| a.system_roles.clone()),
+                    "system_roles": system_roles,
                     "owner_user_id": alter.and_then(|a| a.owner_user_id),
                     "user_partners": user_partners,
                     "user_parents": user_parents,
@@ -1050,21 +1123,8 @@ pub async fn delete_alter_image(
             return Err(AppError::Forbidden);
         }
     }
-    // Get current images
-    let current_images: Vec<String> = existing
-        .images
-        .as_ref()
-        .and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
-        .unwrap_or_default()
-        .into_iter()
-        .map(|img| {
-            if img.starts_with("/uploads/") {
-                img
-            } else {
-                format!("/uploads/{}", img)
-            }
-        })
-        .collect();
+    // Get current images as normalized upload URLs
+    let current_images: Vec<String> = normalize_image_list(existing.images.as_deref());
     // Check if the URL exists
     if !current_images.contains(&payload.url) {
         return Err(AppError::NotFound);

@@ -65,7 +65,8 @@ export default function DIDSystemView(): React.ReactElement {
   const dialogStates = useDialogStates();
 
   // Only enable alter options fetching when groups tab or edit/create dialogs may need them
-  const enableAlterOptions = tab === 1 || dialogStates.createOpen || dialogStates.editOpen || dialogStates.editGroupOpen;
+  const enableAlterOptions =
+    tab === 1 || dialogStates.createOpen || dialogStates.editOpen || dialogStates.editGroupOpen;
   const { altersOptions } = useAlterOptions(uid, '', enableAlterOptions);
 
   // Group creation state

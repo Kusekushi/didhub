@@ -1,5 +1,5 @@
 export interface Alter {
-  id?: number | string;
+  id?: number;
   name?: string;
   description?: string;
   age?: number | string | null;
@@ -7,55 +7,53 @@ export interface Alter {
   pronouns?: string;
   birthday?: string;
   sexuality?: string;
-  partners?: Array<string | number> | string | number;
-  parents?: Array<string | number> | string | number;
-  children?: Array<string | number> | string | number;
+  partners?: number[];
+  parents?: number[];
+  children?: number[];
   species?: string;
   alter_type?: string;
   job?: string;
   weapon?: string;
-  soul_songs?: string[] | string;
-  interests?: string[] | string;
+  soul_songs?: string[];
+  interests?: string[];
   triggers?: string;
   notes?: string;
-  affiliations?: Array<number | string>; // Backend returns array of group IDs
-  subsystem?: number | string;
-  system_roles?: string[] | string;
+  affiliations?: number[]; // Backend returns array of group IDs
+  subsystem?: number | null;
+  system_roles?: string[];
   is_system_host?: boolean;
   is_dormant?: boolean;
   is_merged?: boolean;
-  images?: string[] | string;
-  owner_user_id?: number | string;
+  images?: string[];
+  owner_user_id?: number | null;
   created_at?: string;
   user_relationships?: UserAlterRelationship[];
   [k: string]: unknown;
 }
 
 export interface Group {
-  id?: number | string;
+  id?: number;
   name?: string;
   description?: string;
   sigil?: unknown;
-  leaders?: Array<number | string | { id?: number | string; name?: string }>;
-  owner_user_id?: number | string;
-  ownerUserId?: number | string;
+  leaders?: number[];
+  owner_user_id?: number | null;
   metadata?: unknown;
   [k: string]: unknown;
 }
 
 export interface Subsystem {
-  id?: number | string;
+  id?: number;
   name?: string;
   description?: string;
   type?: string;
-  leaders?: Array<number | string | { id?: number | string; name?: string }>;
-  owner_user_id?: number | string;
-  ownerUserId?: number | string;
+  leaders?: number[];
+  owner_user_id?: number | null;
   [k: string]: unknown;
 }
 
 export interface User {
-  user_id?: number | string;
+  user_id?: number;
   username?: string;
   display_name?: string;
   is_admin?: boolean;
@@ -63,9 +61,8 @@ export interface User {
   must_change_password?: boolean;
   avatar?: string | null;
   created_at?: string;
-  id?: number | string;
+  id?: number;
   is_approved?: boolean;
-  // allow extra unknown fields without using `any`
   [k: string]: unknown;
 }
 
@@ -230,7 +227,7 @@ export interface FamilyTreeNodeData {
   parents: number[];
   children: number[];
   age?: string;
-  system_roles?: string[] | string;
+  system_roles?: string[];
   owner_user_id?: number;
   user_partners?: number[];
   user_parents?: number[];
@@ -266,11 +263,10 @@ export interface FamilyTreeResponse {
 }
 
 export interface SubsystemMember {
-  alter_id?: number | string;
-  alterId?: number | string;
+  alterId?: number;
   alter_name?: string;
   is_leader?: boolean;
-  roles?: string[] | string;
+  roles?: string[];
   [k: string]: unknown;
 }
 
@@ -282,8 +278,8 @@ export interface GroupMember {
 }
 
 export interface GroupMembersResponse {
-  group_id?: number | string;
-  alters: Array<number | string>;
+  group_id?: number;
+  alters: number[];
   [k: string]: unknown;
 }
 

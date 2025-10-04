@@ -49,9 +49,7 @@ interface AltersTabProps {
 export default function AltersTab(props: AltersTabProps) {
   const nav = useNavigate();
   const filteredItems = props.items
-    .filter(
-      (alter: Alter) => !props.search || (alter.name || '').toLowerCase().includes(props.search.toLowerCase()),
-    )
+    .filter((alter: Alter) => !props.search || (alter.name || '').toLowerCase().includes(props.search.toLowerCase()))
     .filter((alter: Alter) => (props.hideDormant ? !alter?.is_dormant : true))
     .filter((alter: Alter) => (props.hideMerged ? !alter?.is_merged : true));
   const pageCount = Math.max(1, Math.ceil((props.total || 0) / Math.max(1, props.pageSize)));
@@ -78,106 +76,106 @@ export default function AltersTab(props: AltersTabProps) {
       )}
       <List>
         {filteredItems.map((it: Alter, idx: number) => (
-            <React.Fragment key={it.id}>
-              <ListItem
-                alignItems="flex-start"
-                disablePadding
-                secondaryAction={
-                  <ActionButtons
-                    onView={() => nav(`/detail/${it.id}`)}
-                    onEdit={
-                      props.canManage
-                        ? () => {
-                            props.setEditingAlter(it.id);
-                            props.setEditOpen(true);
-                          }
-                        : undefined
-                    }
-                    onDelete={props.canManage ? () => props.onDelete(it.id) : undefined}
-                    onShare={async () => {
-                      if (!props.settings.shortLinksEnabled || it.id == null) return;
-                      try {
-                        const record = await apiClient.shortlinks
-                          .create('alter', it.id as number | string)
-                          .catch(() => null);
-                        if (!record) {
-                          throw new Error('Failed to create share link');
+          <React.Fragment key={it.id}>
+            <ListItem
+              alignItems="flex-start"
+              disablePadding
+              secondaryAction={
+                <ActionButtons
+                  onView={() => nav(`/detail/${it.id}`)}
+                  onEdit={
+                    props.canManage
+                      ? () => {
+                          props.setEditingAlter(it.id);
+                          props.setEditOpen(true);
                         }
-                        const shareUrl = getShortLinkUrl(record);
-                        await navigator.clipboard.writeText(shareUrl);
-                        props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
-                      } catch (error: unknown) {
-                        const message =
-                          error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
-                        props.setSnack({
-                          open: true,
-                          message,
-                          severity: 'error',
-                        });
+                      : undefined
+                  }
+                  onDelete={props.canManage ? () => props.onDelete(it.id) : undefined}
+                  onShare={async () => {
+                    if (!props.settings.shortLinksEnabled || it.id == null) return;
+                    try {
+                      const record = await apiClient.shortlinks
+                        .create('alter', it.id as number | string)
+                        .catch(() => null);
+                      if (!record) {
+                        throw new Error('Failed to create share link');
                       }
-                    }}
-                    canManage={props.canManage}
-                    canShare={props.settings.shortLinksEnabled}
-                  />
-                }
-              >
-                {Array.isArray(it.images) && it.images.length ? (
-                  <ListItemAvatar>
-                    <div style={{ marginRight: 4 }}>
-                      <ThumbnailWithHover
-                        image={it.images[0] as string}
-                        alt={it.name || ''}
-                        onClick={() => nav(`/detail/${it.id}`)}
-                      />
-                    </div>
-                  </ListItemAvatar>
-                ) : (
-                  <ListItemAvatar>
-                    <Avatar
-                      variant="rounded"
-                      sx={{ width: 40, height: 40, fontSize: 14, bgcolor: '#e0e0e0', color: '#555' }}
-                    >
-                      <PersonIcon fontSize="small" />
-                    </Avatar>
-                  </ListItemAvatar>
-                )}
-                <ListItemText
-                  primary={
-                    <span
-                      style={{
-                        opacity: it.is_dormant ? 0.6 : 1,
-                        textDecoration: it.is_merged ? 'line-through' : 'none',
-                      }}
-                    >
-                      {it.name || 'Unnamed'}
-                    </span>
-                  }
-                  secondary={
-                    <div>
-                      <span style={{ fontSize: 12, color: '#666' }}>
-                        Age: {it.age != null && it.age !== '' ? String(it.age) : '—'} {'  '} Pronouns:{' '}
-                        {it.pronouns || '—'}
-                      </span>
-                      <div style={{ marginTop: 6 }}>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                          {parseRoles(it.system_roles).map((r: string, i: number) => (
-                            <Chip key={i} label={r} size="small" />
-                          ))}
-                          {it.is_system_host ? <Chip label="Host" color="primary" size="small" /> : null}
-                          {it.is_dormant ? (
-                            <Chip label="Dormant" size="small" variant="outlined" color="default" />
-                          ) : null}
-                          {it.is_merged ? <Chip label="Merged" size="small" color="warning" /> : null}
-                        </Stack>
-                      </div>
-                    </div>
-                  }
-                  secondaryTypographyProps={{ component: 'div' }}
+                      const shareUrl = getShortLinkUrl(record);
+                      await navigator.clipboard.writeText(shareUrl);
+                      props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
+                    } catch (error: unknown) {
+                      const message =
+                        error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
+                      props.setSnack({
+                        open: true,
+                        message,
+                        severity: 'error',
+                      });
+                    }
+                  }}
+                  canManage={props.canManage}
+                  canShare={props.settings.shortLinksEnabled}
                 />
-              </ListItem>
-              {idx < filteredItems.length - 1 && <Divider component="li" />}
-            </React.Fragment>
-          ))}
+              }
+            >
+              {Array.isArray(it.images) && it.images.length ? (
+                <ListItemAvatar>
+                  <div style={{ marginRight: 4 }}>
+                    <ThumbnailWithHover
+                      image={it.images[0] as string}
+                      alt={it.name || ''}
+                      onClick={() => nav(`/detail/${it.id}`)}
+                    />
+                  </div>
+                </ListItemAvatar>
+              ) : (
+                <ListItemAvatar>
+                  <Avatar
+                    variant="rounded"
+                    sx={{ width: 40, height: 40, fontSize: 14, bgcolor: '#e0e0e0', color: '#555' }}
+                  >
+                    <PersonIcon fontSize="small" />
+                  </Avatar>
+                </ListItemAvatar>
+              )}
+              <ListItemText
+                primary={
+                  <span
+                    style={{
+                      opacity: it.is_dormant ? 0.6 : 1,
+                      textDecoration: it.is_merged ? 'line-through' : 'none',
+                    }}
+                  >
+                    {it.name || 'Unnamed'}
+                  </span>
+                }
+                secondary={
+                  <div>
+                    <span style={{ fontSize: 12, color: '#666' }}>
+                      Age: {it.age != null && it.age !== '' ? String(it.age) : '—'} {'  '} Pronouns:{' '}
+                      {it.pronouns || '—'}
+                    </span>
+                    <div style={{ marginTop: 6 }}>
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        {parseRoles(it.system_roles).map((r: string, i: number) => (
+                          <Chip key={i} label={r} size="small" />
+                        ))}
+                        {it.is_system_host ? <Chip label="Host" color="primary" size="small" /> : null}
+                        {it.is_dormant ? (
+                          <Chip label="Dormant" size="small" variant="outlined" color="default" />
+                        ) : null}
+                        {it.is_merged ? <Chip label="Merged" size="small" color="warning" /> : null}
+                      </Stack>
+                    </div>
+                  </div>
+                }
+                secondaryTypographyProps={{ component: 'div' }}
+              />
+            </ListItem>
+            {idx < filteredItems.length - 1 && <Divider component="li" />}
+          </React.Fragment>
+        ))}
       </List>
 
       <div

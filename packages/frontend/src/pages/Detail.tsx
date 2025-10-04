@@ -62,7 +62,9 @@ export default function Detail(): React.ReactElement {
   if (!alter) return <Container sx={{ mt: 4 }}>Alter not found</Container>;
 
   // Computed normalized arrays
-  const affiliationsNormalized = Array.isArray(alter.affiliations) ? alter.affiliations : [];
+  const affiliationsNormalized = Array.isArray(alter.affiliations)
+    ? alter.affiliations.filter((id): id is number => typeof id === 'number')
+    : [];
 
   const partnersNormalized = (() => {
     const raw = (alter as any).partners;

@@ -32,7 +32,7 @@ describe('useEntityData', () => {
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenCalledWith({
-        ownerUserId: 'test-uid',
+        owner_user_id: 'test-uid',
         query: '',
         includeMembers: true,
         limit: 20,
@@ -50,7 +50,7 @@ describe('useEntityData', () => {
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenCalledWith({
-        ownerUserId: '42',
+        owner_user_id: '42',
         query: '',
         includeMembers: true,
         limit: 20,
@@ -67,7 +67,7 @@ describe('useEntityData', () => {
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenCalledWith({
-        ownerUserId: 'test-uid',
+        owner_user_id: 'test-uid',
         query: 'team',
         includeMembers: true,
         limit: 20,
@@ -85,7 +85,7 @@ describe('useEntityData', () => {
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenCalledWith({
-        ownerUserId: 'test-uid',
+        owner_user_id: 'test-uid',
         query: '',
         includeMembers: true,
         limit: 20,
@@ -125,7 +125,7 @@ describe('useEntityData', () => {
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenNthCalledWith(2, {
-        ownerUserId: 'test-uid',
+        owner_user_id: 'test-uid',
         query: '',
         includeMembers: true,
         limit: 20,
@@ -150,10 +150,9 @@ describe('useEntityData', () => {
       .mockResolvedValueOnce({ items: first, total: 2, limit: 20, offset: 0 })
       .mockResolvedValueOnce({ items: second, total: 2, limit: 20, offset: 0 });
 
-    const { result, rerender } = renderHook(
-      ({ term }) => useEntityData(0, mockFetchFunction, 'test-uid', term, 0),
-      { initialProps: { term: '' } },
-    );
+    const { result, rerender } = renderHook(({ term }) => useEntityData(0, mockFetchFunction, 'test-uid', term, 0), {
+      initialProps: { term: '' },
+    });
 
     await waitFor(() => {
       expect(result.current.items).toEqual(first);
@@ -163,7 +162,7 @@ describe('useEntityData', () => {
 
     await waitFor(() => {
       expect(mockFetchFunction).toHaveBeenLastCalledWith({
-        ownerUserId: 'test-uid',
+        owner_user_id: 'test-uid',
         query: 'update',
         includeMembers: true,
         limit: 20,

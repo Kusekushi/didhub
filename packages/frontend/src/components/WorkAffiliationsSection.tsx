@@ -5,9 +5,9 @@ import type { Alter, Group, Subsystem } from '@didhub/api-client';
 
 export interface WorkAffiliationsSectionProps {
   alter: Alter;
-  affiliationsNormalized: (string | number)[];
+  affiliationsNormalized: number[];
   affiliationGroupsMap: Record<string, Group>;
-  affiliationIdMap: Record<number | string, Group>;
+  affiliationIdMap: Record<number, Group>;
   groupObj: Group | null;
   affiliationGroup: Group | null;
   subsystemObj: Subsystem | null;
@@ -15,14 +15,11 @@ export interface WorkAffiliationsSectionProps {
 
 export default function WorkAffiliationsSection(props: WorkAffiliationsSectionProps) {
   const affiliationsNormalized = props.affiliationsNormalized.length ? (
-    props.affiliationsNormalized.map((af: any, idx: number) => {
+    props.affiliationsNormalized.map((af: number, idx: number) => {
       let g: Group | null = null;
-      // number or numeric string -> check id map first
-      if (typeof af === 'number' || (!Number.isNaN(Number(af)) && String(af).trim() !== '')) {
-        const maybeId = typeof af === 'number' ? af : Number(af);
-        if (!Number.isNaN(maybeId) && props.affiliationIdMap && props.affiliationIdMap[maybeId]) {
-          g = props.affiliationIdMap[maybeId];
-        }
+      const maybeId = Number.isFinite(af) ? af : Number.isFinite(Number(af)) ? Number(af) : NaN;
+      if (!Number.isNaN(maybeId) && props.affiliationIdMap && props.affiliationIdMap[maybeId]) {
+        g = props.affiliationIdMap[maybeId];
       }
       // fallback to name map
       if (!g) {

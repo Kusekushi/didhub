@@ -192,7 +192,11 @@ function mapSelectionsToTagValues(
     return mapToLabels(source, idLookup);
   }
   const { byId, byAlias } = buildOptionIndexes(options);
-  debugLog('Mapping selections to tag values', { source, optionsCount: options.length, idLookupKeys: Object.keys(idLookup) });
+  debugLog('Mapping selections to tag values', {
+    source,
+    optionsCount: options.length,
+    idLookupKeys: Object.keys(idLookup),
+  });
   return (source as unknown[])
     .map((item) => {
       if (item == null) return null;
@@ -284,6 +288,35 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
     progressMap,
   } = props;
 
+  const [soulSongsInput, setSoulSongsInput] = React.useState('');
+  const [interestsInput, setInterestsInput] = React.useState('');
+
+  React.useEffect(() => {
+    if (Array.isArray(values.soul_songs)) {
+      setSoulSongsInput(values.soul_songs.join(', '));
+    } else if (typeof values.soul_songs === 'string') {
+      setSoulSongsInput(values.soul_songs);
+    } else {
+      setSoulSongsInput('');
+    }
+  }, [values.soul_songs]);
+
+  React.useEffect(() => {
+    if (Array.isArray(values.interests)) {
+      setInterestsInput(values.interests.join(', '));
+    } else if (typeof values.interests === 'string') {
+      setInterestsInput(values.interests);
+    } else {
+      setInterestsInput('');
+    }
+  }, [values.interests]);
+
+  const parseCommaSeparated = React.useCallback((raw: string): string[] => {
+    return raw
+      .split(/[,\n;]/u)
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0);
+  }, []);
   const alterIdLookup = props.alterIdNameMap ?? {};
   const userIdLookup = props.userIdNameMap ?? {};
 
@@ -310,12 +343,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
     () =>
       createFilterOptions<RelationshipOption>({
         stringify: (option) =>
-          [
-            option.label,
-            String(option.id),
-            `#${option.id}`,
-            ...(option.aliases ?? []),
-          ]
+          [option.label, String(option.id), `#${option.id}`, ...(option.aliases ?? [])]
             .map((segment) => segment.trim().toLowerCase())
             .filter(Boolean)
             .join(' '),
@@ -326,7 +354,10 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   );
 
   React.useEffect(() => {
-    debugLog('Partner option list updated', { count: partnerOptionList.length, example: partnerOptionList.slice(0, 5) });
+    debugLog('Partner option list updated', {
+      count: partnerOptionList.length,
+      example: partnerOptionList.slice(0, 5),
+    });
   }, [partnerOptionList]);
 
   React.useEffect(() => {
@@ -364,10 +395,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   );
 
   const renderAlterRelationshipTags = React.useCallback(
-    (
-      tagValue: readonly (RelationshipOption | string)[],
-      getTagProps: AutocompleteRenderGetTagProps,
-    ) =>
+    (tagValue: readonly (RelationshipOption | string)[], getTagProps: AutocompleteRenderGetTagProps) =>
       (tagValue as TagValue[]).map((item, index) => {
         const { key, ...chipProps } = getTagProps({ index });
         const label = resolveAlterTagLabel(item);
@@ -411,10 +439,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   );
 
   const renderUserRelationshipTags = React.useCallback(
-    (
-      tagValue: readonly (RelationshipOption | string)[],
-      getTagProps: AutocompleteRenderGetTagProps,
-    ) =>
+    (tagValue: readonly (RelationshipOption | string)[], getTagProps: AutocompleteRenderGetTagProps) =>
       (tagValue as TagValue[]).map((item, index) => {
         const { key, ...chipProps } = getTagProps({ index });
         const label = resolveUserTagLabel(item);
@@ -578,12 +603,8 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           openOnFocus
           autoHighlight
           onOpen={() => debugLog('Partner autocomplete opened', { optionCount: partnerOptionList.length })}
-          onInputChange={(event, value, reason) =>
-            debugLog('Partner autocomplete input', { value, reason })
-          }
-          getOptionLabel={(option: RelationshipOption | string) =>
-            typeof option === 'string' ? option : option.label
-          }
+          onInputChange={(event, value, reason) => debugLog('Partner autocomplete input', { value, reason })}
+          getOptionLabel={(option: RelationshipOption | string) => (typeof option === 'string' ? option : option.label)}
           isOptionEqualToValue={(option, value) => {
             if (value && typeof value === 'object') {
               return String(option.id) === String((value as RelationshipOption).id);
@@ -616,12 +637,8 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           openOnFocus
           autoHighlight
           onOpen={() => debugLog('Parent autocomplete opened', { optionCount: parentOptionList.length })}
-          onInputChange={(event, value, reason) =>
-            debugLog('Parent autocomplete input', { value, reason })
-          }
-          getOptionLabel={(option: RelationshipOption | string) =>
-            typeof option === 'string' ? option : option.label
-          }
+          onInputChange={(event, value, reason) => debugLog('Parent autocomplete input', { value, reason })}
+          getOptionLabel={(option: RelationshipOption | string) => (typeof option === 'string' ? option : option.label)}
           isOptionEqualToValue={(option, value) => {
             if (value && typeof value === 'object') {
               return String(option.id) === String((value as RelationshipOption).id);
@@ -652,12 +669,8 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           openOnFocus
           autoHighlight
           onOpen={() => debugLog('Child autocomplete opened', { optionCount: childOptionList.length })}
-          onInputChange={(event, value, reason) =>
-            debugLog('Child autocomplete input', { value, reason })
-          }
-          getOptionLabel={(option: RelationshipOption | string) =>
-            typeof option === 'string' ? option : option.label
-          }
+          onInputChange={(event, value, reason) => debugLog('Child autocomplete input', { value, reason })}
+          getOptionLabel={(option: RelationshipOption | string) => (typeof option === 'string' ? option : option.label)}
           isOptionEqualToValue={(option, value) => {
             if (value && typeof value === 'object') {
               return String(option.id) === String((value as RelationshipOption).id);
@@ -687,12 +700,12 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           disableCloseOnSelect
           openOnFocus
           autoHighlight
-          onOpen={() => debugLog('User partner autocomplete opened', {
-            optionCount: props.userPartnerOptions?.length ?? 0,
-          })}
-          onInputChange={(event, value, reason) =>
-            debugLog('User partner autocomplete input', { value, reason })
+          onOpen={() =>
+            debugLog('User partner autocomplete opened', {
+              optionCount: props.userPartnerOptions?.length ?? 0,
+            })
           }
+          onInputChange={(event, value, reason) => debugLog('User partner autocomplete input', { value, reason })}
           value={mapToLabels(values.user_partners, userIdLookup)}
           onChange={(e: React.SyntheticEvent, v: string[] | null) => {
             const names = (v || []).map((name) => (name == null ? '' : String(name).trim())).filter(Boolean);
@@ -716,12 +729,12 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           disableCloseOnSelect
           openOnFocus
           autoHighlight
-          onOpen={() => debugLog('User parent autocomplete opened', {
-            optionCount: props.userParentOptions?.length ?? 0,
-          })}
-          onInputChange={(event, value, reason) =>
-            debugLog('User parent autocomplete input', { value, reason })
+          onOpen={() =>
+            debugLog('User parent autocomplete opened', {
+              optionCount: props.userParentOptions?.length ?? 0,
+            })
           }
+          onInputChange={(event, value, reason) => debugLog('User parent autocomplete input', { value, reason })}
           value={mapToLabels(values.user_parents, userIdLookup)}
           onChange={(e: React.SyntheticEvent, v: string[] | null) => {
             const names = (v || []).map((name) => (name == null ? '' : String(name).trim())).filter(Boolean);
@@ -743,12 +756,12 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           disableCloseOnSelect
           openOnFocus
           autoHighlight
-          onOpen={() => debugLog('User child autocomplete opened', {
-            optionCount: props.userChildOptions?.length ?? 0,
-          })}
-          onInputChange={(event, value, reason) =>
-            debugLog('User child autocomplete input', { value, reason })
+          onOpen={() =>
+            debugLog('User child autocomplete opened', {
+              optionCount: props.userChildOptions?.length ?? 0,
+            })
           }
+          onInputChange={(event, value, reason) => debugLog('User child autocomplete input', { value, reason })}
           value={mapToLabels(values.user_children, userIdLookup)}
           onChange={(e: React.SyntheticEvent, v: string[] | null) => {
             const names = (v || []).map((name) => (name == null ? '' : String(name).trim())).filter(Boolean);
@@ -767,41 +780,25 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
         <GroupPicker
           multiple={true}
           value={
-            (Array.isArray(values.affiliations) && values.affiliations.length
-              ? values.affiliations
-              : Array.isArray(values.group)
-                  ? (values.group as any)
-                  : values.affiliations || values.group || []) as any
+            Array.isArray(values.affiliations)
+              ? values.affiliations.filter((value): value is number => typeof value === 'number')
+              : []
           }
-          onChange={async (v: number | string | (number | string)[] | null) => {
-            onChange('group', v);
+          onChange={async (v: number | number[] | null) => {
             try {
-              if (!v || !(Array.isArray(v) ? v.length : true)) {
+              if (!v || (Array.isArray(v) && v.length === 0)) {
+                onChange('group', null);
                 onChange('affiliations', []);
               } else {
-                const ids: Array<number | string> = [];
-                const arr = Array.isArray(v) ? v : [v];
-                for (const item of arr) {
-                  if (typeof item === 'number') {
-                    ids.push(item);
-                  } else if (typeof item === 'string') {
-                    // try to resolve a group by name to get its id
-                    try {
-                      const groups = await apiClient.groups.list({ query: String(item) || '' });
-                      const found = groups.find(
-                        (it) => it && it.name && String(it.name).toLowerCase() === String(item).toLowerCase(),
-                      );
-                      if (found && typeof found.id !== 'undefined') ids.push(found.id as number | string);
-                      else {
-                        const numeric = Number(item);
-                        ids.push(Number.isNaN(numeric) ? item : numeric);
-                      }
-                    } catch (e) {
-                      const numericFallback = Number(item);
-                      ids.push(Number.isNaN(numericFallback) ? item : numericFallback);
-                    }
-                  }
+                const ids = (Array.isArray(v) ? v : [v]).filter(
+                  (value): value is number => typeof value === 'number' && Number.isFinite(value),
+                );
+                if (!ids.length) {
+                  onChange('group', null);
+                  onChange('affiliations', []);
+                  return;
                 }
+                onChange('group', ids[0] ?? null);
                 onChange('affiliations', ids);
               }
             } catch (e) {
@@ -882,12 +879,12 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
       <StackItem>
         <TextField
           label="Soul songs (comma separated)"
-          value={
-            values.soul_songs && Array.isArray(values.soul_songs)
-              ? values.soul_songs.join(', ')
-              : values.soul_songs || ''
-          }
-          onChange={(e) => onChange('soul_songs', e.target.value)}
+          value={soulSongsInput}
+          onChange={(e) => {
+            const next = e.target.value;
+            setSoulSongsInput(next);
+            onChange('soul_songs', parseCommaSeparated(next));
+          }}
           error={!!errors.soul_songs}
           helperText={errors.soul_songs}
           fullWidth
@@ -897,10 +894,12 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
       <StackItem>
         <TextField
           label="Interests (comma separated)"
-          value={
-            values.interests && Array.isArray(values.interests) ? values.interests.join(', ') : values.interests || ''
-          }
-          onChange={(e) => onChange('interests', e.target.value)}
+          value={interestsInput}
+          onChange={(e) => {
+            const next = e.target.value;
+            setInterestsInput(next);
+            onChange('interests', parseCommaSeparated(next));
+          }}
           error={!!errors.interests}
           helperText={errors.interests}
           fullWidth

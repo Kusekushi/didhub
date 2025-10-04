@@ -11,6 +11,20 @@ function normalizeAlter(input: unknown): Alter {
   if (!isRecord(input)) return input as Alter;
   const alter = input as Partial<Alter> & Record<string, unknown>;
 
+  const parseOptionalNumber = (value: unknown): number | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const numeric = Number(trimmed.replace(/^#/u, ''));
+      return Number.isFinite(numeric) ? numeric : undefined;
+    }
+    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+      return parseOptionalNumber((value as { id?: unknown }).id);
+    }
+    return undefined;
+  };
+
   const normalizeStringArray = (value: unknown): string[] => {
     if (Array.isArray(value)) return value.map((item) => String(item));
     if (typeof value === 'string') {
@@ -28,13 +42,54 @@ function normalizeAlter(input: unknown): Alter {
     return [];
   };
 
-  const normalizeIdArray = (value: unknown): Array<string | number> => {
-    if (Array.isArray(value)) return value as Array<string | number>;
-    if (typeof value === 'string') {
-      const parsed = normalizeStringArray(value);
-      return parsed.map((id) => (Number.isFinite(Number(id)) ? Number(id) : id));
+  const normalizeIdArray = (value: unknown): number[] => {
+    const attemptParse = (entry: unknown): number | undefined => {
+      if (typeof entry === 'number' && Number.isFinite(entry)) return entry;
+      if (typeof entry === 'string') {
+        const trimmed = entry.trim().replace(/^#/u, '');
+        if (!trimmed) return undefined;
+        const numeric = Number(trimmed);
+        return Number.isFinite(numeric) ? numeric : undefined;
+      }
+      if (entry && typeof entry === 'object' && 'id' in (entry as Record<string, unknown>)) {
+        return attemptParse((entry as { id?: unknown }).id);
+      }
+      return undefined;
+    };
+
+    const dedupe = (ids: number[]): number[] => {
+      const seen = new Set<number>();
+      const result: number[] = [];
+      ids.forEach((id) => {
+        if (!seen.has(id)) {
+          seen.add(id);
+          result.push(id);
+        }
+      });
+      return result;
+    };
+
+    if (Array.isArray(value)) {
+      return dedupe(
+        value.map((entry) => attemptParse(entry)).filter((entry): entry is number => typeof entry === 'number'),
+      );
     }
+
+    if (typeof value === 'string') {
+      if (!value.trim()) return [];
+      if (value.trim().startsWith('[')) {
+        const parsed = safeJsonParse<unknown>(value, []);
+        return normalizeIdArray(parsed);
+      }
+      return dedupe(
+        normalizeStringArray(value)
+          .map((entry) => attemptParse(entry))
+          .filter((entry): entry is number => typeof entry === 'number'),
+      );
+    }
+
     if (typeof value === 'number') return [value];
+
     return [];
   };
 
@@ -42,9 +97,9 @@ function normalizeAlter(input: unknown): Alter {
     const raw = Array.isArray(alter.images)
       ? alter.images
       : safeJsonParse<string[]>(
-        alter.images,
-        typeof alter.images === 'string' ? normalizeStringArray(alter.images) : [],
-      );
+          alter.images,
+          typeof alter.images === 'string' ? normalizeStringArray(alter.images) : [],
+        );
     if (!Array.isArray(raw)) return [];
     return raw
       .map((img) => String(img))
@@ -56,18 +111,39 @@ function normalizeAlter(input: unknown): Alter {
       });
   })();
 
-  return {
-    ...alter,
-    partners: normalizeIdArray(alter.partners),
-    parents: normalizeIdArray(alter.parents),
-    children: normalizeIdArray(alter.children),
-    soul_songs: normalizeStringArray(alter.soul_songs),
-    interests: normalizeStringArray(alter.interests),
-    affiliations: normalizeIdArray(alter.affiliations),
-    system_roles: normalizeStringArray(alter.system_roles),
-    images,
-    user_relationships: Array.isArray(alter.user_relationships) ? alter.user_relationships : [],
-  } as Alter;
+  const normalized: Record<string, unknown> = { ...alter };
+
+  const id = parseOptionalNumber(alter.id);
+  delete normalized.id;
+  if (typeof id === 'number') normalized.id = id;
+
+  const ownerUserId = parseOptionalNumber(alter.owner_user_id);
+  delete normalized.owner_user_id;
+  if (typeof ownerUserId === 'number') {
+    normalized.owner_user_id = ownerUserId;
+  } else if (alter.owner_user_id != null) {
+    normalized.owner_user_id = null;
+  }
+
+  const subsystemId = parseOptionalNumber(alter.subsystem);
+  delete normalized.subsystem;
+  if (typeof subsystemId === 'number') {
+    normalized.subsystem = subsystemId;
+  } else if (alter.subsystem != null) {
+    normalized.subsystem = null;
+  }
+
+  normalized.partners = normalizeIdArray(alter.partners);
+  normalized.parents = normalizeIdArray(alter.parents);
+  normalized.children = normalizeIdArray(alter.children);
+  normalized.soul_songs = normalizeStringArray(alter.soul_songs);
+  normalized.interests = normalizeStringArray(alter.interests);
+  normalized.affiliations = normalizeIdArray(alter.affiliations);
+  normalized.system_roles = normalizeStringArray(alter.system_roles);
+  normalized.images = images;
+  normalized.user_relationships = Array.isArray(alter.user_relationships) ? alter.user_relationships : [];
+
+  return normalized as Alter;
 }
 
 function normalizeAlterName(input: unknown): AlterName {
@@ -85,17 +161,14 @@ function normalizeAlterName(input: unknown): AlterName {
   const nameRaw = (input as { name?: unknown }).name;
   const name = typeof nameRaw === 'string' ? nameRaw : nameRaw == null ? '' : String(nameRaw);
   const userIdRaw = (input as { user_id?: unknown }).user_id;
-  const user_id = typeof userIdRaw === 'number'
-    ? userIdRaw
-    : typeof userIdRaw === 'string' && userIdRaw.trim() !== ''
-      ? Number(userIdRaw)
-      : 0;
+  const user_id =
+    typeof userIdRaw === 'number'
+      ? userIdRaw
+      : typeof userIdRaw === 'string' && userIdRaw.trim() !== ''
+        ? Number(userIdRaw)
+        : 0;
   const usernameRaw = (input as { username?: unknown }).username;
-  const username = typeof usernameRaw === 'string'
-    ? usernameRaw
-    : usernameRaw == null
-      ? ''
-      : String(usernameRaw);
+  const username = typeof usernameRaw === 'string' ? usernameRaw : usernameRaw == null ? '' : String(usernameRaw);
 
   return { id, name, user_id, username };
 }
@@ -113,7 +186,7 @@ export interface AlterSearchFilters extends AlterListFilters {
 }
 
 export class AltersApi {
-  constructor(private readonly http: HttpClient) { }
+  constructor(private readonly http: HttpClient) {}
 
   async list(filters: AlterListFilters = {}): Promise<Page<Alter>> {
     const query: Record<string, string | number | undefined> = {};
@@ -124,8 +197,8 @@ export class AltersApi {
     }
     if (typeof filters.perPage === 'number') query.per_page = filters.perPage;
     if (typeof filters.offset === 'number') query.offset = filters.offset;
-    if (typeof filters.userId !== 'undefined') query.user_id =
-      typeof filters.userId === 'number' ? filters.userId : String(filters.userId);
+    if (typeof filters.userId !== 'undefined')
+      query.user_id = typeof filters.userId === 'number' ? filters.userId : String(filters.userId);
 
     const response = await this.http.request<Record<string, unknown>>({
       path: '/api/alters',
@@ -153,10 +226,7 @@ export class AltersApi {
     });
   }
 
-  async listBySystem(
-    userId: string,
-    options: Omit<AlterSearchFilters, 'userId' | 'query'> = {},
-  ): Promise<Page<Alter>> {
+  async listBySystem(userId: string, options: Omit<AlterSearchFilters, 'userId' | 'query'> = {}): Promise<Page<Alter>> {
     return this.list({
       userId,
       includeRelationships: options.includeRelationships,
@@ -235,9 +305,7 @@ export class AltersApi {
       path: '/api/alters/names',
       query: query ? { q: query } : undefined,
     });
-    return Array.isArray(response.data)
-      ? response.data.map((item) => normalizeAlterName(item))
-      : [];
+    return Array.isArray(response.data) ? response.data.map((item) => normalizeAlterName(item)) : [];
   }
 
   async namesByUser(userId: string | number | undefined, query = ''): Promise<AlterName[]> {
@@ -248,9 +316,7 @@ export class AltersApi {
       path: '/api/alters/names',
       query: Object.keys(search).length ? search : undefined,
     });
-    return Array.isArray(response.data)
-      ? response.data.map((item) => normalizeAlterName(item))
-      : [];
+    return Array.isArray(response.data) ? response.data.map((item) => normalizeAlterName(item)) : [];
   }
 
   async familyTree(): Promise<FamilyTreeResponse> {
