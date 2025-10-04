@@ -86,8 +86,22 @@ impl Db {
         if is_sqlite {
             let path_part = db_url.strip_prefix("sqlite://").unwrap_or("");
             // strip query params if present
-            let file_only = path_part.split('?').next().unwrap_or(path_part);
-            let fs_path = Path::new(file_only);
+            let mut file_only = path_part.split('?').next().unwrap_or(path_part).to_string();
+            // On Windows a rebuilt URL may look like "sqlite:///E:/..." which when
+            // stripping the "sqlite://" prefix leaves a leading '/' ("/E:/...").
+            // Convert "/E:/..." -> "E:/..." so Path/FS operations work correctly.
+            if cfg!(windows) {
+                if file_only.starts_with('/') {
+                    // If second char is a drive letter and third is ':' then trim the leading '/'
+                    if file_only.len() > 2 {
+                        let bytes = file_only.as_bytes();
+                        if bytes[1].is_ascii_alphabetic() && bytes[2] == b':' {
+                            file_only = file_only.trim_start_matches('/').to_string();
+                        }
+                    }
+                }
+            }
+            let fs_path = Path::new(&file_only);
             if let Some(parent) = fs_path.parent() {
                 std::fs::create_dir_all(parent).ok();
             }
