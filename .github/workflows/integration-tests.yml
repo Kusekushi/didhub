@@ -15,7 +15,8 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
 
 jobs:
-  integration:
+  build-backend:
+    name: Build backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -23,12 +24,133 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-      - name: Build workspace
+      - name: Build backend (no e2e feature)
         run: cargo build --manifest-path "server-rs/Cargo.toml" --workspace --all-targets
-      - name: Test workspace
-        run: cargo test --manifest-path "server-rs/Cargo.toml"
+      - name: Upload backend build outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-target
+          path: server-rs/target
+          retention-days: 1
 
-  frontend:
+  run-backend-tests:
+    name: Run backend unit tests
+    runs-on: ubuntu-latest
+    needs: build-backend
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download backend build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-target
+          path: server-rs/target
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+      - name: Prepare backend test artifacts dir
+        run: |
+          mkdir -p artifacts/backend-tests
+          mkdir -p artifacts/coverage
+      - name: Run backend tests (capture logs)
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path "server-rs/Cargo.toml" 2>&1 | tee artifacts/backend-tests/backend-tests.log
+      - name: Generate coverage with cargo-tarpaulin
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/master') }}
+        run: |
+          cargo install cargo-tarpaulin --locked || true
+          cargo tarpaulin --manifest-path server-rs/Cargo.toml --out Lcov --out Xml --output-dir artifacts/coverage || true
+      - name: Convert backend test log to JUnit XML
+        run: |
+          cargo install cargo2junit --locked || true
+          if [ -f artifacts/backend-tests/backend-tests.log ]; then
+            cargo2junit < artifacts/backend-tests/backend-tests.log > artifacts/backend-tests/backend-tests.xml || true
+          else
+            echo "No backend test log found to convert"
+          fi
+      - name: Publish JUnit summary to workflow
+        if: always()
+        run: |
+          set -euo pipefail
+          XML="artifacts/backend-tests/backend-tests.xml"
+          if [ ! -f "$XML" ]; then
+            echo "No JUnit XML at $XML; skipping summary generation"
+            exit 0
+          fi
+          python3 ./scripts/publish_junit_summary.py "$XML"
+      - name: Upload backend test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: |
+            artifacts/backend-tests/**
+            artifacts/coverage/**
+            server-rs/target/debug/deps/
+
+  build-api-client:
+    name: Build api-client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Setup pnpm
+        run: npm install -g pnpm
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build api-client
+        run: pnpm -F @didhub/api-client build
+      - name: Upload api-client build outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-client-dist
+          path: packages/api-client/dist
+          retention-days: 1
+
+  run-api-client-tests:
+    name: Run api-client tests
+    runs-on: ubuntu-latest
+    needs: build-api-client
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download api-client build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: api-client-dist
+          path: packages/api-client/dist
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Setup pnpm
+        run: npm install -g pnpm
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run api-client tests
+        run: pnpm -F @didhub/api-client test
+
+  build-frontend:
+    name: Build frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -49,9 +171,169 @@ jobs:
         run: pnpm install
       - name: Build frontend
         run: pnpm -F @didhub/frontend build
+      - name: Upload frontend build outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-static
+          path: static
+          retention-days: 1
+
+  run-frontend-tests:
+    name: Run frontend unit tests
+    runs-on: ubuntu-latest
+    needs: build-frontend
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download frontend build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-static
+          path: static
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Setup pnpm
+        run: npm install -g pnpm
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install dependencies
+        run: pnpm install
       - name: Run frontend unit tests
         run: pnpm -F @didhub/frontend test
+
+  run-backend-e2e-tests:
+    name: Run backend E2E tests
+    runs-on: ubuntu-latest
+    needs: build-backend
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download backend build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-target
+          path: server-rs/target
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+      - name: Run server-side E2E tests (all e2e_* tests)
+        run: |
+          set -euo pipefail
+          echo "Preparing artifacts dir"
+          mkdir -p artifacts/server-e2e
+          echo "Discovering server-side E2E test files"
+          cd server-rs
+          shopt -s nullglob || true
+          tests=(tests/e2e_*.rs)
+          if [ ${#tests[@]} -eq 0 ]; then
+            echo "No e2e_* tests found under server-rs/tests"
+          else
+            for t in "${tests[@]}"; do
+              name=$(basename "$t" .rs)
+              echo "Running server test: $name"
+              cargo test --manifest-path "Cargo.toml" --features e2e-tests --test "$name" -- --nocapture 2>&1 | tee -a ../artifacts/server-e2e/server-tests.log || true
+            done
+          fi
+        continue-on-error: true
+      - name: Generate coverage with cargo-tarpaulin
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/master') }}
+        run: |
+          cargo install cargo-tarpaulin --locked || true
+          mkdir -p artifacts/coverage
+          cargo tarpaulin --manifest-path server-rs/Cargo.toml --features e2e-tests --out Lcov --out Xml --output-dir artifacts/coverage || true
+      - name: Convert server test log to JUnit XML
+        run: |
+          cargo install cargo2junit --locked || true
+          mkdir -p artifacts/server-e2e
+          if [ -f artifacts/server-e2e/server-tests.log ]; then
+            cargo2junit < artifacts/server-e2e/server-tests.log > artifacts/server-e2e/server-tests.xml || true
+          else
+            echo "No server test log found to convert"
+          fi
+      - name: Publish JUnit summary to workflow
+        if: always()
+        run: |
+          set -euo pipefail
+          XML="artifacts/server-e2e/server-tests.xml"
+          if [ ! -f "$XML" ]; then
+            echo "No JUnit XML at $XML; skipping summary generation"
+            exit 0
+          fi
+          python3 ./scripts/publish_junit_summary.py "$XML"
+      - name: Upload server test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-e2e-logs
+          path: |
+            artifacts/server-e2e/**
+            artifacts/coverage/**
+            server-rs/target/debug/deps/
+
+  run-frontend-e2e-tests:
+    name: Run frontend E2E tests
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend, build-api-client]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download frontend build outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-static
+          path: static
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Setup pnpm
+        run: npm install -g pnpm
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build frontend (ensure)
+        run: pnpm -F @didhub/frontend build
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
-      - name: Run E2E tests
+      - name: Run E2E tests (with traces on failure)
+        env:
+          PWDEBUG: '0'
+          PLAYWRIGHT_DEBUG: '0'
         run: pnpm -F @didhub/frontend e2e
+      - name: Collect Playwright artifacts
+        run: |
+          mkdir -p artifacts || true
+          if [ -d "packages/frontend/playwright-report" ]; then
+            cp -r packages/frontend/playwright-report artifacts/playwright-report || true
+          fi
+          if [ -d "packages/frontend/test-results" ]; then
+            cp -r packages/frontend/test-results artifacts/test-results || true
+          fi
+      - name: Upload Playwright artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            artifacts/playwright-*
+            artifacts/playwright-report
+            artifacts/test-results
+      - name: Upload Playwright traces and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            packages/frontend/test-results/**
+            artifacts/test-results/**
