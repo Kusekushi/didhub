@@ -37,6 +37,7 @@
     "@swc/core": "^1.13.20",
     "@swc/helpers": "^0.5.17",
     "@testing-library/jest-dom": "^6.6.4",
+    "@testing-library/user-event": "^14.4.3",
     "@testing-library/react": "^16.2.0",
     "@types/d3": "^7.4.3",
     "@types/node": "^24.5.2",
