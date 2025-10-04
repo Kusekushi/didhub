@@ -362,7 +362,7 @@ jobs:
         env:
           PWDEBUG: '0'
           PLAYWRIGHT_DEBUG: '0'
-        run: pnpm -F @didhub/frontend e2e
+        run: pnpm e2e:run
       - name: Collect Playwright artifacts
         run: |
           mkdir -p artifacts || true
