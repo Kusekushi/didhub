@@ -114,6 +114,22 @@ pnpm -F @didhub/api-client test
 Ensure Playwright browsers are installed once via `pnpm -F @didhub/frontend
 exec npx playwright install`.
 
+Orchestrated E2E (recommended)
+
+For full end-to-end runs (server + frontend + Playwright) prefer the repository orchestrator which starts the server, the frontend on a stable port, runs Playwright, and exports artifacts for CI:
+
+```bash
+pnpm -w -s run e2e:run
+```
+
+Environment variables used during orchestrated runs:
+- `E2E_USER` / `E2E_PASS` — credentials the orchestrator (and Playwright) uses; defaults are `admin` / `adminpw`.
+- `PLAYWRIGHT_BASE_URL` — base URL Playwright will use; the orchestrator sets this to the pinned frontend URL (http://localhost:5173) when running locally.
+
+CI notes
+- CI reuses build artifacts between jobs (backend/frontend/api-client) to speed runs and restores pnpm and Rust caches when available.
+- Coverage generation with `cargo tarpaulin` is gated to primary-branch pushes (master) to avoid running expensive coverage on every PR; CI still uploads test logs and Playwright artifacts for debugging.
+
 ## Packaging & deployment
 
 - Build a release bundle with embedded frontend assets and helper binaries:
