@@ -66,7 +66,9 @@ jobs:
           workspaces: server-rs -> target
 
       - name: Install cargo-license
-        run: cargo install cargo-license
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-license
 
       - name: Install dependencies
         run: pnpm install

@@ -49,6 +49,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
+      - name: Install cargo-tarpaulin and cargo2junit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin,cargo2junit
       - name: Prepare backend test artifacts dir
         run: |
           mkdir -p artifacts/backend-tests
@@ -60,11 +64,9 @@ jobs:
       - name: Generate coverage with cargo-tarpaulin
         if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/master') }}
         run: |
-          cargo install cargo-tarpaulin --locked || true
           cargo tarpaulin --manifest-path server-rs/Cargo.toml --out Lcov --out Xml --output-dir artifacts/coverage || true
       - name: Convert backend test log to JUnit XML
         run: |
-          cargo install cargo2junit --locked || true
           if [ -f artifacts/backend-tests/backend-tests.log ]; then
             cargo2junit < artifacts/backend-tests/backend-tests.log > artifacts/backend-tests/backend-tests.xml || true
           else
@@ -80,7 +82,7 @@ jobs:
             exit 0
           fi
           python3 ./scripts/publish_junit_summary.py "$XML"
-      - name: Upload backend test artifacts
+      - name: Upload backend test logs and coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -88,6 +90,13 @@ jobs:
           path: |
             artifacts/backend-tests/**
             artifacts/coverage/**
+
+      - name: Upload backend test target debug deps
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-target-deps
+          path: |
             server-rs/target/debug/deps/
 
   build-api-client:
@@ -95,12 +104,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Setup Node.js
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
-      - name: Setup pnpm
-        run: npm install -g pnpm
+          node-version: 20
+          cache: 'pnpm'
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
@@ -131,12 +143,15 @@ jobs:
         with:
           name: api-client-dist
           path: packages/api-client/dist
-      - name: Setup Node.js
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
-      - name: Setup pnpm
-        run: npm install -g pnpm
+          node-version: 20
+          cache: 'pnpm'
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
@@ -154,12 +169,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Setup Node.js
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
-      - name: Setup pnpm
-        run: npm install -g pnpm
+          node-version: 20
+          cache: 'pnpm'
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
@@ -190,12 +208,15 @@ jobs:
         with:
           name: frontend-static
           path: static
-      - name: Setup Node.js
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
-      - name: Setup pnpm
-        run: npm install -g pnpm
+          node-version: 20
+          cache: 'pnpm'
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
@@ -223,6 +244,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
+      - name: Install cargo-tarpaulin and cargo2junit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin,cargo2junit
       - name: Run server-side E2E tests (all e2e_* tests)
         run: |
           set -euo pipefail
@@ -230,8 +255,8 @@ jobs:
           mkdir -p artifacts/server-e2e
           echo "Discovering server-side E2E test files"
           cd server-rs
-          shopt -s nullglob || true
-          tests=(tests/e2e_*.rs)
+          shopt -s nullglob globstar || true
+          tests=(**/e2e_*.rs)
           if [ ${#tests[@]} -eq 0 ]; then
             echo "No e2e_* tests found under server-rs/tests"
           else
@@ -245,12 +270,10 @@ jobs:
       - name: Generate coverage with cargo-tarpaulin
         if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/master') }}
         run: |
-          cargo install cargo-tarpaulin --locked || true
           mkdir -p artifacts/coverage
           cargo tarpaulin --manifest-path server-rs/Cargo.toml --features e2e-tests --out Lcov --out Xml --output-dir artifacts/coverage || true
       - name: Convert server test log to JUnit XML
         run: |
-          cargo install cargo2junit --locked || true
           mkdir -p artifacts/server-e2e
           if [ -f artifacts/server-e2e/server-tests.log ]; then
             cargo2junit < artifacts/server-e2e/server-tests.log > artifacts/server-e2e/server-tests.xml || true
@@ -267,7 +290,7 @@ jobs:
             exit 0
           fi
           python3 ./scripts/publish_junit_summary.py "$XML"
-      - name: Upload server test logs
+      - name: Upload server test logs and coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -275,6 +298,13 @@ jobs:
           path: |
             artifacts/server-e2e/**
             artifacts/coverage/**
+
+      - name: Upload server test target debug deps
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-e2e-target-deps
+          path: |
             server-rs/target/debug/deps/
 
   run-frontend-e2e-tests:
@@ -288,12 +318,15 @@ jobs:
         with:
           name: frontend-static
           path: static
-      - name: Setup Node.js
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
-      - name: Setup pnpm
-        run: npm install -g pnpm
+          node-version: 20
+          cache: 'pnpm'
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
@@ -329,11 +362,18 @@ jobs:
             artifacts/playwright-*
             artifacts/playwright-report
             artifacts/test-results
-      - name: Upload Playwright traces and screenshots
+      - name: Upload Playwright frontend test-results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-traces
+          name: playwright-traces-frontend
           path: |
             packages/frontend/test-results/**
+
+      - name: Upload Playwright artifacts test-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-artifacts
+          path: |
             artifacts/test-results/**
