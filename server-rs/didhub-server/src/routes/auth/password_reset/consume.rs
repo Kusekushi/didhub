@@ -1,0 +1,90 @@
+use axum::{extract::Extension, Json};
+use base64::Engine;
+use didhub_db::users::UserOperations;
+use didhub_db::{audit, Db};
+use didhub_error::AppError;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use tracing::{debug, info, warn};
+
+#[derive(Debug, Deserialize)]
+pub struct ConsumePayload {
+    pub selector: String,
+    pub verifier: String,
+    pub new_password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConsumeOut {
+    pub ok: bool,
+}
+
+pub async fn consume_reset(
+    Extension(db): Extension<Db>,
+    Json(payload): Json<ConsumePayload>,
+) -> Result<Json<ConsumeOut>, AppError> {
+    debug!(selector=%payload.selector, "consuming password reset token");
+
+    if payload.new_password.len() < 6 {
+        warn!(selector=%payload.selector, "password reset failed - password too short");
+        return Err(AppError::BadRequest("password too short".into()));
+    }
+
+    let Some(rec) = db
+        .fetch_password_reset_by_selector(&payload.selector)
+        .await
+        .map_err(|_| AppError::Internal)?
+    else {
+        warn!(selector=%payload.selector, "password reset failed - token not found");
+        return Err(AppError::BadRequest("invalid token".into()));
+    };
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let is_valid = db
+        .validate_password_reset_token(rec.id, &now)
+        .await
+        .map_err(|_| AppError::Internal)?;
+
+    if !is_valid {
+        warn!(selector=%payload.selector, user_id=%rec.user_id, "password reset failed - token expired or already used");
+        return Err(AppError::BadRequest("token expired or used".into()));
+    }
+
+    let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload.verifier.as_bytes())
+        .map_err(|_| AppError::BadRequest("invalid verifier".into()))?;
+    let mut hasher = Sha256::new();
+    hasher.update(raw);
+    let hash_hex = hex::encode(hasher.finalize());
+
+    if hash_hex != rec.verifier_hash {
+        warn!(selector=%payload.selector, user_id=%rec.user_id, "password reset failed - invalid verifier hash");
+        return Err(AppError::BadRequest("invalid token".into()));
+    }
+
+    info!(selector=%payload.selector, user_id=%rec.user_id, "password reset token validated, updating user password");
+
+    let pw_hash = bcrypt::hash(&payload.new_password, bcrypt::DEFAULT_COST)
+        .map_err(|_| AppError::Internal)?;
+    db.update_user_password(rec.user_id, &pw_hash)
+        .await
+        .map_err(|_| AppError::Internal)?;
+
+    db.mark_password_reset_used(rec.id)
+        .await
+        .map_err(|_| AppError::Internal)?;
+
+    audit::record_with_metadata(
+        &db,
+        Some(rec.user_id),
+        "password_reset.consume",
+        None,
+        None,
+        serde_json::json!({"selector": payload.selector}),
+    )
+    .await;
+
+    info!(selector=%payload.selector, user_id=%rec.user_id, "password reset completed successfully");
+
+    Ok(Json(ConsumeOut { ok: true }))
+}

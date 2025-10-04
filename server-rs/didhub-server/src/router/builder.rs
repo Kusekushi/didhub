@@ -102,11 +102,11 @@ impl AppRouterBuilder {
             )
             .route(
                 "/uploads/{filename}",
-                axum::routing::get(crate::routes_upload::serve_file),
+                axum::routing::get(crate::routes::files::uploads::serve_file),
             )
             .route(
                 "/s/{token}",
-                axum::routing::get(crate::routes_shortlinks::public_redirect),
+                axum::routing::get(crate::routes::sharing::shortlinks::public_redirect),
             )
             .layer(axum::Extension(self.config))
             .layer(axum::Extension(service_components.upload_dir_cache))
@@ -117,13 +117,15 @@ impl AppRouterBuilder {
             .layer(axum::Extension(service_components.housekeeping_state))
             .route(
                 "/assets/{path}",
-                axum::routing::get(crate::routes_static::serve_asset),
+                axum::routing::get(crate::routes::static_assets::serve_asset),
             )
             .route(
                 "/{file}",
-                axum::routing::get(crate::routes_static::serve_root_file),
+                axum::routing::get(crate::routes::static_assets::serve_root_file),
             )
-            .fallback(axum::routing::get(crate::routes_static::spa_fallback))
+            .fallback(axum::routing::get(
+                crate::routes::static_assets::spa_fallback,
+            ))
     }
 
     fn build_cors_layer(&self) -> CorsLayer {

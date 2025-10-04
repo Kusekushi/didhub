@@ -377,7 +377,10 @@ pub async fn list_user_names(
 
     let mut items = Vec::with_capacity(rows.len());
     for u in rows {
-        items.push(NamesItem { id: u.id, name: u.username });
+        items.push(NamesItem {
+            id: u.id,
+            name: u.username,
+        });
     }
 
     Ok(Json(ListResponse {

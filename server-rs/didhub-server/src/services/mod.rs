@@ -5,7 +5,7 @@ use didhub_db::settings::SettingOperations;
 use didhub_housekeeping as housekeeping;
 use didhub_oidc as oidc;
 
-use crate::routes_housekeeping::HousekeepingState;
+use crate::routes::admin::housekeeping::HousekeepingState;
 use crate::upload_dir;
 
 pub struct ServiceComponents {

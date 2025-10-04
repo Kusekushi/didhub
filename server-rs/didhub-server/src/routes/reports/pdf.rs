@@ -1,5 +1,5 @@
 use crate::{
-    routes_common::{normalize_image_list, normalize_string_list},
+    routes::common::{normalize_image_list, normalize_string_list},
     upload_dir::UploadDirCache,
 };
 use axum::{

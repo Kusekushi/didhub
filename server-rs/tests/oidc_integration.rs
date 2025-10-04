@@ -3,11 +3,11 @@ use hyper::{Server, Body, Request, Response, Method};
 use hyper::service::{make_service_fn, service_fn};
 use std::convert::Infallible;
 use std::net::TcpListener;
-use didhub_server::{routes_oidc, oidc as oidc_mod, db::Db, auth::CurrentUser};
+use didhub_server::{routes::auth::oidc as oidc_routes, oidc as oidc_mod, db::Db, auth::CurrentUser};
 use std::collections::HashMap;
 use axum::response::IntoResponse;
 use std::sync::Arc;
-use didhub_server::routes_oidc::AuthorizeQuery;
+use didhub_server::routes::auth::oidc::AuthorizeQuery;
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use rsa::pkcs8::EncodePrivateKey;
 use rsa::traits::PublicKeyParts;
@@ -140,7 +140,7 @@ async fn test_google_authorize_integration() {
 
     let path = axum::extract::Path("google".to_string());
     let q = axum::extract::Query(AuthorizeQuery { redirect: None });
-    let res = match routes_oidc::authorize(path, q, axum::Extension(fake_user.clone()), axum::Extension(db.clone()), axum::Extension(ostate.clone()), axum::Extension(settings.clone())).await {
+    let res = match oidc_routes::authorize(path, q, axum::Extension(fake_user.clone()), axum::Extension(db.clone()), axum::Extension(ostate.clone()), axum::Extension(settings.clone())).await {
         Ok(r) => r,
         Err(e) => panic!("authorize returned error: {:?}", e),
     };
@@ -196,7 +196,7 @@ async fn test_discord_authorize_integration() {
 
     let path = axum::extract::Path("discord".to_string());
     let q = axum::extract::Query(AuthorizeQuery { redirect: None });
-    let res = match routes_oidc::authorize(path, q, axum::Extension(fake_user.clone()), axum::Extension(db.clone()), axum::Extension(ostate.clone()), axum::Extension(settings.clone())).await {
+    let res = match oidc_routes::authorize(path, q, axum::Extension(fake_user.clone()), axum::Extension(db.clone()), axum::Extension(ostate.clone()), axum::Extension(settings.clone())).await {
         Ok(r) => r,
         Err(e) => panic!("authorize returned error: {:?}", e),
     };

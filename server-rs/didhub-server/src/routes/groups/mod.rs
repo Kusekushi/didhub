@@ -1,4 +1,4 @@
-use crate::routes_common::{check_group_ownership, check_ownership_with_existing, parse_leaders};
+use crate::routes::common::{check_group_ownership, check_ownership_with_existing, parse_leaders};
 use axum::{
     extract::{Extension, Path, Query},
     Json,

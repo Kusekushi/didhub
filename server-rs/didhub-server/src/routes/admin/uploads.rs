@@ -1,4 +1,4 @@
-use crate::routes_common::require_admin;
+use crate::routes::common::require_admin;
 use crate::upload_dir::UploadDirCache;
 use axum::{
     extract::{Extension, Path, Query},

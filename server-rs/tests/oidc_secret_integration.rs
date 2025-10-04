@@ -1,4 +1,4 @@
-use didhub_server::routes_oidc::{get_secret, update_secret};
+use didhub_server::routes::auth::oidc::{get_secret, update_secret, UpdateSecretBody};
 use didhub_server::db::{Db, DbBackend};
 use didhub_server::auth::CurrentUser;
 use tempfile::NamedTempFile;
@@ -40,7 +40,7 @@ async fn get_returns_masked_and_post_updates() -> Result<(), Box<dyn std::error:
     }
 
     // Now POST update without editing client_id (send masked back) should not overwrite
-    let body = didhub_server::routes_oidc::UpdateSecretBody { client_id: None, client_secret: Some("newsupersecret".into()), enabled: Some(true) };
+    let body = UpdateSecretBody { client_id: None, client_secret: Some("newsupersecret".into()), enabled: Some(true) };
     let post_res = update_secret(axum::extract::Path("google".to_string()), axum::Extension(db.clone()), axum::Extension(admin.clone()), axum::Json(body)).await;
     match post_res {
         Ok(axum::Json(view)) => {

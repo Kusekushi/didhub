@@ -4,7 +4,7 @@ mod tests {
     use didhub_middleware::CurrentUser;
     use didhub_db::Db;
     use didhub_db::DbBackend;
-    use crate::routes_oidc::{get_secret, update_secret, UpdateSecretBody};
+    use didhub_server::routes::auth::oidc::{get_secret, update_secret, UpdateSecretBody};
     use tempfile::NamedTempFile;
 
     #[tokio::test]

@@ -1,4 +1,6 @@
-use crate::routes_common::{normalize_image_list, normalize_string_list};
+pub mod relationships;
+
+use crate::routes::common::{normalize_image_list, normalize_string_list};
 use axum::{
     extract::{Extension, Path, Query, State},
     Json,
@@ -478,7 +480,7 @@ pub async fn search_alters(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     Query(q): Query<ListQuery>,
-) -> Result<Json<crate::routes_alters::ListResponse<NamesItem>>, AppError> {
+) -> Result<Json<ListResponse<NamesItem>>, AppError> {
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
     let rows = db
         .list_alters_scoped(q.q.clone(), limit, 0, &user, q.user_id)
