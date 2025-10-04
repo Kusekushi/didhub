@@ -146,6 +146,18 @@ pub async fn list_groups(
 
     debug!(result_count=%rows.len(), total_count=%total, "groups listed");
 
+    if rows.is_empty() {
+        info!(total_count=%total, "Group list returned no results");
+        return Ok(Json(PagedGroups {
+            items: Vec::new(),
+            total,
+            limit,
+            offset,
+        }));
+    }
+
+    let row_count = rows.len();
+
     let wanted: Option<std::collections::HashSet<String>> = q.fields.as_ref().map(|f| {
         f.split(',')
             .filter(|s| !s.is_empty())
@@ -159,15 +171,16 @@ pub async fn list_groups(
         .unwrap_or(false);
 
     if include_members {
-        let group_ids: Vec<i64> = rows.iter().map(|g| g.id).collect();
+        let mut group_ids = Vec::with_capacity(row_count);
+        for g in &rows {
+            group_ids.push(g.id);
+        }
         let members = batch_load_group_members(&db, &group_ids).await?;
-        let items: Vec<GroupOut> = rows
-            .into_iter()
-            .map(|g| {
-                let alters = members.get(&g.id).map(|v| v.as_slice()).unwrap_or(&[]);
-                project_group_with_members(g, alters)
-            })
-            .collect();
+        let mut items = Vec::with_capacity(row_count);
+        for g in rows {
+            let alters = members.get(&g.id).map(|v| v.as_slice()).unwrap_or(&[]);
+            items.push(project_group_with_members(g, alters));
+        }
         debug!(result_count=%items.len(), "groups with members processed");
         Ok(Json(PagedGroups {
             items,
@@ -176,7 +189,10 @@ pub async fn list_groups(
             offset,
         }))
     } else {
-        let items = rows.into_iter().map(project).collect();
+        let mut items = Vec::with_capacity(row_count);
+        for g in rows {
+            items.push(project(g));
+        }
         Ok(Json(PagedGroups {
             items,
             total,

@@ -298,13 +298,29 @@ pub async fn list_alters(
         "Alter list query completed, processing results"
     );
 
+    if rows.is_empty() {
+        info!(
+            user_id = %user.id,
+            result_count = 0,
+            total_count = total,
+            "Alter list request returned no rows"
+        );
+        return Ok(Json(ListResponse {
+            items: Vec::new(),
+            total,
+            limit,
+            offset,
+        }));
+    }
+
     if let Some(_w) = wanted {
         // For now only handle simple projection (relationships toggle)
         if include_rels {
             let alter_ids: Vec<i64> = rows.iter().map(|a| a.id).collect();
             let relationships = db.batch_load_relationships(&alter_ids).await?;
-            let mut out = Vec::with_capacity(rows.len());
-            for a in rows.clone() {
+            let capacity = rows.len();
+            let mut out = Vec::with_capacity(capacity);
+            for a in rows.into_iter() {
                 let rels = relationships.get(&a.id).unwrap_or(&EMPTY_RELS);
                 out.push(project_with_rel_batch(a, rels));
             }
@@ -321,8 +337,9 @@ pub async fn list_alters(
                 offset,
             }));
         } else {
-            let mut out = Vec::with_capacity(rows.len());
-            for a in rows.clone() {
+            let capacity = rows.len();
+            let mut out = Vec::with_capacity(capacity);
+            for a in rows.into_iter() {
                 out.push(project_with_rel(&db, a, false).await);
             }
             info!(
@@ -403,7 +420,16 @@ pub async fn list_alter_names(
         .await
         .map_err(|_| AppError::Internal)?;
 
-    let mut owner_ids: Vec<i64> = rows.iter().filter_map(|a| a.owner_user_id).collect();
+    if rows.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+
+    let mut owner_ids: Vec<i64> = Vec::new();
+    for a in &rows {
+        if let Some(id) = a.owner_user_id {
+            owner_ids.push(id);
+        }
+    }
     owner_ids.sort_unstable();
     owner_ids.dedup();
 
@@ -434,17 +460,17 @@ pub async fn list_alter_names(
         }
     }
 
-    let items = rows
-        .into_iter()
-        .map(|a| NamesItem {
+    let mut items = Vec::with_capacity(rows.len());
+    for a in rows {
+        items.push(NamesItem {
             id: a.id,
             name: a.name,
             user_id: a.owner_user_id,
             username: a
                 .owner_user_id
                 .and_then(|owner| username_lookup.get(&owner).cloned()),
-        })
-        .collect();
+        });
+    }
     Ok(Json(items))
 }
 
@@ -459,7 +485,21 @@ pub async fn search_alters(
         .await
         .map_err(|_| AppError::Internal)?;
 
-    let mut owner_ids: Vec<i64> = rows.iter().filter_map(|a| a.owner_user_id).collect();
+    if rows.is_empty() {
+        return Ok(Json(ListResponse {
+            items: Vec::new(),
+            total: 0,
+            limit,
+            offset: 0,
+        }));
+    }
+
+    let mut owner_ids: Vec<i64> = Vec::new();
+    for a in &rows {
+        if let Some(id) = a.owner_user_id {
+            owner_ids.push(id);
+        }
+    }
     owner_ids.sort_unstable();
     owner_ids.dedup();
 
@@ -490,17 +530,17 @@ pub async fn search_alters(
         }
     }
 
-    let items: Vec<NamesItem> = rows
-        .into_iter()
-        .map(|a| NamesItem {
+    let mut items: Vec<NamesItem> = Vec::with_capacity(rows.len());
+    for a in rows {
+        items.push(NamesItem {
             id: a.id,
             name: a.name,
             user_id: a.owner_user_id,
             username: a
                 .owner_user_id
                 .and_then(|owner| username_lookup.get(&owner).cloned()),
-        })
-        .collect();
+        });
+    }
     let total_items = items.len() as i64;
     Ok(Json(ListResponse {
         items,
@@ -513,9 +553,9 @@ pub async fn search_alters(
 pub async fn create_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Json(payload): Json<serde_json::Value>,
+    Json(mut body): Json<serde_json::Value>,
 ) -> Result<Json<AlterOut>, AppError> {
-    if payload
+    if body
         .get("name")
         .and_then(|v| v.as_str())
         .map(|s| s.trim().is_empty())
@@ -523,8 +563,6 @@ pub async fn create_alter(
     {
         return Err(AppError::BadRequest("name is required".into()));
     }
-    // Build a modifiable body from incoming JSON
-    let mut body = payload.clone();
     // Ownership rules: non-admin cannot create for another owner
     if let Some(explicit) = body.get("owner_user_id").and_then(|v| v.as_i64()) {
         if !user.is_admin && explicit != user.id {
@@ -714,12 +752,10 @@ pub async fn update_alter(
     Path(id): Path<i64>,
     Json(payload): Json<UpdateAlterPayload>,
 ) -> Result<Json<AlterOut>, AppError> {
-    if payload
-        .rest
-        .as_object()
-        .map(|m| m.is_empty())
-        .unwrap_or(true)
-    {
+    let UpdateAlterPayload { rest } = payload;
+    let mut body = rest;
+
+    if body.as_object().map(|m| m.is_empty()).unwrap_or(true) {
         return Err(AppError::validation(["no update fields provided"]));
     }
     let existing = db
@@ -739,8 +775,6 @@ pub async fn update_alter(
             return Err(AppError::Forbidden);
         }
     }
-    let mut body = payload.rest.clone();
-
     // Non-admin cannot reassign ownership
     if !user.is_admin {
         if let Some(obj) = body.as_object() {

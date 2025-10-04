@@ -41,9 +41,12 @@ pub async fn list_settings(
     }
     debug!(user_id=%user.id, "listing all settings");
     let rows = db.list_settings().await.map_err(|_| AppError::Internal)?;
+    if rows.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
 
-    // Map old discord.webhook key to new discord_webhook_url key for frontend compatibility
-    let mut mapped_rows = Vec::new();
+    // FIXME: Remove this remapping once we rework setting keys
+    let mut mapped_rows = Vec::with_capacity(rows.len());
     for row in rows {
         if row.key == "discord.webhook" {
             // Create a new SettingResponse with the mapped key

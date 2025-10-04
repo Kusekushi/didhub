@@ -208,7 +208,15 @@ pub async fn list_system_requests(
         "System requests listed successfully"
     );
 
-    Ok(Json(rows.into_iter().map(|r| r.into()).collect()))
+    if rows.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+
+    let mut out = Vec::with_capacity(rows.len());
+    for r in rows {
+        out.push(r.into());
+    }
+    Ok(Json(out))
 }
 
 #[derive(Deserialize)]

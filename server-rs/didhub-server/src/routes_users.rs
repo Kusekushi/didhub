@@ -106,7 +106,11 @@ pub async fn list_users(
         .list_users_advanced(&filters)
         .await
         .map_err(|_| AppError::Internal)?;
-    let items = rows.into_iter().map(|u| user_to_out(&u)).collect();
+    let row_count = rows.len();
+    let mut items = Vec::with_capacity(row_count);
+    for u in rows {
+        items.push(user_to_out(&u));
+    }
     let pages = if total == 0 {
         1
     } else {
@@ -371,13 +375,10 @@ pub async fn list_user_names(
         .await
         .map_err(|_| AppError::Internal)?;
 
-    let items = rows
-        .into_iter()
-        .map(|u| NamesItem {
-            id: u.id,
-            name: u.username,
-        })
-        .collect();
+    let mut items = Vec::with_capacity(rows.len());
+    for u in rows {
+        items.push(NamesItem { id: u.id, name: u.username });
+    }
 
     Ok(Json(ListResponse {
         items,

@@ -153,16 +153,35 @@ pub async fn list_subsystems(
         .map(|w| w.contains("members") || w.contains("alters"))
         .unwrap_or(false);
 
+    if rows.is_empty() {
+        info!(
+            user_id = %user.id,
+            total_count = total,
+            limit = limit,
+            offset = offset,
+            "Subsystem list returned no results"
+        );
+        return Ok(Json(Paged {
+            items: Vec::new(),
+            total,
+            limit,
+            offset,
+        }));
+    }
+
+    let row_count = rows.len();
+
     if include_members {
-        let subsystem_ids: Vec<i64> = rows.iter().map(|s| s.id).collect();
+        let mut subsystem_ids = Vec::with_capacity(row_count);
+        for s in &rows {
+            subsystem_ids.push(s.id);
+        }
         let members = batch_load_subsystem_members(&db, &subsystem_ids).await?;
-        let items: Vec<SubsystemOut> = rows
-            .into_iter()
-            .map(|s| {
-                let alters = members.get(&s.id).map(|v| v.as_slice()).unwrap_or(&[]);
-                project_subsystem_with_members(s, alters)
-            })
-            .collect();
+        let mut items = Vec::with_capacity(row_count);
+        for s in rows {
+            let alters = members.get(&s.id).map(|v| v.as_slice()).unwrap_or(&[]);
+            items.push(project_subsystem_with_members(s, alters));
+        }
         debug!(
             user_id = %user.id,
             returned_count = items.len(),
@@ -186,8 +205,12 @@ pub async fn list_subsystems(
             offset = offset,
             "Subsystem list completed successfully"
         );
+        let mut items = Vec::with_capacity(row_count);
+        for subsystem in rows {
+            items.push(project(subsystem));
+        }
         Ok(Json(Paged {
-            items: rows.into_iter().map(project).collect(),
+            items,
             total,
             limit,
             offset,

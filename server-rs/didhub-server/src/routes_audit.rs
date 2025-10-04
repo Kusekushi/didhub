@@ -70,7 +70,14 @@ pub async fn list_audit(
             tracing::error!(target = "didhub_server", ?e, "db.list_audit failed");
             AppError::Internal
         })?;
-    Ok(Json(rows.into_iter().map(|r| r.into()).collect()))
+    if rows.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+    let mut out = Vec::with_capacity(rows.len());
+    for r in rows {
+        out.push(r.into());
+    }
+    Ok(Json(out))
 }
 
 #[derive(Deserialize)]

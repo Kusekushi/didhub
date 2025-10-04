@@ -58,20 +58,22 @@ pub async fn list_runs(
             q.offset.unwrap_or(0),
         )
         .await?;
-    Ok(Json(RunsList {
-        runs: runs
-            .into_iter()
-            .map(|r| RunRecord {
-                id: r.id,
-                job_name: r.job_name,
-                started_at: r.started_at,
-                finished_at: r.finished_at,
-                status: r.status,
-                message: r.message,
-                rows_affected: r.rows_affected,
-            })
-            .collect(),
-    }))
+    if runs.is_empty() {
+        return Ok(Json(RunsList { runs: Vec::new() }));
+    }
+    let mut out = Vec::with_capacity(runs.len());
+    for r in runs {
+        out.push(RunRecord {
+            id: r.id,
+            job_name: r.job_name,
+            started_at: r.started_at,
+            finished_at: r.finished_at,
+            status: r.status,
+            message: r.message,
+            rows_affected: r.rows_affected,
+        });
+    }
+    Ok(Json(RunsList { runs: out }))
 }
 
 #[derive(Serialize)]
