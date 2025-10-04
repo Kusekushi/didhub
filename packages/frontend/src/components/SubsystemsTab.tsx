@@ -76,12 +76,12 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                   if (!props.newSubsystemName || !props.newSubsystemName.trim())
                     return props.setSnack({ open: true, message: 'Name required', severity: 'error' });
                   try {
-                    const payload = {
+                    const payload: Record<string, unknown> = {
                       name: props.newSubsystemName.trim(),
                       description: props.newSubsystemDesc || null,
                       type: props.newSubsystemType || 'normal',
-                      owner_user_id: props.uid,
                     };
+                    if (props.uid) payload.owner_user_id = Number(props.uid);
                     await props.createSubsystem(payload);
                     await props.refreshSubsystems();
                     props.setSnack({ open: true, message: 'Subsystem created', severity: 'success' });

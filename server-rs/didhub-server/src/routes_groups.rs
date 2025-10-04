@@ -209,6 +209,7 @@ pub struct CreateGroupPayload {
     pub sigil: Option<String>,
     pub leaders: Option<serde_json::Value>,
     pub metadata: Option<String>,
+    pub owner_user_id: Option<i64>,
 }
 
 pub async fn create_group(
@@ -226,6 +227,18 @@ pub async fn create_group(
         .as_ref()
         .map(parse_leaders)
         .unwrap_or_default();
+    // Ownership rules: allow explicit owner_user_id when provided, but disallow non-admin users
+    // from creating a group for another user.
+    let owner: Option<i64> = if let Some(explicit) = payload.owner_user_id {
+        if !user.is_admin && explicit != user.id {
+            return Err(AppError::Forbidden);
+        }
+        Some(explicit)
+    } else {
+        // default owner is the creating user
+        Some(user.id)
+    };
+
     let created = db
         .create_group(
             &payload.name,
@@ -233,7 +246,7 @@ pub async fn create_group(
             payload.sigil.as_deref(),
             &leaders_vec,
             payload.metadata.as_deref(),
-            Some(user.id),
+            owner,
         )
         .await
         .map_err(|_| AppError::Internal)?;

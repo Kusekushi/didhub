@@ -189,10 +189,21 @@ export class SubsystemsApi {
   }
 
   async create(payload: Record<string, unknown>): Promise<Subsystem> {
+    const outPayload = { ...payload } as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(outPayload, 'owner_user_id')) {
+      const raw = outPayload.owner_user_id;
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed !== '' && /^#?\d+$/.test(trimmed)) {
+          outPayload.owner_user_id = Number(trimmed.replace(/^#/, ''));
+        }
+      }
+    }
+
     const response = await this.http.request<Subsystem>({
       path: '/api/subsystems',
       method: 'POST',
-      json: payload,
+      json: outPayload,
     });
     return normalizeSubsystem(response.data);
   }

@@ -265,10 +265,22 @@ export class AltersApi {
   }
 
   async create(payload: Record<string, unknown>): Promise<Alter> {
+    // Ensure owner_user_id is a number when provided as a string (prevents server from treating it as missing)
+    const outPayload = { ...payload } as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(outPayload, 'owner_user_id')) {
+      const raw = outPayload.owner_user_id;
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed !== '' && /^#?\d+$/.test(trimmed)) {
+          outPayload.owner_user_id = Number(trimmed.replace(/^#/, ''));
+        }
+      }
+    }
+
     const response = await this.http.request<Alter>({
       path: '/api/alters',
       method: 'POST',
-      json: payload,
+      json: outPayload,
     });
     return normalizeAlter(response.data);
   }

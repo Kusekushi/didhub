@@ -224,6 +224,7 @@ pub struct CreateSubsystemPayload {
     pub description: Option<String>,
     pub leaders: Option<serde_json::Value>,
     pub metadata: Option<String>,
+    pub owner_user_id: Option<i64>,
 }
 
 pub async fn create_subsystem(
@@ -262,13 +263,24 @@ pub async fn create_subsystem(
         "Parsed leaders for subsystem creation"
     );
 
+    // Ownership rules: allow explicit owner_user_id when provided, but disallow non-admin users
+    // from creating a subsystem for another user.
+    let owner: Option<i64> = if let Some(explicit) = payload.owner_user_id {
+        if !user.is_admin && explicit != user.id {
+            return Err(AppError::Forbidden);
+        }
+        Some(explicit)
+    } else {
+        Some(user.id)
+    };
+
     let created = db
         .create_subsystem(
             &payload.name,
             payload.description.as_deref(),
             &leaders_vec,
             payload.metadata.as_deref(),
-            Some(user.id),
+            owner,
         )
         .await
         .map_err(|e| {

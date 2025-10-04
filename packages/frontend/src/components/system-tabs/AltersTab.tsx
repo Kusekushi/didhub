@@ -24,6 +24,7 @@ import { SnackbarMessage } from '../NotificationSnackbar';
 import type { SettingsState } from '../../contexts/SettingsContext';
 
 interface AltersTabProps {
+  routeUid?: string | number | null;
   canManage: boolean;
   createOpen: boolean;
   setCreateOpen: (open: boolean) => void;
@@ -66,6 +67,7 @@ export default function AltersTab(props: AltersTabProps) {
           <AlterFormDialog
             mode="create"
             open={props.createOpen}
+            routeUid={props.routeUid}
             onClose={() => props.setCreateOpen(false)}
             onCreated={async () => {
               await props.refreshAlters();
@@ -208,6 +210,7 @@ export default function AltersTab(props: AltersTabProps) {
       <AlterFormDialog
         mode="edit"
         open={props.editOpen}
+        routeUid={props.routeUid}
         id={props.editingAlter}
         onClose={() => {
           props.setEditOpen(false);

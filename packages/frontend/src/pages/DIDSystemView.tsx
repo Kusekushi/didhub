@@ -150,6 +150,7 @@ export default function DIDSystemView(): React.ReactElement {
       />
       {tab === 0 && (
         <AltersTab
+          routeUid={uid}
           canManage={canManage}
           createOpen={dialogStates.createOpen}
           setCreateOpen={dialogStates.setCreateOpen}
@@ -179,6 +180,7 @@ export default function DIDSystemView(): React.ReactElement {
 
       <AlterFormDialog
         mode="edit"
+        routeUid={uid}
         open={dialogStates.editOpen}
         id={dialogStates.editingAlter}
         onClose={() => {
@@ -195,6 +197,7 @@ export default function DIDSystemView(): React.ReactElement {
 
       {tab === 1 && (
         <GroupsTab
+          uid={uid}
           canManage={canManage}
           createGroupOpen={dialogStates.createGroupOpen}
           setCreateGroupOpen={dialogStates.setCreateGroupOpen}
@@ -279,7 +282,7 @@ export default function DIDSystemView(): React.ReactElement {
           pageSize={PAGE_SIZE}
           total={subsystemsTotal}
           onPageChange={setSubsystemPage}
-          uid={uid || ''}
+          uid={uid}
           onDelete={async (subsystemId) => {
             await apiClient.subsystems.remove(subsystemId);
             await refreshSubsystems();

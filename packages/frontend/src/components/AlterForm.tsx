@@ -59,6 +59,7 @@ export interface AlterFormFieldsProps {
   partnerLabel?: string;
   useSwitchForHost?: boolean;
   progressMap?: Record<string, number>; // filename -> percent
+  routeUid?: string | number | null;
 }
 
 function coerceIdentifier(value: number | string): number | string {
@@ -784,6 +785,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
               ? values.affiliations.filter((value): value is number => typeof value === 'number')
               : []
           }
+          routeUid={props.routeUid}
           onChange={async (v: number | number[] | null) => {
             try {
               if (!v || (Array.isArray(v) && v.length === 0)) {
@@ -871,7 +873,8 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
 
       <StackItem>
         <SubsystemPicker
-          value={values.subsystem || ''}
+          routeUid={props.routeUid}
+          value={values.subsystem ?? null}
           onChange={(v: number | string | null) => onChange('subsystem', v)}
         />
       </StackItem>

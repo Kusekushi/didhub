@@ -3,10 +3,13 @@ import { Autocomplete, TextField } from '@mui/material';
 
 import InputPromptDialog from './InputPromptDialog';
 import { apiClient, type Subsystem } from '@didhub/api-client';
+import { useAuth } from '../contexts/AuthContext';
+import { getEffectiveOwnerId } from '../utils/owner';
 
 export interface SubsystemPickerProps {
   value?: number | { id?: number; name?: string } | null;
   onChange?: (v: number | null) => void;
+  routeUid?: string | number | null;
 }
 
 export default function SubsystemPicker(props: SubsystemPickerProps) {
@@ -15,6 +18,7 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [createDialog, setCreateDialog] = useState({ open: false, name: '' });
   const [createType, setCreateType] = useState('normal');
+  const auth = useAuth();
 
   useEffect(() => {
     fetchOptions('');
@@ -98,7 +102,10 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
           onSubmit={async (value: string | undefined) => {
             const type = value || 'normal';
             try {
-              const subsystem = await apiClient.subsystems.create({ name: createDialog.name, type });
+              const owner = getEffectiveOwnerId(props.routeUid == null ? undefined : String(props.routeUid), auth.user?.id);
+              const payload: any = { name: createDialog.name, type };
+              if (typeof owner === 'number') payload.owner_user_id = owner;
+              const subsystem = await apiClient.subsystems.create(payload);
               const createdId = parseNumericId(subsystem?.id);
               if (subsystem && createdId != null) {
                 setOptions((prev) => [subsystem, ...prev]);

@@ -3,6 +3,8 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/
 
 import AlterFormFields, { type RelationshipOption } from './AlterForm';
 import { apiClient, type Alter, type AlterName } from '@didhub/api-client';
+import { useAuth } from '../contexts/AuthContext';
+import { getEffectiveOwnerId } from '../utils/owner';
 
 function debugLog(...args: unknown[]) {
   console.debug('[AlterFormDialog]', ...args);
@@ -351,6 +353,7 @@ export interface AlterFormDialogProps {
   onCreated?: () => void;
   onSaved?: () => void;
   id?: string | number;
+  routeUid?: string | number | null;
 }
 
 const empty: Alter = {
@@ -723,7 +726,14 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     delete (payload as any)._files;
 
     if (mode === 'create') {
+      const auth = useAuth();
       try {
+        // include explicit owner_user_id when creating on behalf of a system route
+        const owner = getEffectiveOwnerId(
+          props.routeUid == null ? undefined : String(props.routeUid),
+          auth.user?.id ?? null,
+        );
+        if (typeof owner === 'number') (payload as any).owner_user_id = owner;
         const created = await apiClient.alters.create(payload);
         debugLog('Alter creation response', created);
         const alterId = created?.id ? Number(created.id) : undefined;
@@ -901,6 +911,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
           onRemovePendingFile={removePending}
           onDeleteImage={mode === 'edit' ? handleDeleteImage : undefined}
           onReorderImages={reorderImages}
+          routeUid={props.routeUid}
           progressMap={progressMap}
           uploading={uploading}
           showDescription={mode === 'edit'}

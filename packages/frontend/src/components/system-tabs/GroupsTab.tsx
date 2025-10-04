@@ -47,6 +47,7 @@ export interface GroupsTabProps {
   setSnack: (snack: SnackbarMessage) => void;
   refreshGroups: () => Promise<void>;
   uploadFiles: (files: File[]) => Promise<string[]>;
+  uid: string;
 }
 
 export default function GroupsTab(props: GroupsTabProps) {
@@ -85,6 +86,7 @@ export default function GroupsTab(props: GroupsTabProps) {
             setSnack={props.setSnack}
             refreshGroups={props.refreshGroups}
             uploadFiles={props.uploadFiles}
+            uid={props.uid}
           />
         </div>
       )}

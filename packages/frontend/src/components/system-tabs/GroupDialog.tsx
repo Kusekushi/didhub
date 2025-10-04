@@ -15,6 +15,8 @@ import type { Alter, Group } from '@didhub/api-client';
 
 const { groups } = apiClient;
 import SigilUpload from '../SigilUpload';
+import { useAuth } from '../../contexts/AuthContext';
+import { getEffectiveOwnerId } from '../../utils/owner';
 import { SnackbarMessage } from '../NotificationSnackbar';
 
 export type GroupDialogMode = 'create' | 'edit';
@@ -55,6 +57,7 @@ export interface GroupDialogProps {
   setSnack: (snack: SnackbarMessage) => void;
   refreshGroups: () => Promise<void>;
   uploadFiles: (files: File[]) => Promise<string[]>;
+  uid?: string;
 }
 
 const leaderOptionLabel = (option: Alter | string | null): string => {
@@ -190,6 +193,7 @@ const getSigilUrlFromGroup = (group: Group | null): string | null => {
 export default function GroupDialog(props: GroupDialogProps) {
   const isCreate = props.mode === 'create';
   const altersOptions = props.altersOptions ?? [];
+  const auth = useAuth();
   const editingGroup = isCreate ? null : (props.editingGroup ?? null);
 
   const leaderValue: Alter[] = isCreate
@@ -327,12 +331,22 @@ export default function GroupDialog(props: GroupDialogProps) {
       }
 
       try {
-        await groups.create({
+        const owner = getEffectiveOwnerId(props.uid ?? undefined, auth.user?.id ?? null);
+        // Debug: log owner resolution to help trace why owner_user_id may fall back to auth user
+        // Remove this in a follow-up when root cause is verified.
+        // eslint-disable-next-line no-console
+        console.debug('[GroupDialog] create owner resolution', { propUid: props.uid, authUserId: auth.user?.id, owner });
+        const payload: Record<string, unknown> = {
           name: trimmedName,
           description: props.newGroupDesc || null,
           sigil: sigilUrl,
           leaders: mapLeadersToIds(props.newGroupLeaders || []),
-        });
+        };
+        if (typeof owner === 'number') payload.owner_user_id = owner;
+        // Debug: log final payload being sent to API
+        // eslint-disable-next-line no-console
+        console.debug('[GroupDialog] create payload', payload);
+        await groups.create(payload);
 
         await props.refreshGroups();
         props.setSnack({ open: true, message: 'Group created', severity: 'success' });

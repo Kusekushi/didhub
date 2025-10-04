@@ -11,7 +11,10 @@ export interface GroupPickerProps {
   value?: number | number[] | { id?: number; name?: string } | null;
   onChange?: (v: number | number[] | null) => void;
   multiple?: boolean;
+  routeUid?: string | number | null;
 }
+import { useAuth } from '../contexts/AuthContext';
+import { getEffectiveOwnerId } from '../utils/owner';
 
 export default function GroupPicker(props: GroupPickerProps) {
   const multiple = props.multiple ?? false;
@@ -19,6 +22,7 @@ export default function GroupPicker(props: GroupPickerProps) {
   const [inputValue, setInputValue] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [createDialog, setCreateDialog] = useState({ open: false, name: '' });
+  const auth = useAuth();
 
   useEffect(() => {
     fetchOptions('');
@@ -120,7 +124,14 @@ export default function GroupPicker(props: GroupPickerProps) {
           onCancel={() => setCreateDialog({ open: false, name: '' })}
           onSubmit={async () => {
             try {
-              const group = await apiClient.groups.create({ name: createDialog.name });
+              // include owner_user_id when creating on-behalf-of if a route uid is present
+              const owner = getEffectiveOwnerId(props.routeUid == null ? undefined : String(props.routeUid), auth.user?.id);
+              const payload: any = { name: createDialog.name };
+              if (typeof owner === 'number') payload.owner_user_id = owner;
+              // Debug: log payload prior to API call
+              // eslint-disable-next-line no-console
+              console.debug('[GroupPicker] inline create payload', payload);
+              const group = await apiClient.groups.create(payload);
               const createdId = parseNumericId(group?.id);
               if (group && createdId != null) {
                 setOptions((prev) => [group, ...prev]);

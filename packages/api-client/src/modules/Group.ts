@@ -177,10 +177,21 @@ export class GroupsApi {
   }
 
   async create(payload: Record<string, unknown>): Promise<Group> {
+    const outPayload = { ...payload } as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(outPayload, 'owner_user_id')) {
+      const raw = outPayload.owner_user_id;
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed !== '' && /^#?\d+$/.test(trimmed)) {
+          outPayload.owner_user_id = Number(trimmed.replace(/^#/, ''));
+        }
+      }
+    }
+
     const response = await this.http.request<Group>({
       path: '/api/groups',
       method: 'POST',
-      json: payload,
+      json: outPayload,
     });
     return normalizeGroup(response.data);
   }
