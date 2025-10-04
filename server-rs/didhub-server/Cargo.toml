@@ -79,6 +79,7 @@ updater = ["didhub-updater/updater"]
 # Disable this feature during local dev to serve assets from disk.
 embed_static = []
 oidc_integration_tests = []
+e2e-tests = []
 
 [profile.release]
 codegen-units = 1
