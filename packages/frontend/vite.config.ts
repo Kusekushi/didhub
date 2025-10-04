@@ -9,9 +9,6 @@ export default defineConfig({
     sourcemap: false,
   },
   esbuild: { legalComments: 'none' },
-  optimizeDeps: {
-    include: ['@didhub/api-client'],
-  },
   server: {
     proxy: {
       '/api': process.env.VITE_API_PROXY_TARGET || 'http://localhost:6000',
