@@ -26,10 +26,10 @@ fn insert_ignore_query(backend: crate::DbBackend, table: &str, cols: &[&str]) ->
 
 #[async_trait::async_trait]
 pub trait AlterRelationships {
-    async fn replace_partners(&self, id: i64, partners: &[i64]) -> Result<()>;
-    async fn replace_parents(&self, id: i64, parents: &[i64]) -> Result<()>;
-    async fn replace_children(&self, id: i64, children: &[i64]) -> Result<()>;
-    async fn replace_affiliations(&self, id: i64, affiliations: &[i64]) -> Result<()>;
+    async fn replace_partners(&self, id: i64, partners: &[i64]) -> Result<u64>;
+    async fn replace_parents(&self, id: i64, parents: &[i64]) -> Result<u64>;
+    async fn replace_children(&self, id: i64, children: &[i64]) -> Result<u64>;
+    async fn replace_affiliations(&self, id: i64, affiliations: &[i64]) -> Result<u64>;
     async fn partners_of(&self, id: i64) -> Result<Vec<i64>>;
     async fn parents_of(&self, id: i64) -> Result<Vec<i64>>;
     async fn children_of(&self, id: i64) -> Result<Vec<i64>>;
@@ -48,11 +48,13 @@ pub trait AlterRelationships {
 
 #[async_trait::async_trait]
 impl AlterRelationships for Db {
-    async fn replace_partners(&self, id: i64, partners: &[i64]) -> Result<()> {
-        sqlx::query("DELETE FROM alter_partners WHERE alter_id=?1 OR partner_alter_id=?1")
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
+    async fn replace_partners(&self, id: i64, partners: &[i64]) -> Result<u64> {
+        let mut rows_affected =
+            sqlx::query("DELETE FROM alter_partners WHERE alter_id=?1 OR partner_alter_id=?1")
+                .bind(id)
+                .execute(&self.pool)
+                .await?
+                .rows_affected();
         for p in partners {
             if *p == id {
                 continue;
@@ -63,20 +65,22 @@ impl AlterRelationships for Db {
                 "alter_partners",
                 &["alter_id", "partner_alter_id"],
             );
-            sqlx::query(&q)
+            rows_affected += sqlx::query(&q)
                 .bind(low)
                 .bind(high)
                 .execute(&self.pool)
-                .await?;
+                .await?
+                .rows_affected();
         }
-        Ok(())
+        Ok(rows_affected)
     }
 
-    async fn replace_parents(&self, id: i64, parents: &[i64]) -> Result<()> {
-        sqlx::query("DELETE FROM alter_parents WHERE alter_id=?1")
+    async fn replace_parents(&self, id: i64, parents: &[i64]) -> Result<u64> {
+        let mut rows_affected = sqlx::query("DELETE FROM alter_parents WHERE alter_id=?1")
             .bind(id)
             .execute(&self.pool)
-            .await?;
+            .await?
+            .rows_affected();
         for p in parents {
             if *p == id {
                 continue;
@@ -86,20 +90,22 @@ impl AlterRelationships for Db {
                 "alter_parents",
                 &["alter_id", "parent_alter_id"],
             );
-            sqlx::query(&q)
+            rows_affected += sqlx::query(&q)
                 .bind(id)
                 .bind(*p)
                 .execute(&self.pool)
-                .await?;
+                .await?
+                .rows_affected();
         }
-        Ok(())
+        Ok(rows_affected)
     }
 
-    async fn replace_children(&self, id: i64, children: &[i64]) -> Result<()> {
-        sqlx::query("DELETE FROM alter_parents WHERE parent_alter_id=?1")
+    async fn replace_children(&self, id: i64, children: &[i64]) -> Result<u64> {
+        let mut rows_affected = sqlx::query("DELETE FROM alter_parents WHERE parent_alter_id=?1")
             .bind(id)
             .execute(&self.pool)
-            .await?;
+            .await?
+            .rows_affected();
         for c in children {
             if *c == id {
                 continue;
@@ -109,33 +115,36 @@ impl AlterRelationships for Db {
                 "alter_parents",
                 &["alter_id", "parent_alter_id"],
             );
-            sqlx::query(&q)
+            rows_affected += sqlx::query(&q)
                 .bind(*c)
                 .bind(id)
                 .execute(&self.pool)
-                .await?;
+                .await?
+                .rows_affected();
         }
-        Ok(())
+        Ok(rows_affected)
     }
 
-    async fn replace_affiliations(&self, id: i64, affiliations: &[i64]) -> Result<()> {
-        sqlx::query("DELETE FROM alter_affiliations WHERE alter_id=?1")
+    async fn replace_affiliations(&self, id: i64, affiliations: &[i64]) -> Result<u64> {
+        let mut rows_affected = sqlx::query("DELETE FROM alter_affiliations WHERE alter_id=?1")
             .bind(id)
             .execute(&self.pool)
-            .await?;
+            .await?
+            .rows_affected();
         for a in affiliations {
             let q = insert_ignore_query(
                 self.backend,
                 "alter_affiliations",
                 &["affiliation_id", "alter_id"],
             );
-            sqlx::query(&q)
+            rows_affected += sqlx::query(&q)
                 .bind(*a)
                 .bind(id)
                 .execute(&self.pool)
-                .await?;
+                .await?
+                .rows_affected();
         }
-        Ok(())
+        Ok(rows_affected)
     }
 
     async fn partners_of(&self, id: i64) -> Result<Vec<i64>> {

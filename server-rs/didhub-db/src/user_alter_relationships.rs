@@ -10,6 +10,11 @@ pub trait UserAlterRelationshipOperations: Send + Sync {
         &self,
         relationship: &NewUserAlterRelationship,
     ) -> Result<UserAlterRelationship>;
+    async fn replace_user_alter_relationships(
+        &self,
+        alter_id: i64,
+        relationships: &[NewUserAlterRelationship],
+    ) -> Result<(Vec<UserAlterRelationship>, u64)>;
     async fn delete_user_alter_relationship(
         &self,
         user_id: i64,
@@ -88,6 +93,41 @@ impl UserAlterRelationshipOperations for Db {
         ).await?;
 
         Ok(rec)
+    }
+
+    async fn replace_user_alter_relationships(
+        &self,
+        alter_id: i64,
+        relationships: &[NewUserAlterRelationship],
+    ) -> Result<(Vec<UserAlterRelationship>, u64)> {
+        let mut tx = self.pool.begin().await?;
+
+        let delete_result = sqlx::query("DELETE FROM user_alter_relationships WHERE alter_id = ?")
+            .bind(alter_id)
+            .execute(&mut *tx)
+            .await?;
+
+        let mut rows_affected = delete_result.rows_affected();
+
+        for rel in relationships {
+            let insert_result = sqlx::query(
+                "INSERT INTO user_alter_relationships (user_id, alter_id, relationship_type) VALUES (?1, ?2, ?3)",
+            )
+            .bind(rel.user_id)
+            .bind(rel.alter_id)
+            .bind(&rel.relationship_type)
+            .execute(&mut *tx)
+            .await?;
+            rows_affected += insert_result.rows_affected();
+        }
+
+        tx.commit().await?;
+
+        let relationships = self
+            .list_user_alter_relationships_by_alter(alter_id)
+            .await?;
+
+        Ok((relationships, rows_affected))
     }
 
     async fn delete_user_alter_relationship(

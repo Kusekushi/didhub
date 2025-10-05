@@ -46,6 +46,23 @@ pub struct UpdateAlterPayload {
     pub rest: serde_json::Value,
 }
 
+#[derive(serde::Deserialize)]
+pub struct ReplaceAlterRelationshipsPayload {
+    #[serde(default)]
+    pub partners: Vec<i64>,
+    #[serde(default)]
+    pub parents: Vec<i64>,
+    #[serde(default)]
+    pub children: Vec<i64>,
+    #[serde(default)]
+    pub affiliations: Vec<i64>,
+}
+
+#[derive(serde::Serialize)]
+pub struct RowsAffectedResponse {
+    pub rows_affected: u64,
+}
+
 #[derive(serde::Serialize)]
 pub struct AlterOut {
     pub id: i64,
@@ -746,6 +763,101 @@ pub async fn get_alter(
     );
 
     Ok(Json(out))
+}
+
+pub async fn replace_alter_relationships(
+    State(db): State<Db>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<i64>,
+    Json(payload): Json<ReplaceAlterRelationshipsPayload>,
+) -> Result<Json<RowsAffectedResponse>, AppError> {
+    let existing = db
+        .fetch_alter(id)
+        .await
+        .map_err(|_| AppError::Internal)?
+        .ok_or(AppError::NotFound)?;
+
+    if !user.is_admin {
+        let owner = existing.owner_user_id.unwrap_or(user.id);
+        if owner != user.id {
+            return Err(AppError::Forbidden);
+        }
+    }
+
+    let mut partners = payload
+        .partners
+        .into_iter()
+        .filter(|partner| *partner != id)
+        .collect::<Vec<_>>();
+    partners.sort_unstable();
+    partners.dedup();
+
+    let mut parents = payload
+        .parents
+        .into_iter()
+        .filter(|parent| *parent != id)
+        .collect::<Vec<_>>();
+    parents.sort_unstable();
+    parents.dedup();
+
+    let mut children = payload
+        .children
+        .into_iter()
+        .filter(|child| *child != id)
+        .collect::<Vec<_>>();
+    children.sort_unstable();
+    children.dedup();
+
+    let mut affiliations = payload.affiliations;
+    affiliations.sort_unstable();
+    affiliations.dedup();
+
+    let partner_rows = db
+        .replace_partners(id, &partners)
+        .await
+        .map_err(|_| AppError::Internal)?;
+    let parent_rows = db
+        .replace_parents(id, &parents)
+        .await
+        .map_err(|_| AppError::Internal)?;
+    let child_rows = db
+        .replace_children(id, &children)
+        .await
+        .map_err(|_| AppError::Internal)?;
+    let affiliation_rows = db
+        .replace_affiliations(id, &affiliations)
+        .await
+        .map_err(|_| AppError::Internal)?;
+
+    let rows_affected = partner_rows + parent_rows + child_rows + affiliation_rows;
+
+    audit::record_with_metadata(
+        &db,
+        Some(user.id),
+        "alter.relationships.replace",
+        Some("alter"),
+        Some(&id.to_string()),
+        serde_json::json!({
+            "partners": partners,
+            "parents": parents,
+            "children": children,
+            "affiliations": affiliations,
+        }),
+    )
+    .await;
+
+    info!(
+        user_id=%user.id,
+        alter_id=%id,
+        partner_count=%partners.len(),
+        parent_count=%parents.len(),
+        child_count=%children.len(),
+        affiliation_count=%affiliations.len(),
+        rows_affected=rows_affected,
+        "replaced alter relationships",
+    );
+
+    Ok(Json(RowsAffectedResponse { rows_affected }))
 }
 
 pub async fn update_alter(

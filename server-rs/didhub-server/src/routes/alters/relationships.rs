@@ -2,7 +2,7 @@ use axum::{
     extract::{Extension, Path, State},
     Json,
 };
-use didhub_db::users::UserOperations;
+use didhub_db::{alters::AlterOperations, users::UserOperations};
 use didhub_db::{
     audit,
     models::{NewUserAlterRelationship, UserAlterRelationship},
@@ -11,12 +11,23 @@ use didhub_db::{user_alter_relationships::UserAlterRelationshipOperations, Db};
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 use tracing::{debug, info, warn};
 
 #[derive(Deserialize)]
 pub struct CreateRelationshipPayload {
     pub user_id: i64,
     pub relationship_type: String,
+}
+
+#[derive(Deserialize)]
+pub struct ReplaceRelationshipsPayload {
+    #[serde(default)]
+    pub partners: Vec<i64>,
+    #[serde(default)]
+    pub parents: Vec<i64>,
+    #[serde(default)]
+    pub children: Vec<i64>,
 }
 
 pub async fn create_relationship(
@@ -130,4 +141,114 @@ pub async fn list_relationships(
     debug!(user_id=%user.id, alter_id=%alter_id, count=%relationships.len(), "listed user-alter relationships");
 
     Ok(Json(relationships))
+}
+
+pub async fn replace_relationships(
+    State(db): State<Db>,
+    Extension(user): Extension<CurrentUser>,
+    Path(alter_id): Path<i64>,
+    Json(payload): Json<ReplaceRelationshipsPayload>,
+) -> Result<Json<super::RowsAffectedResponse>, AppError> {
+    let alter = db
+        .fetch_alter(alter_id)
+        .await
+        .map_err(|_| AppError::Internal)?
+        .ok_or(AppError::NotFound)?;
+
+    if !user.is_admin {
+        let owner = alter.owner_user_id.unwrap_or(user.id);
+        if owner != user.id {
+            return Err(AppError::Forbidden);
+        }
+    }
+
+    let mut requested: Vec<(i64, &'static str)> = Vec::new();
+    let mut seen_pairs: HashSet<(i64, &'static str)> = HashSet::new();
+
+    for user_id in payload.partners {
+        if user_id <= 0 {
+            continue;
+        }
+        if seen_pairs.insert((user_id, "partner")) {
+            requested.push((user_id, "partner"));
+        }
+    }
+
+    for user_id in payload.parents {
+        if user_id <= 0 {
+            continue;
+        }
+        if seen_pairs.insert((user_id, "parent")) {
+            requested.push((user_id, "parent"));
+        }
+    }
+
+    for user_id in payload.children {
+        if user_id <= 0 {
+            continue;
+        }
+        if seen_pairs.insert((user_id, "child")) {
+            requested.push((user_id, "child"));
+        }
+    }
+
+    let mut user_cache: HashMap<i64, bool> = HashMap::new();
+    let mut new_relationships: Vec<NewUserAlterRelationship> = Vec::with_capacity(requested.len());
+
+    for (user_id, relationship_type) in requested {
+        let is_system = if let Some(is_system) = user_cache.get(&user_id) {
+            *is_system
+        } else {
+            let target_user = db
+                .fetch_user_by_id(user_id)
+                .await
+                .map_err(|_| AppError::Internal)?
+                .ok_or_else(|| AppError::BadRequest(format!("User {} not found", user_id)))?;
+            let is_system = target_user.is_system != 0;
+            user_cache.insert(user_id, is_system);
+            is_system
+        };
+
+        if is_system {
+            return Err(AppError::BadRequest(
+                "Cannot create relationships with system users".to_string(),
+            ));
+        }
+
+        new_relationships.push(NewUserAlterRelationship {
+            user_id,
+            alter_id,
+            relationship_type: relationship_type.to_string(),
+        });
+    }
+
+    let (relationships, rows_affected) = db
+        .replace_user_alter_relationships(alter_id, &new_relationships)
+        .await
+        .map_err(|_| AppError::Internal)?;
+
+    audit::record_with_metadata(
+        &db,
+        Some(user.id),
+        "user_alter_relationship.replace",
+        Some("alter"),
+        Some(&alter_id.to_string()),
+        serde_json::json!({
+            "partner_count": relationships.iter().filter(|rel| rel.relationship_type == "partner").count(),
+            "parent_count": relationships.iter().filter(|rel| rel.relationship_type == "parent").count(),
+            "child_count": relationships.iter().filter(|rel| rel.relationship_type == "child").count(),
+            "rows_affected": rows_affected,
+        }),
+    )
+    .await;
+
+    info!(
+        user_id=%user.id,
+        alter_id=%alter_id,
+        count=%relationships.len(),
+        rows_affected=rows_affected,
+        "replaced user-alter relationships",
+    );
+
+    Ok(Json(super::RowsAffectedResponse { rows_affected }))
 }

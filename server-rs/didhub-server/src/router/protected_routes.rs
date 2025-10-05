@@ -1,6 +1,6 @@
 use axum::{
     extract::DefaultBodyLimit,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 
@@ -43,6 +43,14 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
             "/alters/{id}/relationships",
             get(crate::routes::alters::relationships::list_relationships)
                 .post(crate::routes::alters::relationships::create_relationship),
+        )
+        .route(
+            "/alters/{id}/alter-relationships",
+            put(crate::routes::alters::replace_alter_relationships),
+        )
+        .route(
+            "/alters/{id}/user-relationships",
+            put(crate::routes::alters::relationships::replace_relationships),
         )
         .route(
             "/alters/{alter_id}/relationships/{user_id}/{relationship_type}",
