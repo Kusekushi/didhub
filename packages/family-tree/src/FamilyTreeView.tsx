@@ -50,7 +50,7 @@ export default function FamilyTreeView({
   const [data, setData] = useState<FamilyTreeResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(1);
   const [search, setSearch] = useState('');
   const [reloadNonce, setReloadNonce] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
