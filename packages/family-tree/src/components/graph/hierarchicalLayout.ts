@@ -316,11 +316,11 @@ function layoutComponentGraph(graph: BaseGraph): LayoutSnapshot {
 
   try {
     const alignedRanks = alignPartnerRanks(graph, computeNodeRanks(graph));
-    const dag = new dagre.graphlib.Graph({ multigraph: true, compound: false });
+    const dag = new dagre.graphlib.Graph({ multigraph: true, compound: true });
     dag.setGraph({
       rankdir: 'TB',
-      ranksep: Math.max(120, V_SPACING),
-      nodesep: Math.max(80, H_SPACING - NODE_WIDTH),
+      ranksep: Math.max(80, V_SPACING),
+      nodesep: Math.max(60, H_SPACING - NODE_WIDTH),
       marginx: MARGIN_X,
       marginy: MARGIN_Y,
     });
