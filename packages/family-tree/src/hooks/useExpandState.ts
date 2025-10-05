@@ -11,10 +11,10 @@ export function useExpandState(data: FamilyTreeResponse | null) {
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const toggle = useCallback((id: number) => {
     setCollapsed((prev) => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   }, []);
   const isCollapsed = useCallback((id: number) => collapsed.has(id), [collapsed]);

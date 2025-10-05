@@ -1,5 +1,6 @@
 packages:
   - packages/api-client
+  - packages/family-tree
   - packages/frontend
 
 onlyBuiltDependencies:

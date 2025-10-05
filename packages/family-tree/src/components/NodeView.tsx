@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Chip } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import type { ReactNode } from 'react';
 
 export interface FamilyNode {
   id: number;
@@ -15,12 +15,15 @@ export interface NodeViewProps {
   all: Record<string, any>;
   toggle: (id: number) => void;
   isCollapsed: (id: number) => boolean;
+  renderAlterLink: (id: number, label: string) => ReactNode;
 }
 
 export default function NodeView(props: NodeViewProps) {
   const hasKids = !props.node.duplicated && props.node.children.length > 0;
   const coll = props.isCollapsed(props.node.id);
   const listRef = useRef<HTMLUListElement | null>(null);
+  const label = props.node.name || `#${props.node.id}`;
+
   return (
     <li style={{ margin: '4px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -44,7 +47,7 @@ export default function NodeView(props: NodeViewProps) {
           </button>
         )}
         {!hasKids && <span style={{ width: 20 }} />}
-        <RouterLink to={`/detail/${props.node.id}`}>{props.node.name || `#${props.node.id}`}</RouterLink>
+        {props.renderAlterLink(props.node.id, label)}
         {props.node.duplicated && <Chip size="small" label="(ref)" />}
         {props.node.partners.length > 0 && (
           <span style={{ fontSize: 12, opacity: 0.7 }}>
@@ -66,13 +69,14 @@ export default function NodeView(props: NodeViewProps) {
         >
           <ul ref={listRef} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {!coll &&
-              props.node.children.map((c) => (
+              props.node.children.map((child) => (
                 <NodeView
-                  key={`${props.node.id}-${c.id}`}
-                  node={c}
+                  key={`${props.node.id}-${child.id}`}
+                  node={child}
                   all={props.all}
                   toggle={props.toggle}
                   isCollapsed={props.isCollapsed}
+                  renderAlterLink={props.renderAlterLink}
                 />
               ))}
           </ul>
