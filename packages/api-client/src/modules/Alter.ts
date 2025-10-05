@@ -1,6 +1,13 @@
 import { HttpClient } from '../core/HttpClient';
 import { createPage, Page } from '../core/Pagination';
-import { Alter, AlterName, FamilyTreeResponse, UserAlterRelationship } from '../Types';
+import {
+  Alter,
+  AlterName,
+  AlterRelationshipSet,
+  FamilyTreeResponse,
+  UserAlterRelationship,
+  UserAlterRelationshipSet,
+} from '../Types';
 import { safeJsonParse } from '../Util';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -173,6 +180,32 @@ function normalizeAlterName(input: unknown): AlterName {
   return { id, name, user_id, username };
 }
 
+function normalizeUserAlterRelationship(input: unknown): UserAlterRelationship {
+  if (!isRecord(input)) {
+    return {
+      id: 0,
+      user_id: 0,
+      alter_id: 0,
+      relationship_type: 'partner',
+    };
+  }
+
+  const raw = input as Record<string, unknown>;
+  const id = typeof raw.id === 'number' ? raw.id : Number(raw.id ?? 0) || 0;
+  const user_id = typeof raw.user_id === 'number' ? raw.user_id : Number(raw.user_id ?? 0) || 0;
+  const alter_id = typeof raw.alter_id === 'number' ? raw.alter_id : Number(raw.alter_id ?? 0) || 0;
+  const typeRaw = typeof raw.relationship_type === 'string' ? raw.relationship_type : 'partner';
+  const relationship_type: UserAlterRelationship['relationship_type'] = ['partner', 'parent', 'child'].includes(
+    typeRaw,
+  )
+    ? (typeRaw as UserAlterRelationship['relationship_type'])
+    : 'partner';
+  const created_at = typeof raw.created_at === 'string' ? raw.created_at : undefined;
+  const username = typeof raw.username === 'string' ? raw.username : undefined;
+
+  return { id, user_id, alter_id, relationship_type, created_at, username };
+}
+
 export interface AlterListFilters {
   query?: string;
   includeRelationships?: boolean;
@@ -292,6 +325,68 @@ export class AltersApi {
       json: payload,
     });
     return normalizeAlter(response.data);
+  }
+
+  async replaceAlterRelationships(
+    alterId: number,
+    payload: Partial<AlterRelationshipSet>,
+  ): Promise<number> {
+    const jsonPayload: Record<string, unknown> = {};
+    if (Object.prototype.hasOwnProperty.call(payload, 'partners')) {
+      jsonPayload.partners = payload.partners;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'parents')) {
+      jsonPayload.parents = payload.parents;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'children')) {
+      jsonPayload.children = payload.children;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'affiliations')) {
+      jsonPayload.affiliations = payload.affiliations;
+    }
+
+    const response = await this.http.request<Record<string, unknown>>({
+      path: `/api/alters/${alterId}/alter-relationships`,
+      method: 'PUT',
+      json: jsonPayload,
+    });
+
+    const data = isRecord(response.data) ? response.data : {};
+    const raw =
+      typeof data.rows_affected === 'number'
+        ? data.rows_affected
+        : typeof data.rowsAffected === 'number'
+          ? data.rowsAffected
+          : Number(data.rows_affected ?? data.rowsAffected ?? 0);
+
+    return Number.isFinite(raw) ? (raw as number) : 0;
+  }
+
+  async replaceUserRelationships(
+    alterId: number,
+    payload: UserAlterRelationshipSet,
+  ): Promise<number> {
+    const jsonPayload = {
+      partners: Array.isArray(payload.partners) ? payload.partners : [],
+      parents: Array.isArray(payload.parents) ? payload.parents : [],
+      children: Array.isArray(payload.children) ? payload.children : [],
+    };
+
+    const response = await this.http.request<Record<string, unknown>>({
+      path: `/api/alters/${alterId}/user-relationships`,
+      method: 'PUT',
+      json: jsonPayload,
+    });
+
+    const data = isRecord(response.data) ? response.data : {};
+    const raw =
+      typeof data.rows_affected === 'number'
+        ? data.rows_affected
+        : typeof data.rowsAffected === 'number'
+          ? data.rowsAffected
+          : Number(data.rows_affected ?? data.rowsAffected ?? 0);
+
+    return Number.isFinite(raw) ? (raw as number) : 0;
   }
 
   async remove(id: string | number): Promise<void> {

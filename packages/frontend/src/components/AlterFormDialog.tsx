@@ -460,7 +460,6 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<boolean>(false);
   const [progressMap, setProgressMap] = useState<Record<string, number>>({});
-  const [originalUserRelationships, setOriginalUserRelationships] = useState<any[]>([]);
 
   const relationshipValues = useMemo(
     () => ({
@@ -532,9 +531,7 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     debugLog('Loading alter for edit', { id });
     const r = await apiClient.alters.get(id);
     if (r) {
-      // Store original user relationships for comparison
       const userRelationships = r.user_relationships || [];
-      setOriginalUserRelationships(userRelationships);
       debugLog('Loaded alter data', {
         partners: r.partners,
         parents: r.parents,
@@ -570,7 +567,6 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
       await refreshPartnerOptions(r);
     } else {
       setValues(empty);
-      setOriginalUserRelationships([]);
     }
     setErrors({});
   }, [id, mode, refreshPartnerOptions]);
@@ -581,64 +577,8 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     } else if (mode === 'create' && open) {
       setValues(empty);
       setErrors({});
-      setOriginalUserRelationships([]);
     }
   }, [mode, open, id, load]);
-
-  async function updateUserRelationships(alterId: number) {
-    // Get desired relationships from form values
-    const desiredRelationships: RelationshipEntry[] = [
-      ...buildRelationshipEntries(values.user_partners, 'partner'),
-      ...buildRelationshipEntries(values.user_parents, 'parent'),
-      ...buildRelationshipEntries(values.user_children, 'child'),
-    ];
-
-    // Get current relationships
-    const currentRelationships: RelationshipEntry[] = (
-      Array.isArray(originalUserRelationships) ? originalUserRelationships : []
-    )
-      .map((rel) => ({
-        userId: resolveUserId(rel?.user_id),
-        type: rel?.relationship_type,
-      }))
-      .filter((rel): rel is RelationshipEntry => typeof rel.userId === 'number' && isRelationshipType(rel.type))
-      .map((rel) => ({ userId: rel.userId, type: rel.type }));
-
-    // Find relationships to add and remove
-    const toAdd = desiredRelationships.filter(
-      (desired) =>
-        !currentRelationships.some((current) => current.userId === desired.userId && current.type === desired.type),
-    );
-
-    const toRemove = currentRelationships.filter(
-      (current) =>
-        !desiredRelationships.some((desired) => desired.userId === current.userId && desired.type === current.type),
-    );
-
-    // Remove old relationships
-    for (const rel of toRemove) {
-      try {
-        console.log('Removing user relationship:', rel);
-        await apiClient.alters.removeRelationship(alterId, rel.userId, rel.type);
-        console.log('Successfully removed user relationship:', rel);
-      } catch (e) {
-        console.warn('Failed to remove user relationship:', e);
-        // Continue with other operations
-      }
-    }
-
-    // Add new relationships
-    for (const rel of toAdd) {
-      try {
-        console.log('Adding user relationship:', rel);
-        await apiClient.alters.addRelationship(alterId, rel.userId, rel.type);
-        console.log('Successfully added user relationship:', rel);
-      } catch (e) {
-        console.warn('Failed to add user relationship:', e);
-        // Continue with other operations
-      }
-    }
-  }
 
   async function submit(e?: React.FormEvent) {
     if (e) e.preventDefault();
@@ -653,6 +593,30 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     }
 
     const payload: Record<string, unknown> = { ...values };
+    const partnerIds = extractNumericIds(collectRelationshipIds(values.partners), partnerMap);
+    const parentIds = extractNumericIds(collectRelationshipIds(values.parents), partnerMap);
+    const childIds = extractNumericIds(collectRelationshipIds(values.children), partnerMap);
+    const desiredUserRelationships: RelationshipEntry[] = [
+      ...buildRelationshipEntries(values.user_partners, 'partner'),
+      ...buildRelationshipEntries(values.user_parents, 'parent'),
+      ...buildRelationshipEntries(values.user_children, 'child'),
+    ];
+    const dedupeByType = (type: RelationshipType): number[] => {
+      const seen = new Set<number>();
+      return desiredUserRelationships
+        .filter((entry) => entry.type === type)
+        .map((entry) => entry.userId)
+        .filter((userId) => {
+          if (seen.has(userId)) return false;
+          seen.add(userId);
+          return true;
+        });
+    };
+    const userRelationshipsPayload = {
+      partners: dedupeByType('partner'),
+      parents: dedupeByType('parent'),
+      children: dedupeByType('child'),
+    };
     if (typeof payload.soul_songs === 'string' && payload.soul_songs)
       (payload as any).soul_songs = (payload.soul_songs as string)
         .split(',')
@@ -676,35 +640,13 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
     if (normalizedAffiliations !== null) {
       (payload as any).affiliations = normalizedAffiliations;
     }
-    // Normalize partners: accept `partner` or `partners` (string or array)
-    // Normalize partners: ensure `partners` is an array of non-empty trimmed strings
-    if (Array.isArray((payload as any).partners)) {
-      (payload as any).partners = (payload as any).partners
-        .map((p: any) => (typeof p === 'string' ? p.trim() : p))
-        .filter(Boolean);
-      if (!(payload as any).partners.length) delete (payload as any).partners;
-    } else if (payload.partners && typeof payload.partners === 'string') {
-      (payload as any).partners = (payload.partners as string)
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter(Boolean);
-      if (!(payload as any).partners.length) delete (payload as any).partners;
-    }
-    if (Array.isArray((payload as any).partners)) {
-      const normalizedPartners = extractNumericIds((payload as any).partners, partnerMap);
-      if (normalizedPartners.length) (payload as any).partners = normalizedPartners;
-      else delete (payload as any).partners;
-    }
-    if (Array.isArray((payload as any).parents)) {
-      const normalizedParents = extractNumericIds((payload as any).parents, partnerMap);
-      if (normalizedParents.length) (payload as any).parents = normalizedParents;
-      else delete (payload as any).parents;
-    }
-    if (Array.isArray((payload as any).children)) {
-      const normalizedChildren = extractNumericIds((payload as any).children, partnerMap);
-      if (normalizedChildren.length) (payload as any).children = normalizedChildren;
-      else delete (payload as any).children;
-    }
+    delete (payload as any).partners;
+    delete (payload as any).parents;
+    delete (payload as any).children;
+    delete (payload as any).user_partners;
+    delete (payload as any).user_parents;
+    delete (payload as any).user_children;
+    delete (payload as any).user_relationships;
     if (values._files && values._files.length) {
       setUploading(true);
       const urls: string[] = [];
@@ -735,27 +677,18 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         debugLog('Alter creation response', created);
         const alterId = created?.id ? Number(created.id) : undefined;
         console.log('Alter created with ID:', alterId);
-        console.log('User partners:', values.user_partners);
-        console.log('User parents:', values.user_parents);
-        console.log('User children:', values.user_children);
-
         if (alterId) {
-          const userRelationships: RelationshipEntry[] = [
-            ...buildRelationshipEntries(values.user_partners, 'partner'),
-            ...buildRelationshipEntries(values.user_parents, 'parent'),
-            ...buildRelationshipEntries(values.user_children, 'child'),
-          ];
-          console.log('User relationships to create:', userRelationships);
+          await apiClient.alters.replaceAlterRelationships(alterId, {
+            partners: partnerIds,
+            parents: parentIds,
+            children: childIds,
+          });
 
-          for (const rel of userRelationships) {
-            try {
-              console.log('Creating relationship:', rel);
-              await apiClient.alters.addRelationship(alterId, rel.userId, rel.type);
-              console.log('Relationship creation result:', rel);
-            } catch (e) {
-              console.warn('Failed to create user relationship:', e);
-              // Don't fail the whole creation for relationship errors
-            }
+          try {
+            await apiClient.alters.replaceUserRelationships(alterId, userRelationshipsPayload);
+          } catch (e) {
+            console.warn('Failed to replace user relationships:', e);
+            // Don't fail the whole creation for relationship errors
           }
         }
 
@@ -790,28 +723,6 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
         else if (sub && sub.name) (editPayload as any).subsystem = sub.name;
         else delete (editPayload as any).subsystem;
       }
-      // Ensure partners normalization: KEEP empty array (signals removal of all partners)
-      if (Array.isArray((editPayload as any).partners)) {
-        (editPayload as any).partners = (editPayload as any).partners
-          .map((p: any) => (typeof p === 'string' ? p.trim() : p))
-          .filter((v: any) => v !== '' && v != null);
-        // Do NOT delete when length === 0; backend interprets [] as clear all
-      } else if (typeof (editPayload as any).partners === 'string') {
-        (editPayload as any).partners = (editPayload as any).partners
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-        // Keep empty array if user removed all
-      }
-      if (Array.isArray((editPayload as any).partners)) {
-        (editPayload as any).partners = extractNumericIds((editPayload as any).partners, partnerMap);
-      }
-      if (Array.isArray((editPayload as any).parents)) {
-        (editPayload as any).parents = extractNumericIds((editPayload as any).parents, partnerMap);
-      }
-      if (Array.isArray((editPayload as any).children)) {
-        (editPayload as any).children = extractNumericIds((editPayload as any).children, partnerMap);
-      }
       if (values._files && values._files.length) {
         const urls: string[] = [];
         for (const f of values._files) {
@@ -831,9 +742,17 @@ export default function AlterFormDialog(props: AlterFormDialogProps) {
       }
       try {
         await apiClient.alters.update(id, editPayload);
+        await apiClient.alters.replaceAlterRelationships(Number(id), {
+          partners: partnerIds,
+          parents: parentIds,
+          children: childIds,
+        });
+        try {
+          await apiClient.alters.replaceUserRelationships(Number(id), userRelationshipsPayload);
+        } catch (e) {
+          console.warn('Failed to replace user relationships:', e);
+        }
         debugLog('Alter update payload sent', editPayload);
-        // Update user relationships
-        await updateUserRelationships(Number(id));
 
         if (onSaved) {
           try {

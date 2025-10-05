@@ -110,6 +110,19 @@ export interface UserAlterRelationship {
   username?: string;
 }
 
+export interface AlterRelationshipSet {
+  partners: number[];
+  parents: number[];
+  children: number[];
+  affiliations: number[];
+}
+
+export interface UserAlterRelationshipSet {
+  partners: number[];
+  parents: number[];
+  children: number[];
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total?: number;

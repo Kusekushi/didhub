@@ -489,6 +489,43 @@ describe('api-client modules', () => {
         { id: 10, name: '123', user_id: 0, username: '' },
       ]);
     });
+
+    it('replaceAlterRelationships returns rows affected', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ rows_affected: 9 }, 200));
+
+      const result = await client.alters.replaceAlterRelationships(12, {
+        partners: [7, 8],
+        parents: [9],
+        children: [],
+      });
+
+      const [url, options] = fetchMock.mock.calls.at(-1)!;
+      expect(url).toBe('/api/alters/12/alter-relationships');
+      expect(options).toEqual(expect.objectContaining({ method: 'PUT' }));
+      const body = JSON.parse(String((options as RequestInit).body));
+      expect(body).toEqual({ partners: [7, 8], parents: [9], children: [] });
+      expect(result).toBe(9);
+    });
+
+    it('replaceUserRelationships returns rows affected', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ rows_affected: 4 }, 200));
+
+      const rowsAffected = await client.alters.replaceUserRelationships(5, {
+        partners: [3],
+        parents: [4],
+        children: [],
+      });
+
+      const [url, options] = fetchMock.mock.calls.at(-1)!;
+      expect(url).toBe('/api/alters/5/user-relationships');
+      expect(options).toEqual(expect.objectContaining({ method: 'PUT' }));
+      expect(JSON.parse(String((options as RequestInit).body))).toEqual({
+        partners: [3],
+        parents: [4],
+        children: [],
+      });
+      expect(rowsAffected).toBe(4);
+    });
   });
 
   describe('shortlinks', () => {

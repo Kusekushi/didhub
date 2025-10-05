@@ -21,13 +21,15 @@ vi.mock('../contexts/AuthContext', () => ({
 
 vi.mock('@didhub/api-client', async () => {
   const actual = await vi.importActual('@didhub/api-client');
+  const apiClientMock = (actual as any).apiClient as any;
   return {
     ...actual,
     apiClient: {
-      ...actual.apiClient,
+      ...apiClientMock,
       alters: {
-        ...actual.apiClient.alters,
         create: vi.fn(async (payload: any) => ({ id: 555, ...payload })),
+  replaceAlterRelationships: vi.fn(async () => 0),
+  replaceUserRelationships: vi.fn(async () => 0),
       },
     },
   };
