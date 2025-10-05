@@ -52,6 +52,7 @@ mkdirSync(dest, { recursive: true });
 
 // 1. Build frontend
 run('pnpm run build:api-client');
+run('pnpm run build:family-tree');
 run('pnpm run build:frontend');
 
 // 1.5. Generate license files
