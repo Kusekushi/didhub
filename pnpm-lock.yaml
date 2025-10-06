@@ -41,9 +41,6 @@ importers:
 
   packages/family-tree:
     dependencies:
-      '@didhub/api-client':
-        specifier: workspace:*
-        version: link:../api-client
       '@mui/icons-material':
         specifier: ^7.0.0
         version: 7.3.2(@mui/material@7.3.2(@emotion/react@11.14.0(@types/react@19.1.15)(react@19.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.1.15)(react@19.1.1))(@types/react@19.1.15)(react@19.1.1))(@types/react@19.1.15)(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(@types/react@19.1.15)(react@19.1.1)
