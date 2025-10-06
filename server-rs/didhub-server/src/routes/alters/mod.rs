@@ -11,6 +11,7 @@ use didhub_db::{
     user_alter_relationships::UserAlterRelationshipOperations, users::UserOperations, Alter, Db,
 };
 use didhub_error::AppError;
+use didhub_metrics::record_entity_operation;
 use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
 use sqlx::QueryBuilder;
@@ -580,11 +581,13 @@ pub async fn create_alter(
         .map(|s| s.trim().is_empty())
         .unwrap_or(true)
     {
+        record_entity_operation("alter", "create", "failure");
         return Err(AppError::BadRequest("name is required".into()));
     }
     // Ownership rules: non-admin cannot create for another owner
     if let Some(explicit) = body.get("owner_user_id").and_then(|v| v.as_i64()) {
         if !user.is_admin && explicit != user.id {
+            record_entity_operation("alter", "create", "failure");
             return Err(AppError::Forbidden);
         }
         body["owner_user_id"] = serde_json::json!(explicit);
@@ -664,6 +667,7 @@ pub async fn create_alter(
         &created.id.to_string(),
     )
     .await;
+    record_entity_operation("alter", "create", "success");
     let out = project_with_rel(
         &db,
         db.fetch_alter(created.id)
@@ -870,6 +874,7 @@ pub async fn update_alter(
     let mut body = rest;
 
     if body.as_object().map(|m| m.is_empty()).unwrap_or(true) {
+        record_entity_operation("alter", "update", "failure");
         return Err(AppError::validation(["no update fields provided"]));
     }
     let existing = db
@@ -886,6 +891,7 @@ pub async fn update_alter(
                 owner_user_id = existing.owner_user_id,
                 msg = "update_alter forbidden: user is not owner nor admin"
             );
+            record_entity_operation("alter", "update", "failure");
             return Err(AppError::Forbidden);
         }
     }
@@ -893,6 +899,7 @@ pub async fn update_alter(
     if !user.is_admin {
         if let Some(obj) = body.as_object() {
             if obj.contains_key("owner_user_id") {
+                record_entity_operation("alter", "update", "failure");
                 return Err(AppError::Forbidden);
             }
         }
@@ -944,6 +951,7 @@ pub async fn update_alter(
             .map_err(|_| AppError::Internal)?;
     }
     audit::record_entity(&db, Some(user.id), "alter.update", "alter", &id.to_string()).await;
+    record_entity_operation("alter", "update", "success");
     let out = project_with_rel(&db, updated, true).await;
     Ok(Json(out))
 }
@@ -960,14 +968,17 @@ pub async fn delete_alter(
             .map_err(|_| AppError::Internal)?
             .ok_or(AppError::NotFound)?;
         if existing.owner_user_id.unwrap_or(user.id) != user.id {
+            record_entity_operation("alter", "delete", "failure");
             return Err(AppError::Forbidden);
         }
     }
     let ok = db.delete_alter(id).await.map_err(|_| AppError::Internal)?;
     if !ok {
+        record_entity_operation("alter", "delete", "failure");
         return Err(AppError::NotFound);
     }
     audit::record_entity(&db, Some(user.id), "alter.delete", "alter", &id.to_string()).await;
+    record_entity_operation("alter", "delete", "success");
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 

@@ -16,6 +16,7 @@ bcrypt = "0.17"
 didhub-cache = { path = "../didhub-cache" }
 didhub-migrations = { path = "../didhub-migrations" }
 didhub-config = { path = "../didhub-config" }
+didhub-metrics = { path = "../didhub-metrics" }
 tracing = "0.1"
 
 [features]

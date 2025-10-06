@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use didhub_metrics::record_error;
 use serde::Serialize;
 use thiserror::Error;
 use tracing::{error, info, warn};
@@ -43,18 +44,22 @@ impl IntoResponse for AppError {
         let (status, code, details) = match &self {
             AppError::NotFound => {
                 info!(error_code="not_found", status_code=%StatusCode::NOT_FOUND, "resource not found");
+                record_error("not_found", "resource_access");
                 (StatusCode::NOT_FOUND, "not_found", None)
             }
             AppError::Unauthorized => {
                 warn!(error_code="auth_required", status_code=%StatusCode::UNAUTHORIZED, "authentication required");
+                record_error("auth_required", "authentication");
                 (StatusCode::UNAUTHORIZED, "auth_required", None)
             }
             AppError::Forbidden => {
                 warn!(error_code="forbidden", status_code=%StatusCode::FORBIDDEN, "access forbidden");
+                record_error("forbidden", "authorization");
                 (StatusCode::FORBIDDEN, "forbidden", None)
             }
             AppError::MustChangePassword => {
                 info!(error_code="must_change_password", status_code=%StatusCode::PRECONDITION_REQUIRED, "password change required");
+                record_error("must_change_password", "authentication");
                 (
                     StatusCode::PRECONDITION_REQUIRED,
                     "must_change_password",
@@ -63,18 +68,22 @@ impl IntoResponse for AppError {
             }
             AppError::NotApproved => {
                 warn!(error_code="not_approved", status_code=%StatusCode::FORBIDDEN, "user account not approved");
+                record_error("not_approved", "authorization");
                 (StatusCode::FORBIDDEN, "not_approved", None)
             }
             AppError::BadRequest(msg) => {
                 warn!(error_code="bad_request", status_code=%StatusCode::BAD_REQUEST, message=%msg, "bad request error");
+                record_error("bad_request", "validation");
                 (StatusCode::BAD_REQUEST, "bad_request", None)
             }
             AppError::Internal => {
                 error!(error_code="internal_error", status_code=%StatusCode::INTERNAL_SERVER_ERROR, "internal server error");
+                record_error("internal_error", "system");
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal_error", None)
             }
             AppError::Validation(errors) => {
                 warn!(error_code="validation_failed", status_code=%StatusCode::BAD_REQUEST, error_count=%errors.len(), "validation failed");
+                record_error("validation_failed", "validation");
                 (
                     StatusCode::BAD_REQUEST,
                     "validation_failed",

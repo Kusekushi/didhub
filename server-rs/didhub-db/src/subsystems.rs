@@ -3,6 +3,8 @@ use crate::models::{Db, Subsystem};
 use crate::DbBackend;
 use anyhow::Result;
 use async_trait::async_trait;
+use didhub_metrics::record_db_operation;
+use std::time::Instant;
 
 #[async_trait]
 pub trait SubsystemOperations {
@@ -67,7 +69,9 @@ impl SubsystemOperations for Db {
         metadata: Option<&str>,
         owner_user_id: Option<i64>,
     ) -> Result<Subsystem> {
+        let start = Instant::now();
         if name.trim().is_empty() {
+            record_db_operation("create", "subsystems", "error", start.elapsed());
             anyhow::bail!("name required");
         }
         let leaders_json = if leaders.is_empty() {
@@ -106,16 +110,20 @@ impl SubsystemOperations for Db {
                     .fetch_one(&self.pool).await?
             }
         };
+        record_db_operation("create", "subsystems", "success", start.elapsed());
         Ok(rec)
     }
 
     async fn fetch_subsystem(&self, id: i64) -> Result<Option<Subsystem>> {
-        match self.backend {
+        let start = Instant::now();
+        let result = match self.backend {
             DbBackend::Sqlite => {
-                Ok(sqlx::query_as::<_, Subsystem>("SELECT id, name, description, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM subsystems WHERE id=?1").bind(id).fetch_optional(&self.pool).await?)
+                sqlx::query_as::<_, Subsystem>("SELECT id, name, description, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM subsystems WHERE id=?1").bind(id).fetch_optional(&self.pool).await?
             }
-            _ => Ok(sqlx::query_as::<_, Subsystem>("SELECT * FROM subsystems WHERE id=?1").bind(id).fetch_optional(&self.pool).await?),
-        }
+            _ => sqlx::query_as::<_, Subsystem>("SELECT * FROM subsystems WHERE id=?1").bind(id).fetch_optional(&self.pool).await?,
+        };
+        record_db_operation("fetch", "subsystems", if result.is_some() { "success" } else { "not_found" }, start.elapsed());
+        Ok(result)
     }
 
     async fn list_subsystems(
@@ -125,6 +133,7 @@ impl SubsystemOperations for Db {
         offset: i64,
         owner_user_id: Option<i64>,
     ) -> Result<Vec<Subsystem>> {
+        let start = Instant::now();
         let rows = match (q, owner_user_id) {
             (Some(qs), Some(owner_id)) => {
                 let like = format!("%{}%", qs);
@@ -153,11 +162,13 @@ impl SubsystemOperations for Db {
                 }
             },
         };
+        record_db_operation("list", "subsystems", "success", start.elapsed());
         Ok(rows)
     }
 
     async fn count_subsystems(&self, q: Option<String>, owner_user_id: Option<i64>) -> Result<i64> {
-        match (q, owner_user_id) {
+        let start = Instant::now();
+        let result = match (q, owner_user_id) {
             (Some(qs), Some(owner_id)) => {
                 let like = format!("%{}%", qs);
                 let (c,): (i64,) = sqlx::query_as(
@@ -167,7 +178,7 @@ impl SubsystemOperations for Db {
                 .bind(owner_id)
                 .fetch_one(&self.pool)
                 .await?;
-                Ok(c)
+                c
             }
             (Some(qs), None) => {
                 let like = format!("%{}%", qs);
@@ -176,7 +187,7 @@ impl SubsystemOperations for Db {
                         .bind(like)
                         .fetch_one(&self.pool)
                         .await?;
-                Ok(c)
+                c
             }
             (None, Some(owner_id)) => {
                 let (c,): (i64,) =
@@ -184,15 +195,17 @@ impl SubsystemOperations for Db {
                         .bind(owner_id)
                         .fetch_one(&self.pool)
                         .await?;
-                Ok(c)
+                c
             }
             (None, None) => {
                 let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM subsystems")
                     .fetch_one(&self.pool)
                     .await?;
-                Ok(c)
+                c
             }
-        }
+        };
+        record_db_operation("count", "subsystems", "success", start.elapsed());
+        Ok(result)
     }
 
     async fn update_subsystem(
@@ -200,8 +213,11 @@ impl SubsystemOperations for Db {
         id: i64,
         body: &serde_json::Value,
     ) -> Result<Option<Subsystem>> {
+        let start = Instant::now();
         if body.as_object().map(|m| m.is_empty()).unwrap_or(true) {
-            return self.fetch_subsystem(id).await;
+            let result = self.fetch_subsystem(id).await;
+            record_db_operation("update", "subsystems", "no_changes", start.elapsed());
+            return result;
         }
         update_entity(
             self,
@@ -217,14 +233,20 @@ impl SubsystemOperations for Db {
             ],
         )
         .await?;
-        self.fetch_subsystem(id).await
+        let result = self.fetch_subsystem(id).await;
+        record_db_operation("update", "subsystems", if result.is_ok() && result.as_ref().unwrap().is_some() { "success" } else { "error" }, start.elapsed());
+        result
     }
 
     async fn delete_subsystem(&self, id: i64) -> Result<bool> {
-        delete_entity(self, "subsystems", id).await
+        let start = Instant::now();
+        let result = delete_entity(self, "subsystems", id).await;
+        record_db_operation("delete", "subsystems", if result.is_ok() && *result.as_ref().unwrap() { "success" } else { "not_found" }, start.elapsed());
+        result
     }
 
     async fn add_alter_to_subsystem(&self, alter_id: i64, subsystem_id: i64) -> Result<()> {
+        let start = Instant::now();
         sqlx::query(
             "INSERT OR IGNORE INTO alter_subsystems (alter_id, subsystem_id) VALUES (?1, ?2)",
         )
@@ -232,35 +254,43 @@ impl SubsystemOperations for Db {
         .bind(subsystem_id)
         .execute(&self.pool)
         .await?;
+        record_db_operation("add_member", "subsystems", "success", start.elapsed());
         Ok(())
     }
 
     async fn remove_alter_from_subsystem(&self, alter_id: i64, subsystem_id: i64) -> Result<()> {
+        let start = Instant::now();
         sqlx::query("DELETE FROM alter_subsystems WHERE alter_id=?1 AND subsystem_id=?2")
             .bind(alter_id)
             .bind(subsystem_id)
             .execute(&self.pool)
             .await?;
+        record_db_operation("remove_member", "subsystems", "success", start.elapsed());
         Ok(())
     }
 
     async fn list_alters_in_subsystem(&self, subsystem_id: i64) -> Result<Vec<i64>> {
+        let start = Instant::now();
         let rows = sqlx::query_as::<_, (i64,)>(
             "SELECT alter_id FROM alter_subsystems WHERE subsystem_id=?1",
         )
         .bind(subsystem_id)
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows.into_iter().map(|r| r.0).collect())
+        let result = rows.into_iter().map(|r| r.0).collect();
+        record_db_operation("list_members", "subsystems", "success", start.elapsed());
+        Ok(result)
     }
 
     async fn batch_load_subsystem_members(
         &self,
         subsystem_ids: &[i64],
     ) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
+        let start = Instant::now();
         use std::collections::HashMap;
 
         if subsystem_ids.is_empty() {
+            record_db_operation("batch_load_members", "subsystems", "empty", start.elapsed());
             return Ok(HashMap::new());
         }
 
@@ -299,6 +329,7 @@ impl SubsystemOperations for Db {
             alters.sort();
         }
 
+        record_db_operation("batch_load_members", "subsystems", "success", start.elapsed());
         Ok(result)
     }
 }

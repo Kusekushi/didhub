@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tracing::trace;
+use didhub_metrics::record_cache_operation;
 
 pub type RedisManager = Arc<Mutex<MultiplexedConnection>>;
 
@@ -50,6 +51,7 @@ impl Cache for RedisCache {
                 .query_async::<()>(&mut *guard)
                 .await?;
         }
+        record_cache_operation("set", "success");
         Ok(())
     }
 
@@ -61,9 +63,11 @@ impl Cache for RedisCache {
         if let Some(b) = raw {
             let result = serde_json::from_slice(&b)?;
             trace!(key=%key, backend="redis", hit=true, "cache get result");
+            record_cache_operation("get", "hit");
             Ok(Some(result))
         } else {
             trace!(key=%key, backend="redis", hit=false, "cache get result");
+            record_cache_operation("get", "miss");
             Ok(None)
         }
     }
@@ -76,6 +80,7 @@ impl Cache for RedisCache {
             .query_async::<()>(&mut *guard)
             .await?;
         trace!(key=%key, backend="redis", "cache del completed");
+        record_cache_operation("del", "success");
         Ok(())
     }
 
@@ -92,6 +97,7 @@ impl Cache for RedisCache {
                 .await?;
         }
         trace!(key=%key, backend="redis", new_value=%val, "cache incr completed");
+        record_cache_operation("incr", "success");
         Ok(val)
     }
 
@@ -127,6 +133,7 @@ impl Cache for RedisCache {
             cursor = next;
         }
         trace!(prefix=%prefix, backend="redis", deleted_count=%total_deleted, "cache del_prefix completed");
+        record_cache_operation("del_prefix", "success");
         Ok(())
     }
 

@@ -13,6 +13,7 @@ use didhub_db::uploads::UploadOperations;
 use didhub_db::Db;
 use didhub_db::NewUpload;
 use didhub_error::AppError;
+use didhub_metrics::record_upload_operation;
 use didhub_middleware::types::CurrentUser;
 use image::GenericImageView;
 use image::ImageFormat;
@@ -42,7 +43,10 @@ pub async fn upload_file(
     while let Some(field) = multipart
         .next_field()
         .await
-        .map_err(|_| AppError::BadRequest("invalid multipart".into()))?
+        .map_err(|_| {
+            record_upload_operation("upload", "failure", None);
+            AppError::BadRequest("invalid multipart".into())
+        })?
     {
         if let Some(name) = field.name() {
             if name != "file" {
@@ -56,7 +60,10 @@ pub async fn upload_file(
         let raw = field
             .bytes()
             .await
-            .map_err(|_| AppError::BadRequest("failed to read file".into()))?;
+            .map_err(|_| {
+                record_upload_operation("upload", "failure", None);
+                AppError::BadRequest("failed to read file".into())
+            })?;
         debug!(user_id=%user.id, original_name=%original_name, file_size=%raw.len(), "processing uploaded file");
         let safe_original = sanitize(&original_name);
         let mut metadata = serde_json::Map::new();
@@ -149,6 +156,7 @@ pub async fn upload_file(
                 })
                 .await;
             info!(user_id=%user.id, username=%user.username, filename=%final_name, original_name=%original_name, file_size=%out.len(), "image uploaded and processed successfully");
+            record_upload_operation("upload", "success", Some(out.len() as i64));
             audit::record_with_metadata(
                 &db,
                 Some(user.id),
@@ -172,10 +180,12 @@ pub async fn upload_file(
                 .to_ascii_lowercase();
             if !allowed_exts.contains(&ext.as_str()) {
                 warn!(user_id=%user.id, username=%user.username, file_extension=%ext, "rejected file upload - extension not allowed");
+                record_upload_operation("upload", "failure", Some(raw.len() as i64));
                 return Err(AppError::BadRequest("file type not allowed".into()));
             }
             if raw.len() > 10 * 1024 * 1024 {
                 warn!(user_id=%user.id, username=%user.username, file_size=%raw.len(), "rejected file upload - file too large");
+                record_upload_operation("upload", "failure", Some(raw.len() as i64));
                 return Err(AppError::BadRequest("file too large".into()));
             }
             let safe_name = safe_original;
@@ -202,6 +212,7 @@ pub async fn upload_file(
                 })
                 .await;
             info!(user_id=%user.id, username=%user.username, filename=%safe_name, original_name=%original_name, file_size=%raw.len(), file_type=%ext, "file uploaded successfully");
+            record_upload_operation("upload", "success", Some(raw.len() as i64));
             audit::record_with_metadata(
                 &db,
                 Some(user.id),
@@ -217,6 +228,7 @@ pub async fn upload_file(
             }));
         }
     }
+    record_upload_operation("upload", "failure", None);
     Err(AppError::BadRequest("no file field provided".into()))
 }
 

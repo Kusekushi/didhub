@@ -6,10 +6,12 @@ use didhub_db::common::CommonOperations;
 use didhub_db::housekeeping::HousekeepingOperations;
 use didhub_db::relationships::AlterRelationships;
 use didhub_db::settings::SettingOperations;
+use didhub_db::systems::{SystemListFilters, SystemOperations};
 use didhub_db::uploads::UploadOperations;
 use didhub_db::users::UserOperations;
 use didhub_db::Db;
 use didhub_db::NewUpload;
+use didhub_metrics::record_housekeeping_run;
 use futures::future::BoxFuture;
 use serde_json::json;
 use std::path::PathBuf;
@@ -88,6 +90,82 @@ impl Job for AuditRetentionJob {
     }
 }
 
+pub struct MetricsUpdateJob;
+
+impl Job for MetricsUpdateJob {
+    fn name(&self) -> &'static str {
+        "metrics_update"
+    }
+    fn run(&self, db: &Db) -> BoxFuture<'static, Result<JobOutcome>> {
+        let db = db.clone();
+        Box::pin(async move {
+            debug!("starting metrics update job");
+
+            // Update user count
+            let user_filters = didhub_db::UserListFilters {
+                q: None,
+                is_admin: None,
+                is_system: None,
+                is_approved: None,
+                sort_by: "id".to_string(),
+                order_desc: false,
+                limit: 1,
+                offset: 0,
+            };
+            let user_count = if let Ok((_, count)) = db.list_users_advanced(&user_filters).await {
+                count
+            } else {
+                0
+            };
+
+            // Update alter count
+            let alter_count = if let Ok(count) = db.count_alters(None).await {
+                count
+            } else {
+                0
+            };
+
+            // Update system count (users with is_system=1)
+            let system_filters = SystemListFilters { q: None };
+            let system_count = if let Ok((_, count)) = db.list_system_users(&system_filters, 1, 0).await {
+                count
+            } else {
+                0
+            };
+
+            // Update upload count (total, not filtered)
+            let upload_count = if let Ok(count) = db.count_uploads_filtered(None, None, None, false).await {
+                count
+            } else {
+                0
+            };
+
+            // Update post count - for now, set to 0 since no count function exists
+            let post_count = 0;
+
+            // Update the gauges
+            didhub_metrics::update_entity_gauges(user_count, alter_count, system_count, upload_count, post_count);
+
+            info!(
+                user_count = %user_count,
+                alter_count = %alter_count,
+                system_count = %system_count,
+                upload_count = %upload_count,
+                post_count = %post_count,
+                "metrics gauges updated"
+            );
+
+            Ok(JobOutcome {
+                rows_affected: 0, // Gauges don't affect rows
+                message: Some(format!(
+                    "updated metrics: users={}, alters={}, systems={}, uploads={}, posts={}",
+                    user_count, alter_count, system_count, upload_count, post_count
+                )),
+            })
+        })
+    }
+}
+
 #[derive(Clone)]
 pub struct JobRegistry {
     inner: Arc<RwLock<Vec<Arc<dyn Job>>>>,
@@ -129,16 +207,20 @@ pub async fn build_default_registry() -> JobRegistry {
     reg.register(UploadsIntegrityJob).await;
     reg.register(OrphansPruneJob).await;
     reg.register(VacuumDbJob).await;
+    reg.register(MetricsUpdateJob).await;
     reg
 }
 
 // Manual trigger execution helper
 pub async fn run_job_by_name(registry: &JobRegistry, db: &Db, name: &str) -> Result<(i64, String)> {
+    use std::time::Instant;
     info!(job_name=%name, "starting housekeeping job execution");
     if let Some(job) = registry.get(name).await {
         let run = db.start_housekeeping_run(name).await?;
         info!(job_name=%name, run_id=%run.id, "housekeeping job run started");
+        let start = Instant::now();
         let outcome_res = job.run(db).await;
+        let duration = start.elapsed();
         match outcome_res {
             Ok(out) => {
                 info!(
@@ -155,6 +237,7 @@ pub async fn run_job_by_name(registry: &JobRegistry, db: &Db, name: &str) -> Res
                     Some(out.rows_affected),
                 )
                 .await?;
+                record_housekeeping_run(name, "success", duration);
                 Ok((out.rows_affected, out.message.unwrap_or_default()))
             }
             Err(e) => {
@@ -166,11 +249,13 @@ pub async fn run_job_by_name(registry: &JobRegistry, db: &Db, name: &str) -> Res
                 );
                 db.finish_housekeeping_run(run.id, false, Some(&e.to_string()), None)
                     .await?;
+                record_housekeeping_run(name, "error", duration);
                 Err(e)
             }
         }
     } else {
         warn!(job_name=%name, "housekeeping job not found in registry");
+        record_housekeeping_run(name, "not_found", std::time::Duration::from_secs(0));
         anyhow::bail!(format!("job '{}' not found", name));
     }
 }

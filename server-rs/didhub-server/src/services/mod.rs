@@ -56,19 +56,7 @@ impl ServiceComponents {
     }
 
     async fn initialize_housekeeping_registry() -> housekeeping::JobRegistry {
-        let registry = housekeeping::JobRegistry::new();
-        let reg_clone = registry.clone();
-
-        tokio::spawn(async move {
-            reg_clone.register(housekeeping::AuditRetentionJob).await;
-            reg_clone.register(housekeeping::BirthdaysDigestJob).await;
-            reg_clone.register(housekeeping::UploadsGcJob).await;
-            reg_clone.register(housekeeping::UploadsBackfillJob).await;
-            reg_clone.register(housekeeping::UploadsIntegrityJob).await;
-            reg_clone.register(housekeeping::OrphansPruneJob).await;
-            reg_clone.register(housekeeping::VacuumDbJob).await;
-        });
-
+        let registry = housekeeping::build_default_registry().await;
         registry
     }
 

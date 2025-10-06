@@ -16,6 +16,7 @@ didhub-error = { path = "../didhub-error" }
 didhub-middleware = { path = "../didhub-middleware" }
 didhub-config = { path = "../didhub-config" }
 didhub-cache = { path = "../didhub-cache" }
+didhub-metrics = { path = "../didhub-metrics" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

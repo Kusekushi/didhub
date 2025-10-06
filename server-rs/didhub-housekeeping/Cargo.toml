@@ -6,6 +6,7 @@ license = "MIT"
 
 [dependencies]
 didhub-db = { path = "../didhub-db" }
+didhub-metrics = { path = "../didhub-metrics" }
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"

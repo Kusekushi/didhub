@@ -5,8 +5,9 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+anyhow = "1"
 axum = { version = "0.8" }
+didhub-metrics = { path = "../didhub-metrics" }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 tracing = "0.1"
-anyhow = "1"

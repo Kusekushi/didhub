@@ -3,6 +3,8 @@ use crate::models::{Db, Group};
 use crate::DbBackend;
 use anyhow::Result;
 use async_trait::async_trait;
+use didhub_metrics::record_db_operation;
+use std::time::Instant;
 
 #[async_trait]
 pub trait GroupOperations {
@@ -62,7 +64,9 @@ impl GroupOperations for Db {
         metadata: Option<&str>,
         owner_user_id: Option<i64>,
     ) -> Result<Group> {
+        let start = Instant::now();
         if name.trim().is_empty() {
+            record_db_operation("create", "groups", "error", start.elapsed());
             anyhow::bail!("name required");
         }
         let leaders_json = if leaders.is_empty() {
@@ -105,17 +109,22 @@ impl GroupOperations for Db {
                     .fetch_one(&self.pool).await?
             }
         };
+        record_db_operation("create", "groups", "success", start.elapsed());
         Ok(rec)
     }
 
     async fn fetch_group(&self, id: i64) -> Result<Option<Group>> {
-        match self.backend {
-            DbBackend::Sqlite => Ok(sqlx::query_as::<_, Group>("SELECT id, name, description, sigil, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM groups WHERE id=?1").bind(id).fetch_optional(&self.pool).await?),
-            _ => Ok(sqlx::query_as::<_, Group>("SELECT * FROM groups WHERE id=?1").bind(id).fetch_optional(&self.pool).await?),
-        }
+        let start = Instant::now();
+        let result = match self.backend {
+            DbBackend::Sqlite => sqlx::query_as::<_, Group>("SELECT id, name, description, sigil, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM groups WHERE id=?1").bind(id).fetch_optional(&self.pool).await?,
+            _ => sqlx::query_as::<_, Group>("SELECT * FROM groups WHERE id=?1").bind(id).fetch_optional(&self.pool).await?,
+        };
+        record_db_operation("fetch", "groups", if result.is_some() { "success" } else { "not_found" }, start.elapsed());
+        Ok(result)
     }
 
     async fn list_groups(&self, q: Option<String>, limit: i64, offset: i64) -> Result<Vec<Group>> {
+        let start = Instant::now();
         let rows = if let Some(qs) = q {
             let like = format!("%{}%", qs);
             match self.backend {
@@ -128,6 +137,7 @@ impl GroupOperations for Db {
                 _ => sqlx::query_as::<_, Group>("SELECT * FROM groups ORDER BY id DESC LIMIT ?1 OFFSET ?2").bind(limit).bind(offset).fetch_all(&self.pool).await?,
             }
         };
+        record_db_operation("list", "groups", "success", start.elapsed());
         Ok(rows)
     }
 
@@ -138,6 +148,7 @@ impl GroupOperations for Db {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<Group>> {
+        let start = Instant::now();
         let rows = if let Some(qs) = q {
             let like = format!("%{}%", qs);
             match self.backend {
@@ -150,27 +161,32 @@ impl GroupOperations for Db {
                 _ => sqlx::query_as::<_, Group>("SELECT * FROM groups WHERE owner_user_id = ?1 ORDER BY id DESC LIMIT ?2 OFFSET ?3").bind(owner_user_id).bind(limit).bind(offset).fetch_all(&self.pool).await?,
             }
         };
+        record_db_operation("list_by_owner", "groups", "success", start.elapsed());
         Ok(rows)
     }
 
     async fn count_groups(&self, q: Option<String>) -> Result<i64> {
-        if let Some(qs) = q {
+        let start = Instant::now();
+        let result = if let Some(qs) = q {
             let like = format!("%{}%", qs);
             let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM groups WHERE name LIKE ?1")
                 .bind(like)
                 .fetch_one(&self.pool)
                 .await?;
-            Ok(c)
+            c
         } else {
             let (c,): (i64,) = sqlx::query_as("SELECT count(*) FROM groups")
                 .fetch_one(&self.pool)
                 .await?;
-            Ok(c)
-        }
+            c
+        };
+        record_db_operation("count", "groups", "success", start.elapsed());
+        Ok(result)
     }
 
     async fn count_groups_by_owner(&self, owner_user_id: i64, q: Option<String>) -> Result<i64> {
-        if let Some(qs) = q {
+        let start = Instant::now();
+        let result = if let Some(qs) = q {
             let like = format!("%{}%", qs);
             let (c,): (i64,) = sqlx::query_as(
                 "SELECT count(*) FROM groups WHERE owner_user_id = ?1 AND name LIKE ?2",
@@ -179,20 +195,25 @@ impl GroupOperations for Db {
             .bind(like)
             .fetch_one(&self.pool)
             .await?;
-            Ok(c)
+            c
         } else {
             let (c,): (i64,) =
                 sqlx::query_as("SELECT count(*) FROM groups WHERE owner_user_id = ?1")
                     .bind(owner_user_id)
                     .fetch_one(&self.pool)
                     .await?;
-            Ok(c)
-        }
+            c
+        };
+        record_db_operation("count_by_owner", "groups", "success", start.elapsed());
+        Ok(result)
     }
 
     async fn update_group(&self, id: i64, body: &serde_json::Value) -> Result<Option<Group>> {
+        let start = Instant::now();
         if body.as_object().map(|m| m.is_empty()).unwrap_or(true) {
-            return self.fetch_group(id).await;
+            let result = self.fetch_group(id).await;
+            record_db_operation("update", "groups", "no_changes", start.elapsed());
+            return result;
         }
         update_entity(
             self,
@@ -209,20 +230,27 @@ impl GroupOperations for Db {
             ],
         )
         .await?;
-        self.fetch_group(id).await
+        let result = self.fetch_group(id).await;
+        record_db_operation("update", "groups", if result.is_ok() && result.as_ref().unwrap().is_some() { "success" } else { "error" }, start.elapsed());
+        result
     }
 
     async fn delete_group(&self, id: i64) -> Result<bool> {
-        delete_entity(self, "groups", id).await
+        let start = Instant::now();
+        let result = delete_entity(self, "groups", id).await;
+        record_db_operation("delete", "groups", if result.is_ok() && *result.as_ref().unwrap() { "success" } else { "not_found" }, start.elapsed());
+        result
     }
 
     async fn batch_load_group_members(
         &self,
         group_ids: &[i64],
     ) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
+        let start = Instant::now();
         use std::collections::HashMap;
 
         if group_ids.is_empty() {
+            record_db_operation("batch_load_members", "groups", "empty", start.elapsed());
             return Ok(HashMap::new());
         }
 
@@ -261,6 +289,7 @@ impl GroupOperations for Db {
             alters.sort();
         }
 
+        record_db_operation("batch_load_members", "groups", "success", start.elapsed());
         Ok(result)
     }
 }

@@ -10,6 +10,7 @@ use didhub_db::audit;
 use didhub_db::users::UserOperations;
 use didhub_db::NewUser;
 use didhub_error::AppError;
+use didhub_metrics::record_auth_operation;
 use didhub_middleware::types::CurrentUser;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
@@ -53,6 +54,7 @@ pub async fn register(
 ) -> Result<impl IntoResponse, AppError> {
     debug!(username=%payload.username, is_system=%payload.is_system.unwrap_or(false), "user registration attempt");
     if payload.username.trim().is_empty() || payload.password.is_empty() {
+        record_auth_operation("register", "failure");
         return Err(AppError::BadRequest(
             "username and password required".into(),
         ));
@@ -60,6 +62,7 @@ pub async fn register(
 
     // Validate password strength
     if let Some(error) = validate_password_strength(&payload.password) {
+        record_auth_operation("register", "failure");
         return Err(AppError::BadRequest(error));
     }
 
@@ -71,6 +74,7 @@ pub async fn register(
     {
         if existing.username == payload.username {
             warn!(username=%payload.username, "registration failed - user already exists");
+            record_auth_operation("register", "failure");
             return Err(AppError::BadRequest("user exists".into()));
         }
     }
@@ -104,6 +108,7 @@ pub async fn register(
         header::CONTENT_TYPE,
         header::HeaderValue::from_static("application/json"),
     );
+    record_auth_operation("register", "success");
     audit::record_entity(
         &state.db,
         Some(created.id),
@@ -134,6 +139,7 @@ pub async fn login(
         })?;
     let Some(user) = user_opt else {
         warn!(username=%payload.username, "login failed - user not found");
+        record_auth_operation("login", "failure");
         audit::record_with_metadata(
             &state.db,
             None,
@@ -150,6 +156,7 @@ pub async fn login(
         AppError::Internal
     })? {
         warn!(user_id=%user.id, username=%user.username, "login failed - bad password");
+        record_auth_operation("login", "failure");
         audit::record_with_metadata(
             &state.db,
             Some(user.id),
@@ -164,6 +171,7 @@ pub async fn login(
     // Deny login if user is not approved yet
     if user.is_approved == 0 {
         warn!(user_id=%user.id, username=%user.username, "login denied - user not approved");
+        record_auth_operation("login", "failure");
         audit::record_with_metadata(
             &state.db,
             Some(user.id),
@@ -186,6 +194,7 @@ pub async fn login(
         header::HeaderValue::from_static("application/json"),
     );
     info!(user_id=%user.id, username=%user.username, "login successful");
+    record_auth_operation("login", "success");
     audit::record_entity(
         &state.db,
         Some(user.id),
@@ -208,6 +217,7 @@ pub async fn refresh(
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok());
     let Some(raw_token) = extract_bearer_token(auth_header) else {
+        record_auth_operation("refresh", "failure");
         return Err(AppError::Unauthorized);
     };
     // Decode existing token first. Reject if invalid or expired.
@@ -216,13 +226,17 @@ pub async fn refresh(
         &jsonwebtoken::DecodingKey::from_secret(state.cfg.jwt_secret.as_bytes()),
         &jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256),
     )
-    .map_err(|_| AppError::Unauthorized)?;
+    .map_err(|_| {
+        record_auth_operation("refresh", "failure");
+        AppError::Unauthorized
+    })?;
     // Ensure not expired
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs() as usize;
     if decoded.claims.exp <= now {
+        record_auth_operation("refresh", "failure");
         return Err(AppError::Unauthorized);
     }
     // (Optional) Only refresh if remaining time < threshold; currently always refresh to simplify client logic.
@@ -238,6 +252,7 @@ pub async fn refresh(
         header::CONTENT_TYPE,
         header::HeaderValue::from_static("application/json"),
     );
+    record_auth_operation("refresh", "success");
     Ok(resp)
 }
 
@@ -265,6 +280,7 @@ pub async fn change_password(
 ) -> Result<impl IntoResponse, AppError> {
     // Validate new password strength
     if let Some(error) = validate_password_strength(&payload.new_password) {
+        record_auth_operation("change_password", "failure");
         return Err(AppError::BadRequest(error));
     }
 
@@ -275,6 +291,7 @@ pub async fn change_password(
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::Unauthorized)?;
     if !bcrypt::verify(&payload.current_password, &db_user.password_hash).map_err(|_| AppError::Internal)? {
+        record_auth_operation("change_password", "failure");
         return Err(AppError::Unauthorized);
     }
     let new_hash = bcrypt::hash(&payload.new_password, bcrypt::DEFAULT_COST).map_err(|_| AppError::Internal)?;
@@ -294,6 +311,7 @@ pub async fn change_password(
     }
 
     audit::record_simple(&state.db, Some(user.id), "user.password.change").await;
+    record_auth_operation("change_password", "success");
     Ok((
         StatusCode::OK,
         Json(serde_json::json!({"ok": true, "must_change_password": false})),

@@ -4,6 +4,7 @@ use dashmap::DashMap;
 use serde::{de::DeserializeOwned, Serialize};
 use std::time::{Duration, Instant};
 use tracing::trace;
+use didhub_metrics::record_cache_operation;
 
 #[derive(Clone)]
 pub struct MemoryEntry {
@@ -71,6 +72,7 @@ impl Cache for MemoryCache {
         trace!(key=%key, ttl=?ttl, backend="memory", "cache set operation");
         let bytes = serde_json::to_vec(value)?;
         self.set_raw(key, bytes, ttl);
+        record_cache_operation("set", "success");
         Ok(())
     }
 
@@ -79,9 +81,11 @@ impl Cache for MemoryCache {
         if let Some(raw) = self.get_raw(key) {
             let result = serde_json::from_slice(&raw)?;
             trace!(key=%key, backend="memory", hit=true, "cache get result");
+            record_cache_operation("get", "hit");
             Ok(Some(result))
         } else {
             trace!(key=%key, backend="memory", hit=false, "cache get result");
+            record_cache_operation("get", "miss");
             Ok(None)
         }
     }
@@ -90,6 +94,7 @@ impl Cache for MemoryCache {
         trace!(key=%key, backend="memory", "cache del operation");
         self.remove(key).await;
         trace!(key=%key, backend="memory", "cache del completed");
+        record_cache_operation("del", "success");
         Ok(())
     }
 
@@ -102,6 +107,7 @@ impl Cache for MemoryCache {
         } + 1;
         self.set_raw(key, current.to_string().into_bytes(), ttl);
         trace!(key=%key, backend="memory", new_value=%current, "cache incr completed");
+        record_cache_operation("incr", "success");
         Ok(current)
     }
 
@@ -128,6 +134,7 @@ impl Cache for MemoryCache {
             self.remove(&k).await;
         }
         trace!(prefix=%prefix, backend="memory", deleted_count=%deleted_count, "cache del_prefix completed");
+        record_cache_operation("del_prefix", "success");
         Ok(())
     }
 

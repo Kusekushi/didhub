@@ -10,6 +10,7 @@ use didhub_db::subsystems::SubsystemOperations;
 use didhub_db::Db;
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
+use didhub_metrics::record_entity_operation;
 use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::{debug, error, info, warn};
@@ -316,6 +317,8 @@ pub async fn create_subsystem(
         "Subsystem creation completed successfully"
     );
 
+    record_entity_operation("subsystem", "create", "success");
+
     Ok((axum::http::StatusCode::CREATED, Json(project(created))))
 }
 
@@ -460,6 +463,8 @@ pub async fn update_subsystem(
         "Subsystem update completed successfully"
     );
 
+    record_entity_operation("subsystem", "update", "success");
+
     Ok(Json(project(updated)))
 }
 
@@ -517,6 +522,8 @@ pub async fn delete_subsystem(
         subsystem_id = %id,
         "Subsystem deletion completed successfully"
     );
+
+    record_entity_operation("subsystem", "delete", "success");
 
     Ok(axum::http::StatusCode::NO_CONTENT)
 }

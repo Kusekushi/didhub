@@ -9,6 +9,7 @@ use didhub_db::relationships::AlterRelationships;
 use didhub_db::Db;
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
+use didhub_metrics::record_entity_operation;
 use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
@@ -259,6 +260,7 @@ pub async fn create_group(
         &created.id.to_string(),
     )
     .await;
+    record_entity_operation("group", "create", "success");
     Ok((axum::http::StatusCode::CREATED, Json(project(created))))
 }
 
@@ -317,6 +319,7 @@ pub async fn update_group(
         .ok_or(AppError::NotFound)?;
     info!(user_id=%user.id, group_id=%id, group_name=%updated.name, "group updated successfully");
     audit::record_entity(&db, Some(user.id), "group.update", "group", &id.to_string()).await;
+    record_entity_operation("group", "update", "success");
     Ok(Json(project(updated)))
 }
 
@@ -334,6 +337,7 @@ pub async fn delete_group(
     }
     info!(user_id=%user.id, group_id=%id, "group deleted successfully");
     audit::record_entity(&db, Some(user.id), "group.delete", "group", &id.to_string()).await;
+    record_entity_operation("group", "delete", "success");
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 

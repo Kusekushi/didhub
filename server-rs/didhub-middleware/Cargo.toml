@@ -14,4 +14,5 @@ serde = { version = "1", features = ["derive"] }
 didhub-db = { path = "../didhub-db" }
 didhub-error = { path = "../didhub-error" }
 didhub-config = { path = "../didhub-config" }
+didhub-metrics = { path = "../didhub-metrics" }
 jsonwebtoken = { version = "9", default-features = false, features = ["use_pem"] }
