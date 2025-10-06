@@ -2,6 +2,7 @@ use crate::interface::Cache;
 use anyhow::Result;
 use redis::aio::MultiplexedConnection;
 use serde::{de::DeserializeOwned, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -17,6 +18,10 @@ pub struct RedisCache {
 impl RedisCache {
     pub fn new(manager: RedisManager) -> Self {
         Self { manager }
+    }
+
+    pub fn manager(&self) -> &RedisManager {
+        &self.manager
     }
 }
 
@@ -123,5 +128,44 @@ impl Cache for RedisCache {
         }
         trace!(prefix=%prefix, backend="redis", deleted_count=%total_deleted, "cache del_prefix completed");
         Ok(())
+    }
+
+    async fn ping(&self) -> Result<bool> {
+        trace!(backend="redis", "cache ping operation");
+        let mut guard = self.manager.lock().await;
+        let pong: Result<String, _> = redis::cmd("PING").query_async(&mut *guard).await;
+        let is_ok = pong.map_or(false, |p| p.to_uppercase() == "PONG");
+        trace!(backend="redis", ping_success=%is_ok, "cache ping completed");
+        Ok(is_ok)
+    }
+
+    async fn get_info(&self) -> Result<Option<HashMap<String, String>>> {
+        trace!(backend="redis", "cache get_info operation");
+        let mut guard = self.manager.lock().await;
+        let raw: Result<String, _> = redis::cmd("INFO")
+            .arg("server")
+            .arg("clients")
+            .arg("memory")
+            .arg("stats")
+            .arg("keyspace")
+            .query_async(&mut *guard)
+            .await;
+
+        if let Ok(txt) = raw {
+            let mut map = HashMap::new();
+            for line in txt.lines() {
+                if line.starts_with('#') || line.trim().is_empty() {
+                    continue;
+                }
+                if let Some((k, v)) = line.split_once(':') {
+                    map.insert(k.trim().to_string(), v.trim().to_string());
+                }
+            }
+            trace!(backend="redis", info_entries=%map.len(), "cache get_info completed");
+            Ok(Some(map))
+        } else {
+            trace!(backend="redis", "cache get_info failed");
+            Ok(None)
+        }
     }
 }

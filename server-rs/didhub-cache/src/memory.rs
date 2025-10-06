@@ -130,4 +130,18 @@ impl Cache for MemoryCache {
         trace!(prefix=%prefix, backend="memory", deleted_count=%deleted_count, "cache del_prefix completed");
         Ok(())
     }
+
+    async fn ping(&self) -> Result<bool> {
+        trace!(backend="memory", "cache ping operation");
+        // Memory cache is always available
+        trace!(backend="memory", ping_success=true, "cache ping completed");
+        Ok(true)
+    }
+
+    async fn get_info(&self) -> Result<Option<std::collections::HashMap<String, String>>> {
+        trace!(backend="memory", "cache get_info operation");
+        // Memory cache doesn't have meaningful info to provide
+        trace!(backend="memory", "cache get_info completed");
+        Ok(None)
+    }
 }

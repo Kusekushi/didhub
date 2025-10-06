@@ -78,4 +78,18 @@ impl Cache for AppCache {
             CacheBackend::Redis(r) => r.del_prefix(prefix).await,
         }
     }
+
+    async fn ping(&self) -> Result<bool> {
+        match &self.backend {
+            CacheBackend::Memory(m) => m.ping().await,
+            CacheBackend::Redis(r) => r.ping().await,
+        }
+    }
+
+    async fn get_info(&self) -> Result<Option<std::collections::HashMap<String, String>>> {
+        match &self.backend {
+            CacheBackend::Memory(m) => m.get_info().await,
+            CacheBackend::Redis(r) => r.get_info().await,
+        }
+    }
 }
