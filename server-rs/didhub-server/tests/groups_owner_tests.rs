@@ -14,8 +14,8 @@ async fn admin_can_create_group_for_other_user() {
     let (app, db) = setup_router_db().await;
 
     // register admin and target user
-    let _tok_admin = register_and_login(&app, "admin_u", "pw", true, &db).await;
-    let _tok_target = register_and_login(&app, "target_u", "pw", true, &db).await;
+    let _tok_admin = register_and_login(&app, "admin_u", "SecurePass123", true, &db).await;
+    let _tok_target = register_and_login(&app, "target_u", "SecurePass123", true, &db).await;
 
     // promote admin
     let au = db.fetch_user_by_username("admin_u").await.unwrap().unwrap();
@@ -25,7 +25,7 @@ async fn admin_can_create_group_for_other_user() {
     db.update_user(au.id, f).await.unwrap();
 
     // re-login to obtain admin token (reuse login helper)
-    let token_admin = login(&app, "admin_u", "pw").await;
+    let token_admin = login(&app, "admin_u", "SecurePass123").await;
 
     let target = db
         .fetch_user_by_username("target_u")
@@ -56,8 +56,8 @@ async fn admin_can_create_group_for_other_user() {
 async fn nonadmin_cannot_create_for_other_but_can_create_for_self() {
     let (app, db) = setup_router_db().await;
     // create two users
-    let token_a = register_and_login(&app, "user_a", "pw", true, &db).await;
-    let _token_b = register_and_login(&app, "user_b", "pw", true, &db).await;
+    let token_a = register_and_login(&app, "user_a", "SecurePass123", true, &db).await;
+    let _token_b = register_and_login(&app, "user_b", "SecurePass123", true, &db).await;
     let user_a = db.fetch_user_by_username("user_a").await.unwrap().unwrap();
     let user_b = db.fetch_user_by_username("user_b").await.unwrap().unwrap();
 

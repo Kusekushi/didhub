@@ -15,6 +15,8 @@ didhub-db = { path = "../didhub-db" }
 didhub-error = { path = "../didhub-error" }
 didhub-middleware = { path = "../didhub-middleware" }
 didhub-config = { path = "../didhub-config" }
+didhub-cache = { path = "../didhub-cache" }
 
-[features]
-types = []
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower = "0.5"

@@ -990,6 +990,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "bcrypt",
+ "didhub-cache",
  "didhub-config",
  "didhub-db",
  "didhub-error",
@@ -997,6 +998,8 @@ dependencies = [
  "jsonwebtoken",
  "serde",
  "serde_json",
+ "tokio",
+ "tower",
  "tracing",
 ]
 

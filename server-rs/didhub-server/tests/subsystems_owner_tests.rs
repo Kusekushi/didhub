@@ -6,14 +6,14 @@ use test_utils::*;
 #[tokio::test]
 async fn admin_can_create_subsystem_for_other_user() {
     let (app, db) = setup_router_db().await;
-    let _ = register_and_login(&app, "admin_s", "pw", true, &db).await;
-    let _ = register_and_login(&app, "target_s", "pw", true, &db).await;
+    let _ = register_and_login(&app, "admin_s", "SecurePass123", true, &db).await;
+    let _ = register_and_login(&app, "target_s", "SecurePass123", true, &db).await;
     let au = db.fetch_user_by_username("admin_s").await.unwrap().unwrap();
     let mut f = didhub_server::db::UpdateUserFields::default();
     f.is_admin = Some(true);
     f.is_approved = Some(true);
     db.update_user(au.id, f).await.unwrap();
-    let token_admin = login(&app, "admin_s", "pw").await;
+    let token_admin = login(&app, "admin_s", "SecurePass123").await;
     let target = db
         .fetch_user_by_username("target_s")
         .await
@@ -41,8 +41,8 @@ async fn admin_can_create_subsystem_for_other_user() {
 #[tokio::test]
 async fn nonadmin_cannot_create_subsystem_for_other_but_can_create_for_self() {
     let (app, db) = setup_router_db().await;
-    let token_a = register_and_login(&app, "user_sa", "pw", true, &db).await;
-    let _ = register_and_login(&app, "user_sb", "pw", true, &db).await;
+    let token_a = register_and_login(&app, "user_sa", "SecurePass123", true, &db).await;
+    let _ = register_and_login(&app, "user_sb", "SecurePass123", true, &db).await;
     let user_a = db.fetch_user_by_username("user_sa").await.unwrap().unwrap();
     let user_b = db.fetch_user_by_username("user_sb").await.unwrap().unwrap();
 
