@@ -341,6 +341,16 @@ export class AdminApi {
     });
     return response.data ?? { success: false, columns: [], rows: [], row_count: 0, message: 'Query failed' };
   }
+
+  async getMetrics(): Promise<string> {
+    const response = await this.http.request<string>({
+      path: '/api/metrics',
+      method: 'GET',
+      parse: 'text',
+      auth: true,
+    });
+    return response.data;
+  }
 }
 
 export interface CustomDigestResponse {

@@ -15,7 +15,6 @@ use tower_http::{
 use didhub_auth as auth;
 use didhub_config as config;
 use didhub_db as db;
-use didhub_metrics as metrics;
 use didhub_middleware::{csrf, middleware_ext, request_logger};
 
 use crate::{
@@ -73,7 +72,6 @@ impl AppRouterBuilder {
 
         Router::new()
             .route("/health", axum::routing::get(routes::health))
-            .route("/metrics", axum::routing::get(metrics::metrics_handler))
             .nest("/api", auth_routes)
             .nest("/api", protected_routes)
             .nest("/api", admin_routes)

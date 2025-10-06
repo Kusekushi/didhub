@@ -4,6 +4,7 @@ use axum::{
 };
 
 use didhub_auth as auth;
+use didhub_metrics as metrics;
 
 pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
     Router::new()
@@ -110,5 +111,7 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
             "/housekeeping/trigger/{name}",
             post(crate::routes::admin::housekeeping::trigger_job),
         )
+        .route("/metrics", get(metrics::metrics_handler))
+            .layer(axum::middleware::from_fn(auth::admin_guard_middleware))
         .with_state(auth_state.clone())
 }
