@@ -65,7 +65,6 @@ impl ServiceComponents {
             reg_clone.register(housekeeping::UploadsGcJob).await;
             reg_clone.register(housekeeping::UploadsBackfillJob).await;
             reg_clone.register(housekeeping::UploadsIntegrityJob).await;
-            reg_clone.register(housekeeping::ShortlinksPruneJob).await;
             reg_clone.register(housekeeping::OrphansPruneJob).await;
             reg_clone.register(housekeeping::VacuumDbJob).await;
         });
@@ -114,7 +113,6 @@ impl ServiceComponents {
             ("uploads.delete.retention.days", "30".to_string()),
             ("uploads.count_cache.ttl_secs", "30".to_string()),
             ("uploads.upload_dir_cache.ttl_secs", "10".to_string()),
-            ("shortlinks.retention.days", "180".to_string()),
         ];
 
         let db_clone = db.clone();

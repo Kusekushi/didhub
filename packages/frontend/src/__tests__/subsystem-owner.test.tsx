@@ -68,11 +68,10 @@ describe('Subsystems owner propagation', () => {
         onPageChange={async () => {}}
         uid={'42'}
         onDelete={async () => {}}
-        settings={{ shortLinksEnabled: false } as any}
+        settings={{ loaded: true } as any}
         setSnack={() => {}}
         refreshSubsystems={async () => {}}
         createSubsystem={async (p) => (apiClient as any).subsystems.create(p)}
-        createShortLink={async () => ({ id: 1, path: '' } as any)}
         nav={() => {}}
       />,
     );

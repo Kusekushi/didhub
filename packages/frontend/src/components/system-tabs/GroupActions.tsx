@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { Button, IconButton, Tooltip } from '@mui/material';
+import { Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import ShareIcon from '@mui/icons-material/Share';
 
 import type { Group } from '@didhub/api-client';
-import { useGroupShare } from '../../hooks/useGroupShare';
 import { SnackbarMessage } from '../NotificationSnackbar';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import type { SettingsState } from '../../contexts/SettingsContext';
@@ -24,7 +22,6 @@ export interface GroupActionsProps {
  */
 export default function GroupActions(props: GroupActionsProps) {
   const nav = useNavigate();
-  const { createShareLink } = useGroupShare();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   return (
@@ -52,14 +49,6 @@ export default function GroupActions(props: GroupActionsProps) {
             Delete
           </Button>
         )}
-
-        <Tooltip title="Create share link and copy to clipboard">
-          {props.settings.shortLinksEnabled && (
-            <IconButton size="small" onClick={() => createShareLink(props.group.id, props.setSnack)}>
-              <ShareIcon fontSize="small" />
-            </IconButton>
-          )}
-        </Tooltip>
       </div>
 
       <ConfirmDialog

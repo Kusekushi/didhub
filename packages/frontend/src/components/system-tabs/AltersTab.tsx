@@ -18,7 +18,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import AlterFormDialog from '../AlterFormDialog';
 import ThumbnailWithHover from '../ThumbnailWithHover';
 import ActionButtons from '../ActionButtons';
-import { apiClient, parseRoles, getShortLinkUrl } from '@didhub/api-client';
+import { parseRoles } from '@didhub/api-client';
 import type { Alter } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
 import type { SettingsState } from '../../contexts/SettingsContext';
@@ -94,30 +94,7 @@ export default function AltersTab(props: AltersTabProps) {
                       : undefined
                   }
                   onDelete={props.canManage ? () => props.onDelete(it.id) : undefined}
-                  onShare={async () => {
-                    if (!props.settings.shortLinksEnabled || it.id == null) return;
-                    try {
-                      const record = await apiClient.shortlinks
-                        .create('alter', it.id as number | string)
-                        .catch(() => null);
-                      if (!record) {
-                        throw new Error('Failed to create share link');
-                      }
-                      const shareUrl = getShortLinkUrl(record);
-                      await navigator.clipboard.writeText(shareUrl);
-                      props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
-                    } catch (error: unknown) {
-                      const message =
-                        error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
-                      props.setSnack({
-                        open: true,
-                        message,
-                        severity: 'error',
-                      });
-                    }
-                  }}
                   canManage={props.canManage}
-                  canShare={props.settings.shortLinksEnabled}
                 />
               }
             >

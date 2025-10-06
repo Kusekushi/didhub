@@ -17,7 +17,7 @@ import { renderEmbeds } from '../utils/detailUtils';
 import { useAlterData } from '../hooks/useAlterData';
 import { useAlterLinks } from '../hooks/useAlterLinks';
 import { useRename } from '../hooks/useRename';
-import { useShare, usePdf } from '../hooks/useShareAndPdf';
+import { usePdf } from '../hooks/usePdf';
 
 export default function Detail(): React.ReactElement {
   const { id } = useParams() as { id?: string };
@@ -47,7 +47,6 @@ export default function Detail(): React.ReactElement {
     },
   );
 
-  const { shareDialog, handleShare, closeShareDialog } = useShare(alter?.id);
   const { pdfError, pdfSnackOpen, handlePdfDownload, closePdfSnack } = usePdf();
 
   // Dialog states
@@ -103,7 +102,6 @@ export default function Detail(): React.ReactElement {
         onStartRename={startRename}
         onCancelRename={cancelRename}
         onSaveRename={saveRename}
-        onShare={handleShare}
         onPdfDownload={() => handlePdfDownload(id!)}
         onBack={() => nav(-1)}
       />
@@ -147,15 +145,6 @@ export default function Detail(): React.ReactElement {
         Soul songs
       </Typography>
       {renderEmbeds(alter.soul_songs)}
-
-      <InputPromptDialog
-        open={shareDialog.open}
-        title={shareDialog.url ? 'Share link copied' : 'Share link'}
-        label={shareDialog.url || ''}
-        defaultValue={shareDialog.url || ''}
-        onCancel={closeShareDialog}
-        onSubmit={closeShareDialog}
-      />
 
       <ConfirmDialog
         open={removeImageDialog.open}

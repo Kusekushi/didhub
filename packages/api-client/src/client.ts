@@ -5,7 +5,6 @@ import { GroupsApi } from './modules/Group';
 import { SubsystemsApi } from './modules/Subsystem';
 import { UsersApi } from './modules/User';
 import { AdminApi } from './modules/Admin';
-import { ShortlinksApi } from './modules/Shortlink';
 import { OidcApi } from './modules/OIDC';
 
 export interface ApiClientModules {
@@ -15,7 +14,6 @@ export interface ApiClientModules {
   subsystems: SubsystemsApi;
   users: UsersApi;
   admin: AdminApi;
-  shortlinks: ShortlinksApi;
   oidc: OidcApi;
 }
 
@@ -27,7 +25,6 @@ export class ApiClient implements ApiClientModules {
   readonly subsystems: SubsystemsApi;
   readonly users: UsersApi;
   readonly admin: AdminApi;
-  readonly shortlinks: ShortlinksApi;
   readonly oidc: OidcApi;
 
   constructor(config: HttpClientConfig = {}) {
@@ -38,7 +35,6 @@ export class ApiClient implements ApiClientModules {
     this.subsystems = new SubsystemsApi(this.http);
     this.users = new UsersApi(this.http);
     this.admin = new AdminApi(this.http);
-    this.shortlinks = new ShortlinksApi(this.http);
     this.oidc = new OidcApi(this.http);
   }
 }

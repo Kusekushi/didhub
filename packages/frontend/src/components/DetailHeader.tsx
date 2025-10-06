@@ -1,10 +1,7 @@
 import React from 'react';
-import { Button, Typography, Tooltip, Box } from '@mui/material';
+import { Button, Typography, Tooltip, Box, IconButton } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import ShareIcon from '@mui/icons-material/Share';
-import { IconButton } from '@mui/material';
 import type { Alter, User } from '@didhub/api-client';
-import { useSettings } from '../contexts/SettingsContext';
 
 export interface DetailHeaderProps {
   alter: Alter;
@@ -16,29 +13,16 @@ export interface DetailHeaderProps {
   onStartRename: () => void;
   onCancelRename: () => void;
   onSaveRename: () => void;
-  onShare: () => void;
   onPdfDownload: () => void;
   onBack: () => void;
 }
 
 export default function DetailHeader(props: DetailHeaderProps) {
-  const settings = useSettings();
-
   return (
     <>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <Button onClick={props.onBack}>← Back</Button>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 12, color: '#666' }}>
-            Short links older than 1 month may be removed by housekeeping.
-          </div>
-          {settings.shortLinksEnabled && (
-            <Tooltip title="Create share link and copy to clipboard">
-              <IconButton size="small" onClick={props.onShare}>
-                <ShareIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
           <Tooltip title="Download PDF">
             <IconButton size="small" onClick={props.onPdfDownload}>
               <PictureAsPdfIcon fontSize="small" />

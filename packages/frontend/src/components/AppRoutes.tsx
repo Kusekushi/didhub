@@ -12,7 +12,6 @@ import UserSettings from '../pages/UserSettings';
 import SubsystemDetail from '../pages/SubsystemDetail';
 import SubsystemEdit from '../pages/SubsystemEdit';
 import GroupDetail from '../pages/GroupDetail';
-import SRedirect from '../pages/SRedirect';
 import Birthdays from '../pages/Birthdays';
 import FamilyTree from '../pages/FamilyTree';
 import SignUp from '../pages/SignUp';
@@ -32,7 +31,6 @@ export default function AppRoutes(props: AppRoutesProps) {
       <Route path="/" element={props.user ? <Home /> : <Navigate to="/login" replace />} />
       <Route path="/home" element={props.user ? <Home /> : <Navigate to="/login" replace />} />
       <Route path="/detail/:id" element={props.user ? <Detail /> : <Navigate to="/login" replace />} />
-      <Route path="/s/:token" element={props.user ? <SRedirect /> : <Navigate to="/login" replace />} />
       <Route
         path="/systems/:uid/subsystems/:sid"
         element={props.user ? <SubsystemDetail /> : <Navigate to="/login" replace />}

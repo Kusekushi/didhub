@@ -30,7 +30,6 @@ export default function Admin() {
   const [discordDigestEnabled, setDiscordDigestEnabled] = useState(false);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [oidcEnabled, setOidcEnabled] = useState(true);
-  const [shortLinksEnabled, setShortLinksEnabled] = useState(true);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
   const [redisUrl, setRedisUrl] = useState('');
   const [redisPrefixSetting, setRedisPrefixSetting] = useState('');
@@ -95,7 +94,6 @@ export default function Admin() {
       setEmailEnabled(parseBool(s && s[SETTINGS_KEYS.EMAIL_ENABLED]));
       // default to true to preserve existing behavior unless explicitly disabled
       setOidcEnabled(parseBool(s && s[SETTINGS_KEYS.OIDC_ENABLED]) || true);
-      setShortLinksEnabled(parseBool(s && s[SETTINGS_KEYS.SHORT_LINKS_ENABLED]) || true);
       setAutoUpdateEnabled(parseBool(s && s['auto_update_enabled']));
       await loadPendingRegistrations();
     })();
@@ -151,7 +149,6 @@ export default function Admin() {
       [SETTINGS_KEYS.DISCORD_DIGEST_ENABLED]: discordDigestEnabled ? '1' : '0',
       [SETTINGS_KEYS.EMAIL_ENABLED]: emailEnabled ? '1' : '0',
       [SETTINGS_KEYS.OIDC_ENABLED]: oidcEnabled ? '1' : '0',
-      [SETTINGS_KEYS.SHORT_LINKS_ENABLED]: shortLinksEnabled ? '1' : '0',
       ['auto_update_enabled']: autoUpdateEnabled ? '1' : '0',
       // redis settings
       [SETTINGS_KEYS.REDIS_URL]: redisUrl || null,
@@ -234,14 +231,12 @@ export default function Admin() {
           uploadDirTtlSecs={uploadDirTtlSecs}
           discordDigestEnabled={discordDigestEnabled}
           emailEnabled={emailEnabled}
-          shortLinksEnabled={shortLinksEnabled}
           autoUpdateEnabled={autoUpdateEnabled}
           status={status}
           onWebhookChange={setWebhook}
           onUploadDirTtlChange={setUploadDirTtlSecs}
           onDiscordDigestChange={setDiscordDigestEnabled}
           onEmailEnabledChange={setEmailEnabled}
-          onShortLinksChange={setShortLinksEnabled}
           onAutoUpdateChange={setAutoUpdateEnabled}
           onSave={save}
           onStatusChange={setStatus}

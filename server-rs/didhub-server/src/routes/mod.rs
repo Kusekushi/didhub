@@ -8,7 +8,6 @@ pub mod groups;
 pub mod health;
 pub mod posts;
 pub mod reports;
-pub mod sharing;
 pub mod static_assets;
 pub mod systems;
 

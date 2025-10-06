@@ -88,19 +88,6 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         .route("/systems", get(crate::routes::systems::list_systems))
         .route("/systems/{id}", get(crate::routes::systems::get_system))
         .route(
-            "/shortlink",
-            post(crate::routes::sharing::shortlinks::create_shortlink),
-        )
-        .route(
-            "/shortlink/{token}",
-            get(crate::routes::sharing::shortlinks::resolve_shortlink),
-        )
-        // Use /shortlink/id/{id} for deletion to avoid conflict with token route
-        .route(
-            "/shortlink/id/{id}",
-            delete(crate::routes::sharing::shortlinks::delete_shortlink),
-        )
-        .route(
             "/subsystems",
             get(crate::routes::systems::subsystems::list_subsystems)
                 .post(crate::routes::systems::subsystems::create_subsystem),

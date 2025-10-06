@@ -10,8 +10,6 @@ pub struct FeatureFlags {
     #[serde(default)]
     pub oidc: bool,
     #[serde(default)]
-    pub shortlinks: bool,
-    #[serde(default)]
     pub redis_sessions: bool,
     #[serde(default)]
     pub redis_cache: bool,
@@ -238,23 +236,6 @@ pub fn validate_setting(key: &str, value: &serde_json::Value) -> Result<(), Vec<
             }
         } else {
             errs.push("uploads.gc.days must be integer".into());
-        }
-    }
-    if key == "shortlinks.retention.days" {
-        if let Some(n) = value.as_i64() {
-            if n < 1 || n > 1095 {
-                errs.push("shortlinks.retention.days must be 1..1095".into());
-            }
-        } else if let Some(s) = value.as_str() {
-            if s.parse::<i64>()
-                .ok()
-                .filter(|v| *v >= 1 && *v <= 1095)
-                .is_none()
-            {
-                errs.push("shortlinks.retention.days must be integer 1..1095".into());
-            }
-        } else {
-            errs.push("shortlinks.retention.days must be integer".into());
         }
     }
     if errs.is_empty() {

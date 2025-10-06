@@ -7,14 +7,12 @@ export interface SettingsTabProps {
   uploadDirTtlSecs: string;
   discordDigestEnabled: boolean;
   emailEnabled: boolean;
-  shortLinksEnabled: boolean;
   autoUpdateEnabled: boolean;
   status: string;
   onWebhookChange: (value: string) => void;
   onUploadDirTtlChange: (value: string) => void;
   onDiscordDigestChange: (checked: boolean) => void;
   onEmailEnabledChange: (checked: boolean) => void;
-  onShortLinksChange: (checked: boolean) => void;
   onAutoUpdateChange: (checked: boolean) => void;
   onSave: () => void;
   onStatusChange: (status: string) => void;
@@ -77,12 +75,6 @@ export default function SettingsTab(props: SettingsTabProps) {
               <Switch checked={props.emailEnabled} onChange={(e) => props.onEmailEnabledChange(e.target.checked)} />
             }
             label="Enable email features"
-          />
-          <FormControlLabel
-            control={
-              <Switch checked={props.shortLinksEnabled} onChange={(e) => props.onShortLinksChange(e.target.checked)} />
-            }
-            label="Enable short links"
           />
           <FormControlLabel
             control={

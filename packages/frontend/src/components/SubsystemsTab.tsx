@@ -12,14 +12,10 @@ import {
   ListItem,
   ListItemText,
   Divider,
-  IconButton,
-  Tooltip,
   Pagination,
   Typography,
 } from '@mui/material';
-import ShareIcon from '@mui/icons-material/Share';
-import { getShortLinkUrl } from '@didhub/api-client';
-import type { Subsystem, ShortLinkRecord } from '@didhub/api-client';
+import type { Subsystem } from '@didhub/api-client';
 import { SnackbarMessage } from './NotificationSnackbar';
 import type { SettingsState } from '../contexts/SettingsContext';
 
@@ -45,7 +41,6 @@ export interface SubsystemsTabProps {
   setSnack: (snack: SnackbarMessage) => void;
   refreshSubsystems: () => Promise<void> | void;
   createSubsystem: (payload: Record<string, unknown>) => Promise<Subsystem>;
-  createShortLink: (type: string, id: number, options?: { target?: string }) => Promise<ShortLinkRecord>;
   nav: (path: string) => void;
 }
 
@@ -173,34 +168,6 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                       Delete
                     </Button>
                   )}
-                  <Tooltip title="Create share link and copy to clipboard">
-                    {props.settings.shortLinksEnabled && (
-                      <IconButton
-                        size="small"
-                        onClick={async () => {
-                          try {
-                            const record = await props.createShortLink('subsystem', Number(s.id)).catch(() => null);
-                            if (!record) {
-                              throw new Error('Failed to create share link');
-                            }
-                            const shareUrl = getShortLinkUrl(record);
-                            await navigator.clipboard.writeText(shareUrl);
-                            props.setSnack({ open: true, message: 'Share link copied', severity: 'success' });
-                          } catch (error: unknown) {
-                            const message =
-                              error instanceof Error ? error.message : String(error ?? 'Failed to create share link');
-                            props.setSnack({
-                              open: true,
-                              message,
-                              severity: 'error',
-                            });
-                          }
-                        }}
-                      >
-                        <ShareIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Tooltip>
                 </div>
               }
             >

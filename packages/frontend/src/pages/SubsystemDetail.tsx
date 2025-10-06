@@ -18,12 +18,10 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/PersonAddAlt1';
-import ShareIcon from '@mui/icons-material/Share';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 import NotificationSnackbar from '../components/NotificationSnackbar';
-import { useSettings } from '../contexts/SettingsContext';
-import { apiClient, getShortLinkUrl, parseRoles } from '@didhub/api-client';
+import { apiClient, parseRoles } from '@didhub/api-client';
 import type { Alter, Subsystem, User, AlterName, SubsystemMember } from '@didhub/api-client';
 
 type AlterMember = Alter & { roles?: string[] };
@@ -63,11 +61,6 @@ export default function SubsystemDetail() {
   const [newMemberRole, setNewMemberRole] = useState('Member');
   const [roleInputMap, setRoleInputMap] = useState<Record<string, string>>({});
   const [loadingAlterNames, setLoadingAlterNames] = useState(false);
-  const [shareDialog, setShareDialog] = useState<{ open: boolean; url: string; error: string | null }>({
-    open: false,
-    url: '',
-    error: null,
-  });
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfSnackOpen, setPdfSnackOpen] = useState(false);
   useEffect(() => {
@@ -241,26 +234,6 @@ export default function SubsystemDetail() {
         </Box>
       </Container>
     );
-  const settings = useSettings();
-  async function handleShare() {
-    if (!settings.loaded) return setShareDialog({ open: true, url: '', error: 'Settings not loaded' });
-    if (!settings.shortLinksEnabled) return setShareDialog({ open: true, url: '', error: 'Short links are disabled' });
-    if (!subsystem || subsystem.id == null) {
-      setShareDialog({ open: true, url: '', error: 'Missing subsystem id' });
-      return;
-    }
-    const record = await apiClient.shortlinks.create('subsystem', Number(subsystem.id)).catch(() => null);
-    if (!record) {
-      return setShareDialog({ open: true, url: '', error: 'Failed to create share link' });
-    }
-    const url = getShortLinkUrl(record);
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareDialog({ open: true, url, error: null });
-    } catch (e) {
-      setShareDialog({ open: true, url, error: null });
-    }
-  }
   async function exportPdf() {
     if (!subsystem || subsystem.id == null) {
       setPdfError('Missing subsystem id');
@@ -331,13 +304,6 @@ export default function SubsystemDetail() {
               <PictureAsPdfIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          {settings.shortLinksEnabled && (
-            <Tooltip title="Create share link and copy to clipboard">
-              <IconButton size="small" onClick={handleShare}>
-                <ShareIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
         </Box>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>

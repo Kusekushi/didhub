@@ -7,7 +7,6 @@ export interface SettingsState {
   discordDigestEnabled: boolean;
   emailEnabled: boolean;
   oidcEnabled: boolean;
-  shortLinksEnabled: boolean;
   raw: Record<string, unknown> | null;
 }
 
@@ -16,7 +15,6 @@ const defaultState: SettingsState = {
   discordDigestEnabled: false,
   emailEnabled: false,
   oidcEnabled: true,
-  shortLinksEnabled: true,
   raw: null,
 };
 
@@ -48,7 +46,6 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
           discordDigestEnabled: parseBool(s && s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED]),
           emailEnabled: parseBool(s && s[SETTINGS_KEYS.EMAIL_ENABLED]),
           oidcEnabled: parseBool(s && s[SETTINGS_KEYS.OIDC_ENABLED], true),
-          shortLinksEnabled: parseBool(s && s[SETTINGS_KEYS.SHORT_LINKS_ENABLED], true),
           raw: s || {},
         });
       } catch (e) {

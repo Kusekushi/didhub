@@ -148,9 +148,6 @@ export default function Housekeeping() {
                 case 'uploads_integrity':
                   desc = 'Check consistency between database and filesystem for uploads';
                   break;
-                case 'shortlinks_prune':
-                  desc = 'Remove expired shortlinks';
-                  break;
                 case 'orphans_prune':
                   desc = 'Remove orphaned group and subsystem memberships';
                   break;

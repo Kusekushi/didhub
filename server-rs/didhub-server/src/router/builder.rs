@@ -104,10 +104,6 @@ impl AppRouterBuilder {
                 "/uploads/{filename}",
                 axum::routing::get(crate::routes::files::uploads::serve_file),
             )
-            .route(
-                "/s/{token}",
-                axum::routing::get(crate::routes::sharing::shortlinks::public_redirect),
-            )
             .layer(axum::Extension(self.config))
             .layer(axum::Extension(service_components.upload_dir_cache))
             .layer(axum::Extension(self.db))

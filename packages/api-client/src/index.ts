@@ -3,7 +3,6 @@ export * from './modules/Files';
 export * from './modules/Admin';
 export * from './modules/User';
 export * from './modules/Subsystem';
-export * from './modules/Shortlink';
 export * from './modules/OIDC';
 export * from './modules/Group';
 export * from './Types';

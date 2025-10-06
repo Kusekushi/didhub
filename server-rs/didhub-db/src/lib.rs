@@ -9,7 +9,6 @@ pub mod models;
 pub mod posts;
 pub mod relationships;
 pub mod settings;
-pub mod shortlinks;
 pub mod subsystems;
 pub mod system_requests;
 pub mod systems;

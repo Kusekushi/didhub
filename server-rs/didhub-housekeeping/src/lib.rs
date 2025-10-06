@@ -6,7 +6,6 @@ use didhub_db::common::CommonOperations;
 use didhub_db::housekeeping::HousekeepingOperations;
 use didhub_db::relationships::AlterRelationships;
 use didhub_db::settings::SettingOperations;
-use didhub_db::shortlinks::ShortlinkOperations;
 use didhub_db::uploads::UploadOperations;
 use didhub_db::users::UserOperations;
 use didhub_db::Db;
@@ -128,7 +127,6 @@ pub async fn build_default_registry() -> JobRegistry {
     reg.register(UploadsGcJob).await;
     reg.register(UploadsBackfillJob).await;
     reg.register(UploadsIntegrityJob).await;
-    reg.register(ShortlinksPruneJob).await;
     reg.register(OrphansPruneJob).await;
     reg.register(VacuumDbJob).await;
     reg
@@ -618,50 +616,6 @@ impl Job for UploadsIntegrityJob {
     }
 }
 
-pub struct ShortlinksPruneJob;
-
-impl Job for ShortlinksPruneJob {
-    fn name(&self) -> &'static str {
-        "shortlinks_prune"
-    }
-    fn run(&self, db: &Db) -> BoxFuture<'static, Result<JobOutcome>> {
-        let db = db.clone();
-        Box::pin(async move {
-            let retention_days: i64 = db
-                .get_setting("shortlinks.retention.days")
-                .await
-                .ok()
-                .flatten()
-                .and_then(|s| s.value.parse().ok())
-                .unwrap_or(180);
-            if retention_days <= 0 {
-                return Ok(JobOutcome {
-                    rows_affected: 0,
-                    message: Some("retention disabled".into()),
-                });
-            }
-            let cutoff = Utc::now() - Duration::days(retention_days);
-            let cutoff_str = cutoff.to_rfc3339();
-            let pruned = db.prune_old_shortlinks(&cutoff_str).await.unwrap_or(0);
-            if pruned > 0 {
-                audit::record_with_metadata(
-                    &db,
-                    None,
-                    "shortlinks.prune",
-                    Some("shortlink"),
-                    None,
-                    json!({"pruned": pruned, "cutoff": cutoff_str}),
-                )
-                .await;
-            }
-            Ok(JobOutcome {
-                rows_affected: pruned,
-                message: Some(format!("pruned {} old shortlinks", pruned)),
-            })
-        })
-    }
-}
-
 pub struct OrphansPruneJob;
 
 impl Job for OrphansPruneJob {
@@ -835,7 +789,6 @@ mod tests {
             "uploads_gc",
             "uploads_backfill",
             "uploads_integrity",
-            "shortlinks_prune",
             "orphans_prune",
             "db_vacuum",
         ];
@@ -857,7 +810,6 @@ mod tests {
         assert_eq!(UploadsGcJob.name(), "uploads_gc");
         assert_eq!(UploadsBackfillJob.name(), "uploads_backfill");
         assert_eq!(UploadsIntegrityJob.name(), "uploads_integrity");
-        assert_eq!(ShortlinksPruneJob.name(), "shortlinks_prune");
         assert_eq!(OrphansPruneJob.name(), "orphans_prune");
         assert_eq!(VacuumDbJob.name(), "db_vacuum");
     }

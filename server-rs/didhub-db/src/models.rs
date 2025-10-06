@@ -38,15 +38,6 @@ pub struct Subsystem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct Shortlink {
-    pub id: i64,
-    pub token: String,
-    pub target: String,
-    pub created_by_user_id: Option<i64>,
-    pub created_at: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Post {
     pub id: i64,
     pub body: String,

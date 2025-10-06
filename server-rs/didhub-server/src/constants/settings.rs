@@ -7,5 +7,4 @@ pub const DEFAULT_SETTINGS: &[(&str, &str)] = &[
     ("uploads.delete.retention.days", "30"),
     ("uploads.count_cache.ttl_secs", "30"),
     ("uploads.upload_dir_cache.ttl_secs", "10"),
-    ("shortlinks.retention.days", "180"),
 ];
