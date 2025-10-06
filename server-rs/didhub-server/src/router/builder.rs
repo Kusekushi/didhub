@@ -55,12 +55,13 @@ impl AppRouterBuilder {
     /// A fully configured Axum `Router`
     pub async fn build(self) -> Router {
         let cors_layer = self.build_cors_layer();
+        let service_components = ServiceComponents::initialize(&self.db, &self.config).await;
+
         let auth_state = auth::AuthState {
             db: self.db.clone(),
             cfg: self.config.clone(),
+            cache: service_components.cache.clone(),
         };
-
-        let service_components = ServiceComponents::initialize(&self.db, &self.config).await;
 
         let auth_routes = build_auth_routes(&auth_state);
         let protected_routes = build_protected_routes(&auth_state).layer(from_fn_with_state(
