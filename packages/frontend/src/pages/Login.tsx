@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, type ComponentProps } from 'react';
+import { useLocation } from 'react-router-dom';
 import { SignInPage } from '@toolpad/core';
 import { Checkbox, FormControlLabel, IconButton, InputAdornment, Link } from '@mui/material';
 import AuthLayout from '../components/AuthLayout';
@@ -21,6 +22,7 @@ export default function Login(): React.ReactElement {
 
   const [providers, setProviders] = useState<Provider[]>([]);
   const [showPassword, setShowPassword] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     let mounted = true;
@@ -51,8 +53,8 @@ export default function Login(): React.ReactElement {
         const result = await login(username, password);
 
         if (result.ok) {
-          const isValidCallback = callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.includes('://');
-          const dest = isValidCallback ? callbackUrl : '/';
+          const from = (location.state as any)?.from?.pathname;
+          const dest = from && from.startsWith('/') && !from.includes('://') ? from : '/';
           window.location.href = dest;
           return { success: '' };
         }

@@ -65,31 +65,6 @@ export default function Detail(): React.ReactElement {
     ? alter.affiliations.filter((id): id is number => typeof id === 'number')
     : [];
 
-  const partnersNormalized = (() => {
-    const raw = (alter as any).partners;
-    if (!raw && raw !== '') return [];
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === 'string') {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed))
-          return parsed
-            .map((s: string) => (typeof s === 'string' ? s.trim() : String(s)))
-            .filter((s: string) => s.length > 0);
-      } catch (e) {
-        // not JSON
-      }
-      if (raw.indexOf(',') !== -1)
-        return raw
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-      if (raw.trim() === '') return [];
-      return [raw];
-    }
-    return [String(raw)];
-  })();
-
   return (
     <Container sx={{ mt: 4 }}>
       <DetailHeader
