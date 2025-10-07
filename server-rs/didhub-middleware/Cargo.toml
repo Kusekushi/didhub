@@ -5,14 +5,14 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-axum = { version = "0.8", features = ["macros", "json", "multipart"] }
+axum = { version = "0.8", features = ["macros"] }
 base64 = "0.22"
-rand = "0.9"
+rand = "0.8"
 tracing = "0.1"
-bcrypt = "0.17"
-serde = { version = "1", features = ["derive"] }
 didhub-db = { path = "../didhub-db" }
 didhub-error = { path = "../didhub-error" }
-didhub-config = { path = "../didhub-config" }
 didhub-metrics = { path = "../didhub-metrics" }
-jsonwebtoken = { version = "9", default-features = false, features = ["use_pem"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+tower = { version = "0.5", features = ["util"] }

@@ -1140,14 +1140,12 @@ version = "0.1.1"
 dependencies = [
  "axum",
  "base64 0.22.1",
- "bcrypt",
- "didhub-config",
  "didhub-db",
  "didhub-error",
  "didhub-metrics",
- "jsonwebtoken",
- "rand 0.9.2",
- "serde",
+ "rand 0.8.5",
+ "tokio",
+ "tower",
  "tracing",
 ]
 

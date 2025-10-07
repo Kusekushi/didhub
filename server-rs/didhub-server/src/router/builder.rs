@@ -15,7 +15,7 @@ use tower_http::{
 use didhub_auth as auth;
 use didhub_config as config;
 use didhub_db as db;
-use didhub_middleware::{csrf, middleware_ext, request_logger};
+use didhub_middleware::{csrf, middleware_ext, request_logger, validation};
 
 use crate::{
     constants::cors::ALLOWED_METHODS,
@@ -63,13 +63,20 @@ impl AppRouterBuilder {
             cache: service_components.cache.clone(),
         };
 
-        let auth_routes = build_auth_routes(&auth_state);
-        let protected_routes = build_protected_routes(&auth_state).layer(from_fn_with_state(
-            auth_state.clone(),
-            auth::auth_middleware,
-        ));
+        let auth_routes = build_auth_routes(&auth_state)
+            .layer(axum::middleware::from_fn(validation::require_json_content_type))
+            .layer(axum::middleware::from_fn(validation::validate_api_version));
+        let protected_routes = build_protected_routes(&auth_state)
+            .layer(from_fn_with_state(
+                auth_state.clone(),
+                auth::auth_middleware,
+            ))
+            .layer(axum::middleware::from_fn(validation::require_json_content_type))
+            .layer(axum::middleware::from_fn(validation::validate_api_version));
         let admin_routes = build_admin_routes(&auth_state)
-            .layer(from_fn_with_state(auth_state, auth::auth_middleware));
+            .layer(from_fn_with_state(auth_state, auth::auth_middleware))
+            .layer(axum::middleware::from_fn(validation::require_json_content_type))
+            .layer(axum::middleware::from_fn(validation::validate_api_version));
 
         Router::new()
             .route("/health", axum::routing::get(routes::health))
