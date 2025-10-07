@@ -8,6 +8,12 @@ import {
   ListItem,
   ListItemText,
   Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Checkbox,
   type AlertColor,
 } from '@mui/material';
 import ConfirmDialog from '../ConfirmDialog';
@@ -26,6 +32,14 @@ export default function UserListPanel() {
   const [q, setQ] = useState('');
   const [pwPromptLocal, setPwPromptLocal] = useState({ open: false, userId: null });
   const [disableConfirm, setDisableConfirm] = useState({ open: false, userId: null });
+  const [createDialog, setCreateDialog] = useState({ open: false });
+  const [createForm, setCreateForm] = useState({
+    username: '',
+    password: '',
+    is_admin: false,
+    is_system: false,
+    is_approved: true,
+  });
   const [loading, setLoading] = useState(false);
 
   async function load() {
@@ -48,6 +62,9 @@ export default function UserListPanel() {
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <TextField placeholder="Search users" value={q} onChange={(e) => setQ(e.target.value)} />
         <Button onClick={load}>Refresh</Button>
+        <Button variant="contained" onClick={() => setCreateDialog({ open: true })}>
+          Create User
+        </Button>
       </Stack>
       {loading && <Typography>Loading...</Typography>}
       <List>
@@ -140,6 +157,84 @@ export default function UserListPanel() {
           await load();
         }}
       />
+      <Dialog open={createDialog.open} onClose={() => setCreateDialog({ open: false })}>
+        <DialogTitle>Create New User</DialogTitle>
+        <DialogContent>
+          <form>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                label="Username"
+                value={createForm.username}
+                onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
+                fullWidth
+              />
+              <TextField
+                label="Password"
+                type="password"
+                value={createForm.password}
+                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                fullWidth
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={createForm.is_admin}
+                    onChange={(e) => setCreateForm({ ...createForm, is_admin: e.target.checked })}
+                  />
+                }
+                label="Admin"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={createForm.is_system}
+                    onChange={(e) => setCreateForm({ ...createForm, is_system: e.target.checked })}
+                  />
+                }
+                label="System"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={createForm.is_approved}
+                    onChange={(e) => setCreateForm({ ...createForm, is_approved: e.target.checked })}
+                  />
+                }
+                label="Approved"
+              />
+            </Stack>
+          </form>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateDialog({ open: false })}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              try {
+                await apiClient.admin.createUser(createForm.username, createForm.password, {
+                  is_admin: createForm.is_admin,
+                  is_system: createForm.is_system,
+                  is_approved: createForm.is_approved,
+                });
+                setCreateDialog({ open: false });
+                setCreateForm({
+                  username: '',
+                  password: '',
+                  is_admin: false,
+                  is_system: false,
+                  is_approved: true,
+                });
+                await load();
+                setLocalMsg({ open: true, text: 'User created successfully', severity: 'success' });
+              } catch (e) {
+                setLocalMsg({ open: true, text: String(e || 'Failed to create user'), severity: 'error' });
+              }
+            }}
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
       <NotificationSnackbar
         open={localMsg.open}
         onClose={() => setLocalMsg({ ...localMsg, open: false })}

@@ -12,6 +12,7 @@ import type {
   HousekeepingRun,
   DatabaseQueryRequest,
   DatabaseQueryResponse,
+  User,
 } from '../Types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -64,6 +65,21 @@ export class AdminApi {
       json: { is_approved: false },
       parse: 'none',
     });
+  }
+
+  async createUser(username: string, password: string, options: { is_admin?: boolean; is_system?: boolean; is_approved?: boolean } = {}): Promise<User> {
+    const response = await this.http.request<User>({
+      path: '/api/users',
+      method: 'POST',
+      json: {
+        username,
+        password,
+        is_admin: options.is_admin,
+        is_system: options.is_system,
+        is_approved: options.is_approved,
+      },
+    });
+    return response.data;
   }
 
   async auditLogs(filters: AuditLogFilters = {}): Promise<AuditLogResponse> {
