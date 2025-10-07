@@ -1,4 +1,3 @@
-import { Tabs, Tab, type AlertColor } from '@mui/material';
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { apiClient, SETTINGS as SETTINGS_KEYS } from '@didhub/api-client';
@@ -18,12 +17,27 @@ import {
   MetricsTab,
   DatabaseTab,
 } from '../components/admin';
-import TabPanel from '../components/TabPanel';
 import NotificationSnackbar from '../components/NotificationSnackbar';
+import { Box, List, ListItem, ListItemButton, ListItemText, type AlertColor } from '@mui/material';
+import {
+  Dashboard as DashboardIcon,
+  CloudUpload as UploadIcon,
+  People as UsersIcon,
+  Pending as PendingIcon,
+  Assignment as SystemRequestsIcon,
+  Settings as SettingsIcon,
+  Security as OidcIcon,
+  Storage as RedisIcon,
+  SystemUpdate as UpdatesIcon,
+  Message as MessagesIcon,
+  Assessment as AuditIcon,
+  CleaningServices as HousekeepingIcon,
+  Dataset as DatabaseIcon,
+  Analytics as MetricsIcon,
+} from '@mui/icons-material';
 
 export default function Admin() {
   const [tab, setTab] = useState(0);
-  const handleTabChange = (_e, v) => setTab(v);
   const [settings, setSettings] = useState({}); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [webhook, setWebhook] = useState('');
   const [oidcProviders, setOidcProviders] = useState([]);
@@ -200,13 +214,25 @@ export default function Admin() {
     {
       key: 'dashboard',
       label: 'Dashboard',
+      icon: <DashboardIcon />,
       render: () => <DashboardTab pendingRegsCount={pendingRegsCount} posts={posts} onRepost={doRepost} />,
     },
-    { key: 'uploads', label: 'Uploads', render: () => <AdminUploads /> },
-    { key: 'users', label: 'Users', render: () => <UsersTab /> },
+    { 
+      key: 'uploads', 
+      label: 'Uploads', 
+      icon: <UploadIcon />,
+      render: () => <AdminUploads /> 
+    },
+    { 
+      key: 'users', 
+      label: 'Users', 
+      icon: <UsersIcon />,
+      render: () => <UsersTab /> 
+    },
     {
       key: 'pending',
       label: 'Pending',
+      icon: <PendingIcon />,
       render: () => (
         <PendingTab
           pendingRegs={pendingRegs}
@@ -220,11 +246,13 @@ export default function Admin() {
     {
       key: 'system',
       label: 'System Requests',
+      icon: <SystemRequestsIcon />,
       render: () => <SystemRequestsTab sysRequests={sysRequests} onSetRequestStatus={doSetRequestStatus} />,
     },
     {
       key: 'settings',
       label: 'Settings',
+      icon: <SettingsIcon />,
       render: () => (
         <SettingsTab
           webhook={webhook}
@@ -247,6 +275,7 @@ export default function Admin() {
     {
       key: 'oidc',
       label: 'OIDC Providers',
+      icon: <OidcIcon />,
       render: () => (
         <OidcProvidersTab
           oidcProviders={oidcProviders}
@@ -262,6 +291,7 @@ export default function Admin() {
     {
       key: 'redis',
       label: 'Redis',
+      icon: <RedisIcon />,
       render: () => (
         <RedisTab
           redisUrl={redisUrl}
@@ -286,6 +316,7 @@ export default function Admin() {
     {
       key: 'updates',
       label: 'System Updates',
+      icon: <UpdatesIcon />,
       render: () => (
         <SystemUpdates
           onMessage={(message, severity) => setAdminMsg({ open: true, text: message, severity: severity || 'info' })}
@@ -295,6 +326,7 @@ export default function Admin() {
     {
       key: 'messages',
       label: 'Messages',
+      icon: <MessagesIcon />,
       render: () => (
         <MessagesTab
           posts={posts}
@@ -308,35 +340,72 @@ export default function Admin() {
         />
       ),
     },
-    { key: 'audit', label: 'Audit Logs', render: () => <AuditTab setAdminMsg={setAdminMsg} /> },
-    { key: 'housekeeping', label: 'Housekeeping', render: () => <Housekeeping /> },
-    { key: 'database', label: 'Database', render: () => <DatabaseTab setAdminMsg={setAdminMsg} /> },
-    { key: 'metrics', label: 'Metrics', render: () => <MetricsTab /> },
+    { 
+      key: 'audit', 
+      label: 'Audit Logs', 
+      icon: <AuditIcon />,
+      render: () => <AuditTab setAdminMsg={setAdminMsg} /> 
+    },
+    { 
+      key: 'housekeeping', 
+      label: 'Housekeeping', 
+      icon: <HousekeepingIcon />,
+      render: () => <Housekeeping /> 
+    },
+    { 
+      key: 'database', 
+      label: 'Database', 
+      icon: <DatabaseIcon />,
+      render: () => <DatabaseTab setAdminMsg={setAdminMsg} /> 
+    },
+    { 
+      key: 'metrics', 
+      label: 'Metrics', 
+      icon: <MetricsIcon />,
+      render: () => <MetricsTab /> 
+    },
   ];
   // Helper renderers for each panel — keeps the JSX organized and allows easy reordering.
 
   const panels = tabsDef.map((tdef) => tdef.render || (() => null));
 
   return (
-    <div style={{ padding: 20 }}>
-      <Tabs
-        value={tab}
-        onChange={handleTabChange}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{ marginBottom: 2 }}
-      >
-        {tabsDef.map((tdef, i) => (
-          <Tab key={tdef.key} label={tdef.label} id={`admin-tab-${i}`} aria-controls={`admin-tabpanel-${i}`} />
-        ))}
-      </Tabs>
+    <Box sx={{ display: 'flex', height: '100vh' }}>
+      {/* Sidebar */}
+      <Box sx={{ width: 280, borderRight: 1, borderColor: 'divider' }}>
+        <List>
+          {tabsDef.map((tdef, i) => (
+            <ListItem key={tdef.key} disablePadding>
+              <ListItemButton
+                selected={tab === i}
+                onClick={() => setTab(i)}
+                sx={{
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.contrastText',
+                    },
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                    },
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                  {tdef.icon}
+                  <ListItemText primary={tdef.label} />
+                </Box>
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
 
-      {tabsDef.map((tdef, i) => (
-        <TabPanel key={tdef.key} value={tab} index={i} labelledBy={`admin-tab-${i}`}>
-          {panels[i] ? panels[i]() : null}
-        </TabPanel>
-      ))}
+      {/* Main Content */}
+      <Box sx={{ flex: 1, padding: 3, overflow: 'auto' }}>
+        {panels[tab] ? panels[tab]() : null}
+      </Box>
 
       <NotificationSnackbar
         open={adminMsg.open}
@@ -344,6 +413,6 @@ export default function Admin() {
         message={adminMsg.text}
         severity={adminMsg.severity}
       />
-    </div>
+    </Box>
   );
 }
