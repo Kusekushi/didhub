@@ -13,9 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import SettingsIcon from '@mui/icons-material/Settings';
-import PaletteIcon from '@mui/icons-material/Palette';
+import { FilterIcon, PaletteIcon, SettingsIcon } from './icons';
 import type { ReactNode } from 'react';
 import FamilyTreeGraph from './components/FamilyTreeGraph';
 import NodeView from './components/NodeView';
@@ -209,7 +207,7 @@ export default function FamilyTreeView({
               size="small"
               variant={filterActive ? 'contained' : 'outlined'}
               color="primary"
-              startIcon={<FilterAltIcon fontSize="small" />}
+              startIcon={<FilterIcon fontSize="small" />}
               onClick={openFilterDialog}
             >
               {filterActive ? 'Filter active' : 'Filter tree'}

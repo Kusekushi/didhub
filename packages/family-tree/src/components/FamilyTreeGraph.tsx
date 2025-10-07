@@ -1,9 +1,7 @@
 import { MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import * as d3 from 'd3';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import { CenterFocusStrongIcon, ZoomInIcon, ZoomOutIcon } from '../icons';
 import type { FamilyTreeNodeData, FamilyTreeOwner } from '../types';
 import { ensureHexColor, getReadableTextColor } from '../utils/color';
 import { collectBaseGraph, pruneIsolatedNodes } from './graph/buildGraph';
