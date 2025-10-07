@@ -42,7 +42,7 @@ async fn register_admin(app: &axum::Router, db: &Db) -> String {
 async fn list_oidc_providers() {
     let (db, _cfg, app) = setup().await;
     let token = register_admin(&app, &db).await;
-    let req = Request::builder().method("GET").uri("/api/oidc")
+    let req = Request::builder().method("GET").uri("/api/admin/oidc")
         .header("authorization", format!("Bearer {}", token))
         .body(Body::empty()).unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();

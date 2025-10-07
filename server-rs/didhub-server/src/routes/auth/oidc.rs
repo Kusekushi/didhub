@@ -222,7 +222,7 @@ pub(super) fn client_secret_key(id: &str) -> String {
     format!("oidc_provider_client_secret_{}", id)
 }
 
-const GLOBAL_OIDC_KEY: &str = "oidc_enabled";
+const GLOBAL_OIDC_KEY: &str = "feature.oidc.enabled";
 
 fn mask_client_id(s: &str) -> String {
     if s.is_empty() {

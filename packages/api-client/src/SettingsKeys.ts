@@ -5,7 +5,7 @@ export const SETTINGS = {
   EMAIL_DIGEST_RECIPIENT: 'email_digest_recipient',
   EMAIL_TRANSPORT: 'email_transport',
   OIDC_PROVIDERS: 'oidc_providers',
-  OIDC_ENABLED: 'oidc_enabled',
+  OIDC_ENABLED: 'feature.oidc.enabled',
   SHORT_LINKS_ENABLED: 'short_links_enabled',
   // Redis/admin settings
   REDIS_URL: 'redis_url',

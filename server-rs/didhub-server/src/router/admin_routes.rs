@@ -77,6 +77,7 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
             "/admin/db/query",
             post(crate::routes::admin::misc::query_database),
         )
+        .route("/admin/oidc", get(crate::routes::auth::oidc::list_providers))
         .route(
             "/oidc/{id}/enabled",
             post(crate::routes::auth::oidc::set_enabled),

@@ -92,7 +92,7 @@ impl ServiceComponents {
 
     async fn seed_default_settings(db: &db::Db) {
         let default_settings: Vec<(&str, String)> = vec![
-            ("feature.oidc_enabled", "true".to_string()),
+            ("feature.oidc.enabled", "true".to_string()),
             ("feature.email_enabled", "false".to_string()),
             ("avatar.max_dim", "512".to_string()),
             ("upload.image.max_dim", "2048".to_string()),
