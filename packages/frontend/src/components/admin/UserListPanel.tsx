@@ -40,7 +40,20 @@ export default function UserListPanel() {
     is_system: false,
     is_approved: true,
   });
+  const [createFormErrors, setCreateFormErrors] = useState<{ username?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
+
+  function validateCreateForm() {
+    const errors: { username?: string; password?: string } = {};
+    if (!createForm.username.trim()) {
+      errors.username = 'Username is required';
+    }
+    if (createForm.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
+    }
+    setCreateFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
   async function load() {
     setLoading(true);
@@ -166,6 +179,8 @@ export default function UserListPanel() {
                 label="Username"
                 value={createForm.username}
                 onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
+                error={!!createFormErrors.username}
+                helperText={createFormErrors.username}
                 fullWidth
               />
               <TextField
@@ -173,6 +188,8 @@ export default function UserListPanel() {
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                error={!!createFormErrors.password}
+                helperText={createFormErrors.password}
                 fullWidth
               />
               <FormControlLabel
@@ -206,10 +223,16 @@ export default function UserListPanel() {
           </form>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialog({ open: false })}>Cancel</Button>
+          <Button onClick={() => {
+            setCreateDialog({ open: false });
+            setCreateFormErrors({});
+          }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={async () => {
+              if (!validateCreateForm()) {
+                return;
+              }
               try {
                 await apiClient.admin.createUser(createForm.username, createForm.password, {
                   is_admin: createForm.is_admin,
@@ -224,6 +247,7 @@ export default function UserListPanel() {
                   is_system: false,
                   is_approved: true,
                 });
+                setCreateFormErrors({});
                 await load();
                 setLocalMsg({ open: true, text: 'User created successfully', severity: 'success' });
               } catch (e) {
