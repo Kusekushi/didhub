@@ -11,9 +11,8 @@ use didhub_db::{
     settings::SettingOperations, uploads::UploadOperations, Db, NewUpload, UpdateUserFields,
 };
 use didhub_error::AppError;
+use didhub_image::process_image_simple;
 use didhub_middleware::types::CurrentUser;
-use image::GenericImageView;
-use image::ImageFormat;
 use tokio::fs;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -163,81 +162,36 @@ pub async fn upload_avatar(
             "Image format validation passed"
         );
 
-        // Decode using image crate (guess format)
-        let img = image::load_from_memory(&raw_bytes).map_err(|e| {
+        // Process the image
+        let (out_buf, metadata) = process_image_simple(&raw_bytes, avatar_max_dim).map_err(|e| {
             error!(
                 user_id = %user.id,
                 error = %e,
-                "Failed to decode image data"
+                "Failed to process image data"
             );
             AppError::BadRequest("unsupported image".into())
         })?;
-        let (ow, oh) = img.dimensions();
-        orig_w = ow;
-        orig_h = oh;
+        orig_w = metadata.orig_width;
+        orig_h = metadata.orig_height;
+        final_w = metadata.final_width;
+        final_h = metadata.final_height;
+        out_size = metadata.final_bytes;
         debug!(
             user_id = %user.id,
             original_width = orig_w,
             original_height = orig_h,
-            "Image decoded successfully"
-        );
-        // Resize if larger than avatar_max_dim in either dimension (maintain aspect)
-        let processed = if orig_w > avatar_max_dim || orig_h > avatar_max_dim {
-            let scale = if orig_w >= orig_h {
-                avatar_max_dim as f32 / orig_w as f32
-            } else {
-                avatar_max_dim as f32 / orig_h as f32
-            };
-            let new_w = (orig_w as f32 * scale).round() as u32;
-            let new_h = (orig_h as f32 * scale).round() as u32;
-            debug!(
-                user_id = %user.id,
-                original_width = orig_w,
-                original_height = orig_h,
-                new_width = new_w,
-                new_height = new_h,
-                scale_factor = scale,
-                "Resizing image to fit max dimension"
-            );
-            img.resize(
-                new_w.max(1),
-                new_h.max(1),
-                image::imageops::FilterType::Lanczos3,
-            )
-        } else {
-            debug!(
-                user_id = %user.id,
-                width = orig_w,
-                height = orig_h,
-                "Image within size limits, no resizing needed"
-            );
-            img
-        };
-        // Always encode to PNG for uniform storage
-        let mut out_buf: Vec<u8> = Vec::new();
-        processed
-            .write_to(&mut std::io::Cursor::new(&mut out_buf), ImageFormat::Png)
-            .map_err(|e| {
-                error!(
-                    user_id = %user.id,
-                    error = %e,
-                    "Failed to encode image to PNG"
-                );
-                AppError::Internal
-            })?;
-        let (fw, fh) = processed.dimensions();
-        final_w = fw;
-        final_h = fh;
-        let hash = blake3::hash(&out_buf);
-        hash_hex = hash.to_hex().to_string();
-        out_size = out_buf.len();
-        debug!(
-            user_id = %user.id,
             final_width = final_w,
             final_height = final_h,
             output_size = out_size,
+            "Image processed successfully"
+        );
+
+        let hash = blake3::hash(&out_buf);
+        hash_hex = hash.to_hex().to_string();
+        debug!(
+            user_id = %user.id,
             hash = %hash_hex,
-            "Image processed and encoded successfully"
+            "Image hash computed"
         );
 
         let final_name = format!("{}.png", hash_hex);

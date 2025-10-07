@@ -302,67 +302,16 @@ fn prepare_image_for_pdf(image_path: &str) -> Result<Vec<u8>, String> {
     let data =
         std::fs::read(image_path).map_err(|err| format!("failed to read image data: {err}"))?;
 
-    match image::load_from_memory(&data) {
-        Ok(image) => {
-            if !image.color().has_alpha() {
-                return Ok(data);
-            }
-
+    match didhub_image::prepare_image_for_pdf(&data) {
+        Ok(processed) => Ok(processed),
+        Err(_) => {
             debug!(
                 image_path = %image_path,
-                "Flattening image alpha channel for PDF export"
-            );
-
-            let rgba_image = image.to_rgba8();
-            let flattened = flatten_rgba_to_rgb(&rgba_image);
-            let mut encoded = std::io::Cursor::new(Vec::new());
-
-            image::DynamicImage::ImageRgb8(flattened)
-                .write_to(&mut encoded, image::ImageFormat::Png)
-                .map_err(|err| format!("failed to encode flattened image: {err}"))?;
-
-            Ok(encoded.into_inner())
-        }
-        Err(err) => {
-            debug!(
-                error = %err,
-                image_path = %image_path,
-                "Unable to decode image when preparing for PDF; using raw bytes"
+                "Unable to process image for PDF; using raw bytes"
             );
             Ok(data)
         }
     }
-}
-
-fn flatten_rgba_to_rgb(rgba_image: &image::RgbaImage) -> image::RgbImage {
-    let (width, height) = rgba_image.dimensions();
-    let mut rgb_image = image::RgbImage::new(width, height);
-
-    for (x, y, pixel) in rgba_image.enumerate_pixels() {
-        let [r, g, b, a] = pixel.0;
-        if a == 0 {
-            rgb_image.put_pixel(x, y, image::Rgb([255, 255, 255]));
-            continue;
-        }
-
-        if a == u8::MAX {
-            rgb_image.put_pixel(x, y, image::Rgb([r, g, b]));
-            continue;
-        }
-
-        let alpha = f32::from(a) / 255.0;
-        let inv_alpha = 1.0 - alpha;
-
-        let blend = |channel: u8| -> u8 {
-            ((f32::from(channel) * alpha) + (255.0 * inv_alpha))
-                .round()
-                .clamp(0.0, 255.0) as u8
-        };
-
-        rgb_image.put_pixel(x, y, image::Rgb([blend(r), blend(g), blend(b)]));
-    }
-
-    rgb_image
 }
 
 fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<Vec<u8>, AppError> {

@@ -1207,6 +1207,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "didhub-image"
+version = "0.1.0"
+dependencies = [
+ "image 0.25.8",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "didhub-jobs"
 version = "0.1.0"
 dependencies = [
@@ -1320,6 +1332,7 @@ dependencies = [
  "didhub-config",
  "didhub-db",
  "didhub-error",
+ "didhub-image",
  "didhub-metrics",
  "didhub-middleware",
  "didhub-migrations",
@@ -1334,7 +1347,6 @@ dependencies = [
  "html-escape",
  "http-body-util",
  "hyper",
- "image 0.25.8",
  "include_dir",
  "inquire",
  "jsonwebtoken",
