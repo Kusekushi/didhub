@@ -4,7 +4,7 @@ use didhub_db::users::UserOperations;
 use didhub_db::{audit, Db};
 use didhub_error::AppError;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use blake3;
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Deserialize)]
@@ -53,9 +53,9 @@ pub async fn consume_reset(
     let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(payload.verifier.as_bytes())
         .map_err(|_| AppError::BadRequest("invalid verifier".into()))?;
-    let mut hasher = Sha256::new();
-    hasher.update(raw);
-    let hash_hex = hex::encode(hasher.finalize());
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&raw);
+    let hash_hex = hasher.finalize().to_hex().to_string();
 
     if hash_hex != rec.verifier_hash {
         warn!(selector=%payload.selector, user_id=%rec.user_id, "password reset failed - invalid verifier hash");

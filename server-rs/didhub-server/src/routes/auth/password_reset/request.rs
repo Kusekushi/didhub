@@ -7,7 +7,7 @@ use didhub_error::AppError;
 use rand::RngCore;
 use serde::Deserialize;
 use serde::Serialize;
-use sha2::{Digest, Sha256};
+use blake3;
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Deserialize)]
@@ -55,13 +55,13 @@ pub async fn request_reset(
     let verifier_bytes = random_bytes::<32>();
     let selector = b64u(&selector_bytes);
     let verifier = b64u(&verifier_bytes);
-    let mut hasher = Sha256::new();
+    let mut hasher = blake3::Hasher::new();
     hasher.update(&verifier_bytes);
     let hash = hasher.finalize();
     let expires_at = now_plus_hours(2);
 
     let _ = db
-        .insert_password_reset(&selector, &hex::encode(hash), user.id, &expires_at)
+        .insert_password_reset(&selector, &hash.to_hex().to_string(), user.id, &expires_at)
         .await
         .map_err(|_| AppError::Internal)?;
 
