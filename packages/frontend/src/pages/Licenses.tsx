@@ -138,7 +138,7 @@ export default function Licenses() {
         <AccordionDetails>
           {backendLicenses &&
             backendLicenses.map((dep) => (
-              <Box key={dep.name} sx={{ mb: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+              <Box key={`${dep.name}-${dep.version}`} sx={{ mb: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
                 <Typography variant="subtitle1" fontWeight="bold">
                   {dep.name} v{dep.version}
                 </Typography>
