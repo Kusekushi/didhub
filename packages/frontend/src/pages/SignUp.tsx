@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
-import CssBaseline from '@mui/material/CssBaseline';
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
-import TextField from '@mui/material/TextField';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
+import { Checkbox, FormControlLabel, IconButton, InputAdornment, Link, TextField, Button, Box, Typography, Alert, Paper } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import ThemeContextProvider from '../ThemeContext';
 import AuthLayout from '../components/AuthLayout';
 
 type Msg = { type: 'success' | 'error' | 'info'; text: string } | null;
@@ -57,36 +49,51 @@ export default function SignUp(): React.ReactElement {
   };
 
   return (
-    <ThemeContextProvider>
-      <CssBaseline enableColorScheme />
-      <AuthLayout title="Sign up">
+    <AuthLayout>
+      <Paper elevation={2} sx={{ p: 3, maxWidth: 400, width: '100%' }}>
+        <Typography variant="h5" gutterBottom align="center">
+          Sign up
+        </Typography>
+
         {msg && (
-          <Alert severity={msg.type} sx={{ width: '100%', mb: 2 }}>
+          <Alert severity={msg.type} sx={{ mb: 2 }}>
             {msg.text}
           </Alert>
         )}
-        <form onSubmit={handleSubmit}>
+
+        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
           <TextField
+            margin="normal"
+            required
             fullWidth
+            id="username"
             label="Username"
-            placeholder="JonSnow"
+            name="username"
+            autoComplete="username"
+            autoFocus
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            margin="normal"
-            required
+            placeholder="your username"
           />
           <TextField
-            fullWidth
-            label="Password"
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             margin="normal"
             required
+            fullWidth
+            name="password"
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            id="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton aria-label="toggle password visibility" onClick={handleClickShowPassword} edge="end">
+                  <IconButton
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={handleClickShowPassword}
+                    edge="end"
+                  >
                     {showPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
@@ -94,18 +101,21 @@ export default function SignUp(): React.ReactElement {
             }}
           />
           <TextField
-            fullWidth
-            label="Confirm Password"
-            type={showPassword ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
             margin="normal"
             required
+            fullWidth
+            name="confirmPassword"
+            label="Confirm Password"
+            type={showPassword ? 'text' : 'password'}
+            id="confirmPassword"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             error={confirmPassword !== '' && password !== confirmPassword}
             helperText={confirmPassword !== '' && password !== confirmPassword ? 'Passwords do not match' : ''}
           />
           <FormControlLabel
-            control={<Checkbox checked={requestSystem} onChange={(e) => setRequestSystem(e.target.checked)} />}
+            control={<Checkbox checked={requestSystem} onChange={(e) => setRequestSystem(e.target.checked)} color="primary" />}
             label="Request system user account"
             sx={{ mt: 1 }}
           />
@@ -113,13 +123,19 @@ export default function SignUp(): React.ReactElement {
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 2 }}
+            sx={{ mt: 3, mb: 2 }}
             disabled={loading || password !== confirmPassword}
           >
             {loading ? 'Signing up...' : 'Sign up'}
           </Button>
-        </form>
-      </AuthLayout>
-    </ThemeContextProvider>
+        </Box>
+
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Link href="/login" variant="body2">
+            Already have an account? Sign in
+          </Link>
+        </Box>
+      </Paper>
+    </AuthLayout>
   );
 }

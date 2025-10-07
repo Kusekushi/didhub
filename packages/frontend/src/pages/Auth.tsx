@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { SignInPage } from '@toolpad/core';
-import { Checkbox, FormControlLabel, IconButton, InputAdornment, Link } from '@mui/material';
+import { Checkbox, FormControlLabel, IconButton, InputAdornment, Link, TextField, Button, Box, Typography, Alert, Paper, Stack } from '@mui/material';
 import AuthLayout from '../components/AuthLayout';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -78,23 +77,85 @@ export default function Login(): React.ReactElement {
     [login, providers],
   );
 
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const result = await login(username, password);
+
+      if (result.ok) {
+        const isValidCallback = window.location.search.includes('callbackUrl=') ?
+          new URLSearchParams(window.location.search).get('callbackUrl') : null;
+        const dest = isValidCallback && isValidCallback.startsWith('/') && !isValidCallback.includes('://') ? isValidCallback : '/';
+        window.location.href = dest;
+      } else if ((result as any).pending) {
+        window.location.href = '/awaiting-approval';
+      } else {
+        setError(result.error || 'Sign in failed');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProviderSignIn = (provider: Provider) => {
+    if (provider.id === 'credentials') {
+      // Handle credentials form
+      return;
+    }
+    // OAuth / external providers: redirect to server endpoint
+    window.location.href = '/api/oidc/' + encodeURIComponent(provider.id) + '/authorize';
+  };
+
   return (
     <AuthLayout>
-      <SignInPage
-        signIn={signIn}
-        providers={providers}
-        slotProps={{
-          emailField: {
-            autoFocus: true,
-            name: 'username',
-            label: 'Username',
-            placeholder: 'your username',
-          },
-          passwordField: {
-            name: 'password',
-            label: 'Password',
-            type: showPassword ? 'text' : 'password',
-            InputProps: {
+      <Paper elevation={2} sx={{ p: 3, maxWidth: 400, width: '100%' }}>
+        <Typography variant="h5" gutterBottom align="center">
+          Sign in
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="username"
+            label="Username"
+            name="username"
+            autoComplete="username"
+            autoFocus
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="your username"
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            id="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton
@@ -106,23 +167,41 @@ export default function Login(): React.ReactElement {
                   </IconButton>
                 </InputAdornment>
               ),
-            },
-          },
-          form: { noValidate: true },
-          rememberMe: { label: 'Remember me?', control: <Checkbox /> },
-        }}
-        slots={{
-          signUpLink: (props: any) => (
-            <Link href="/register" {...props}>
-              Sign up
-            </Link>
-          ),
-          rememberMe: (props: any) => (
-            <FormControlLabel control={<Checkbox />} label={props?.label || 'Remember me?'} {...props} />
-          ),
-        }}
-        localeText={{ email: 'Username' }}
-      />
+            }}
+          />
+          <FormControlLabel
+            control={<Checkbox value={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} color="primary" />}
+            label="Remember me?"
+          />
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
+          >
+            {loading ? 'Signing in...' : 'Sign in'}
+          </Button>
+        </Box>
+
+        {providers.filter(p => p.id !== 'credentials').map((provider) => (
+          <Button
+            key={provider.id}
+            fullWidth
+            variant="outlined"
+            sx={{ mt: 1 }}
+            onClick={() => handleProviderSignIn(provider)}
+          >
+            Sign in with {provider.name}
+          </Button>
+        ))}
+
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Link href="/register" variant="body2">
+            Don't have an account? Sign up
+          </Link>
+        </Box>
+      </Paper>
     </AuthLayout>
   );
 }

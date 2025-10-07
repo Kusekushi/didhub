@@ -1,97 +1,81 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { useTheme } from '@mui/material/styles';
-import { ReactRouterAppProvider } from '@toolpad/core/react-router';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import HomeIcon from '@mui/icons-material/Home';
+import PeopleIcon from '@mui/icons-material/People';
+import CakeIcon from '@mui/icons-material/Cake';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import DescriptionIcon from '@mui/icons-material/Description';
+import TuneIcon from '@mui/icons-material/Tune';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 import App from './App';
 import ThemeContextProvider from './ThemeContext';
 import './style.css';
 
 const NAVIGATION_BASE = [
-  { segment: 'home', title: 'Home' },
-  { segment: 'systems', title: 'Systems' },
-  { segment: 'birthdays', title: 'Birthdays' },
-  { segment: 'family-tree', title: 'Family Tree' },
-  { segment: 'licenses', title: 'Licenses' },
-  { segment: 'login', title: 'Login' },
+  { segment: 'home', title: 'Home', icon: <HomeIcon /> },
+  { segment: 'systems', title: 'Systems', icon: <PeopleIcon /> },
+  { segment: 'birthdays', title: 'Birthdays', icon: <CakeIcon /> },
+  { segment: 'family-tree', title: 'Family Tree', icon: <AccountTreeIcon /> },
+  { segment: 'user-settings', title: 'User Settings', icon: <TuneIcon /> },
+  { segment: 'licenses', title: 'Licenses', icon: <DescriptionIcon /> },
 ];
 
-function InnerToolpadApp(): React.ReactElement {
-  const theme = useTheme();
-  const { user, logout } = useAuth();
+export const NavigationContext = React.createContext<{
+  main: { segment: string; title: string; icon: React.ReactElement }[];
+  footer: { segment: string; title: string; icon: React.ReactElement }[];
+}>({ main: [], footer: [] });
+
+function InnerApp(): React.ReactElement {
+  const { user } = useAuth();
 
   const navigation = React.useMemo(() => {
     let nav = [...NAVIGATION_BASE];
-    // If nobody is signed in, hide the main segments and only show login
+    // If nobody is signed in, return empty navigation (sidebar should be hidden via auth routes)
     if (!user) {
-      return nav.filter((item) => item.segment === 'login');
+      return { main: [], footer: [] };
     }
     if (user && (user as any).is_admin) {
-      // insert admin before login for visibility
-      nav = [...nav.slice(0, nav.length - 1), { segment: 'admin', title: 'Admin' }, nav[nav.length - 1]];
+      // insert admin before licenses for visibility
+      const licensesIdx = nav.findIndex((i) => i.segment === 'licenses');
+      if (licensesIdx >= 0) {
+        nav = [...nav.slice(0, licensesIdx), { segment: 'admin', title: 'Admin', icon: <AdminPanelSettingsIcon /> }, ...nav.slice(licensesIdx)];
+      }
     }
     // For DID-system users, expose a quick link to their system which redirects
     if (user && (user as any).is_system) {
       // insert 'My system' after home
       const idx = nav.findIndex((i) => i.segment === 'home');
       const insertAt = idx >= 0 ? idx + 1 : 0;
-      nav = [...nav.slice(0, insertAt), { segment: 'redirect-to-system', title: 'My system' }, ...nav.slice(insertAt)];
-    }
-    // If the user is signed in but not a DID-system user, remove the 'systems' item
-    if (user && !(user as any).is_system) {
-      nav = nav.filter((item) => item.segment !== 'systems');
+      nav = [...nav.slice(0, insertAt), { segment: 'redirect-to-system', title: 'My system', icon: <PeopleIcon /> }, ...nav.slice(insertAt)];
     }
     // hide login when user is signed in
     nav = nav.filter((item) => item.segment !== 'login');
-    return nav;
+    
+    // Separate main navigation from footer items
+    const footerItems = nav.filter((item) => item.segment === 'licenses' || item.segment === 'user-settings');
+    const mainItems = nav.filter((item) => item.segment !== 'licenses' && item.segment !== 'user-settings');
+    
+    return { main: mainItems, footer: footerItems };
   }, [user]);
 
-  const session = user
-    ? {
-        user: {
-          id: String((user as any).id),
-          name: user.username || (user as any).name,
-          image: user.avatar ? `/uploads/${user.avatar}` : (user as any).image,
-        },
-      }
-    : undefined;
-  const authentication = {
-    signOut: async () => {
-      await logout();
-    },
-    signIn: async () => {
-      // redirect to our login page
-      window.location.href = '/login';
-    },
-  } as any;
-
   return (
-    <ReactRouterAppProvider
-      navigation={navigation}
-      theme={theme}
-      session={session}
-      authentication={authentication}
-      branding={{
-        logo: <img src="/favicon-32x32.png" alt="DIDHub" style={{ height: 28 }} />,
-        title: 'DIDHub',
-        homeUrl: '/',
-      }}
-    >
+    <NavigationContext.Provider value={navigation}>
       <App />
-    </ReactRouterAppProvider>
+    </NavigationContext.Provider>
   );
 }
 
-function AppWithToolpad(): React.ReactElement {
+function AppWithProviders(): React.ReactElement {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ThemeContextProvider>
           <SettingsProvider>
-            <InnerToolpadApp />
+            <InnerApp />
           </SettingsProvider>
         </ThemeContextProvider>
       </AuthProvider>
@@ -101,6 +85,6 @@ function AppWithToolpad(): React.ReactElement {
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <AppWithToolpad />
+    <AppWithProviders />
   </React.StrictMode>,
 );
