@@ -14,6 +14,7 @@ pub trait PostOperations: Send + Sync {
     ) -> Result<Option<Post>>;
     async fn fetch_post(&self, id: i64) -> Result<Option<Post>>;
     async fn list_posts(&self, limit: i64, offset: i64) -> Result<Vec<Post>>;
+    async fn count_posts(&self) -> Result<i64>;
     async fn delete_post(&self, id: i64) -> Result<bool>;
 }
 
@@ -92,6 +93,13 @@ impl PostOperations for Db {
             .bind(offset)
             .fetch_all(&self.pool).await?;
         Ok(rows)
+    }
+
+    async fn count_posts(&self) -> Result<i64> {
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM posts")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(count)
     }
 
     async fn delete_post(&self, id: i64) -> Result<bool> {

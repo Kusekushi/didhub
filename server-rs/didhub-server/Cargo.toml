@@ -26,7 +26,7 @@ didhub-config = { path = "../didhub-config" }
 didhub-auth = { path = "../didhub-auth" }
 didhub-oidc = { path = "../didhub-oidc" }
 didhub-metrics = { path = "../didhub-metrics" }
-didhub-housekeeping = { path = "../didhub-housekeeping" }
+didhub-scheduler = { path = "../didhub-scheduler" }
 didhub-updater = { path = "../didhub-updater" }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["serde", "v4"] }

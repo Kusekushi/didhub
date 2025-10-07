@@ -11,6 +11,6 @@ members = [
     "didhub-auth",
     "didhub-oidc",
     "didhub-metrics",
-    "didhub-housekeeping",
-    "didhub-updater",
+    "didhub-scheduler",
+    "didhub-updater", "didhub-jobs",
 ]

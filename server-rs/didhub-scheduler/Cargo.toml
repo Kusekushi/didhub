@@ -1,0 +1,22 @@
+[package]
+name = "didhub-scheduler"
+version = "0.1.1"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+didhub-db = { path = "../didhub-db" }
+didhub-jobs = { path = "../didhub-jobs" }
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["fs", "sync", "time"] }
+tokio-cron-scheduler = "0.11"
+tracing = "0.1"
+async-trait = "0.1"
+tokio-util = "0.7.16"
+
+[dev-dependencies]
+tokio-test = "0.4"

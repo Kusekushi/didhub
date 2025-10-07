@@ -2,7 +2,7 @@ use didhub_cache as cache;
 use didhub_config as config;
 use didhub_db as db;
 use didhub_db::settings::SettingOperations;
-use didhub_housekeeping as housekeeping;
+use didhub_scheduler as housekeeping;
 use didhub_oidc as oidc;
 
 use crate::routes::admin::housekeeping::HousekeepingState;
@@ -10,7 +10,7 @@ use crate::upload_dir;
 
 pub struct ServiceComponents {
     pub upload_dir_cache: upload_dir::UploadDirCache,
-    pub registry: housekeeping::JobRegistry,
+    pub registry: housekeeping::CronScheduler,
     pub housekeeping_state: HousekeepingState,
     pub cache: cache::AppCache,
     pub oidc_state: oidc::OidcState,
@@ -21,7 +21,7 @@ impl ServiceComponents {
     pub async fn initialize(db: &db::Db, cfg: &config::AppConfig) -> Self {
         let upload_dir_cache = Self::initialize_upload_dir_cache(db, cfg).await;
         let registry = Self::initialize_housekeeping_registry().await;
-        let housekeeping_state = Self::create_housekeeping_state(db, &registry);
+        let housekeeping_state = Self::create_housekeeping_state(db, &registry).await;
         let cache = Self::initialize_cache(cfg).await;
         let oidc_state = oidc::OidcState::new();
         let oidc_settings = oidc::ProviderSettings::from_env();
@@ -55,21 +55,20 @@ impl ServiceComponents {
         upload_dir_cache
     }
 
-    async fn initialize_housekeeping_registry() -> housekeeping::JobRegistry {
-        let registry = housekeeping::build_default_registry().await;
-        registry
+    async fn initialize_housekeeping_registry() -> housekeeping::CronScheduler {
+        housekeeping::create_default_scheduler().await
     }
 
-    fn create_housekeeping_state(
+    async fn create_housekeeping_state(
         db: &db::Db,
-        registry: &housekeeping::JobRegistry,
+        registry: &housekeeping::CronScheduler,
     ) -> HousekeepingState {
         let housekeeping_state = HousekeepingState {
             db: db.clone(),
             registry: registry.clone(),
         };
 
-        let _ = housekeeping::spawn_scheduler(registry.clone(), db.clone());
+        let _ = registry.start(db.clone()).await;
         housekeeping_state
     }
 

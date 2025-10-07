@@ -4,13 +4,13 @@ use axum::{
 };
 use didhub_db::{common::CommonOperations, Db};
 use didhub_error::AppError;
-use didhub_housekeeping::{run_job_by_name, JobRegistry};
+use didhub_scheduler::CronScheduler;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct HousekeepingState {
     pub db: Db,
-    pub registry: JobRegistry,
+    pub registry: CronScheduler,
 }
 
 #[derive(Serialize)]
@@ -19,7 +19,7 @@ pub struct JobsList {
 }
 
 pub async fn list_jobs(Extension(state): Extension<HousekeepingState>) -> Json<JobsList> {
-    let jobs = state.registry.list().await;
+    let jobs = state.registry.list_jobs().await;
     Json(JobsList { jobs })
 }
 
@@ -87,11 +87,11 @@ pub async fn trigger_job(
     Path(name): Path<String>,
     Extension(state): Extension<HousekeepingState>,
 ) -> Result<Json<TriggerResponse>, AppError> {
-    let (rows, msg) = run_job_by_name(&state.registry, &state.db, &name).await?;
+    let outcome = state.registry.run_job_by_name(&state.db, &name).await?;
     Ok(Json(TriggerResponse {
         job: name,
-        rows_affected: rows,
-        message: msg,
+        rows_affected: outcome.rows_affected,
+        message: outcome.message.unwrap_or_default(),
     }))
 }
 

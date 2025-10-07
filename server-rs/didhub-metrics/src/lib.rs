@@ -193,7 +193,7 @@ pub static CACHE_OPERATIONS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
 // Housekeeping metrics
 pub static HOUSEKEEPING_RUNS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     let c = IntCounterVec::new(
-        opts!("didhub_housekeeping_runs_total", "Housekeeping job runs"),
+        opts!("didhub_scheduler_runs_total", "Scheduler job runs"),
         &["job", "result"],
     )
     .unwrap();
@@ -203,7 +203,7 @@ pub static HOUSEKEEPING_RUNS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
 
 pub static HOUSEKEEPING_DURATION: Lazy<Histogram> = Lazy::new(|| {
     let h = Histogram::with_opts(HistogramOpts::new(
-        "didhub_housekeeping_duration_seconds",
+        "didhub_scheduler_duration_seconds",
         "Housekeeping job duration in seconds",
     ))
     .unwrap();
