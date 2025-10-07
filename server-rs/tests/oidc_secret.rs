@@ -2,6 +2,8 @@ use didhub_server::{build_router, config::AppConfig, db};
 use sqlx::any::AnyPoolOptions;
 use axum::{body::Body, http::{Request, StatusCode}};
 use tower::ServiceExt; // for oneshot
+use argon2::{Argon2, PasswordHasher};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
 
 async fn test_app() -> (axum::Router, db::Db) {
     let cfg = AppConfig::default_for_tests();
@@ -13,7 +15,9 @@ async fn test_app() -> (axum::Router, db::Db) {
     let database = db::Db::from_any_pool(pool, db::DbBackend::Sqlite, database_url);
     // create minimal users table if not exists
     sqlx::query("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT, is_system INTEGER, is_admin INTEGER DEFAULT 0, is_approved INTEGER DEFAULT 1, created_at TEXT DEFAULT '')").execute(&database.pool).await.unwrap();
-    let hash = bcrypt::hash("password", bcrypt::DEFAULT_COST).unwrap();
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let hash = argon2.hash_password(b"password", &salt).unwrap().to_string();
     let admin = database.create_user(db::NewUser { username: "admin".into(), password_hash: hash, is_system: false, is_approved: true }).await.unwrap();
     sqlx::query("UPDATE users SET is_admin=1 WHERE id=?1")
         .bind(admin.id)

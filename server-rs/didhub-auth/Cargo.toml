@@ -9,7 +9,7 @@ axum = { version = "0.8", features = ["macros", "json", "multipart"] }
 jsonwebtoken = { version = "9", default-features = false, features = ["use_pem"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-bcrypt = "0.17"
+argon2 = "0.5"
 tracing = "0.1"
 didhub-db = { path = "../didhub-db" }
 didhub-error = { path = "../didhub-error" }

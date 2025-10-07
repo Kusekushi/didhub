@@ -2,6 +2,8 @@ use didhub_server::{db::Db, config::AppConfig, build_router};
 use axum::http::Request;
 use axum::body::Body;
 use tower::ServiceExt;
+use argon2::{Argon2, PasswordHasher};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
 
 async fn setup() -> (Db, AppConfig, axum::Router) {
     let path = format!("test-data/rl-{}.sqlite", uuid::Uuid::new_v4());
@@ -19,7 +21,9 @@ async fn setup() -> (Db, AppConfig, axum::Router) {
 async fn login_rate_limit() {
     let (db, _cfg, app) = setup().await;
     // create a user directly
-    let pass_hash = bcrypt::hash("pw", bcrypt::DEFAULT_COST).unwrap();
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let pass_hash = argon2.hash_password(b"pw", &salt).unwrap().to_string();
     sqlx::query("INSERT INTO users (username, password_hash, is_system, is_admin, is_approved, must_change_password) VALUES ('u1', ?, 0,0,1,0)")
         .bind(pass_hash)
         .execute(&db.pool).await.unwrap();

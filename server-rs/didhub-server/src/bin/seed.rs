@@ -1,5 +1,6 @@
 use anyhow::Result;
-use bcrypt::{hash, DEFAULT_COST};
+use argon2::{Argon2, PasswordHasher};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
 use didhub_config::AppConfig;
 use didhub_db::{users::UserOperations, Db, NewUser, UpdateUserFields};
 use tracing::info;
@@ -29,7 +30,9 @@ async fn main() -> Result<()> {
     // Basic seeds: admin (if not existing), demo user
     if let Some((admin_user, admin_pass)) = default_admin_pair(&cfg) {
         if db.fetch_user_by_username(&admin_user).await?.is_none() {
-            let ph = hash(&admin_pass, DEFAULT_COST)?;
+            let salt = SaltString::generate(&mut OsRng);
+            let argon2 = Argon2::default();
+            let ph = argon2.hash_password(admin_pass.as_bytes(), &salt)?.to_string();
             let u = db
                 .create_user(NewUser {
                     username: admin_user.clone(),
@@ -48,7 +51,9 @@ async fn main() -> Result<()> {
         }
     }
     if db.fetch_user_by_username("demo").await?.is_none() {
-        let ph = hash("demo1234", DEFAULT_COST)?;
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let ph = argon2.hash_password(b"demo1234", &salt)?.to_string();
         let u = db
             .create_user(NewUser {
                 username: "demo".into(),

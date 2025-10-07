@@ -257,14 +257,16 @@ impl Db {
     /// Create bootstrap admin user if configured and doesn't already exist
     pub async fn ensure_bootstrap_admin(&self, cfg: &didhub_config::AppConfig) -> Result<()> {
         use crate::models::{NewUser, UpdateUserFields};
-        use bcrypt::{hash, DEFAULT_COST};
+        use argon2::{Argon2, PasswordHasher};
+        use argon2::password_hash::{rand_core::OsRng, SaltString};
         use tracing::info;
 
         match (&cfg.bootstrap_admin_username, &cfg.bootstrap_admin_password) {
             (Some(username), Some(password)) if !username.is_empty() && !password.is_empty() => {
                 if self.fetch_user_by_username(username).await?.is_none() {
-                    let password_hash =
-                        hash(password, DEFAULT_COST).context("hashing bootstrap admin password")?;
+                    let salt = SaltString::generate(&mut OsRng);
+                    let argon2 = Argon2::default();
+                    let password_hash = argon2.hash_password(password.as_bytes(), &salt).map_err(|e| anyhow::anyhow!("hashing bootstrap admin password: {}", e))?.to_string();
 
                     let user = self
                         .create_user(NewUser {
