@@ -19,7 +19,7 @@ export default function Housekeeping() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [runs, setRuns] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [dryRun, setDryRun] = useState(true);
+  const [dryRun, setDryRun] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmJob, setConfirmJob] = useState<any | null>(null);
   const [confirmCandidates, setConfirmCandidates] = useState<any[]>([]);
@@ -41,6 +41,13 @@ export default function Housekeeping() {
         .map((item) => (typeof item === 'string' ? item : (item as { name?: unknown }).name))
         .filter((value): value is string => typeof value === 'string' && value.length > 0);
       setJobs(jobNames);
+
+      // Initialize dry run state for each job
+      const initialDryRun: Record<string, boolean> = {};
+      jobNames.forEach(name => {
+        initialDryRun[name] = true;
+      });
+      setDryRun(initialDryRun);
 
       const runsResponse = await httpClient.request<Record<string, unknown>>({
         path: '/api/housekeeping/runs',
@@ -164,14 +171,14 @@ export default function Housekeeping() {
                   <ListItemText primary={jobName} secondary={desc} />
                   <Stack direction="row" spacing={1} alignItems="center">
                     <FormControlLabel
-                      control={<Switch checked={dryRun} onChange={(e) => setDryRun(Boolean(e.target.checked))} />}
+                      control={<Switch checked={dryRun[jobName] ?? true} onChange={(e) => setDryRun(prev => ({ ...prev, [jobName]: Boolean(e.target.checked) }))} />}
                       label="Dry run"
                       sx={{ mr: 2 }}
                     />
                     <Button
                       variant="contained"
                       size="small"
-                      onClick={() => onRun(jobName, { dry: dryRun })}
+                      onClick={() => onRun(jobName, { dry: dryRun[jobName] ?? true })}
                       disabled={loading}
                     >
                       Run now
