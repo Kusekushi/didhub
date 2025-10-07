@@ -58,6 +58,10 @@ impl Job for MockJob {
         "Mock job for testing"
     }
 
+    fn default_schedule(&self) -> Option<&str> {
+        Some("@daily")
+    }
+
     async fn run(&self, _db: &Db, cancel_token: &CancellationToken) -> Result<JobOutcome> {
         // Increment execution count (don't hold lock across await)
         {
@@ -130,7 +134,7 @@ async fn test_job_registration() {
     assert!(config.is_some());
     let config = config.unwrap();
     assert!(config.enabled);
-    assert_eq!(config.schedule, "0 2 * * *"); // Default schedule
+    assert_eq!(config.schedule, "@daily"); // Default schedule
 }
 
 #[tokio::test]
@@ -167,7 +171,7 @@ async fn test_job_registration_disabled() {
     // Then disable
     let custom_config = JobScheduleConfig {
         enabled: false,
-        schedule: "0 2 * * *".to_string(),
+        schedule: "@daily".to_string(),
         last_run: None,
     };
 
@@ -275,7 +279,7 @@ async fn test_job_schedule_defaults() {
 
     let config = scheduler.get_schedule("mock_success").await.unwrap();
     assert!(config.enabled);
-    assert_eq!(config.schedule, "0 2 * * *"); // Default schedule
+    assert_eq!(config.schedule, "@daily"); // Default schedule
     assert!(config.last_run.is_none());
 }
 
@@ -360,4 +364,65 @@ async fn test_scheduler_isolation() {
 
     assert!(scheduler1.list_jobs().await.contains(&"job1".to_string()));
     assert!(scheduler2.list_jobs().await.contains(&"job2".to_string()));
+}
+
+#[tokio::test]
+async fn test_scheduler_graceful_shutdown_regression() {
+    // Regression test for issue where scheduler shutdown produced
+    // "Error receiving job removal Closed" and "Error receiving Closed" errors
+    
+    // Create a test database
+    let db_file = format!("test-scheduler-{}.sqlite", uuid::Uuid::new_v4());
+    let db = Db::connect_with_file(&db_file).await.expect("Failed to create test database");
+    
+    let scheduler = CronScheduler::new();
+    
+    // Register some jobs
+    let job1 = MockJob::new("shutdown_test_job1", true);
+    let job2 = MockJob::new("shutdown_test_job2", true);
+    scheduler.register_job(job1).await;
+    scheduler.register_job(job2).await;
+    
+    // Start the scheduler
+    let start_result = scheduler.start(db.clone()).await;
+    if let Err(ref e) = start_result {
+        eprintln!("Scheduler failed to start: {}", e);
+        panic!("Scheduler failed to start: {}", e);
+    }
+    assert!(start_result.is_ok(), "Scheduler should start successfully");
+    
+    // Give it a moment to initialize
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    
+    // Stop the scheduler - this should not produce errors
+    let stop_result = scheduler.stop().await;
+    assert!(stop_result.is_ok(), "Scheduler should stop gracefully without errors");
+    
+    // Clean up test database file
+    std::fs::remove_file(&db_file).ok();
+}
+
+#[tokio::test]
+async fn test_scheduler_double_stop() {
+    // Create a test database
+    let db_file = format!("test-double-stop-{}.sqlite", uuid::Uuid::new_v4());
+    let db = Db::connect_with_file(&db_file).await.expect("Failed to create test database");
+    
+    let scheduler = CronScheduler::new();
+    
+    // Register a job
+    let job = MockJob::new("double_stop_test", true);
+    scheduler.register_job(job).await;
+    
+    // Start and stop once
+    scheduler.start(db.clone()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    scheduler.stop().await.unwrap();
+    
+    // Stop again - should not panic or error
+    let second_stop_result = scheduler.stop().await;
+    assert!(second_stop_result.is_ok(), "Second stop should be safe");
+    
+    // Clean up
+    std::fs::remove_file(&db_file).ok();
 }

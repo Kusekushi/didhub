@@ -54,9 +54,28 @@ impl AppRouterBuilder {
     ///
     /// A fully configured Axum `Router`
     pub async fn build(self) -> Router {
-        let cors_layer = self.build_cors_layer();
         let service_components = ServiceComponents::initialize(&self.db, &self.config).await;
 
+        self.build_with_services(&service_components)
+    }
+
+    /// Build the application router with pre-initialized service components.
+    ///
+    /// This method is used when service components have already been initialized
+    /// and need to be reused (e.g., for proper shutdown handling).
+    ///
+    /// # Arguments
+    ///
+    /// * `service_components` - Pre-initialized service components
+    ///
+    /// # Returns
+    ///
+    /// A fully configured Axum `Router`
+    pub fn build_with_services(
+        &self,
+        service_components: &ServiceComponents,
+    ) -> Router {
+        let cors_layer = self.build_cors_layer();
         let auth_state = auth::AuthState {
             db: self.db.clone(),
             cfg: self.config.clone(),
@@ -110,13 +129,13 @@ impl AppRouterBuilder {
                 "/uploads/{filename}",
                 axum::routing::get(crate::routes::files::uploads::serve_file),
             )
-            .layer(axum::Extension(self.config))
-            .layer(axum::Extension(service_components.upload_dir_cache))
-            .layer(axum::Extension(self.db))
-            .layer(axum::Extension(service_components.oidc_state))
-            .layer(axum::Extension(service_components.oidc_settings))
-            .layer(axum::Extension(service_components.cache))
-            .layer(axum::Extension(service_components.housekeeping_state))
+            .layer(axum::Extension(self.config.clone()))
+            .layer(axum::Extension(service_components.upload_dir_cache.clone()))
+            .layer(axum::Extension(self.db.clone()))
+            .layer(axum::Extension(service_components.oidc_state.clone()))
+            .layer(axum::Extension(service_components.oidc_settings.clone()))
+            .layer(axum::Extension(service_components.cache.clone()))
+            .layer(axum::Extension(service_components.housekeeping_state.clone()))
             .route(
                 "/assets/{path}",
                 axum::routing::get(crate::routes::static_assets::serve_asset),

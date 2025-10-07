@@ -50,6 +50,38 @@ pub use didhub_oidc as oidc;
 
 use router::AppRouterBuilder;
 
+/// Application components including the router and services.
+///
+/// This struct contains the main Axum router and the service components
+/// that need to be managed during the application lifecycle.
+pub struct AppComponents {
+    pub router: Router,
+    pub services: services::ServiceComponents,
+}
+
+/// Build the main application router and service components.
+///
+/// This function constructs the Axum router with all routes and middleware,
+/// along with the service components that require lifecycle management.
+///
+/// # Arguments
+///
+/// * `db` - Database connection pool
+/// * `cfg` - Application configuration
+///
+/// # Returns
+///
+/// An `AppComponents` struct containing the router and services
+pub async fn build_app(db: db::Db, cfg: config::AppConfig) -> AppComponents {
+    let service_components = services::ServiceComponents::initialize(&db, &cfg).await;
+    let router = AppRouterBuilder::new(db, cfg).build_with_services(&service_components);
+    
+    AppComponents {
+        router,
+        services: service_components,
+    }
+}
+
 /// Build the main application router with all routes and middleware.
 ///
 /// This function constructs the Axum router with:
@@ -67,6 +99,7 @@ use router::AppRouterBuilder;
 /// # Returns
 ///
 /// A configured Axum `Router` ready to serve requests
+#[deprecated(note = "Use build_app instead to get both router and services for proper shutdown")]
 pub async fn build_router(db: db::Db, cfg: config::AppConfig) -> Router {
-    AppRouterBuilder::new(db, cfg).build().await
+    build_app(db, cfg).await.router
 }

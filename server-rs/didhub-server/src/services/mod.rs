@@ -8,6 +8,7 @@ use didhub_oidc as oidc;
 use crate::routes::admin::housekeeping::HousekeepingState;
 use crate::upload_dir;
 
+#[derive(Clone)]
 pub struct ServiceComponents {
     pub upload_dir_cache: upload_dir::UploadDirCache,
     pub registry: housekeeping::CronScheduler,

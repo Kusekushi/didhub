@@ -20,7 +20,7 @@
 use clap::Parser;
 use didhub_config as config;
 use didhub_db as db;
-use didhub_server::{self as server, logging};
+use didhub_server::{self as server, logging, services};
 use tracing::info;
 
 #[derive(Parser)]
@@ -83,7 +83,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let app = server::build_router(database.clone(), cfg.clone()).await;
+    let app_components = server::build_app(database.clone(), cfg.clone()).await;
 
     let listener = tokio::net::TcpListener::bind((cfg.host.as_str(), cfg.port)).await?;
     let db_source = if std::env::var("DIDHUB_DB").ok() == cfg.db_url {
@@ -92,8 +92,8 @@ async fn main() -> anyhow::Result<()> {
         "env"
     };
     info!(port = cfg.port, host = %cfg.host, origins=?cfg.frontend_origins, db_url=?cfg.db_url, db_source=%db_source, "DIDHub Rust server listening");
-    axum::serve(listener, app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
+    axum::serve(listener, app_components.router.into_make_service())
+        .with_graceful_shutdown(shutdown_signal_with_cleanup(app_components.services))
         .await?;
     Ok(())
 }
@@ -120,6 +120,17 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
     tracing::info!("shutdown signal received");
+}
+
+async fn shutdown_signal_with_cleanup(services: services::ServiceComponents) {
+    shutdown_signal().await;
+    
+    // Perform cleanup of services
+    tracing::info!("shutting down services");
+    if let Err(e) = services.registry.stop().await {
+        tracing::error!(error = %e, "failed to stop cron scheduler");
+    }
+    tracing::info!("services shutdown complete");
 }
 
 #[cfg(feature = "updater")]
