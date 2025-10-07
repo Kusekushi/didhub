@@ -71,10 +71,7 @@ impl AppRouterBuilder {
     /// # Returns
     ///
     /// A fully configured Axum `Router`
-    pub fn build_with_services(
-        &self,
-        service_components: &ServiceComponents,
-    ) -> Router {
+    pub fn build_with_services(&self, service_components: &ServiceComponents) -> Router {
         let cors_layer = self.build_cors_layer();
         let auth_state = auth::AuthState {
             db: self.db.clone(),
@@ -83,18 +80,24 @@ impl AppRouterBuilder {
         };
 
         let auth_routes = build_auth_routes(&auth_state)
-            .layer(axum::middleware::from_fn(validation::require_json_content_type))
+            .layer(axum::middleware::from_fn(
+                validation::require_json_content_type,
+            ))
             .layer(axum::middleware::from_fn(validation::validate_api_version));
         let protected_routes = build_protected_routes(&auth_state)
             .layer(from_fn_with_state(
                 auth_state.clone(),
                 auth::auth_middleware,
             ))
-            .layer(axum::middleware::from_fn(validation::require_json_content_type))
+            .layer(axum::middleware::from_fn(
+                validation::require_json_content_type,
+            ))
             .layer(axum::middleware::from_fn(validation::validate_api_version));
         let admin_routes = build_admin_routes(&auth_state)
             .layer(from_fn_with_state(auth_state, auth::auth_middleware))
-            .layer(axum::middleware::from_fn(validation::require_json_content_type))
+            .layer(axum::middleware::from_fn(
+                validation::require_json_content_type,
+            ))
             .layer(axum::middleware::from_fn(validation::validate_api_version));
 
         Router::new()
@@ -135,7 +138,9 @@ impl AppRouterBuilder {
             .layer(axum::Extension(service_components.oidc_state.clone()))
             .layer(axum::Extension(service_components.oidc_settings.clone()))
             .layer(axum::Extension(service_components.cache.clone()))
-            .layer(axum::Extension(service_components.housekeeping_state.clone()))
+            .layer(axum::Extension(
+                service_components.housekeeping_state.clone(),
+            ))
             .route(
                 "/assets/{path}",
                 axum::routing::get(crate::routes::static_assets::serve_asset),

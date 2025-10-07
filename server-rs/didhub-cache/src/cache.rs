@@ -1,9 +1,9 @@
-use anyhow::Result;
-use serde::{de::DeserializeOwned, Serialize};
-use std::time::Duration;
 use crate::interface::Cache;
 use crate::memory::MemoryCache;
 use crate::redis::{RedisCache, RedisManager};
+use anyhow::Result;
+use serde::{de::DeserializeOwned, Serialize};
+use std::time::Duration;
 
 #[derive(Clone)]
 pub enum CacheBackend {

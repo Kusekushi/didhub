@@ -1,6 +1,6 @@
 use anyhow::Result;
-use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHasher};
 use didhub_config::AppConfig;
 use didhub_db::{users::UserOperations, Db, NewUser};
 use tracing::info;
@@ -32,7 +32,10 @@ async fn main() -> Result<()> {
         if db.fetch_user_by_username(&admin_user).await?.is_none() {
             let salt = SaltString::generate(&mut OsRng);
             let argon2 = Argon2::default();
-            let ph = argon2.hash_password(admin_pass.as_bytes(), &salt).map_err(|e| anyhow::anyhow!("password hashing failed: {}", e))?.to_string();
+            let ph = argon2
+                .hash_password(admin_pass.as_bytes(), &salt)
+                .map_err(|e| anyhow::anyhow!("password hashing failed: {}", e))?
+                .to_string();
             let u = db
                 .create_user(NewUser {
                     username: admin_user.clone(),
@@ -42,10 +45,14 @@ async fn main() -> Result<()> {
                 })
                 .await?;
             // Grant admin privileges to the bootstrap admin user
-            db.update_user(u.id, didhub_db::UpdateUserFields {
-                is_admin: Some(true),
-                ..Default::default()
-            }).await?;
+            db.update_user(
+                u.id,
+                didhub_db::UpdateUserFields {
+                    is_admin: Some(true),
+                    ..Default::default()
+                },
+            )
+            .await?;
             info!(id = u.id, user=%admin_user, "seeded admin user with admin privileges");
             created += 1;
         }
@@ -53,7 +60,10 @@ async fn main() -> Result<()> {
     if db.fetch_user_by_username("demo").await?.is_none() {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
-        let ph = argon2.hash_password(b"demo1234", &salt).map_err(|e| anyhow::anyhow!("password hashing failed: {}", e))?.to_string();
+        let ph = argon2
+            .hash_password(b"demo1234", &salt)
+            .map_err(|e| anyhow::anyhow!("password hashing failed: {}", e))?
+            .to_string();
         let u = db
             .create_user(NewUser {
                 username: "demo".into(),

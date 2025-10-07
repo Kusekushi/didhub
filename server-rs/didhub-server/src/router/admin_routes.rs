@@ -78,7 +78,10 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
             "/admin/db/query",
             post(crate::routes::admin::misc::query_database),
         )
-        .route("/admin/oidc", get(crate::routes::auth::oidc::list_providers))
+        .route(
+            "/admin/oidc",
+            get(crate::routes::auth::oidc::list_providers),
+        )
         .route(
             "/oidc/{id}/enabled",
             post(crate::routes::auth::oidc::set_enabled),
@@ -114,6 +117,6 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
             post(crate::routes::admin::housekeeping::trigger_job),
         )
         .route("/metrics", get(metrics::metrics_handler))
-            .layer(axum::middleware::from_fn(auth::admin_guard_middleware))
+        .layer(axum::middleware::from_fn(auth::admin_guard_middleware))
         .with_state(auth_state.clone())
 }

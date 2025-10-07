@@ -119,7 +119,16 @@ impl GroupOperations for Db {
             DbBackend::Sqlite => sqlx::query_as::<_, Group>("SELECT id, name, description, sigil, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM groups WHERE id=?1").bind(id).fetch_optional(&self.pool).await?,
             _ => sqlx::query_as::<_, Group>("SELECT * FROM groups WHERE id=?1").bind(id).fetch_optional(&self.pool).await?,
         };
-        record_db_operation("fetch", "groups", if result.is_some() { "success" } else { "not_found" }, start.elapsed());
+        record_db_operation(
+            "fetch",
+            "groups",
+            if result.is_some() {
+                "success"
+            } else {
+                "not_found"
+            },
+            start.elapsed(),
+        );
         Ok(result)
     }
 
@@ -231,14 +240,32 @@ impl GroupOperations for Db {
         )
         .await?;
         let result = self.fetch_group(id).await;
-        record_db_operation("update", "groups", if result.is_ok() && result.as_ref().unwrap().is_some() { "success" } else { "error" }, start.elapsed());
+        record_db_operation(
+            "update",
+            "groups",
+            if result.is_ok() && result.as_ref().unwrap().is_some() {
+                "success"
+            } else {
+                "error"
+            },
+            start.elapsed(),
+        );
         result
     }
 
     async fn delete_group(&self, id: i64) -> Result<bool> {
         let start = Instant::now();
         let result = delete_entity(self, "groups", id).await;
-        record_db_operation("delete", "groups", if result.is_ok() && *result.as_ref().unwrap() { "success" } else { "not_found" }, start.elapsed());
+        record_db_operation(
+            "delete",
+            "groups",
+            if result.is_ok() && *result.as_ref().unwrap() {
+                "success"
+            } else {
+                "not_found"
+            },
+            start.elapsed(),
+        );
         result
     }
 

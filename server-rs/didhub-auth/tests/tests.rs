@@ -1,5 +1,5 @@
 use didhub_auth::{
-    extract_bearer_token, sign_jwt, MUST_CHANGE_PASSWORD_ALLOW, validate_password_strength,
+    extract_bearer_token, sign_jwt, validate_password_strength, MUST_CHANGE_PASSWORD_ALLOW,
 };
 use didhub_config::AppConfig;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
@@ -12,46 +12,82 @@ fn test_validate_password_strength_valid() {
 
 #[test]
 fn test_validate_password_strength_too_short() {
-    assert_eq!(validate_password_strength("Short1"), Some("password too short. want at least 8 characters.".to_string()));
+    assert_eq!(
+        validate_password_strength("Short1"),
+        Some("password too short. want at least 8 characters.".to_string())
+    );
 }
 
 #[test]
 fn test_validate_password_strength_too_long() {
     let long_password = "A".repeat(129);
-    assert_eq!(validate_password_strength(&long_password), Some("password too long. maximum 128 characters.".to_string()));
+    assert_eq!(
+        validate_password_strength(&long_password),
+        Some("password too long. maximum 128 characters.".to_string())
+    );
 }
 
 #[test]
 fn test_validate_password_strength_no_uppercase() {
-    assert_eq!(validate_password_strength("lowercase123"), Some("password must contain at least one uppercase letter.".to_string()));
+    assert_eq!(
+        validate_password_strength("lowercase123"),
+        Some("password must contain at least one uppercase letter.".to_string())
+    );
 }
 
 #[test]
 fn test_validate_password_strength_no_lowercase() {
-    assert_eq!(validate_password_strength("UPPERCASE123"), Some("password must contain at least one lowercase letter.".to_string()));
+    assert_eq!(
+        validate_password_strength("UPPERCASE123"),
+        Some("password must contain at least one lowercase letter.".to_string())
+    );
 }
 
 #[test]
 fn test_validate_password_strength_no_digit() {
-    assert_eq!(validate_password_strength("Password"), Some("password must contain at least one digit.".to_string()));
+    assert_eq!(
+        validate_password_strength("Password"),
+        Some("password must contain at least one digit.".to_string())
+    );
 }
 
 #[test]
 fn test_validate_password_strength_common_password() {
     // These should fail basic requirements first, not common password check
-    assert_eq!(validate_password_strength("password123"), Some("password must contain at least one uppercase letter.".to_string()));
-    assert_eq!(validate_password_strength("qwerty123"), Some("password must contain at least one uppercase letter.".to_string()));
-    
+    assert_eq!(
+        validate_password_strength("password123"),
+        Some("password must contain at least one uppercase letter.".to_string())
+    );
+    assert_eq!(
+        validate_password_strength("qwerty123"),
+        Some("password must contain at least one uppercase letter.".to_string())
+    );
+
     // These should pass basic requirements but fail common password check
-    assert_eq!(validate_password_strength("Password123"), Some("password is too common. please choose a stronger password.".to_string()));
-    assert_eq!(validate_password_strength("Qwerty123"), Some("password is too common. please choose a stronger password.".to_string()));
+    assert_eq!(
+        validate_password_strength("Password123"),
+        Some("password is too common. please choose a stronger password.".to_string())
+    );
+    assert_eq!(
+        validate_password_strength("Qwerty123"),
+        Some("password is too common. please choose a stronger password.".to_string())
+    );
 }
 
 #[test]
 fn test_extract_bearer_token_valid() {
-    assert_eq!(extract_bearer_token(Some("Bearer token123")), Some("token123".to_string()));
-    assert_eq!(extract_bearer_token(Some("bearer token123")), Some("token123".to_string()));
-    assert_eq!(extract_bearer_token(Some("BEARER token123")), Some("token123".to_string()));
+    assert_eq!(
+        extract_bearer_token(Some("Bearer token123")),
+        Some("token123".to_string())
+    );
+    assert_eq!(
+        extract_bearer_token(Some("bearer token123")),
+        Some("token123".to_string())
+    );
+    assert_eq!(
+        extract_bearer_token(Some("BEARER token123")),
+        Some("token123".to_string())
+    );
 }
 
 #[test]
@@ -65,9 +101,18 @@ fn test_extract_bearer_token_invalid() {
 
 #[test]
 fn test_extract_bearer_token_edge_cases() {
-    assert_eq!(extract_bearer_token(Some("Bearer   token")), Some("token".to_string()));
-    assert_eq!(extract_bearer_token(Some("Bearer\ttoken")), Some("token".to_string()));
-    assert_eq!(extract_bearer_token(Some("Bearer token with spaces")), Some("token with spaces".to_string()));
+    assert_eq!(
+        extract_bearer_token(Some("Bearer   token")),
+        Some("token".to_string())
+    );
+    assert_eq!(
+        extract_bearer_token(Some("Bearer\ttoken")),
+        Some("token".to_string())
+    );
+    assert_eq!(
+        extract_bearer_token(Some("Bearer token with spaces")),
+        Some("token with spaces".to_string())
+    );
 }
 
 #[test]
@@ -83,7 +128,8 @@ fn test_sign_jwt() {
         &token,
         &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
-    ).unwrap();
+    )
+    .unwrap();
 
     assert_eq!(decoded.claims.sub, "testuser");
     assert!(decoded.claims.exp > 0);
@@ -100,13 +146,15 @@ fn test_sign_jwt_different_users() {
         &token1,
         &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
-    ).unwrap();
+    )
+    .unwrap();
 
     let decoded2 = decode::<didhub_auth::Claims>(
         &token2,
         &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
-    ).unwrap();
+    )
+    .unwrap();
 
     assert_eq!(decoded1.claims.sub, "user1");
     assert_eq!(decoded2.claims.sub, "user2");
@@ -126,20 +174,47 @@ fn test_must_change_password_allow_list() {
 #[test]
 fn test_validate_password_strength_comprehensive() {
     // Test various edge cases
-    assert_eq!(validate_password_strength(""), Some("password too short. want at least 8 characters.".to_string()));
-    assert_eq!(validate_password_strength("1234567"), Some("password too short. want at least 8 characters.".to_string()));
-    assert_eq!(validate_password_strength("12345678"), Some("password must contain at least one uppercase letter.".to_string())); // Exactly 8 chars but no uppercase
-    assert_eq!(validate_password_strength("password"), Some("password must contain at least one uppercase letter.".to_string()));
-    assert_eq!(validate_password_strength("PASSWORD"), Some("password must contain at least one lowercase letter.".to_string()));
-    assert_eq!(validate_password_strength("Password"), Some("password must contain at least one digit.".to_string()));
+    assert_eq!(
+        validate_password_strength(""),
+        Some("password too short. want at least 8 characters.".to_string())
+    );
+    assert_eq!(
+        validate_password_strength("1234567"),
+        Some("password too short. want at least 8 characters.".to_string())
+    );
+    assert_eq!(
+        validate_password_strength("12345678"),
+        Some("password must contain at least one uppercase letter.".to_string())
+    ); // Exactly 8 chars but no uppercase
+    assert_eq!(
+        validate_password_strength("password"),
+        Some("password must contain at least one uppercase letter.".to_string())
+    );
+    assert_eq!(
+        validate_password_strength("PASSWORD"),
+        Some("password must contain at least one lowercase letter.".to_string())
+    );
+    assert_eq!(
+        validate_password_strength("Password"),
+        Some("password must contain at least one digit.".to_string())
+    );
 
     // Test weak passwords (these pass basic requirements but are common)
-    assert_eq!(validate_password_strength("Password123"), Some("password is too common. please choose a stronger password.".to_string()));
-    assert_eq!(validate_password_strength("Qwerty123"), Some("password is too common. please choose a stronger password.".to_string()));
+    assert_eq!(
+        validate_password_strength("Password123"),
+        Some("password is too common. please choose a stronger password.".to_string())
+    );
+    assert_eq!(
+        validate_password_strength("Qwerty123"),
+        Some("password is too common. please choose a stronger password.".to_string())
+    );
 
     // Test length limits
     let long_password = "A".repeat(129);
-    assert_eq!(validate_password_strength(&long_password), Some("password too long. maximum 128 characters.".to_string()));
+    assert_eq!(
+        validate_password_strength(&long_password),
+        Some("password too long. maximum 128 characters.".to_string())
+    );
 
     // Test valid passwords
     assert_eq!(validate_password_strength("ValidPass123!@#"), None);
@@ -150,17 +225,32 @@ fn test_validate_password_strength_comprehensive() {
 #[test]
 fn test_extract_bearer_token_comprehensive() {
     // Valid cases
-    assert_eq!(extract_bearer_token(Some("Bearer token123")), Some("token123".to_string()));
-    assert_eq!(extract_bearer_token(Some("bearer token123")), Some("token123".to_string()));
-    assert_eq!(extract_bearer_token(Some("BEARER token123")), Some("token123".to_string()));
+    assert_eq!(
+        extract_bearer_token(Some("Bearer token123")),
+        Some("token123".to_string())
+    );
+    assert_eq!(
+        extract_bearer_token(Some("bearer token123")),
+        Some("token123".to_string())
+    );
+    assert_eq!(
+        extract_bearer_token(Some("BEARER token123")),
+        Some("token123".to_string())
+    );
 
     // Invalid cases
     assert_eq!(extract_bearer_token(Some("Basic token123")), None);
     assert_eq!(extract_bearer_token(Some("Bearer")), None);
     assert_eq!(extract_bearer_token(Some("Bearer ")), None);
     assert_eq!(extract_bearer_token(Some("")), None);
-    assert_eq!(extract_bearer_token(Some("Bearer token with spaces")), Some("token with spaces".to_string()));
-    assert_eq!(extract_bearer_token(Some("Bearer\ttabbed")), Some("tabbed".to_string()));
+    assert_eq!(
+        extract_bearer_token(Some("Bearer token with spaces")),
+        Some("token with spaces".to_string())
+    );
+    assert_eq!(
+        extract_bearer_token(Some("Bearer\ttabbed")),
+        Some("tabbed".to_string())
+    );
     assert_eq!(extract_bearer_token(None), None);
 }
 
@@ -178,7 +268,8 @@ fn test_sign_jwt_comprehensive() {
         &token,
         &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
-    ).unwrap();
+    )
+    .unwrap();
 
     assert_eq!(decoded.claims.sub, "testuser");
     assert!(decoded.claims.exp > 0);
@@ -189,7 +280,8 @@ fn test_sign_jwt_comprehensive() {
         &token2,
         &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(decoded2.claims.sub, "anotheruser");
 }
 
@@ -216,8 +308,8 @@ fn test_must_change_password_allow_list_comprehensive() {
 #[cfg(test)]
 mod handler_tests {
     use super::*;
-    use didhub_middleware::types::CurrentUser;
     use didhub_auth::me_handler;
+    use didhub_middleware::types::CurrentUser;
 
     #[tokio::test]
     async fn test_me_handler() {
@@ -234,7 +326,7 @@ mod handler_tests {
 
         // Test the me_handler function
         let result = me_handler(axum::extract::Extension(user)).await;
-        
+
         match result {
             Ok(_) => {
                 // The response should be successful
@@ -258,7 +350,7 @@ mod middleware_tests {
         assert!(MUST_CHANGE_PASSWORD_ALLOW.contains(&"/api/password-reset/request"));
         assert!(MUST_CHANGE_PASSWORD_ALLOW.contains(&"/api/password-reset/verify"));
         assert!(MUST_CHANGE_PASSWORD_ALLOW.contains(&"/api/password-reset/consume"));
-        
+
         // Test that it doesn't contain other paths
         assert!(!MUST_CHANGE_PASSWORD_ALLOW.contains(&"/api/users"));
         assert!(!MUST_CHANGE_PASSWORD_ALLOW.contains(&"/api/admin"));

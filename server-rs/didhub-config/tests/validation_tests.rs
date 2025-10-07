@@ -18,7 +18,11 @@ fn validate_config_rejects_weak_jwt_secret() {
     cfg.jwt_secret = "dev-secret-change-me".to_string();
     cfg.db_url = Some("sqlite://test.db".to_string());
     assert!(cfg.validate().is_err());
-    assert!(cfg.validate().unwrap_err().to_string().contains("DIDHUB_SECRET"));
+    assert!(cfg
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("DIDHUB_SECRET"));
 }
 
 #[test]
@@ -27,7 +31,11 @@ fn validate_config_rejects_short_jwt_secret() {
     cfg.jwt_secret = "short".to_string();
     cfg.db_url = Some("sqlite://test.db".to_string());
     assert!(cfg.validate().is_err());
-    assert!(cfg.validate().unwrap_err().to_string().contains("32 characters"));
+    assert!(cfg
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("32 characters"));
 }
 
 #[test]
@@ -35,7 +43,11 @@ fn validate_config_rejects_missing_database_url() {
     let mut cfg = AppConfig::default_for_tests();
     cfg.jwt_secret = "a".repeat(32); // Set valid JWT secret so we get to DB check
     assert!(cfg.validate().is_err());
-    assert!(cfg.validate().unwrap_err().to_string().contains("Database URL"));
+    assert!(cfg
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("Database URL"));
 }
 
 #[test]
@@ -45,7 +57,11 @@ fn validate_config_rejects_empty_upload_dir() {
     cfg.db_url = Some("sqlite://test.db".to_string());
     cfg.upload_dir = "".to_string();
     assert!(cfg.validate().is_err());
-    assert!(cfg.validate().unwrap_err().to_string().contains("Upload directory"));
+    assert!(cfg
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("Upload directory"));
 }
 
 #[test]
@@ -56,7 +72,11 @@ fn validate_config_rejects_empty_frontend_origins_when_not_allowing_all() {
     cfg.allow_all_frontend_origins = false;
     cfg.frontend_origins = vec![];
     assert!(cfg.validate().is_err());
-    assert!(cfg.validate().unwrap_err().to_string().contains("Frontend origins"));
+    assert!(cfg
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("Frontend origins"));
 }
 
 #[test]
@@ -66,7 +86,11 @@ fn validate_config_rejects_invalid_port_zero() {
     cfg.db_url = Some("sqlite://test.db".to_string());
     cfg.port = 0;
     assert!(cfg.validate().is_err());
-    assert!(cfg.validate().unwrap_err().to_string().contains("Port must be between"));
+    assert!(cfg
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("Port must be between"));
 }
 
 #[test]
@@ -77,5 +101,9 @@ fn validate_config_rejects_zero_update_interval() {
     cfg.port = 8080; // Set valid port so we get to update interval check
     cfg.update_check_interval_hours = 0;
     assert!(cfg.validate().is_err());
-    assert!(cfg.validate().unwrap_err().to_string().contains("Update check interval"));
+    assert!(cfg
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("Update check interval"));
 }

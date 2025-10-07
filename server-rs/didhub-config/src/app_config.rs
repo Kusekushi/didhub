@@ -49,9 +49,7 @@ impl AppConfig {
         let mut file_update_check_interval_hours: Option<u64> = None;
         if let Some(path) = cfg_file_path.as_ref() {
             if Path::new(path).exists() {
-                match Config::builder()
-                    .add_source(File::with_name(path))
-                    .build() {
+                match Config::builder().add_source(File::with_name(path)).build() {
                     Ok(cfg_file) => {
                         let config_dir = std::path::Path::new(path)
                             .parent()
@@ -65,22 +63,36 @@ impl AppConfig {
                                 let driver_lc = db.driver.to_lowercase();
                                 match driver_lc.as_str() {
                                     "sqlite" => {
-                                        let p = db.path.unwrap_or_else(|| "./data/didhub.sqlite".into());
+                                        let p = db
+                                            .path
+                                            .unwrap_or_else(|| "./data/didhub.sqlite".into());
                                         let abs = normalize_path(&p, config_dir);
                                         Some(format!("sqlite://{abs}"))
                                     }
                                     "postgres" | "postgresql" => {
                                         let host = db.host.unwrap_or_else(|| "localhost".into());
                                         let port = db.port.unwrap_or(5432);
-                                        let database = db.database.unwrap_or_else(|| "didhub".into());
+                                        let database =
+                                            db.database.unwrap_or_else(|| "didhub".into());
                                         let user = db.username.unwrap_or_else(|| "didhub".into());
                                         let pass = db.password.unwrap_or_else(|| "didhub".into());
-                                        if database.is_empty() || user.is_empty() { None } else {
-                                            let mut url = format!("postgres://{user}:{pass}@{host}:{port}/{database}");
+                                        if database.is_empty() || user.is_empty() {
+                                            None
+                                        } else {
+                                            let mut url = format!(
+                                                "postgres://{user}:{pass}@{host}:{port}/{database}"
+                                            );
                                             if let Some(ssl) = db.ssl_mode {
                                                 let ssl_lc = ssl.to_lowercase();
-                                                let allowed = ["disable","require","verify-ca","verify-full"];
-                                                if !ssl_lc.is_empty() && allowed.contains(&ssl_lc.as_str()) {
+                                                let allowed = [
+                                                    "disable",
+                                                    "require",
+                                                    "verify-ca",
+                                                    "verify-full",
+                                                ];
+                                                if !ssl_lc.is_empty()
+                                                    && allowed.contains(&ssl_lc.as_str())
+                                                {
                                                     url.push_str(&format!("?sslmode={ssl_lc}"));
                                                 }
                                             }
@@ -90,14 +102,26 @@ impl AppConfig {
                                     "mysql" => {
                                         let host = db.host.unwrap_or_else(|| "localhost".into());
                                         let port = db.port.unwrap_or(3306);
-                                        let database = db.database.unwrap_or_else(|| "didhub".into());
+                                        let database =
+                                            db.database.unwrap_or_else(|| "didhub".into());
                                         let user = db.username.unwrap_or_else(|| "didhub".into());
                                         let pass = db.password.unwrap_or_else(|| "didhub".into());
-                                        if database.is_empty() || user.is_empty() { None } else { Some(format!("mysql://{user}:{pass}@{host}:{port}/{database}")) }
+                                        if database.is_empty() || user.is_empty() {
+                                            None
+                                        } else {
+                                            Some(format!(
+                                                "mysql://{user}:{pass}@{host}:{port}/{database}"
+                                            ))
+                                        }
                                     }
-                                    _ => { tracing::warn!(target="didhub_server", driver=%db.driver, "unsupported database driver in config file"); None }
+                                    _ => {
+                                        tracing::warn!(target="didhub_server", driver=%db.driver, "unsupported database driver in config file");
+                                        None
+                                    }
                                 }
-                            } { file_db_url = Some(url_opt); }
+                            } {
+                                file_db_url = Some(url_opt);
+                            }
                         }
 
                         // Extract logging section
@@ -169,8 +193,12 @@ impl AppConfig {
             .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes"))
             .or(file_allow_all_origins)
             .unwrap_or(false);
-        let raw_origins = std::env::var("FRONTEND_BASE_URL")
-            .unwrap_or_else(|_| file_frontend_origins.as_ref().map(|origins| origins.join(",")).unwrap_or_else(|| "http://localhost:5173,http://localhost:5174".into()));
+        let raw_origins = std::env::var("FRONTEND_BASE_URL").unwrap_or_else(|_| {
+            file_frontend_origins
+                .as_ref()
+                .map(|origins| origins.join(","))
+                .unwrap_or_else(|| "http://localhost:5173,http://localhost:5174".into())
+        });
         let frontend_origins = parse_origin_list(&raw_origins);
         // Determine JSON log formatting preference: env var overrides file, otherwise file value or default
         let log_json = std::env::var("LOG_FORMAT")
@@ -217,11 +245,10 @@ impl AppConfig {
             .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes"))
             .or(file_auto_update_check)
             .unwrap_or(false);
-        let update_repo =
-            std::env::var("UPDATE_REPO")
-                .ok()
-                .or(file_update_repo)
-                .unwrap_or_else(|| "Kusekushi/didhub".into());
+        let update_repo = std::env::var("UPDATE_REPO")
+            .ok()
+            .or(file_update_repo)
+            .unwrap_or_else(|| "Kusekushi/didhub".into());
         let update_check_interval_hours = std::env::var("UPDATE_CHECK_INTERVAL_HOURS")
             .ok()
             .and_then(|s| s.parse().ok())
@@ -308,7 +335,9 @@ impl AppConfig {
 
         // Check update interval
         if self.update_check_interval_hours == 0 {
-            return Err(anyhow::anyhow!("Update check interval must be greater than 0 hours"));
+            return Err(anyhow::anyhow!(
+                "Update check interval must be greater than 0 hours"
+            ));
         }
 
         Ok(())

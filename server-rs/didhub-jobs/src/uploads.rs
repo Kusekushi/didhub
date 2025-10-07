@@ -1,10 +1,10 @@
 use super::*;
 use chrono::{Duration, Utc};
 use didhub_db::audit;
-use didhub_db::NewUpload;
 use didhub_db::settings::SettingOperations;
 use didhub_db::uploads::UploadOperations;
 use didhub_db::users::UserOperations;
+use didhub_db::NewUpload;
 use serde_json::json;
 use std::path::PathBuf;
 use tokio::fs;
@@ -30,7 +30,11 @@ impl Job for UploadsGcJob {
         Some("@daily") // Daily at 2am
     }
 
-    async fn run(&self, db: &didhub_db::Db, cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         tracing::info!("starting uploads garbage collection job");
 
         // Determine retention days; default 7
@@ -45,14 +49,16 @@ impl Job for UploadsGcJob {
 
         if days <= 0 {
             tracing::info!(retention_days=%days, "uploads GC disabled (non-positive days)");
-            return Ok(JobOutcome::new(0, Some("gc disabled (non-positive days)".into())));
+            return Ok(JobOutcome::new(
+                0,
+                Some("gc disabled (non-positive days)".into()),
+            ));
         }
 
         tracing::debug!(retention_days=%days, "scanning for referenced upload files");
 
         // Build referenced set from avatars + uploads table entries
-        let mut referenced: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
+        let mut referenced: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         // Paginate users to avoid large single query memory (batch 1000)
         let mut offset = 0i64;
@@ -60,9 +66,12 @@ impl Job for UploadsGcJob {
         loop {
             if cancel_token.is_cancelled() {
                 tracing::info!("uploads GC job cancelled during user scan");
-                return Ok(JobOutcome::new(0, Some("cancelled during user scan".into())));
+                return Ok(JobOutcome::new(
+                    0,
+                    Some("cancelled during user scan".into()),
+                ));
             }
-            
+
             if let Ok(users) = db.list_users(batch, offset).await {
                 let count = users.len();
                 for u in users {
@@ -108,9 +117,15 @@ impl Job for UploadsGcJob {
         while let Some(ent) = rd.next_entry().await? {
             if cancel_token.is_cancelled() {
                 tracing::info!("uploads GC job cancelled during file scan");
-                return Ok(JobOutcome::new(removed, Some(format!("cancelled during file scan, removed {} files", removed))));
+                return Ok(JobOutcome::new(
+                    removed,
+                    Some(format!(
+                        "cancelled during file scan, removed {} files",
+                        removed
+                    )),
+                ));
             }
-            
+
             let meta = ent.metadata().await?;
             if !meta.is_file() {
                 continue;
@@ -181,7 +196,7 @@ impl Job for UploadsGcJob {
         tracing::info!(removed_files=%removed, retention_days=%days, "uploads GC job completed");
         Ok(JobOutcome::new(
             removed,
-            Some(format!("removed {} orphaned/purged images", removed))
+            Some(format!("removed {} orphaned/purged images", removed)),
         ))
     }
 }
@@ -207,7 +222,11 @@ impl Job for UploadsBackfillJob {
         false // Run once, then disable
     }
 
-    async fn run(&self, db: &didhub_db::Db, cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         // Skip if sentinel indicates done
         if let Ok(Some(done)) = db.get_setting("uploads.backfill.done").await {
             if done.value == "true" {
@@ -233,9 +252,15 @@ impl Job for UploadsBackfillJob {
         while let Some(ent) = rd.next_entry().await? {
             if cancel_token.is_cancelled() {
                 tracing::info!("uploads backfill job cancelled during file scan");
-                return Ok(JobOutcome::new(added, Some(format!("cancelled during file scan, added {} entries", added))));
+                return Ok(JobOutcome::new(
+                    added,
+                    Some(format!(
+                        "cancelled during file scan, added {} entries",
+                        added
+                    )),
+                ));
             }
-            
+
             let meta = ent.metadata().await?;
             if !meta.is_file() {
                 continue;
@@ -298,7 +323,7 @@ impl Job for UploadsBackfillJob {
 
         Ok(JobOutcome::new(
             added,
-            Some(format!("added {} missing upload rows", added))
+            Some(format!("added {} missing upload rows", added)),
         ))
     }
 }
@@ -324,7 +349,11 @@ impl Job for UploadsIntegrityJob {
         Some("@daily") // Daily integrity check
     }
 
-    async fn run(&self, db: &didhub_db::Db, cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         let upload_dir = if let Ok(env_dir) = std::env::var("UPLOAD_DIR") {
             env_dir
         } else if let Ok(Some(s)) = db.get_setting("app.upload_dir").await {
@@ -347,7 +376,7 @@ impl Job for UploadsIntegrityJob {
                 tracing::info!("uploads integrity job cancelled during DB scan");
                 return Ok(JobOutcome::new(0, Some("cancelled during DB scan".into())));
             }
-            
+
             match db
                 .list_uploads_filtered(None, None, None, false, batch, offset)
                 .await
@@ -373,9 +402,12 @@ impl Job for UploadsIntegrityJob {
         while let Some(ent) = rd.next_entry().await? {
             if cancel_token.is_cancelled() {
                 tracing::info!("uploads integrity job cancelled during filesystem scan");
-                return Ok(JobOutcome::new(0, Some("cancelled during filesystem scan".into())));
+                return Ok(JobOutcome::new(
+                    0,
+                    Some("cancelled during filesystem scan".into()),
+                ));
             }
-            
+
             if ent.metadata().await?.is_file() {
                 if let Some(n) = ent.file_name().to_str() {
                     fs_names.insert(n.to_string());
@@ -418,7 +450,7 @@ impl Job for UploadsIntegrityJob {
 
         Ok(JobOutcome::new(
             issues,
-            Some(format!("integrity issues detected: {}", issues))
+            Some(format!("integrity issues detected: {}", issues)),
         ))
     }
 }

@@ -1,3 +1,5 @@
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHasher};
 use axum::{
     extract::{Extension, Path, Query, State},
     Json,
@@ -8,8 +10,6 @@ use didhub_db::{Db, NewUser, UpdateUserFields, User, UserListFilters};
 use didhub_error::AppError;
 use didhub_middleware::types::{AdminFlag, CurrentUser};
 use serde::{Deserialize, Serialize};
-use argon2::{Argon2, PasswordHasher};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
 
 #[derive(Deserialize, Debug)]
 pub struct UsersQuery {
@@ -263,7 +263,10 @@ pub async fn create_user(
     }
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let password_hash = argon2.hash_password(payload.password.as_bytes(), &salt).map_err(|_| AppError::Internal)?.to_string();
+    let password_hash = argon2
+        .hash_password(payload.password.as_bytes(), &salt)
+        .map_err(|_| AppError::Internal)?
+        .to_string();
     let mut user = db
         .create_user(NewUser {
             username: uname.to_string(),
@@ -310,7 +313,10 @@ pub async fn admin_password_reset(
     }
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let hash = argon2.hash_password(payload.password.as_bytes(), &salt).map_err(|_| AppError::Internal)?.to_string();
+    let hash = argon2
+        .hash_password(payload.password.as_bytes(), &salt)
+        .map_err(|_| AppError::Internal)?
+        .to_string();
     let mut fields = UpdateUserFields::default();
     fields.password_hash = Some(hash);
     fields.must_change_password = Some(false);

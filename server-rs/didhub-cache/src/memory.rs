@@ -1,10 +1,10 @@
 use crate::interface::Cache;
 use anyhow::Result;
 use dashmap::DashMap;
+use didhub_metrics::record_cache_operation;
 use serde::{de::DeserializeOwned, Serialize};
 use std::time::{Duration, Instant};
 use tracing::trace;
-use didhub_metrics::record_cache_operation;
 
 #[derive(Clone)]
 pub struct MemoryEntry {
@@ -139,16 +139,20 @@ impl Cache for MemoryCache {
     }
 
     async fn ping(&self) -> Result<bool> {
-        trace!(backend="memory", "cache ping operation");
+        trace!(backend = "memory", "cache ping operation");
         // Memory cache is always available
-        trace!(backend="memory", ping_success=true, "cache ping completed");
+        trace!(
+            backend = "memory",
+            ping_success = true,
+            "cache ping completed"
+        );
         Ok(true)
     }
 
     async fn get_info(&self) -> Result<Option<std::collections::HashMap<String, String>>> {
-        trace!(backend="memory", "cache get_info operation");
+        trace!(backend = "memory", "cache get_info operation");
         // Memory cache doesn't have meaningful info to provide
-        trace!(backend="memory", "cache get_info completed");
+        trace!(backend = "memory", "cache get_info completed");
         Ok(None)
     }
 }

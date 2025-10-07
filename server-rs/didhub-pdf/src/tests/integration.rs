@@ -216,7 +216,11 @@ fn test_multiple_pdf_generations() {
 
     for alter in &alters {
         let result = generate_alter_pdf(alter, None);
-        assert!(result.is_ok(), "Failed to generate PDF for alter {}", alter.name);
+        assert!(
+            result.is_ok(),
+            "Failed to generate PDF for alter {}",
+            alter.name
+        );
 
         let pdf_data = result.unwrap();
         assert!(!pdf_data.is_empty());
@@ -264,7 +268,11 @@ fn test_pdf_generation_performance() {
 
     assert!(result.is_ok());
     // Should complete in less than 10 seconds
-    assert!(duration.as_secs() < 10, "PDF generation took too long: {:?}", duration);
+    assert!(
+        duration.as_secs() < 10,
+        "PDF generation took too long: {:?}",
+        duration
+    );
 }
 
 #[test]

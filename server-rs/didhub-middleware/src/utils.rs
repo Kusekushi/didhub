@@ -77,9 +77,22 @@ pub fn generate_cache_key(method: &Method, path: &str) -> String {
 /// Check if a user agent string indicates a bot or crawler.
 pub fn is_bot_user_agent(user_agent: &str) -> bool {
     let bot_indicators = [
-        "bot", "crawler", "spider", "scraper", "indexer", "archive",
-        "googlebot", "bingbot", "slurp", "duckduckbot", "baiduspider",
-        "yandexbot", "sogou", "exabot", "facebot", "ia_archiver"
+        "bot",
+        "crawler",
+        "spider",
+        "scraper",
+        "indexer",
+        "archive",
+        "googlebot",
+        "bingbot",
+        "slurp",
+        "duckduckbot",
+        "baiduspider",
+        "yandexbot",
+        "sogou",
+        "exabot",
+        "facebot",
+        "ia_archiver",
     ];
 
     let ua_lower = user_agent.to_lowercase();
@@ -121,7 +134,10 @@ mod tests {
     fn test_path_matches_pattern() {
         assert!(path_matches_pattern("/api/users", "/api/users"));
         assert!(path_matches_pattern("/api/users/123", "/api/users/*"));
-        assert!(path_matches_pattern("/api/users/123/profile", "/api/users/*/profile"));
+        assert!(path_matches_pattern(
+            "/api/users/123/profile",
+            "/api/users/*/profile"
+        ));
         assert!(!path_matches_pattern("/api/posts", "/api/users"));
         assert!(!path_matches_pattern("/api/users", "/api/users/*"));
     }
@@ -136,8 +152,12 @@ mod tests {
 
     #[test]
     fn test_is_bot_user_agent() {
-        assert!(is_bot_user_agent("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"));
+        assert!(is_bot_user_agent(
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+        ));
         assert!(!is_bot_user_agent("curl/7.68.0"));
-        assert!(!is_bot_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"));
+        assert!(!is_bot_user_agent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        ));
     }
 }

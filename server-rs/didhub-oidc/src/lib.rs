@@ -1,4 +1,14 @@
 use anyhow::Result;
+use openidconnect::{
+    core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata},
+    core::{
+        CoreGenderClaim, CoreJweContentEncryptionAlgorithm, CoreJwsSigningAlgorithm, CoreTokenType,
+    },
+    reqwest::ClientBuilder,
+    AuthorizationCode, Client, ClientId, ClientSecret, CsrfToken, EmptyAdditionalClaims,
+    EmptyExtraTokenFields, IdTokenFields, IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge,
+    PkceCodeVerifier, RedirectUrl, Scope, StandardTokenResponse, TokenResponse,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -7,18 +17,6 @@ use std::{
 };
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
-use openidconnect::{
-    core::{CoreClient, CoreProviderMetadata, CoreAuthenticationFlow},
-    reqwest::ClientBuilder,
-    AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, OAuth2TokenResponse,
-    PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenResponse,
-    StandardTokenResponse,
-    IdTokenFields,
-    EmptyAdditionalClaims,
-    EmptyExtraTokenFields,
-    core::{CoreGenderClaim, CoreJweContentEncryptionAlgorithm, CoreJwsSigningAlgorithm, CoreTokenType},
-    Client,
-};
 
 use rand; // Added import for random number generation
 
@@ -48,7 +46,10 @@ type OidcClientType = Client<
     openidconnect::core::CoreAuthPrompt,
     openidconnect::StandardErrorResponse<openidconnect::core::CoreErrorResponseType>,
     OidcTokenResponse,
-    openidconnect::StandardTokenIntrospectionResponse<EmptyExtraTokenFields, openidconnect::core::CoreTokenType>,
+    openidconnect::StandardTokenIntrospectionResponse<
+        EmptyExtraTokenFields,
+        openidconnect::core::CoreTokenType,
+    >,
     openidconnect::core::CoreRevocableToken,
     openidconnect::StandardErrorResponse<openidconnect::RevocationErrorResponseType>,
     openidconnect::EndpointSet,
@@ -229,10 +230,9 @@ impl OidcClient {
 
             // Verify access token hash if present
             if let Some(expected_hash) = id_token.claims(&verifier, &nonce)?.access_token_hash() {
-                if let (Ok(alg), Ok(signing_key)) = (
-                    id_token.signing_alg(),
-                    id_token.signing_key(&verifier),
-                ) {
+                if let (Ok(alg), Ok(signing_key)) =
+                    (id_token.signing_alg(), id_token.signing_key(&verifier))
+                {
                     if let Ok(actual_hash) = openidconnect::AccessTokenHash::from_token(
                         token_response.access_token(),
                         alg,
@@ -358,7 +358,13 @@ impl OidcState {
         }
 
         info!(provider=%provider, issuer=%issuer, "building OIDC client");
-        let oidc_client = OidcClient::discover(issuer, client_id.to_string(), client_secret.map(|s| s.to_string()), redirect_uri.to_string()).await?;
+        let oidc_client = OidcClient::discover(
+            issuer,
+            client_id.to_string(),
+            client_secret.map(|s| s.to_string()),
+            redirect_uri.to_string(),
+        )
+        .await?;
         self.cache_client(provider, oidc_client.clone()).await;
         Ok(oidc_client)
     }
@@ -385,13 +391,17 @@ impl OidcState {
         code: &str,
         client: &OidcClient,
     ) -> Result<(OidcTokenResponse, FlowState)> {
-        let flow = self.take_flow(state).await
+        let flow = self
+            .take_flow(state)
+            .await
             .ok_or_else(|| anyhow::anyhow!("Invalid or expired state"))?;
 
         let pkce_verifier = PkceCodeVerifier::new(flow.code_verifier.clone());
         let nonce = Nonce::new(flow.nonce.clone());
 
-        let token_response = client.exchange_code(code.to_string(), pkce_verifier, nonce).await?;
+        let token_response = client
+            .exchange_code(code.to_string(), pkce_verifier, nonce)
+            .await?;
 
         Ok((token_response, flow))
     }
@@ -426,9 +436,9 @@ impl OidcState {
         auth_request = auth_request.set_pkce_challenge(pkce_challenge.clone());
 
         if let Some(redirect) = &redirect_uri {
-            auth_request = auth_request.set_redirect_uri(
-                std::borrow::Cow::Owned(RedirectUrl::new(redirect.clone()).expect("Invalid redirect URI"))
-            );
+            auth_request = auth_request.set_redirect_uri(std::borrow::Cow::Owned(
+                RedirectUrl::new(redirect.clone()).expect("Invalid redirect URI"),
+            ));
         }
 
         let (auth_url, _, _) = auth_request.url();
@@ -537,7 +547,8 @@ pub fn extract_user_info(token_response: &OidcTokenResponse) -> Result<UserInfo>
 
     // For extraction, we'll use an insecure verifier since we already verified the token
     // In a real implementation, you'd want to cache the verifier
-    let dummy_verifier: openidconnect::IdTokenVerifier<openidconnect::core::CoreJsonWebKey> = openidconnect::IdTokenVerifier::new_insecure_without_verification();
+    let dummy_verifier: openidconnect::IdTokenVerifier<openidconnect::core::CoreJsonWebKey> =
+        openidconnect::IdTokenVerifier::new_insecure_without_verification();
     let nonce = Nonce::new_random(); // This won't be used for claims extraction
 
     let claims = id_token
@@ -546,7 +557,9 @@ pub fn extract_user_info(token_response: &OidcTokenResponse) -> Result<UserInfo>
 
     let subject = claims.subject().as_str().to_string();
     let email = claims.email().map(|e| e.as_str().to_string());
-    let name = claims.name().and_then(|n| n.get(None).map(|s| s.to_string()));
+    let name = claims
+        .name()
+        .and_then(|n| n.get(None).map(|s| s.to_string()));
     let email_verified = claims.email_verified();
 
     Ok(UserInfo {

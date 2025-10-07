@@ -1,12 +1,12 @@
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHasher};
 use axum::{extract::Extension, Json};
 use base64::Engine;
+use blake3;
 use didhub_db::users::UserOperations;
 use didhub_db::{audit, Db};
 use didhub_error::AppError;
 use serde::{Deserialize, Serialize};
-use blake3;
-use argon2::{Argon2, PasswordHasher};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Deserialize)]
@@ -68,7 +68,10 @@ pub async fn consume_reset(
 
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let pw_hash = argon2.hash_password(payload.new_password.as_bytes(), &salt).map_err(|_| AppError::Internal)?.to_string();
+    let pw_hash = argon2
+        .hash_password(payload.new_password.as_bytes(), &salt)
+        .map_err(|_| AppError::Internal)?
+        .to_string();
     db.update_user_password(rec.user_id, &pw_hash)
         .await
         .map_err(|_| AppError::Internal)?;

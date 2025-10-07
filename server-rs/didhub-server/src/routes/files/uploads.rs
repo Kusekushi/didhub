@@ -13,7 +13,7 @@ use didhub_db::uploads::UploadOperations;
 use didhub_db::Db;
 use didhub_db::NewUpload;
 use didhub_error::AppError;
-use didhub_image::{process_image_simple};
+use didhub_image::process_image_simple;
 use didhub_metrics::record_upload_operation;
 use didhub_middleware::types::CurrentUser;
 use sanitize_filename::sanitize;
@@ -56,13 +56,10 @@ pub async fn upload_file(
             .file_name()
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("upload-{}", Uuid::new_v4()));
-        let raw = field
-            .bytes()
-            .await
-            .map_err(|_| {
-                record_upload_operation("upload", "failure", None);
-                AppError::BadRequest("failed to read file".into())
-            })?;
+        let raw = field.bytes().await.map_err(|_| {
+            record_upload_operation("upload", "failure", None);
+            AppError::BadRequest("failed to read file".into())
+        })?;
         debug!(user_id=%user.id, original_name=%original_name, file_size=%raw.len(), "processing uploaded file");
         let safe_original = sanitize(&original_name);
         let mut metadata = serde_json::Map::new();
@@ -104,13 +101,31 @@ pub async fn upload_file(
                 .unwrap_or(2048);
             match process_image_simple(&raw, max_dim) {
                 Ok((processed_bytes, img_metadata)) => {
-                    metadata.insert("orig_width".into(), serde_json::json!(img_metadata.orig_width));
-                    metadata.insert("orig_height".into(), serde_json::json!(img_metadata.orig_height));
-                    metadata.insert("final_width".into(), serde_json::json!(img_metadata.final_width));
-                    metadata.insert("final_height".into(), serde_json::json!(img_metadata.final_height));
+                    metadata.insert(
+                        "orig_width".into(),
+                        serde_json::json!(img_metadata.orig_width),
+                    );
+                    metadata.insert(
+                        "orig_height".into(),
+                        serde_json::json!(img_metadata.orig_height),
+                    );
+                    metadata.insert(
+                        "final_width".into(),
+                        serde_json::json!(img_metadata.final_width),
+                    );
+                    metadata.insert(
+                        "final_height".into(),
+                        serde_json::json!(img_metadata.final_height),
+                    );
                     metadata.insert("max_dim".into(), serde_json::json!(img_metadata.max_dim));
-                    metadata.insert("final_bytes".into(), serde_json::json!(img_metadata.final_bytes));
-                    metadata.insert("converted".into(), serde_json::json!(img_metadata.converted));
+                    metadata.insert(
+                        "final_bytes".into(),
+                        serde_json::json!(img_metadata.final_bytes),
+                    );
+                    metadata.insert(
+                        "converted".into(),
+                        serde_json::json!(img_metadata.converted),
+                    );
                     // Dedup by content hash (blake3) of processed bytes
                     let hash = blake3::hash(&processed_bytes);
                     let hash_hex = hash.to_hex().to_string();
@@ -133,7 +148,11 @@ pub async fn upload_file(
                         })
                         .await;
                     info!(user_id=%user.id, username=%user.username, filename=%final_name, original_name=%original_name, file_size=%processed_bytes.len(), "image uploaded and processed successfully");
-                    record_upload_operation("upload", "success", Some(processed_bytes.len() as i64));
+                    record_upload_operation(
+                        "upload",
+                        "success",
+                        Some(processed_bytes.len() as i64),
+                    );
                     audit::record_with_metadata(
                         &db,
                         Some(user.id),

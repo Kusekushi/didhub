@@ -1,6 +1,6 @@
 use super::*;
-use didhub_db::audit;
 use didhub_db::alters::AlterOperations;
+use didhub_db::audit;
 use didhub_db::housekeeping::HousekeepingOperations;
 use didhub_db::relationships::AlterRelationships;
 use didhub_db::settings::SettingOperations;
@@ -27,7 +27,11 @@ impl Job for BirthdaysDigestJob {
         Some("@daily") // Daily at 9 AM
     }
 
-    async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        _cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         // Check webhook presence (try new key first, fall back to old key for compatibility)
         let webhook = db.get_setting("discord_webhook_url").await?;
         let webhook = if webhook.is_none() {
@@ -68,7 +72,7 @@ impl Job for BirthdaysDigestJob {
 
         Ok(JobOutcome::new(
             alters.len() as i64,
-            Some("birthdays digest recorded".into())
+            Some("birthdays digest recorded".into()),
         ))
     }
 }
@@ -94,7 +98,11 @@ impl Job for OrphansPruneJob {
         Some("@daily") // Daily cleanup
     }
 
-    async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        _cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         // Example orphan conditions: group_members referencing missing group or alter
         let removed = db.prune_orphan_group_members().await.unwrap_or(0)
             + db.prune_orphan_subsystem_members().await.unwrap_or(0);
@@ -113,7 +121,7 @@ impl Job for OrphansPruneJob {
 
         Ok(JobOutcome::new(
             removed,
-            Some(format!("removed {} orphan membership rows", removed))
+            Some(format!("removed {} orphan membership rows", removed)),
         ))
     }
 }
@@ -139,12 +147,16 @@ impl Job for VacuumDbJob {
         Some("@monthly") // Monthly on the 1st at 4 AM
     }
 
-    async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        _cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         let affected = db.perform_database_maintenance().await?;
         audit::record_simple(db, None, "db.vacuum").await;
         Ok(JobOutcome::new(
             affected,
-            Some("vacuum/optimize invoked".into())
+            Some("vacuum/optimize invoked".into()),
         ))
     }
 }

@@ -1,8 +1,8 @@
-use didhub_jobs::*;
 use didhub_db::Db;
-use tokio_util::sync::CancellationToken;
-use std::sync::Arc;
+use didhub_jobs::*;
 use std::collections::HashSet;
+use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 
 // Mock database for testing - in a real scenario, we'd use a test database
 struct MockDb;
@@ -62,7 +62,11 @@ async fn test_job_names_uniqueness() {
 
     let mut unique_names = std::collections::HashSet::new();
     for name in job_names {
-        assert!(unique_names.insert(name), "Job name '{}' is not unique", name);
+        assert!(
+            unique_names.insert(name),
+            "Job name '{}' is not unique",
+            name
+        );
     }
 }
 
@@ -82,7 +86,10 @@ async fn test_job_categories() {
 #[tokio::test]
 async fn test_job_schedules() {
     // Test that jobs have appropriate default schedules
-    assert_eq!(AuditRetentionJob.default_schedule(), Some("0 0,6,12,18 * * *"));
+    assert_eq!(
+        AuditRetentionJob.default_schedule(),
+        Some("0 0,6,12,18 * * *")
+    );
     assert_eq!(MetricsUpdateJob.default_schedule(), Some("@hourly"));
     assert_eq!(ExpiredTokensCleanupJob.default_schedule(), Some("@daily"));
     assert_eq!(UploadsGcJob.default_schedule(), Some("@daily"));
@@ -267,7 +274,7 @@ async fn test_cron_schedule_formats() {
             // @ syntax is allowed
             continue;
         }
-        
+
         // Basic cron format validation (5 fields)
         let parts: Vec<&str> = schedule.split_whitespace().collect();
         assert_eq!(parts.len(), 5, "Invalid cron schedule: {}", schedule);
@@ -275,9 +282,15 @@ async fn test_cron_schedule_formats() {
         // Each part should be valid cron syntax
         for part in parts {
             // Allow numbers, *, /, -, and ,
-            assert!(part.chars().all(|c|
-                c.is_numeric() || c == '*' || c == '/' || c == '-' || c == ','
-            ), "Invalid cron part: {}", part);
+            assert!(
+                part.chars().all(|c| c.is_numeric()
+                    || c == '*'
+                    || c == '/'
+                    || c == '-'
+                    || c == ','),
+                "Invalid cron part: {}",
+                part
+            );
         }
     }
 }
@@ -287,13 +300,15 @@ async fn test_job_thread_safety() {
     // Test that jobs can be shared across threads
     let job = Arc::new(AuditRetentionJob);
 
-    let handles: Vec<_> = (0..10).map(|_| {
-        let job_clone = Arc::clone(&job);
-        tokio::spawn(async move {
-            let _name = job_clone.name();
-            let _desc = job_clone.description();
+    let handles: Vec<_> = (0..10)
+        .map(|_| {
+            let job_clone = Arc::clone(&job);
+            tokio::spawn(async move {
+                let _name = job_clone.name();
+                let _desc = job_clone.description();
+            })
         })
-    }).collect();
+        .collect();
 
     for handle in handles {
         handle.await.unwrap();

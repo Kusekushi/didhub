@@ -45,7 +45,10 @@ pub fn validate_password_strength(password: &str) -> Option<String> {
     // Check for common weak passwords (basic check)
     let weak_passwords = ["password", "12345678", "qwerty", "abc123", "password123"];
     let password_lower = password.to_lowercase();
-    if weak_passwords.iter().any(|weak| password_lower.contains(weak)) {
+    if weak_passwords
+        .iter()
+        .any(|weak| password_lower.contains(weak))
+    {
         return Some("password is too common. please choose a stronger password.".into());
     }
     None

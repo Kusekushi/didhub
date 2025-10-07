@@ -1,3 +1,5 @@
+use argon2::password_hash::{rand_core::OsRng, PasswordHash, SaltString};
+use argon2::{Argon2, PasswordHasher, PasswordVerifier};
 use axum::body::Body;
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::{
@@ -14,8 +16,6 @@ use didhub_metrics::record_auth_operation;
 use didhub_middleware::types::CurrentUser;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
-use argon2::{Argon2, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::{rand_core::OsRng, SaltString, PasswordHash};
 
 use crate::utils::{extract_bearer_token, sign_jwt, validate_password_strength};
 use crate::AuthState;
@@ -82,7 +82,10 @@ pub async fn register(
     }
     let salt = SaltString::generate(&mut OsRng);
     let argon2_hasher = Argon2::default();
-    let password_hash = argon2_hasher.hash_password(payload.password.as_bytes(), &salt).map_err(|_| AppError::Internal)?.to_string();
+    let password_hash = argon2_hasher
+        .hash_password(payload.password.as_bytes(), &salt)
+        .map_err(|_| AppError::Internal)?
+        .to_string();
     let created = state
         .db
         .create_user(NewUser {
@@ -156,7 +159,10 @@ pub async fn login(
         return Err(AppError::Unauthorized);
     };
     let parsed_hash = PasswordHash::new(&user.password_hash).map_err(|_| AppError::Internal)?;
-    if !Argon2::default().verify_password(payload.password.as_bytes(), &parsed_hash).is_ok() {
+    if !Argon2::default()
+        .verify_password(payload.password.as_bytes(), &parsed_hash)
+        .is_ok()
+    {
         warn!(user_id=%user.id, username=%user.username, "login failed - bad password");
         record_auth_operation("login", "failure");
         audit::record_with_metadata(
@@ -293,12 +299,18 @@ pub async fn change_password(
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::Unauthorized)?;
     let parsed_hash = PasswordHash::new(&db_user.password_hash).map_err(|_| AppError::Internal)?;
-    if !Argon2::default().verify_password(payload.current_password.as_bytes(), &parsed_hash).is_ok() {
+    if !Argon2::default()
+        .verify_password(payload.current_password.as_bytes(), &parsed_hash)
+        .is_ok()
+    {
         record_auth_operation("change_password", "failure");
         return Err(AppError::Unauthorized);
     }
     let salt = SaltString::generate(&mut OsRng);
-    let new_hash = Argon2::default().hash_password(payload.new_password.as_bytes(), &salt).map_err(|_| AppError::Internal)?.to_string();
+    let new_hash = Argon2::default()
+        .hash_password(payload.new_password.as_bytes(), &salt)
+        .map_err(|_| AppError::Internal)?
+        .to_string();
     let mut fields = didhub_db::UpdateUserFields::default();
     fields.password_hash = Some(new_hash);
     fields.must_change_password = Some(false);

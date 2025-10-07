@@ -28,7 +28,11 @@ fn create_test_png_with_alpha() -> Vec<u8> {
 
 fn create_large_test_image(width: u32, height: u32) -> Vec<u8> {
     // Create a larger test image
-    let img = DynamicImage::ImageRgb8(RgbImage::from_pixel(width, height, image::Rgb([100, 150, 200])));
+    let img = DynamicImage::ImageRgb8(RgbImage::from_pixel(
+        width,
+        height,
+        image::Rgb([100, 150, 200]),
+    ));
     let mut buffer = Vec::new();
     let mut cursor = Cursor::new(&mut buffer);
     img.write_to(&mut cursor, ImageFormat::Png).unwrap();

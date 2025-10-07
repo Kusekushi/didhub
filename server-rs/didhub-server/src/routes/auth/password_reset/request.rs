@@ -1,5 +1,6 @@
 use axum::{extract::Extension, Json};
 use base64::Engine;
+use blake3;
 use didhub_db::audit;
 use didhub_db::users::UserOperations;
 use didhub_db::Db;
@@ -7,7 +8,6 @@ use didhub_error::AppError;
 use rand::RngCore;
 use serde::Deserialize;
 use serde::Serialize;
-use blake3;
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Deserialize)]

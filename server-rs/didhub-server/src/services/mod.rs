@@ -2,8 +2,8 @@ use didhub_cache as cache;
 use didhub_config as config;
 use didhub_db as db;
 use didhub_db::settings::SettingOperations;
-use didhub_scheduler as housekeeping;
 use didhub_oidc as oidc;
+use didhub_scheduler as housekeeping;
 
 use crate::routes::admin::housekeeping::HousekeepingState;
 use crate::upload_dir;

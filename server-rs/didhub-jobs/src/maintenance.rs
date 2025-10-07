@@ -31,7 +31,11 @@ impl Job for AuditRetentionJob {
         Some("@hourly") // Every hour
     }
 
-    async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        _cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         tracing::debug!("starting audit retention job");
 
         // Fetch retention days from settings (key: audit.retention.days)
@@ -54,12 +58,18 @@ impl Job for AuditRetentionJob {
 
         let Some(days) = days_opt else {
             tracing::warn!(setting_value=%s.value, "invalid audit retention days value");
-            return Ok(JobOutcome::new(0, Some("invalid retention days value".into())));
+            return Ok(JobOutcome::new(
+                0,
+                Some("invalid retention days value".into()),
+            ));
         };
 
         if days <= 0 {
             tracing::info!(retention_days=%days, "non-positive retention days - skipping audit cleanup");
-            return Ok(JobOutcome::new(0, Some("non-positive retention days".into())));
+            return Ok(JobOutcome::new(
+                0,
+                Some("non-positive retention days".into()),
+            ));
         }
 
         let cutoff = Utc::now() - Duration::days(days);
@@ -70,7 +80,10 @@ impl Job for AuditRetentionJob {
 
         Ok(JobOutcome::new(
             purged,
-            Some(format!("purged {} audit rows before {}", purged, cutoff_str))
+            Some(format!(
+                "purged {} audit rows before {}",
+                purged, cutoff_str
+            )),
         ))
     }
 }
@@ -96,7 +109,11 @@ impl Job for MetricsUpdateJob {
         Some("@hourly") // Every hour
     }
 
-    async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        _cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         tracing::debug!("starting metrics update job");
 
         // Update user count
@@ -125,18 +142,20 @@ impl Job for MetricsUpdateJob {
 
         // Update system count (users with is_system=1)
         let system_filters = SystemListFilters { q: None };
-        let system_count = if let Ok((_, count)) = db.list_system_users(&system_filters, 1, 0).await {
+        let system_count = if let Ok((_, count)) = db.list_system_users(&system_filters, 1, 0).await
+        {
             count
         } else {
             0
         };
 
         // Update upload count (total, not filtered)
-        let upload_count = if let Ok(count) = db.count_uploads_filtered(None, None, None, false).await {
-            count
-        } else {
-            0
-        };
+        let upload_count =
+            if let Ok(count) = db.count_uploads_filtered(None, None, None, false).await {
+                count
+            } else {
+                0
+            };
 
         // Update post count
         let post_count = if let Ok(count) = db.count_posts().await {
@@ -146,7 +165,13 @@ impl Job for MetricsUpdateJob {
         };
 
         // Update the gauges
-        didhub_metrics::update_entity_gauges(user_count, alter_count, system_count, upload_count, post_count);
+        didhub_metrics::update_entity_gauges(
+            user_count,
+            alter_count,
+            system_count,
+            upload_count,
+            post_count,
+        );
 
         tracing::info!(
             user_count = %user_count,
@@ -157,10 +182,14 @@ impl Job for MetricsUpdateJob {
             "metrics gauges updated"
         );
 
-        Ok(JobOutcome::new(0, Some(format!(
-            "updated metrics: users={}, alters={}, systems={}, uploads={}, posts={}",
-            user_count, alter_count, system_count, upload_count, post_count
-        ))).with_metadata(json!({
+        Ok(JobOutcome::new(
+            0,
+            Some(format!(
+                "updated metrics: users={}, alters={}, systems={}, uploads={}, posts={}",
+                user_count, alter_count, system_count, upload_count, post_count
+            )),
+        )
+        .with_metadata(json!({
             "user_count": user_count,
             "alter_count": alter_count,
             "system_count": system_count,
@@ -191,7 +220,11 @@ impl Job for ExpiredTokensCleanupJob {
         Some("@daily") // Daily at 3am
     }
 
-    async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
+    async fn run(
+        &self,
+        db: &didhub_db::Db,
+        _cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
         tracing::info!("starting expired tokens cleanup job");
         let removed = db.clear_expired_password_resets().await?;
         if removed > 0 {
@@ -208,7 +241,7 @@ impl Job for ExpiredTokensCleanupJob {
         tracing::info!(removed_tokens=%removed, "expired tokens cleanup job completed");
         Ok(JobOutcome::new(
             removed,
-            Some(format!("removed {} expired password reset tokens", removed))
+            Some(format!("removed {} expired password reset tokens", removed)),
         ))
     }
 }

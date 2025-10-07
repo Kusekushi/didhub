@@ -1,12 +1,11 @@
 use didhub_metrics::{
-    OIDC_LOGIN_TOTAL, OIDC_SECRET_UPDATE_TOTAL, RATE_LIMIT_ALLOWED, RATE_LIMIT_DENIED,
-    HTTP_REQUESTS_TOTAL, DB_QUERIES_TOTAL, ENTITY_OPERATIONS_TOTAL,
-    USERS_TOTAL, ALTERS_TOTAL, SYSTEMS_TOTAL, UPLOADS_TOTAL, POSTS_TOTAL,
-    UPLOAD_OPERATIONS_TOTAL, ERRORS_TOTAL, METRICS_REQUESTS_TOTAL,
-    AUTH_OPERATIONS_TOTAL, CACHE_OPERATIONS_TOTAL,
-    update_entity_gauges, record_http_request, record_db_operation, record_entity_operation,
-    record_upload_operation, record_auth_operation, record_error, record_cache_operation,
-    metrics_handler,
+    metrics_handler, record_auth_operation, record_cache_operation, record_db_operation,
+    record_entity_operation, record_error, record_http_request, record_upload_operation,
+    update_entity_gauges, ALTERS_TOTAL, AUTH_OPERATIONS_TOTAL, CACHE_OPERATIONS_TOTAL,
+    DB_QUERIES_TOTAL, ENTITY_OPERATIONS_TOTAL, ERRORS_TOTAL, HTTP_REQUESTS_TOTAL,
+    METRICS_REQUESTS_TOTAL, OIDC_LOGIN_TOTAL, OIDC_SECRET_UPDATE_TOTAL, POSTS_TOTAL,
+    RATE_LIMIT_ALLOWED, RATE_LIMIT_DENIED, SYSTEMS_TOTAL, UPLOADS_TOTAL, UPLOAD_OPERATIONS_TOTAL,
+    USERS_TOTAL,
 };
 
 #[test]
@@ -89,22 +88,34 @@ fn test_oidc_secret_update_counter_increment() {
 #[test]
 fn test_http_requests_counter_increment() {
     let counter = &*HTTP_REQUESTS_TOTAL;
-    let initial = counter.with_label_values(&["GET", "/api/users", "200"]).get();
+    let initial = counter
+        .with_label_values(&["GET", "/api/users", "200"])
+        .get();
 
-    counter.with_label_values(&["GET", "/api/users", "200"]).inc();
+    counter
+        .with_label_values(&["GET", "/api/users", "200"])
+        .inc();
 
-    let after = counter.with_label_values(&["GET", "/api/users", "200"]).get();
+    let after = counter
+        .with_label_values(&["GET", "/api/users", "200"])
+        .get();
     assert_eq!(after, initial + 1);
 }
 
 #[test]
 fn test_entity_operations_counter_increment() {
     let counter = &*ENTITY_OPERATIONS_TOTAL;
-    let initial = counter.with_label_values(&["user", "create", "success"]).get();
+    let initial = counter
+        .with_label_values(&["user", "create", "success"])
+        .get();
 
-    counter.with_label_values(&["user", "create", "success"]).inc();
+    counter
+        .with_label_values(&["user", "create", "success"])
+        .inc();
 
-    let after = counter.with_label_values(&["user", "create", "success"]).get();
+    let after = counter
+        .with_label_values(&["user", "create", "success"])
+        .get();
     assert_eq!(after, initial + 1);
 }
 
@@ -122,33 +133,55 @@ fn test_update_entity_gauges() {
 #[test]
 fn test_record_http_request() {
     let counter = &*HTTP_REQUESTS_TOTAL;
-    let initial = counter.with_label_values(&["POST", "/api/test", "201"]).get();
+    let initial = counter
+        .with_label_values(&["POST", "/api/test", "201"])
+        .get();
 
-    record_http_request("POST", "/api/test", 201, std::time::Duration::from_millis(150));
+    record_http_request(
+        "POST",
+        "/api/test",
+        201,
+        std::time::Duration::from_millis(150),
+    );
 
-    let after = counter.with_label_values(&["POST", "/api/test", "201"]).get();
+    let after = counter
+        .with_label_values(&["POST", "/api/test", "201"])
+        .get();
     assert_eq!(after, initial + 1);
 }
 
 #[test]
 fn test_record_db_operation() {
     let counter = &*DB_QUERIES_TOTAL;
-    let initial = counter.with_label_values(&["select", "users", "success"]).get();
+    let initial = counter
+        .with_label_values(&["select", "users", "success"])
+        .get();
 
-    record_db_operation("select", "users", "success", std::time::Duration::from_millis(50));
+    record_db_operation(
+        "select",
+        "users",
+        "success",
+        std::time::Duration::from_millis(50),
+    );
 
-    let after = counter.with_label_values(&["select", "users", "success"]).get();
+    let after = counter
+        .with_label_values(&["select", "users", "success"])
+        .get();
     assert_eq!(after, initial + 1);
 }
 
 #[test]
 fn test_record_entity_operation() {
     let counter = &*ENTITY_OPERATIONS_TOTAL;
-    let initial = counter.with_label_values(&["alter", "update", "success"]).get();
+    let initial = counter
+        .with_label_values(&["alter", "update", "success"])
+        .get();
 
     record_entity_operation("alter", "update", "success");
 
-    let after = counter.with_label_values(&["alter", "update", "success"]).get();
+    let after = counter
+        .with_label_values(&["alter", "update", "success"])
+        .get();
     assert_eq!(after, initial + 1);
 }
 
@@ -177,11 +210,15 @@ fn test_record_auth_operation() {
 #[test]
 fn test_record_error() {
     let counter = &*ERRORS_TOTAL;
-    let initial = counter.with_label_values(&["validation", "user_create"]).get();
+    let initial = counter
+        .with_label_values(&["validation", "user_create"])
+        .get();
 
     record_error("validation", "user_create");
 
-    let after = counter.with_label_values(&["validation", "user_create"]).get();
+    let after = counter
+        .with_label_values(&["validation", "user_create"])
+        .get();
     assert_eq!(after, initial + 1);
 }
 

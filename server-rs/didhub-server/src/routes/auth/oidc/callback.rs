@@ -1,3 +1,5 @@
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHasher};
 use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -10,8 +12,6 @@ use didhub_metrics::OIDC_LOGIN_TOTAL;
 use didhub_oidc as oidc;
 use openidconnect::reqwest::ClientBuilder;
 use openidconnect::{AuthorizationCode, OAuth2TokenResponse, PkceCodeVerifier, TokenResponse};
-use argon2::{Argon2, PasswordHasher};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
 
 use super::{build_oidc_client, get_global_oidc_enabled, get_provider_config, issue_jwt};
 
@@ -197,7 +197,10 @@ pub async fn callback(
 
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let password_hash = argon2.hash_password(b"!disabled_oidc_account!", &salt).map_err(|_| AppError::Internal)?.to_string();
+    let password_hash = argon2
+        .hash_password(b"!disabled_oidc_account!", &salt)
+        .map_err(|_| AppError::Internal)?
+        .to_string();
     let new_user = db
         .create_user(NewUser {
             username: base_username.clone(),

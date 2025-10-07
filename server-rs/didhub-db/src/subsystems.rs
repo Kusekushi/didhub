@@ -122,7 +122,16 @@ impl SubsystemOperations for Db {
             }
             _ => sqlx::query_as::<_, Subsystem>("SELECT * FROM subsystems WHERE id=?1").bind(id).fetch_optional(&self.pool).await?,
         };
-        record_db_operation("fetch", "subsystems", if result.is_some() { "success" } else { "not_found" }, start.elapsed());
+        record_db_operation(
+            "fetch",
+            "subsystems",
+            if result.is_some() {
+                "success"
+            } else {
+                "not_found"
+            },
+            start.elapsed(),
+        );
         Ok(result)
     }
 
@@ -234,14 +243,32 @@ impl SubsystemOperations for Db {
         )
         .await?;
         let result = self.fetch_subsystem(id).await;
-        record_db_operation("update", "subsystems", if result.is_ok() && result.as_ref().unwrap().is_some() { "success" } else { "error" }, start.elapsed());
+        record_db_operation(
+            "update",
+            "subsystems",
+            if result.is_ok() && result.as_ref().unwrap().is_some() {
+                "success"
+            } else {
+                "error"
+            },
+            start.elapsed(),
+        );
         result
     }
 
     async fn delete_subsystem(&self, id: i64) -> Result<bool> {
         let start = Instant::now();
         let result = delete_entity(self, "subsystems", id).await;
-        record_db_operation("delete", "subsystems", if result.is_ok() && *result.as_ref().unwrap() { "success" } else { "not_found" }, start.elapsed());
+        record_db_operation(
+            "delete",
+            "subsystems",
+            if result.is_ok() && *result.as_ref().unwrap() {
+                "success"
+            } else {
+                "not_found"
+            },
+            start.elapsed(),
+        );
         result
     }
 
@@ -329,7 +356,12 @@ impl SubsystemOperations for Db {
             alters.sort();
         }
 
-        record_db_operation("batch_load_members", "subsystems", "success", start.elapsed());
+        record_db_operation(
+            "batch_load_members",
+            "subsystems",
+            "success",
+            start.elapsed(),
+        );
         Ok(result)
     }
 }

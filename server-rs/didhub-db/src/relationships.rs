@@ -75,7 +75,12 @@ impl AlterRelationships for Db {
                 .await?
                 .rows_affected();
         }
-        record_db_operation("replace_partners", "alter_partners", "success", start.elapsed());
+        record_db_operation(
+            "replace_partners",
+            "alter_partners",
+            "success",
+            start.elapsed(),
+        );
         Ok(rows_affected)
     }
 
@@ -102,7 +107,12 @@ impl AlterRelationships for Db {
                 .await?
                 .rows_affected();
         }
-        record_db_operation("replace_parents", "alter_parents", "success", start.elapsed());
+        record_db_operation(
+            "replace_parents",
+            "alter_parents",
+            "success",
+            start.elapsed(),
+        );
         Ok(rows_affected)
     }
 
@@ -129,7 +139,12 @@ impl AlterRelationships for Db {
                 .await?
                 .rows_affected();
         }
-        record_db_operation("replace_children", "alter_parents", "success", start.elapsed());
+        record_db_operation(
+            "replace_children",
+            "alter_parents",
+            "success",
+            start.elapsed(),
+        );
         Ok(rows_affected)
     }
 
@@ -153,7 +168,12 @@ impl AlterRelationships for Db {
                 .await?
                 .rows_affected();
         }
-        record_db_operation("replace_affiliations", "alter_affiliations", "success", start.elapsed());
+        record_db_operation(
+            "replace_affiliations",
+            "alter_affiliations",
+            "success",
+            start.elapsed(),
+        );
         Ok(rows_affected)
     }
 
@@ -210,7 +230,12 @@ impl AlterRelationships for Db {
         .fetch_all(&self.pool)
         .await?;
         let result = rows.into_iter().map(|r| r.0).collect();
-        record_db_operation("affiliations_of", "alter_affiliations", "success", start.elapsed());
+        record_db_operation(
+            "affiliations_of",
+            "alter_affiliations",
+            "success",
+            start.elapsed(),
+        );
         Ok(result)
     }
 
@@ -223,7 +248,12 @@ impl AlterRelationships for Db {
         .fetch_all(&self.pool)
         .await?;
         let result = rows.into_iter().map(|r| r.0).collect();
-        record_db_operation("list_alters_in_group", "alter_affiliations", "success", start.elapsed());
+        record_db_operation(
+            "list_alters_in_group",
+            "alter_affiliations",
+            "success",
+            start.elapsed(),
+        );
         Ok(result)
     }
 
@@ -244,7 +274,12 @@ impl AlterRelationships for Db {
                 .bind(user_id)
                 .fetch_all(&self.pool).await?
         };
-        record_db_operation("list_user_groups_scoped", "user_group_memberships", "success", start.elapsed());
+        record_db_operation(
+            "list_user_groups_scoped",
+            "user_group_memberships",
+            "success",
+            start.elapsed(),
+        );
         Ok(rows)
     }
 
@@ -257,7 +292,12 @@ impl AlterRelationships for Db {
                 .execute(&self.pool)
                 .await?;
         let success = res.rows_affected() > 0;
-        record_db_operation("remove_user_from_group", "user_group_memberships", if success { "success" } else { "not_found" }, start.elapsed());
+        record_db_operation(
+            "remove_user_from_group",
+            "user_group_memberships",
+            if success { "success" } else { "not_found" },
+            start.elapsed(),
+        );
         Ok(success)
     }
 
@@ -274,7 +314,12 @@ impl AlterRelationships for Db {
             .execute(&self.pool)
             .await?;
         let success = res.rows_affected() > 0;
-        record_db_operation("add_user_to_group", "user_group_memberships", if success { "success" } else { "already_exists" }, start.elapsed());
+        record_db_operation(
+            "add_user_to_group",
+            "user_group_memberships",
+            if success { "success" } else { "already_exists" },
+            start.elapsed(),
+        );
         Ok(success)
     }
 
@@ -284,7 +329,12 @@ impl AlterRelationships for Db {
             .execute(&self.pool)
             .await?;
         let rows_affected = res.rows_affected() as i64;
-        record_db_operation("prune_orphan_group_members", "user_group_memberships", "success", start.elapsed());
+        record_db_operation(
+            "prune_orphan_group_members",
+            "user_group_memberships",
+            "success",
+            start.elapsed(),
+        );
         Ok(rows_affected)
     }
 
@@ -294,7 +344,12 @@ impl AlterRelationships for Db {
             .execute(&self.pool)
             .await?;
         let rows_affected = res.rows_affected() as i64;
-        record_db_operation("prune_orphan_subsystem_members", "alter_affiliations", "success", start.elapsed());
+        record_db_operation(
+            "prune_orphan_subsystem_members",
+            "alter_affiliations",
+            "success",
+            start.elapsed(),
+        );
         Ok(rows_affected)
     }
 }

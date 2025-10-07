@@ -11,7 +11,8 @@ use std::collections::HashSet;
 use std::env;
 use std::path::{Path as StdPath, PathBuf};
 
-static FONT_FAMILY_CACHE: OnceCell<genpdf_fonts::FontFamily<genpdf_fonts::FontData>> = OnceCell::new();
+static FONT_FAMILY_CACHE: OnceCell<genpdf_fonts::FontFamily<genpdf_fonts::FontData>> =
+    OnceCell::new();
 
 /// Data structure for generating alter PDFs
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -175,8 +176,8 @@ fn get_font_directories() -> Vec<String> {
     dirs
 }
 
-fn load_default_font_family() -> Result<genpdf_fonts::FontFamily<genpdf_fonts::FontData>, didhub_error::AppError>
-{
+fn load_default_font_family(
+) -> Result<genpdf_fonts::FontFamily<genpdf_fonts::FontData>, didhub_error::AppError> {
     if let Some(family) = FONT_FAMILY_CACHE.get() {
         return Ok(family.clone());
     }
@@ -191,7 +192,8 @@ fn load_default_font_family() -> Result<genpdf_fonts::FontFamily<genpdf_fonts::F
     Ok(family)
 }
 
-fn discover_font_family() -> Result<genpdf_fonts::FontFamily<genpdf_fonts::FontData>, didhub_error::AppError> {
+fn discover_font_family(
+) -> Result<genpdf_fonts::FontFamily<genpdf_fonts::FontData>, didhub_error::AppError> {
     let mut seen = HashSet::new();
 
     for dir in get_font_directories() {
@@ -373,7 +375,10 @@ fn prepare_image_for_pdf(image_path: &str) -> Result<Vec<u8>, String> {
 }
 
 /// Generate a PDF for an alter
-pub fn generate_alter_pdf(data: &AlterPdfData, config: Option<PdfConfig>) -> Result<Vec<u8>, didhub_error::AppError> {
+pub fn generate_alter_pdf(
+    data: &AlterPdfData,
+    config: Option<PdfConfig>,
+) -> Result<Vec<u8>, didhub_error::AppError> {
     let config = config.unwrap_or_else(PdfConfig::default);
     let font_family = load_default_font_family()?;
     let mut doc = genpdf::Document::new(font_family);
@@ -391,8 +396,11 @@ pub fn generate_alter_pdf(data: &AlterPdfData, config: Option<PdfConfig>) -> Res
 
     // Title
     doc.push(
-        genpdf_elements::Paragraph::new(format!("Alter: {}", data.name))
-            .styled(genpdf_style::Style::new().bold().with_font_size(config.title_font_size)),
+        genpdf_elements::Paragraph::new(format!("Alter: {}", data.name)).styled(
+            genpdf_style::Style::new()
+                .bold()
+                .with_font_size(config.title_font_size),
+        ),
     );
     doc.push(genpdf_elements::Break::new(1));
 
@@ -429,7 +437,10 @@ pub fn generate_alter_pdf(data: &AlterPdfData, config: Option<PdfConfig>) -> Res
     }
 
     // Relationships Section
-    let has_relationships = !data.partners.is_empty() || !data.parents.is_empty() || !data.children.is_empty() || !data.affiliations.is_empty();
+    let has_relationships = !data.partners.is_empty()
+        || !data.parents.is_empty()
+        || !data.children.is_empty()
+        || !data.affiliations.is_empty();
     if has_relationships {
         add_section_header(&mut doc, "Relationships");
         if !data.partners.is_empty() {
@@ -452,9 +463,21 @@ pub fn generate_alter_pdf(data: &AlterPdfData, config: Option<PdfConfig>) -> Res
     if !data.system_roles.is_empty() {
         add_list_field(&mut doc, "System Roles", &data.system_roles);
     }
-    add_field(&mut doc, "System Host", if data.is_system_host { "Yes" } else { "No" });
-    add_field(&mut doc, "Dormant", if data.is_dormant { "Yes" } else { "No" });
-    add_field(&mut doc, "Merged", if data.is_merged { "Yes" } else { "No" });
+    add_field(
+        &mut doc,
+        "System Host",
+        if data.is_system_host { "Yes" } else { "No" },
+    );
+    add_field(
+        &mut doc,
+        "Dormant",
+        if data.is_dormant { "Yes" } else { "No" },
+    );
+    add_field(
+        &mut doc,
+        "Merged",
+        if data.is_merged { "Yes" } else { "No" },
+    );
     doc.push(genpdf_elements::Break::new(0.5));
 
     // Occupation/Role Section
@@ -474,7 +497,11 @@ pub fn generate_alter_pdf(data: &AlterPdfData, config: Option<PdfConfig>) -> Res
     }
 
     // Personal Details Section
-    let has_personal = !data.soul_songs.is_empty() || !data.interests.is_empty() || data.triggers.is_some() || data.description.is_some() || data.notes.is_some();
+    let has_personal = !data.soul_songs.is_empty()
+        || !data.interests.is_empty()
+        || data.triggers.is_some()
+        || data.description.is_some()
+        || data.notes.is_some();
     if has_personal {
         add_section_header(&mut doc, "Personal Details");
         if !data.soul_songs.is_empty() {
@@ -500,13 +527,17 @@ pub fn generate_alter_pdf(data: &AlterPdfData, config: Option<PdfConfig>) -> Res
 
     // Render to bytes
     let mut buffer = Vec::new();
-    doc.render(&mut buffer).map_err(|_| didhub_error::AppError::Internal)?;
+    doc.render(&mut buffer)
+        .map_err(|_| didhub_error::AppError::Internal)?;
 
     Ok(buffer)
 }
 
 /// Generate a PDF for a group
-pub fn generate_group_pdf(data: &GroupPdfData, config: Option<PdfConfig>) -> Result<Vec<u8>, didhub_error::AppError> {
+pub fn generate_group_pdf(
+    data: &GroupPdfData,
+    config: Option<PdfConfig>,
+) -> Result<Vec<u8>, didhub_error::AppError> {
     let config = config.unwrap_or_else(PdfConfig::default);
     let font_family = load_default_font_family()?;
     let mut doc = genpdf::Document::new(font_family);
@@ -524,8 +555,11 @@ pub fn generate_group_pdf(data: &GroupPdfData, config: Option<PdfConfig>) -> Res
 
     // Title
     doc.push(
-        genpdf_elements::Paragraph::new(format!("Group: {}", data.name))
-            .styled(genpdf_style::Style::new().bold().with_font_size(config.title_font_size)),
+        genpdf_elements::Paragraph::new(format!("Group: {}", data.name)).styled(
+            genpdf_style::Style::new()
+                .bold()
+                .with_font_size(config.title_font_size),
+        ),
     );
     doc.push(genpdf_elements::Break::new(1));
 
@@ -544,13 +578,17 @@ pub fn generate_group_pdf(data: &GroupPdfData, config: Option<PdfConfig>) -> Res
 
     // Render to bytes
     let mut buffer = Vec::new();
-    doc.render(&mut buffer).map_err(|_| didhub_error::AppError::Internal)?;
+    doc.render(&mut buffer)
+        .map_err(|_| didhub_error::AppError::Internal)?;
 
     Ok(buffer)
 }
 
 /// Generate a PDF for a subsystem
-pub fn generate_subsystem_pdf(data: &SubsystemPdfData, config: Option<PdfConfig>) -> Result<Vec<u8>, didhub_error::AppError> {
+pub fn generate_subsystem_pdf(
+    data: &SubsystemPdfData,
+    config: Option<PdfConfig>,
+) -> Result<Vec<u8>, didhub_error::AppError> {
     let config = config.unwrap_or_else(PdfConfig::default);
     let font_family = load_default_font_family()?;
     let mut doc = genpdf::Document::new(font_family);
@@ -568,8 +606,11 @@ pub fn generate_subsystem_pdf(data: &SubsystemPdfData, config: Option<PdfConfig>
 
     // Title
     doc.push(
-        genpdf_elements::Paragraph::new(format!("Subsystem: {}", data.name))
-            .styled(genpdf_style::Style::new().bold().with_font_size(config.title_font_size)),
+        genpdf_elements::Paragraph::new(format!("Subsystem: {}", data.name)).styled(
+            genpdf_style::Style::new()
+                .bold()
+                .with_font_size(config.title_font_size),
+        ),
     );
     doc.push(genpdf_elements::Break::new(1));
 
@@ -588,14 +629,19 @@ pub fn generate_subsystem_pdf(data: &SubsystemPdfData, config: Option<PdfConfig>
 
     // Render to bytes
     let mut buffer = Vec::new();
-    doc.render(&mut buffer).map_err(|_| didhub_error::AppError::Internal)?;
+    doc.render(&mut buffer)
+        .map_err(|_| didhub_error::AppError::Internal)?;
 
     Ok(buffer)
 }
 
 /// Generate a simple PDF with title, text lines, and images
 /// This function is kept for backward compatibility
-pub fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Result<Vec<u8>, didhub_error::AppError> {
+pub fn simple_pdf(
+    title: &str,
+    lines: &[String],
+    image_paths: &[String],
+) -> Result<Vec<u8>, didhub_error::AppError> {
     let font_family = load_default_font_family()?;
     let mut doc = genpdf::Document::new(font_family);
     doc.set_title(title);
@@ -623,7 +669,8 @@ pub fn simple_pdf(title: &str, lines: &[String], image_paths: &[String]) -> Resu
 
     // Render to bytes
     let mut buffer = Vec::new();
-    doc.render(&mut buffer).map_err(|_| didhub_error::AppError::Internal)?;
+    doc.render(&mut buffer)
+        .map_err(|_| didhub_error::AppError::Internal)?;
 
     Ok(buffer)
 }

@@ -1,5 +1,7 @@
 use once_cell::sync::Lazy;
-use prometheus::{opts, Encoder, Histogram, HistogramOpts, IntCounter, IntCounterVec, IntGauge, TextEncoder};
+use prometheus::{
+    opts, Encoder, Histogram, HistogramOpts, IntCounter, IntCounterVec, IntGauge, TextEncoder,
+};
 
 pub static PROM_REGISTRY: Lazy<&prometheus::Registry> =
     Lazy::new(|| prometheus::default_registry());
@@ -245,7 +247,13 @@ pub async fn metrics_handler() -> (axum::http::StatusCode, String) {
 
 /// Update entity count gauges with provided values
 /// This should be called periodically from the server with current database counts
-pub fn update_entity_gauges(user_count: i64, alter_count: i64, system_count: i64, upload_count: i64, post_count: i64) {
+pub fn update_entity_gauges(
+    user_count: i64,
+    alter_count: i64,
+    system_count: i64,
+    upload_count: i64,
+    post_count: i64,
+) {
     USERS_TOTAL.set(user_count);
     ALTERS_TOTAL.set(alter_count);
     SYSTEMS_TOTAL.set(system_count);
@@ -262,7 +270,12 @@ pub fn record_http_request(method: &str, route: &str, status: u16, duration: std
 }
 
 /// Record database operation metrics
-pub fn record_db_operation(operation: &str, table: &str, result: &str, duration: std::time::Duration) {
+pub fn record_db_operation(
+    operation: &str,
+    table: &str,
+    result: &str,
+    duration: std::time::Duration,
+) {
     DB_QUERIES_TOTAL
         .with_label_values(&[operation, table, result])
         .inc();

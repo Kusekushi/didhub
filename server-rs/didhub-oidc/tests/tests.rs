@@ -1,7 +1,7 @@
-use didhub_oidc::{OidcState, ProviderConfig, ProviderSettings, OidcClient};
+use didhub_oidc::{OidcClient, OidcState, ProviderConfig, ProviderSettings};
 use std::env;
-use wiremock::{MockServer, Mock, ResponseTemplate};
 use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[test]
 fn test_provider_settings_from_env_no_env_vars() {
@@ -105,7 +105,8 @@ async fn test_oidc_client_discovery_invalid_issuer() {
         "test_client_id".to_string(),
         Some("test_secret".to_string()),
         "http://localhost/callback".to_string(),
-    ).await;
+    )
+    .await;
 
     assert!(client.is_err());
 }
@@ -129,7 +130,8 @@ async fn test_oidc_client_discovery_missing_endpoints() {
         "test_client_id".to_string(),
         Some("test_secret".to_string()),
         "http://localhost/callback".to_string(),
-    ).await;
+    )
+    .await;
 
     assert!(client.is_err());
 }
@@ -179,7 +181,10 @@ async fn test_oidc_state_flow_management() {
     assert_eq!(retrieved.provider, "test_provider");
     assert_eq!(retrieved.code_verifier, "test_verifier");
     assert_eq!(retrieved.nonce, "test_nonce");
-    assert_eq!(retrieved.redirect, Some("http://localhost/redirect".to_string()));
+    assert_eq!(
+        retrieved.redirect,
+        Some("http://localhost/redirect".to_string())
+    );
 
     // Flow should be removed after take
     let retrieved_again = state.take_flow("test_state").await;
@@ -212,7 +217,9 @@ async fn test_oidc_state_flow_cleanup() {
     state.insert_flow("new_state", new_flow).await;
 
     // Cleanup flows older than 5 minutes
-    state.cleanup_flows(std::time::Duration::from_secs(300)).await;
+    state
+        .cleanup_flows(std::time::Duration::from_secs(300))
+        .await;
 
     // Old flow should be gone, new flow should remain
     let old_retrieved = state.take_flow("old_state").await;
@@ -277,12 +284,16 @@ async fn test_discovery_caching() {
 
     Mock::given(method("GET"))
         .and(path("/.well-known/openid-configuration"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "issuer": mock_server.uri(),
-            "authorization_endpoint": format!("{}/authorize", mock_server.uri()),
-            "token_endpoint": format!("{}/token", mock_server.uri()),
-            "jwks_uri": format!("{}/jwks", mock_server.uri())
-        })).set_delay(std::time::Duration::from_millis(100)))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({
+                    "issuer": mock_server.uri(),
+                    "authorization_endpoint": format!("{}/authorize", mock_server.uri()),
+                    "token_endpoint": format!("{}/token", mock_server.uri()),
+                    "jwks_uri": format!("{}/jwks", mock_server.uri())
+                }))
+                .set_delay(std::time::Duration::from_millis(100)),
+        )
         .mount(&mock_server)
         .await;
 
@@ -290,11 +301,13 @@ async fn test_discovery_caching() {
 
     // First call should fetch from server
     let start = std::time::Instant::now();
-    let result1 = state.get_or_fetch_discovery(
-        "test_provider",
-        &mock_server.uri(),
-        std::time::Duration::from_secs(300),
-    ).await;
+    let result1 = state
+        .get_or_fetch_discovery(
+            "test_provider",
+            &mock_server.uri(),
+            std::time::Duration::from_secs(300),
+        )
+        .await;
     let duration1 = start.elapsed();
 
     assert!(result1.is_ok());
@@ -302,18 +315,23 @@ async fn test_discovery_caching() {
 
     // Second call should use cache
     let start = std::time::Instant::now();
-    let result2 = state.get_or_fetch_discovery(
-        "test_provider",
-        &mock_server.uri(),
-        std::time::Duration::from_secs(300),
-    ).await;
+    let result2 = state
+        .get_or_fetch_discovery(
+            "test_provider",
+            &mock_server.uri(),
+            std::time::Duration::from_secs(300),
+        )
+        .await;
     let duration2 = start.elapsed();
 
     assert!(result2.is_ok());
     assert!(duration2.as_millis() < 50); // Should be much faster (cached)
 
     // Results should be identical
-    assert_eq!(result1.unwrap().authorization_endpoint, result2.unwrap().authorization_endpoint);
+    assert_eq!(
+        result1.unwrap().authorization_endpoint,
+        result2.unwrap().authorization_endpoint
+    );
 }
 
 #[tokio::test]
@@ -334,11 +352,13 @@ async fn test_discovery_cache_expiry() {
     let state = OidcState::new();
 
     // Cache with very short TTL
-    let result1 = state.get_or_fetch_discovery(
-        "test_provider",
-        &mock_server.uri(),
-        std::time::Duration::from_millis(1), // Expire immediately
-    ).await;
+    let result1 = state
+        .get_or_fetch_discovery(
+            "test_provider",
+            &mock_server.uri(),
+            std::time::Duration::from_millis(1), // Expire immediately
+        )
+        .await;
 
     assert!(result1.is_ok());
 
@@ -346,11 +366,13 @@ async fn test_discovery_cache_expiry() {
     tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
     // This should fetch again since cache expired
-    let result2 = state.get_or_fetch_discovery(
-        "test_provider",
-        &mock_server.uri(),
-        std::time::Duration::from_millis(1),
-    ).await;
+    let result2 = state
+        .get_or_fetch_discovery(
+            "test_provider",
+            &mock_server.uri(),
+            std::time::Duration::from_millis(1),
+        )
+        .await;
 
     assert!(result2.is_ok());
 }

@@ -159,7 +159,10 @@ fn config_file_cors_settings() {
         env::set_var("DIDHUB_CONFIG_FILE", &config_path);
         let cfg = AppConfig::from_env().unwrap();
         assert_eq!(cfg.allow_all_frontend_origins, false);
-        assert_eq!(cfg.frontend_origins, vec!["https://example.com", "https://app.example.com"]);
+        assert_eq!(
+            cfg.frontend_origins,
+            vec!["https://example.com", "https://app.example.com"]
+        );
         env::remove_var("DIDHUB_CONFIG_FILE");
     });
 }
@@ -408,7 +411,10 @@ fn config_file_database_mysql_driver() {
 
         env::set_var("DIDHUB_CONFIG_FILE", &config_path);
         let cfg = AppConfig::from_env().unwrap();
-        assert_eq!(cfg.db_url, Some("mysql://didhub_user:didhub_pass@db.example.com:3306/didhub_db".to_string()));
+        assert_eq!(
+            cfg.db_url,
+            Some("mysql://didhub_user:didhub_pass@db.example.com:3306/didhub_db".to_string())
+        );
 
         env::remove_var("DIDHUB_CONFIG_FILE");
     });
@@ -449,7 +455,13 @@ fn config_file_database_postgres_with_ssl() {
 
         env::set_var("DIDHUB_CONFIG_FILE", &config_path);
         let cfg = AppConfig::from_env().unwrap();
-        assert_eq!(cfg.db_url, Some("postgres://didhub_user:didhub_pass@db.example.com:5432/didhub_db?sslmode=require".to_string()));
+        assert_eq!(
+            cfg.db_url,
+            Some(
+                "postgres://didhub_user:didhub_pass@db.example.com:5432/didhub_db?sslmode=require"
+                    .to_string()
+            )
+        );
 
         env::remove_var("DIDHUB_CONFIG_FILE");
     });
@@ -491,7 +503,10 @@ fn config_file_database_postgres_invalid_ssl_mode() {
         env::set_var("DIDHUB_CONFIG_FILE", &config_path);
         let cfg = AppConfig::from_env().unwrap();
         // Invalid SSL mode should be ignored, so no ?sslmode= parameter
-        assert_eq!(cfg.db_url, Some("postgres://didhub_user:didhub_pass@db.example.com:5432/didhub_db".to_string()));
+        assert_eq!(
+            cfg.db_url,
+            Some("postgres://didhub_user:didhub_pass@db.example.com:5432/didhub_db".to_string())
+        );
 
         env::remove_var("DIDHUB_CONFIG_FILE");
     });

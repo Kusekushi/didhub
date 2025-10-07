@@ -75,7 +75,7 @@ pub struct AppComponents {
 pub async fn build_app(db: db::Db, cfg: config::AppConfig) -> AppComponents {
     let service_components = services::ServiceComponents::initialize(&db, &cfg).await;
     let router = AppRouterBuilder::new(db, cfg).build_with_services(&service_components);
-    
+
     AppComponents {
         router,
         services: service_components,

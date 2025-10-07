@@ -29,7 +29,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use image::{GenericImageView, ImageFormat, RgbImage, RgbaImage, DynamicImage};
+use image::{DynamicImage, GenericImageView, ImageFormat, RgbImage, RgbaImage};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use thiserror::Error;
@@ -174,17 +174,18 @@ impl ImageProcessor {
 
     /// Process an image with custom options
     #[instrument(skip(self, raw_bytes, options), fields(size = raw_bytes.len()))]
-    pub fn process_with_options(&self, raw_bytes: &[u8], options: &ProcessingOptions) -> Result<ProcessingResult, ImageProcessingError> {
+    pub fn process_with_options(
+        &self,
+        raw_bytes: &[u8],
+        options: &ProcessingOptions,
+    ) -> Result<ProcessingResult, ImageProcessingError> {
         let start_time = std::time::Instant::now();
         let (data, mut metadata) = process_image(raw_bytes, options)?;
         let processing_time = start_time.elapsed().as_millis();
 
         metadata.processing_time_ms = processing_time;
 
-        Ok(ProcessingResult {
-            data,
-            metadata,
-        })
+        Ok(ProcessingResult { data, metadata })
     }
 }
 
@@ -220,7 +221,10 @@ pub fn process_image(
 
     // Validate dimensions
     if ow == 0 || oh == 0 {
-        return Err(ImageProcessingError::InvalidDimensions { width: ow, height: oh });
+        return Err(ImageProcessingError::InvalidDimensions {
+            width: ow,
+            height: oh,
+        });
     }
 
     debug!(
@@ -348,7 +352,17 @@ pub fn create_thumbnail(
 /// # Returns
 /// true if the MIME type is supported, false otherwise
 pub fn is_image_mime(mime: &str) -> bool {
-    matches!(mime, "image/png" | "image/jpeg" | "image/jpg" | "image/gif" | "image/webp" | "image/bmp" | "image/tiff" | "image/tif")
+    matches!(
+        mime,
+        "image/png"
+            | "image/jpeg"
+            | "image/jpg"
+            | "image/gif"
+            | "image/webp"
+            | "image/bmp"
+            | "image/tiff"
+            | "image/tif"
+    )
 }
 
 pub fn detect_image_format(data: &[u8]) -> Option<ImageFormat> {

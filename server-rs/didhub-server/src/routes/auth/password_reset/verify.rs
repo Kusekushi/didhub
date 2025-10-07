@@ -1,10 +1,10 @@
 use axum::{extract::Extension, Json};
 use base64::Engine;
+use blake3;
 use didhub_db::users::UserOperations;
 use didhub_db::{audit, Db};
 use didhub_error::AppError;
 use serde::{Deserialize, Serialize};
-use blake3;
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Deserialize)]

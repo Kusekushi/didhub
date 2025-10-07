@@ -163,14 +163,15 @@ pub async fn upload_avatar(
         );
 
         // Process the image
-        let (out_buf, metadata) = process_image_simple(&raw_bytes, avatar_max_dim).map_err(|e| {
-            error!(
-                user_id = %user.id,
-                error = %e,
-                "Failed to process image data"
-            );
-            AppError::BadRequest("unsupported image".into())
-        })?;
+        let (out_buf, metadata) =
+            process_image_simple(&raw_bytes, avatar_max_dim).map_err(|e| {
+                error!(
+                    user_id = %user.id,
+                    error = %e,
+                    "Failed to process image data"
+                );
+                AppError::BadRequest("unsupported image".into())
+            })?;
         orig_w = metadata.orig_width;
         orig_h = metadata.orig_height;
         final_w = metadata.final_width;

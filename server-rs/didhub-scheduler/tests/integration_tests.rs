@@ -1,11 +1,11 @@
-use didhub_scheduler::{create_default_scheduler, CronScheduler, JobScheduleConfig};
-use didhub_jobs::{AuditRetentionJob, Job, JobOutcome};
+use anyhow::Result;
+use async_trait::async_trait;
 use didhub_db::Db;
+use didhub_jobs::{AuditRetentionJob, Job, JobOutcome};
+use didhub_scheduler::{create_default_scheduler, CronScheduler, JobScheduleConfig};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
-use anyhow::Result;
-use async_trait::async_trait;
 use uuid;
 
 // Mock database for testing
@@ -80,11 +80,17 @@ impl Job for MockJob {
 
         if self.should_cancel {
             cancel_token.cancel();
-            return Ok(JobOutcome::new(0, Some("job requested cancellation".to_string())));
+            return Ok(JobOutcome::new(
+                0,
+                Some("job requested cancellation".to_string()),
+            ));
         }
 
         if self.should_succeed {
-            Ok(JobOutcome::new(1, Some(format!("{} completed successfully", self.name))))
+            Ok(JobOutcome::new(
+                1,
+                Some(format!("{} completed successfully", self.name)),
+            ))
         } else {
             Err(anyhow::anyhow!("{} failed as expected", self.name))
         }
@@ -153,7 +159,9 @@ async fn test_job_registration_with_custom_schedule() {
         last_run: None,
     };
 
-    scheduler.update_schedule("mock_success", custom_config).await;
+    scheduler
+        .update_schedule("mock_success", custom_config)
+        .await;
 
     let config = scheduler.get_schedule("mock_success").await;
     assert!(config.is_some());
@@ -176,7 +184,9 @@ async fn test_job_registration_disabled() {
         last_run: None,
     };
 
-    scheduler.update_schedule("mock_success", custom_config).await;
+    scheduler
+        .update_schedule("mock_success", custom_config)
+        .await;
 
     let config = scheduler.get_schedule("mock_success").await;
     assert!(config.is_some());
@@ -324,8 +334,18 @@ async fn test_job_categories() {
 async fn test_scheduler_concurrent_access() {
     let scheduler = Arc::new(CronScheduler::new());
 
-    let job_names = ["concurrent_job_0", "concurrent_job_1", "concurrent_job_2", "concurrent_job_3", "concurrent_job_4",
-                     "concurrent_job_5", "concurrent_job_6", "concurrent_job_7", "concurrent_job_8", "concurrent_job_9"];
+    let job_names = [
+        "concurrent_job_0",
+        "concurrent_job_1",
+        "concurrent_job_2",
+        "concurrent_job_3",
+        "concurrent_job_4",
+        "concurrent_job_5",
+        "concurrent_job_6",
+        "concurrent_job_7",
+        "concurrent_job_8",
+        "concurrent_job_9",
+    ];
 
     let mut handles = vec![];
 
@@ -371,19 +391,21 @@ async fn test_scheduler_isolation() {
 async fn test_scheduler_graceful_shutdown_regression() {
     // Regression test for issue where scheduler shutdown produced
     // "Error receiving job removal Closed" and "Error receiving Closed" errors
-    
+
     // Create a test database
     let db_file = format!("test-scheduler-{}.sqlite", uuid::Uuid::new_v4());
-    let db = Db::connect_with_file(&db_file).await.expect("Failed to create test database");
-    
+    let db = Db::connect_with_file(&db_file)
+        .await
+        .expect("Failed to create test database");
+
     let scheduler = CronScheduler::new();
-    
+
     // Register some jobs
     let job1 = MockJob::new("shutdown_test_job1", true);
     let job2 = MockJob::new("shutdown_test_job2", true);
     scheduler.register_job(job1).await;
     scheduler.register_job(job2).await;
-    
+
     // Start the scheduler
     let start_result = scheduler.start(db.clone()).await;
     if let Err(ref e) = start_result {
@@ -391,14 +413,17 @@ async fn test_scheduler_graceful_shutdown_regression() {
         panic!("Scheduler failed to start: {}", e);
     }
     assert!(start_result.is_ok(), "Scheduler should start successfully");
-    
+
     // Give it a moment to initialize
     tokio::time::sleep(Duration::from_millis(50)).await;
-    
+
     // Stop the scheduler - this should not produce errors
     let stop_result = scheduler.stop().await;
-    assert!(stop_result.is_ok(), "Scheduler should stop gracefully without errors");
-    
+    assert!(
+        stop_result.is_ok(),
+        "Scheduler should stop gracefully without errors"
+    );
+
     // Clean up test database file
     std::fs::remove_file(&db_file).ok();
 }
@@ -407,23 +432,25 @@ async fn test_scheduler_graceful_shutdown_regression() {
 async fn test_scheduler_double_stop() {
     // Create a test database
     let db_file = format!("test-double-stop-{}.sqlite", uuid::Uuid::new_v4());
-    let db = Db::connect_with_file(&db_file).await.expect("Failed to create test database");
-    
+    let db = Db::connect_with_file(&db_file)
+        .await
+        .expect("Failed to create test database");
+
     let scheduler = CronScheduler::new();
-    
+
     // Register a job
     let job = MockJob::new("double_stop_test", true);
     scheduler.register_job(job).await;
-    
+
     // Start and stop once
     scheduler.start(db.clone()).await.unwrap();
     tokio::time::sleep(Duration::from_millis(10)).await;
     scheduler.stop().await.unwrap();
-    
+
     // Stop again - should not panic or error
     let second_stop_result = scheduler.stop().await;
     assert!(second_stop_result.is_ok(), "Second stop should be safe");
-    
+
     // Clean up
     std::fs::remove_file(&db_file).ok();
 }
@@ -432,36 +459,36 @@ async fn test_scheduler_double_stop() {
 async fn test_regression_fallback_schedule_uses_at_syntax() {
     // Regression test: ensure fallback schedule uses @ syntax supported by tokio-cron-scheduler v0.15
     // Previously used "0 2 * * *" which caused ParseSchedule errors
-    
+
     #[derive(Clone)]
     struct JobWithoutSchedule;
-    
+
     #[async_trait]
     impl Job for JobWithoutSchedule {
         fn name(&self) -> &'static str {
             "job_without_schedule"
         }
-        
+
         fn description(&self) -> &'static str {
             "Job without default schedule for testing fallback"
         }
-        
+
         fn default_schedule(&self) -> Option<&str> {
             None // This should trigger the fallback
         }
-        
+
         async fn run(&self, _db: &Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
             Ok(JobOutcome::new(0, Some("test".to_string())))
         }
     }
-    
+
     let scheduler = CronScheduler::new();
     scheduler.register_job(JobWithoutSchedule).await;
-    
+
     let config = scheduler.get_schedule("job_without_schedule").await;
     assert!(config.is_some());
     let config = config.unwrap();
-    
+
     // Should use @daily fallback, not "0 2 * * *"
     assert_eq!(config.schedule, "@daily");
     assert!(config.enabled); // Should be enabled by default for periodic jobs
@@ -471,40 +498,40 @@ async fn test_regression_fallback_schedule_uses_at_syntax() {
 async fn test_regression_non_periodic_jobs_disabled() {
     // Regression test: ensure non-periodic jobs are registered as disabled
     // Previously, UploadsBackfillJob was scheduled even though is_periodic() = false
-    
+
     #[derive(Clone)]
     struct NonPeriodicJob;
-    
+
     #[async_trait]
     impl Job for NonPeriodicJob {
         fn name(&self) -> &'static str {
             "non_periodic_job"
         }
-        
+
         fn description(&self) -> &'static str {
             "Non-periodic job that should not be scheduled"
         }
-        
+
         fn is_periodic(&self) -> bool {
             false // This job should be disabled
         }
-        
+
         fn default_schedule(&self) -> Option<&str> {
             Some("@daily")
         }
-        
+
         async fn run(&self, _db: &Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
             Ok(JobOutcome::new(0, Some("test".to_string())))
         }
     }
-    
+
     let scheduler = CronScheduler::new();
     scheduler.register_job(NonPeriodicJob).await;
-    
+
     let config = scheduler.get_schedule("non_periodic_job").await;
     assert!(config.is_some());
     let config = config.unwrap();
-    
+
     // Should be disabled because is_periodic() = false
     assert!(!config.enabled);
     assert_eq!(config.schedule, "@daily");
@@ -514,28 +541,38 @@ async fn test_regression_non_periodic_jobs_disabled() {
 async fn test_regression_all_default_jobs_use_at_syntax() {
     // Regression test: ensure all default jobs use @ syntax schedules
     // Previously some used traditional cron syntax that caused ParseSchedule errors
-    
+
     let scheduler = create_default_scheduler().await;
     let jobs = scheduler.list_jobs().await;
-    
+
     // Check that we have the expected number of jobs
     assert_eq!(jobs.len(), 9);
-    
+
     // Check each job's schedule uses @ syntax
     for job_name in &jobs {
         let config = scheduler.get_schedule(job_name).await;
-        assert!(config.is_some(), "Job {} should have a schedule config", job_name);
+        assert!(
+            config.is_some(),
+            "Job {} should have a schedule config",
+            job_name
+        );
         let config = config.unwrap();
-        
+
         // All schedules should start with @ (at syntax)
-        assert!(config.schedule.starts_with('@'), 
-                "Job {} schedule '{}' should use @ syntax, not traditional cron", 
-                job_name, config.schedule);
-        
+        assert!(
+            config.schedule.starts_with('@'),
+            "Job {} schedule '{}' should use @ syntax, not traditional cron",
+            job_name,
+            config.schedule
+        );
+
         // Should be one of the supported @ expressions
-        assert!(matches!(config.schedule.as_str(), 
-                        "@hourly" | "@daily" | "@monthly"),
-                "Job {} has unsupported schedule: {}", job_name, config.schedule);
+        assert!(
+            matches!(config.schedule.as_str(), "@hourly" | "@daily" | "@monthly"),
+            "Job {} has unsupported schedule: {}",
+            job_name,
+            config.schedule
+        );
     }
 }
 
@@ -543,20 +580,26 @@ async fn test_regression_all_default_jobs_use_at_syntax() {
 async fn test_regression_scheduler_starts_without_parse_errors() {
     // Regression test: ensure scheduler can start with all default jobs
     // Previously this would fail with ParseSchedule errors due to invalid cron expressions
-    
+
     let scheduler = create_default_scheduler().await;
-    
+
     // Create a temporary database for testing
     let db_file = format!("test-scheduler-start-{}.sqlite", uuid::Uuid::new_v4());
-    let db = Db::connect_with_file(&db_file).await.expect("Failed to create test database");
-    
+    let db = Db::connect_with_file(&db_file)
+        .await
+        .expect("Failed to create test database");
+
     // This should not panic or return ParseSchedule errors
     let start_result = scheduler.start(db).await;
-    assert!(start_result.is_ok(), "Scheduler should start without ParseSchedule errors: {:?}", start_result.err());
-    
+    assert!(
+        start_result.is_ok(),
+        "Scheduler should start without ParseSchedule errors: {:?}",
+        start_result.err()
+    );
+
     // Clean shutdown
     scheduler.stop().await.unwrap();
-    
+
     // Clean up
     std::fs::remove_file(&db_file).ok();
 }

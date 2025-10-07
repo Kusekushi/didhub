@@ -44,10 +44,15 @@ pub async fn auth_middleware(
 
     // Try to get user from cache first
     let cache_key = format!("user:{}", username);
-    let cached_user: Option<CurrentUser> = state.cache.get(&cache_key).await.map_err(|e| {
-        tracing::warn!(username=%username, error=?e, "cache get failed, falling back to DB");
-        AppError::Internal
-    }).unwrap_or(None);
+    let cached_user: Option<CurrentUser> = state
+        .cache
+        .get(&cache_key)
+        .await
+        .map_err(|e| {
+            tracing::warn!(username=%username, error=?e, "cache get failed, falling back to DB");
+            AppError::Internal
+        })
+        .unwrap_or(None);
 
     let current = if let Some(user) = cached_user {
         tracing::debug!(username=%username, "user loaded from cache");
@@ -71,7 +76,11 @@ pub async fn auth_middleware(
             must_change_password: db_user.must_change_password != 0,
         };
         // Cache the user data for 5 minutes
-        if let Err(e) = state.cache.set(&cache_key, &current, Some(Duration::from_secs(300))).await {
+        if let Err(e) = state
+            .cache
+            .set(&cache_key, &current, Some(Duration::from_secs(300)))
+            .await
+        {
             tracing::warn!(username=%username, error=?e, "failed to cache user data");
         }
         tracing::debug!(username=%username, "user loaded from DB and cached");

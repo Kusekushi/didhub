@@ -110,8 +110,14 @@ mod utils_tests {
         headers.insert("content-type", HeaderValue::from_static("application/json"));
         headers.insert("authorization", HeaderValue::from_static("Bearer token"));
 
-        assert_eq!(get_header_value(&headers, "content-type"), Some("application/json"));
-        assert_eq!(get_header_value(&headers, "authorization"), Some("Bearer token"));
+        assert_eq!(
+            get_header_value(&headers, "content-type"),
+            Some("application/json")
+        );
+        assert_eq!(
+            get_header_value(&headers, "authorization"),
+            Some("Bearer token")
+        );
         assert_eq!(get_header_value(&headers, "nonexistent"), None);
     }
 
@@ -128,7 +134,10 @@ mod utils_tests {
         // No matches
         assert!(!path_matches_pattern("/api/users", "/api/users/*"));
         assert!(!path_matches_pattern("/api/posts", "/api/users"));
-        assert!(!path_matches_pattern("/api/users/123/profile", "/api/users/*"));
+        assert!(!path_matches_pattern(
+            "/api/users/123/profile",
+            "/api/users/*"
+        ));
     }
 
     #[test]
@@ -141,19 +150,31 @@ mod utils_tests {
 
     #[test]
     fn test_generate_cache_key() {
-        assert_eq!(generate_cache_key(&Method::GET, "/api/users"), "GET:/api/users");
-        assert_eq!(generate_cache_key(&Method::POST, "/api/users"), "POST:/api/users");
+        assert_eq!(
+            generate_cache_key(&Method::GET, "/api/users"),
+            "GET:/api/users"
+        );
+        assert_eq!(
+            generate_cache_key(&Method::POST, "/api/users"),
+            "POST:/api/users"
+        );
     }
 
     #[test]
     fn test_is_bot_user_agent() {
         // Known bots
-        assert!(is_bot_user_agent("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"));
-        assert!(is_bot_user_agent("Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)"));
+        assert!(is_bot_user_agent(
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+        ));
+        assert!(is_bot_user_agent(
+            "Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)"
+        ));
         assert!(is_bot_user_agent("facebookexternalhit/1.1 facebot"));
 
         // Not bots
-        assert!(!is_bot_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"));
+        assert!(!is_bot_user_agent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        ));
         assert!(!is_bot_user_agent("curl/7.68.0"));
         assert!(!is_bot_user_agent("PostmanRuntime/7.26.8"));
     }

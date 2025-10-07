@@ -130,7 +130,7 @@ async fn shutdown_signal() {
 
 async fn shutdown_signal_with_cleanup(services: services::ServiceComponents) {
     shutdown_signal().await;
-    
+
     // Perform cleanup of services
     tracing::info!("shutting down services");
     if let Err(e) = services.registry.stop().await {

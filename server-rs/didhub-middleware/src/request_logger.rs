@@ -1,6 +1,6 @@
 use axum::{body::Body, http::Request, middleware::Next, response::Response};
-use std::time::Instant;
 use didhub_metrics::record_http_request;
+use std::time::Instant;
 
 pub async fn request_logger(req: Request<Body>, next: Next) -> Response {
     let method = req.method().clone();
