@@ -189,7 +189,6 @@ export interface HousekeepingJob {
   name: string;
   description?: string;
   last_run?: string;
-  next_run?: string;
   enabled: boolean;
 }
 

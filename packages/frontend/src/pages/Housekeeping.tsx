@@ -11,12 +11,10 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material';
-import { HttpClient } from '@didhub/api-client';
-
-const httpClient = new HttpClient();
+import { apiClient, type HousekeepingJob } from '@didhub/api-client';
 
 export default function Housekeeping() {
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<HousekeepingJob[]>([]);
   const [runs, setRuns] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [dryRun, setDryRun] = useState<Record<string, boolean>>({});
@@ -27,40 +25,18 @@ export default function Housekeeping() {
   async function load() {
     setLoading(true);
     try {
-      const jobsResponse = await httpClient.request<Record<string, unknown>>({
-        path: '/api/housekeeping/jobs',
-        throwOnError: false,
-      });
-      const jobItems =
-        jobsResponse.data &&
-        typeof jobsResponse.data === 'object' &&
-        Array.isArray((jobsResponse.data as { jobs?: unknown[] }).jobs)
-          ? ((jobsResponse.data as { jobs?: unknown[] }).jobs as unknown[])
-          : [];
-      const jobNames = jobItems
-        .map((item) => (typeof item === 'string' ? item : (item as { name?: unknown }).name))
-        .filter((value): value is string => typeof value === 'string' && value.length > 0);
-      setJobs(jobNames);
+      const jobsResult = await apiClient.admin.listHousekeepingJobs();
+      setJobs(jobsResult.jobs);
 
       // Initialize dry run state for each job
       const initialDryRun: Record<string, boolean> = {};
-      jobNames.forEach(name => {
-        initialDryRun[name] = true;
+      jobsResult.jobs.forEach(job => {
+        initialDryRun[job.name] = true;
       });
       setDryRun(initialDryRun);
 
-      const runsResponse = await httpClient.request<Record<string, unknown>>({
-        path: '/api/housekeeping/runs',
-        query: { limit: 50, offset: 0 },
-        throwOnError: false,
-      });
-      const runItems =
-        runsResponse.data &&
-        typeof runsResponse.data === 'object' &&
-        Array.isArray((runsResponse.data as { runs?: unknown[] }).runs)
-          ? ((runsResponse.data as { runs?: unknown[] }).runs as unknown[])
-          : [];
-      setRuns(runItems);
+      const runsResult = await apiClient.admin.listHousekeepingRuns(1, 50);
+      setRuns(runsResult.runs);
     } catch (e) {
       console.error('Failed to load housekeeping data:', e);
       setJobs([]);
@@ -76,24 +52,19 @@ export default function Housekeeping() {
 
   async function onRun(name: string, opts?: { dry?: boolean }) {
     try {
-      const res = await httpClient.request<Record<string, unknown>>({
-        path: `/api/housekeeping/trigger/${encodeURIComponent(name)}`,
-        method: 'POST',
-        json: opts?.dry ? { dry: true } : undefined,
-        throwOnError: false,
-      });
+      const res = await apiClient.admin.triggerHousekeepingJob(name, { dry: opts?.dry });
       await load();
       // if dry run returned candidates and dry=true, open confirm dialog
       const candidates =
-        res.data && typeof res.data === 'object'
-          ? ((res.data as { result?: { result?: { candidates?: unknown[] } } }).result?.result?.candidates ?? null)
+        res && typeof res === 'object'
+          ? ((res as any).metadata?.result?.result?.candidates ?? null)
           : null;
       if (opts && opts.dry && Array.isArray(candidates)) {
         setConfirmJob(name);
         setConfirmCandidates(candidates as unknown[]);
         setConfirmOpen(true);
       }
-      return res.data ?? null;
+      return res ?? null;
     } catch (e) {
       await load();
       return null;
@@ -103,12 +74,7 @@ export default function Housekeeping() {
   async function confirmExecute() {
     if (!confirmJob) return;
     try {
-      await httpClient.request({
-        path: `/api/housekeeping/trigger/${encodeURIComponent(confirmJob)}`,
-        method: 'POST',
-        json: { dry: false },
-        throwOnError: false,
-      });
+      await apiClient.admin.triggerHousekeepingJob(confirmJob, { dry: false });
     } catch (e) {
       // ignore
     } finally {
@@ -136,49 +102,61 @@ export default function Housekeeping() {
           </Typography>
         ) : (
           <List>
-            {jobs.map((jobName) => {
+            {jobs.map((job) => {
               // Provide clearer descriptions for jobs based on their names
-              let desc = '';
-              switch (jobName) {
+              let desc = job.description || '';
+              switch (job.name) {
                 case 'audit_retention':
-                  desc = 'Remove old audit log entries based on retention policy';
+                  desc = desc || 'Remove old audit log entries based on retention policy';
                   break;
                 case 'birthdays_digest':
-                  desc = 'Generate digest of upcoming birthdays';
+                  desc = desc || 'Generate digest of upcoming birthdays';
                   break;
                 case 'uploads_gc':
-                  desc = 'Clean up orphaned and old upload files';
+                  desc = desc || 'Clean up orphaned and old upload files';
                   break;
                 case 'uploads_backfill':
-                  desc = 'Add database entries for existing upload files';
+                  desc = desc || 'Add database entries for existing upload files';
                   break;
                 case 'uploads_integrity':
-                  desc = 'Check consistency between database and filesystem for uploads';
+                  desc = desc || 'Check consistency between database and filesystem for uploads';
                   break;
                 case 'orphans_prune':
-                  desc = 'Remove orphaned group and subsystem memberships';
+                  desc = desc || 'Remove orphaned group and subsystem memberships';
                   break;
                 case 'db_vacuum':
-                  desc = 'Optimize database storage and performance';
+                  desc = desc || 'Optimize database storage and performance';
                   break;
                 default:
-                  desc = 'Housekeeping job';
+                  desc = desc || 'Housekeeping job';
                   break;
               }
 
               return (
-                <ListItem key={jobName} sx={{ border: '1px solid #eee', mb: 1, borderRadius: 1 }}>
-                  <ListItemText primary={jobName} secondary={desc} />
+                <ListItem key={job.name} sx={{ border: '1px solid #eee', mb: 1, borderRadius: 1 }}>
+                  <ListItemText 
+                    primary={job.name} 
+                    secondary={
+                      <div>
+                        <div>{desc}</div>
+                        {job.last_run && (
+                          <div style={{ fontSize: '0.875rem', color: 'text.secondary', marginTop: 4 }}>
+                            Last run: {new Date(job.last_run).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    }
+                  />
                   <Stack direction="row" spacing={1} alignItems="center">
                     <FormControlLabel
-                      control={<Switch checked={dryRun[jobName] ?? true} onChange={(e) => setDryRun(prev => ({ ...prev, [jobName]: Boolean(e.target.checked) }))} />}
+                      control={<Switch checked={dryRun[job.name] ?? true} onChange={(e) => setDryRun(prev => ({ ...prev, [job.name]: Boolean(e.target.checked) }))} />}
                       label="Dry run"
                       sx={{ mr: 2 }}
                     />
                     <Button
                       variant="contained"
                       size="small"
-                      onClick={() => onRun(jobName, { dry: dryRun[jobName] ?? true })}
+                      onClick={() => onRun(job.name, { dry: dryRun[job.name] ?? true })}
                       disabled={loading}
                     >
                       Run now
@@ -201,11 +179,7 @@ export default function Housekeeping() {
           onClick={async () => {
             try {
               setLoading(true);
-              await httpClient.request({
-                path: '/api/housekeeping/runs',
-                method: 'POST',
-                throwOnError: false,
-              });
+              await apiClient.admin.clearHousekeepingRuns();
             } catch (e) {
               // ignore
             } finally {

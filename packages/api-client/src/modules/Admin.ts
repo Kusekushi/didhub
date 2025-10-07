@@ -254,20 +254,13 @@ export class AdminApi {
     return { jobs };
   }
 
-  async triggerHousekeepingJob(name: string, options: { dry?: boolean } = {}): Promise<HousekeepingRun> {
-    const response = await this.http.request<HousekeepingRun>({
+  async triggerHousekeepingJob(name: string, options: { dry?: boolean } = {}): Promise<Record<string, unknown>> {
+    const response = await this.http.request<Record<string, unknown>>({
       path: `/api/housekeeping/trigger/${encodeURIComponent(name)}`,
       method: 'POST',
       json: typeof options.dry !== 'undefined' ? { dry: !!options.dry } : undefined,
     });
-    const fallback: HousekeepingRun = {
-      id: -1,
-      job_name: name,
-      started_at: new Date().toISOString(),
-      status: 'failed',
-      dry_run: !!options.dry,
-    };
-    return isRecord(response.data) ? (response.data as HousekeepingRun) : fallback;
+    return response.data ?? {};
   }
 
   async listHousekeepingRuns(page = 1, perPage = 100): Promise<{ runs: HousekeepingRun[] }> {

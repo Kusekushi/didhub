@@ -6,6 +6,7 @@ use didhub_db::{common::CommonOperations, Db};
 use didhub_error::AppError;
 use didhub_scheduler::CronScheduler;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 #[derive(Clone)]
 pub struct HousekeepingState {
@@ -14,12 +15,29 @@ pub struct HousekeepingState {
 }
 
 #[derive(Serialize)]
+pub struct JobInfo {
+    pub name: String,
+    pub description: String,
+    pub enabled: bool,
+    pub last_run: Option<String>,
+}
+
+#[derive(Serialize)]
 pub struct JobsList {
-    pub jobs: Vec<String>,
+    pub jobs: Vec<JobInfo>,
 }
 
 pub async fn list_jobs(Extension(state): Extension<HousekeepingState>) -> Json<JobsList> {
-    let jobs = state.registry.list_jobs().await;
+    let jobs_metadata = state.registry.list_jobs_with_metadata().await;
+    let jobs = jobs_metadata
+        .into_iter()
+        .map(|(name, description, enabled, last_run)| JobInfo {
+            name,
+            description,
+            enabled,
+            last_run,
+        })
+        .collect();
     Json(JobsList { jobs })
 }
 
@@ -76,23 +94,40 @@ pub async fn list_runs(
     Ok(Json(RunsList { runs: out }))
 }
 
-#[derive(Serialize)]
-pub struct TriggerResponse {
-    pub job: String,
-    pub rows_affected: i64,
-    pub message: String,
+#[derive(Deserialize)]
+pub struct TriggerRequest {
+    pub dry: Option<bool>,
 }
 
 pub async fn trigger_job(
     Path(name): Path<String>,
     Extension(state): Extension<HousekeepingState>,
-) -> Result<Json<TriggerResponse>, AppError> {
-    let outcome = state.registry.run_job_by_name(&state.db, &name).await?;
-    Ok(Json(TriggerResponse {
-        job: name,
-        rows_affected: outcome.rows_affected,
-        message: outcome.message.unwrap_or_default(),
-    }))
+    Json(body): Json<TriggerRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if body.dry.unwrap_or(false) {
+        let outcome = state.registry.dry_run_job_by_name(&state.db, &name).await?;
+        Ok(Json(serde_json::json!({
+            "job": name,
+            "rows_affected": outcome.rows_affected,
+            "message": outcome.message,
+            "metadata": outcome.metadata,
+        })))
+    } else {
+        let db = state.db.clone();
+        let registry = state.registry.clone();
+        let job_name = name.clone();
+
+        tokio::spawn(async move {
+            if let Err(err) = registry.run_job_by_name(&db, &job_name).await {
+                error!(job_name = %job_name, error = %err, "manual job failed");
+            }
+        });
+
+        Ok(Json(serde_json::json!({
+            "job": name,
+            "status": "queued",
+        })))
+    }
 }
 
 #[derive(Deserialize)]

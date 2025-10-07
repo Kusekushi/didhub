@@ -15,7 +15,18 @@ pub trait Job: Send + Sync {
     }
 
     /// Execute the job
-    async fn run(&self, db: &didhub_db::Db, cancel_token: &CancellationToken) -> Result<JobOutcome>;
+    async fn run(&self, db: &didhub_db::Db, cancel_token: &CancellationToken)
+        -> Result<JobOutcome>;
+
+    /// Execute a dry run of the job (preview what would be done)
+    async fn dry_run(
+        &self,
+        db: &didhub_db::Db,
+        cancel_token: &CancellationToken,
+    ) -> Result<JobOutcome> {
+        // Default implementation just calls run (jobs can override for optimized dry runs)
+        self.run(db, cancel_token).await
+    }
 
     /// Whether this job should run periodically
     fn is_periodic(&self) -> bool {
@@ -125,7 +136,10 @@ impl JobRegistry {
     }
 
     pub fn get_job(&self, name: &str) -> Option<&dyn Job> {
-        self.jobs.iter().find(|j| j.name() == name).map(|j| j.as_ref())
+        self.jobs
+            .iter()
+            .find(|j| j.name() == name)
+            .map(|j| j.as_ref())
     }
 
     pub fn list_jobs(&self) -> Vec<&JobMetadata> {
@@ -144,14 +158,14 @@ impl Default for JobRegistry {
 }
 
 // Job implementations
+pub mod database;
 pub mod maintenance;
 pub mod uploads;
-pub mod database;
 
 // Re-export common jobs
-pub use maintenance::{AuditRetentionJob, MetricsUpdateJob, ExpiredTokensCleanupJob};
-pub use uploads::{UploadsGcJob, UploadsBackfillJob, UploadsIntegrityJob};
 pub use database::{BirthdaysDigestJob, OrphansPruneJob, VacuumDbJob};
+pub use maintenance::{AuditRetentionJob, ExpiredTokensCleanupJob, MetricsUpdateJob};
+pub use uploads::{UploadsBackfillJob, UploadsGcJob, UploadsIntegrityJob};
 
 /// Build a registry with all default jobs
 pub fn build_default_registry() -> JobRegistry {

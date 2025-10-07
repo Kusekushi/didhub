@@ -1,13 +1,13 @@
 use anyhow::Result;
-use didhub_db::Db;
+use didhub_db::{common::CommonOperations, Db};
 use didhub_jobs::Job;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
-use tokio_util::sync::CancellationToken;
 use tokio_cron_scheduler::{Job as CronJob, JobScheduler};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 
 /// Configuration for job scheduling
@@ -90,63 +90,132 @@ impl CronScheduler {
         jobs.keys().cloned().collect()
     }
 
+    /// List all registered jobs with metadata
+    pub async fn list_jobs_with_metadata(&self) -> Vec<(String, String, bool, Option<String>)> {
+        let jobs = self.jobs.read().await;
+        jobs.values()
+            .map(|sj| {
+                let last_run = sj.config.last_run.map(|dt| dt.to_rfc3339());
+                (
+                    sj.job.name().to_string(),
+                    sj.job.description().to_string(),
+                    sj.config.enabled,
+                    last_run,
+                )
+            })
+            .collect()
+    }
+
     /// Start the cron scheduler with all enabled jobs
     pub async fn start(&self, db: Db) -> Result<()> {
         let scheduler = JobScheduler::new().await?;
 
-        let jobs = self.jobs.read().await;
-        for (job_name, scheduled_job) in jobs.iter() {
-            if scheduled_job.config.enabled {
-                let job_arc = scheduled_job.job.clone();
-                let db_clone = db.clone();
-                let job_name_clone = job_name.clone();
-                let cancel_token = self.cancellation_token.clone();
+        // Collect enabled jobs info
+        let enabled_jobs: Vec<(String, Arc<dyn Job + Send + Sync>, String)> = {
+            let jobs = self.jobs.read().await;
+            jobs.iter()
+                .filter(|(_, sj)| sj.config.enabled)
+                .map(|(name, sj)| (name.clone(), sj.job.clone(), sj.config.schedule.clone()))
+                .collect()
+        };
 
-                let cron_job = CronJob::new(scheduled_job.config.schedule.as_str(), move |_uuid, _lock| {
-                    let job = job_arc.clone();
-                    let db = db_clone.clone();
-                    let name = job_name_clone.clone();
-                    let token = cancel_token.clone();
+        for (job_name, job_arc, schedule) in enabled_jobs {
+            let db_clone = db.clone();
+            let job_name_clone = job_name.clone();
+            let cancel_token = self.cancellation_token.clone();
+            let jobs_weak = Arc::downgrade(&self.jobs);
 
-                    tokio::spawn(async move {
-                        // Check if scheduler is shutting down
-                        if token.is_cancelled() {
-                            debug!(job_name = %name, "skipping job execution - scheduler shutting down");
-                            return;
+            let cron_job = CronJob::new(schedule.as_str(), move |_uuid, _lock| {
+                let job = job_arc.clone();
+                let db = db_clone.clone();
+                let name = job_name_clone.clone();
+                let token = cancel_token.clone();
+                let jobs_weak = jobs_weak.clone();
+
+                tokio::spawn(async move {
+                    // Check if scheduler is shutting down
+                    if token.is_cancelled() {
+                        debug!(job_name = %name, "skipping job execution - scheduler shutting down");
+                        return;
+                    }
+
+                    debug!(job_name = %name, "cron job triggered");
+
+                    let run_id = match db.start_housekeeping_run(&name).await {
+                        Ok(run) => Some(run.id),
+                        Err(err) => {
+                            error!(job_name = %name, error = %err, "failed to record scheduled housekeeping run start");
+                            None
                         }
+                    };
 
-                        debug!(job_name = %name, "cron job triggered");
+                    let start = Instant::now();
+                    info!(job_name = %name, "starting scheduled job execution");
 
-                        let start = Instant::now();
-                        info!(job_name = %name, "starting scheduled job execution");
+                    match job.run(&db, &token).await {
+                        Ok(outcome) => {
+                            let duration = start.elapsed();
+                            info!(
+                                job_name = %name,
+                                rows_affected = %outcome.rows_affected,
+                                message = ?outcome.message,
+                                duration_ms = %duration.as_millis(),
+                                "scheduled job completed successfully"
+                            );
 
-                        match job.run(&db, &token).await {
-                            Ok(outcome) => {
-                                let duration = start.elapsed();
-                                info!(
-                                    job_name = %name,
-                                    rows_affected = %outcome.rows_affected,
-                                    message = ?outcome.message,
-                                    duration_ms = %duration.as_millis(),
-                                    "scheduled job completed successfully"
-                                );
+                            if let Some(run_id) = run_id {
+                                if let Err(err) = db
+                                    .finish_housekeeping_run(
+                                        run_id,
+                                        true,
+                                        outcome.message.as_deref(),
+                                        Some(outcome.rows_affected),
+                                    )
+                                    .await
+                                {
+                                    error!(job_name = %name, error = %err, "failed to finalize scheduled housekeeping run");
+                                }
                             }
-                            Err(e) => {
-                                let duration = start.elapsed();
-                                error!(
-                                    job_name = %name,
-                                    error = %e,
-                                    duration_ms = %duration.as_millis(),
-                                    "scheduled job failed"
-                                );
+
+                            // Update last_run
+                            if let Some(jobs_arc) = jobs_weak.upgrade() {
+                                if let Ok(mut jobs) = jobs_arc.try_write() {
+                                    if let Some(sj) = jobs.get_mut(&name) {
+                                        sj.config.last_run = Some(chrono::Utc::now());
+                                    }
+                                }
                             }
                         }
-                    });
-                })?;
+                        Err(e) => {
+                            let duration = start.elapsed();
+                            error!(
+                                job_name = %name,
+                                error = %e,
+                                duration_ms = %duration.as_millis(),
+                                "scheduled job failed"
+                            );
 
-                scheduler.add(cron_job).await?;
-                info!(job_name = %job_name, schedule = %scheduled_job.config.schedule, "scheduled cron job");
-            }
+                            if let Some(run_id) = run_id {
+                                let err_message = e.to_string();
+                                if let Err(err) = db
+                                    .finish_housekeeping_run(
+                                        run_id,
+                                        false,
+                                        Some(err_message.as_str()),
+                                        None,
+                                    )
+                                    .await
+                                {
+                                    error!(job_name = %name, error = %err, "failed to finalize failed scheduled housekeeping run");
+                                }
+                            }
+                        }
+                    }
+                });
+            })?;
+
+            scheduler.add(cron_job).await?;
+            info!(job_name = %job_name, schedule = %schedule, "scheduled cron job");
         }
 
         scheduler.start().await?;
@@ -183,12 +252,103 @@ impl CronScheduler {
 
     /// Run a job by name immediately
     pub async fn run_job_by_name(&self, db: &Db, name: &str) -> Result<didhub_jobs::JobOutcome> {
+        let job_arc = {
+            let jobs = self.jobs.read().await;
+            if let Some(scheduled_job) = jobs.get(name) {
+                scheduled_job.job.clone()
+            } else {
+                warn!(job_name = %name, "job not found in scheduler");
+                anyhow::bail!("job '{}' not found", name);
+            }
+        };
+
+        let run_id = match db.start_housekeeping_run(name).await {
+            Ok(run) => Some(run.id),
+            Err(err) => {
+                error!(job_name = %name, error = %err, "failed to record housekeeping run start");
+                None
+            }
+        };
+
+        let start = Instant::now();
+        info!(job_name = %name, "starting manual job execution");
+
+        // Use a new token for manual runs to avoid cancellation
+        let manual_token = CancellationToken::new();
+
+        match job_arc.run(db, &manual_token).await {
+            Ok(outcome) => {
+                let duration = start.elapsed();
+                info!(
+                    job_name = %name,
+                    rows_affected = %outcome.rows_affected,
+                    message = ?outcome.message,
+                    duration_ms = %duration.as_millis(),
+                    "manual job completed successfully"
+                );
+
+                if let Some(run_id) = run_id {
+                    if let Err(err) = db
+                        .finish_housekeeping_run(
+                            run_id,
+                            true,
+                            outcome.message.as_deref(),
+                            Some(outcome.rows_affected),
+                        )
+                        .await
+                    {
+                        error!(job_name = %name, error = %err, "failed to finalize housekeeping run");
+                    }
+                }
+
+                {
+                    let mut jobs = self.jobs.write().await;
+                    if let Some(sj) = jobs.get_mut(name) {
+                        sj.config.last_run = Some(chrono::Utc::now());
+                    }
+                }
+
+                Ok(outcome)
+            }
+            Err(e) => {
+                let duration = start.elapsed();
+                error!(
+                    job_name = %name,
+                    error = %e,
+                    duration_ms = %duration.as_millis(),
+                    "manual job failed"
+                );
+
+                if let Some(run_id) = run_id {
+                    let err_message = e.to_string();
+                    if let Err(err) = db
+                        .finish_housekeeping_run(run_id, false, Some(err_message.as_str()), None)
+                        .await
+                    {
+                        error!(job_name = %name, error = %err, "failed to finalize failed housekeeping run");
+                    }
+                }
+
+                Err(e)
+            }
+        }
+    }
+
+    /// Run a dry run of a job by name immediately
+    pub async fn dry_run_job_by_name(
+        &self,
+        db: &Db,
+        name: &str,
+    ) -> Result<didhub_jobs::JobOutcome> {
         let jobs = self.jobs.read().await;
         if let Some(scheduled_job) = jobs.get(name) {
             let start = Instant::now();
-            info!(job_name = %name, "starting manual job execution");
+            info!(job_name = %name, "starting manual dry run job execution");
 
-            match scheduled_job.job.run(db, &self.cancellation_token).await {
+            // Use a new token for manual runs to avoid cancellation
+            let manual_token = CancellationToken::new();
+
+            match scheduled_job.job.dry_run(db, &manual_token).await {
                 Ok(outcome) => {
                     let duration = start.elapsed();
                     info!(
@@ -196,8 +356,10 @@ impl CronScheduler {
                         rows_affected = %outcome.rows_affected,
                         message = ?outcome.message,
                         duration_ms = %duration.as_millis(),
-                        "manual job completed successfully"
+                        "manual dry run job completed successfully"
                     );
+
+                    // Do not update last_run for dry runs
                     Ok(outcome)
                 }
                 Err(e) => {
@@ -206,7 +368,7 @@ impl CronScheduler {
                         job_name = %name,
                         error = %e,
                         duration_ms = %duration.as_millis(),
-                        "manual job failed"
+                        "manual dry run job failed"
                     );
                     Err(e)
                 }
@@ -231,11 +393,19 @@ pub async fn create_default_scheduler() -> CronScheduler {
     // Register all default jobs
     scheduler.register_job(didhub_jobs::AuditRetentionJob).await;
     scheduler.register_job(didhub_jobs::MetricsUpdateJob).await;
-    scheduler.register_job(didhub_jobs::ExpiredTokensCleanupJob).await;
+    scheduler
+        .register_job(didhub_jobs::ExpiredTokensCleanupJob)
+        .await;
     scheduler.register_job(didhub_jobs::UploadsGcJob).await;
-    scheduler.register_job(didhub_jobs::UploadsBackfillJob).await;
-    scheduler.register_job(didhub_jobs::UploadsIntegrityJob).await;
-    scheduler.register_job(didhub_jobs::BirthdaysDigestJob).await;
+    scheduler
+        .register_job(didhub_jobs::UploadsBackfillJob)
+        .await;
+    scheduler
+        .register_job(didhub_jobs::UploadsIntegrityJob)
+        .await;
+    scheduler
+        .register_job(didhub_jobs::BirthdaysDigestJob)
+        .await;
     scheduler.register_job(didhub_jobs::OrphansPruneJob).await;
     scheduler.register_job(didhub_jobs::VacuumDbJob).await;
 
