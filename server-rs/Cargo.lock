@@ -1293,6 +1293,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "didhub-pdf"
+version = "0.1.0"
+dependencies = [
+ "didhub-error",
+ "didhub-image",
+ "genpdf",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "didhub-scheduler"
 version = "0.1.1"
 dependencies = [
@@ -1337,11 +1352,11 @@ dependencies = [
  "didhub-middleware",
  "didhub-migrations",
  "didhub-oidc",
+ "didhub-pdf",
  "didhub-scheduler",
  "didhub-updater",
  "dotenvy",
  "futures",
- "genpdf",
  "getrandom 0.3.3",
  "hex",
  "html-escape",

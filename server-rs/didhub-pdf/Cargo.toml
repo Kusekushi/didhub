@@ -1,0 +1,18 @@
+[package]
+name = "didhub-pdf"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+genpdf = { version = "0.2", features = ["images"] }
+didhub-image = { path = "../didhub-image" }
+didhub-error = { path = "../didhub-error" }
+tracing = "0.1"
+once_cell = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

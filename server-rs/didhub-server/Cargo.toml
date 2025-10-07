@@ -29,6 +29,7 @@ didhub-metrics = { path = "../didhub-metrics" }
 didhub-scheduler = { path = "../didhub-scheduler" }
 didhub-updater = { path = "../didhub-updater" }
 didhub-image = { path = "../didhub-image" }
+didhub-pdf = { path = "../didhub-pdf" }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["serde", "v4"] }
 sanitize-filename = "0.6"
@@ -51,7 +52,6 @@ http-body-util = "0.1"
 redis = { version = "0.32", features = ["tokio-comp"] }
 dashmap = "6"
 mime_guess = "2"
-genpdf = { version = "0.2", features = ["images"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 urlencoding = "2"
 openidconnect = { version = "4", default-features = true, features = ["reqwest"] }

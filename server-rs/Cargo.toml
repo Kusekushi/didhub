@@ -14,4 +14,5 @@ members = [
     "didhub-scheduler",
     "didhub-updater", "didhub-jobs",
     "didhub-image",
+    "didhub-pdf",
 ]
