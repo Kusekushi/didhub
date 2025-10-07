@@ -27,7 +27,7 @@ impl Job for UploadsGcJob {
     }
 
     fn default_schedule(&self) -> Option<&str> {
-        Some("0 2 * * *") // Daily at 2am
+        Some("@daily") // Daily at 2am
     }
 
     async fn run(&self, db: &didhub_db::Db, cancel_token: &CancellationToken) -> Result<JobOutcome> {
@@ -321,7 +321,7 @@ impl Job for UploadsIntegrityJob {
     }
 
     fn default_schedule(&self) -> Option<&str> {
-        Some("0 4 * * 0") // Weekly on Sunday at 4am
+        Some("@daily") // Daily integrity check
     }
 
     async fn run(&self, db: &didhub_db::Db, cancel_token: &CancellationToken) -> Result<JobOutcome> {

@@ -82,14 +82,14 @@ async fn test_job_categories() {
 #[tokio::test]
 async fn test_job_schedules() {
     // Test that jobs have appropriate default schedules
-    assert_eq!(AuditRetentionJob.default_schedule(), Some("0 */6 * * *"));
-    assert_eq!(MetricsUpdateJob.default_schedule(), Some("*/5 * * * *"));
-    assert_eq!(ExpiredTokensCleanupJob.default_schedule(), Some("0 3 * * *"));
-    assert_eq!(UploadsGcJob.default_schedule(), Some("0 2 * * *"));
+    assert_eq!(AuditRetentionJob.default_schedule(), Some("0 0,6,12,18 * * *"));
+    assert_eq!(MetricsUpdateJob.default_schedule(), Some("@hourly"));
+    assert_eq!(ExpiredTokensCleanupJob.default_schedule(), Some("@daily"));
+    assert_eq!(UploadsGcJob.default_schedule(), Some("@daily"));
     assert_eq!(UploadsBackfillJob.default_schedule(), None); // Not periodic
-    assert_eq!(UploadsIntegrityJob.default_schedule(), Some("0 4 * * 0"));
-    assert_eq!(BirthdaysDigestJob.default_schedule(), Some("0 9 * * *"));
-    assert_eq!(OrphansPruneJob.default_schedule(), Some("0 3 * * 0"));
+    assert_eq!(UploadsIntegrityJob.default_schedule(), Some("@daily"));
+    assert_eq!(BirthdaysDigestJob.default_schedule(), Some("@daily"));
+    assert_eq!(OrphansPruneJob.default_schedule(), Some("@daily"));
     assert_eq!(VacuumDbJob.default_schedule(), Some("0 4 1 * *"));
 }
 
@@ -262,6 +262,12 @@ async fn test_cron_schedule_formats() {
     ];
 
     for schedule in schedules.into_iter().flatten() {
+        // Allow either @ syntax or basic cron format (5 fields)
+        if schedule.starts_with('@') {
+            // @ syntax is allowed
+            continue;
+        }
+        
         // Basic cron format validation (5 fields)
         let parts: Vec<&str> = schedule.split_whitespace().collect();
         assert_eq!(parts.len(), 5, "Invalid cron schedule: {}", schedule);

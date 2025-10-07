@@ -39,6 +39,12 @@ impl ServiceComponents {
         }
     }
 
+    /// Start the housekeeping scheduler after the server is fully initialized
+    pub async fn start_scheduler(&self, db: &db::Db) -> anyhow::Result<()> {
+        self.registry.start(db.clone()).await?;
+        Ok(())
+    }
+
     async fn initialize_upload_dir_cache(
         db: &db::Db,
         cfg: &config::AppConfig,
@@ -69,7 +75,7 @@ impl ServiceComponents {
             registry: registry.clone(),
         };
 
-        let _ = registry.start(db.clone()).await;
+        // Note: Scheduler will be started later after server is fully initialized
         housekeeping_state
     }
 

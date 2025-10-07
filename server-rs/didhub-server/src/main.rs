@@ -92,6 +92,12 @@ async fn main() -> anyhow::Result<()> {
         "env"
     };
     info!(port = cfg.port, host = %cfg.host, origins=?cfg.frontend_origins, db_url=?cfg.db_url, db_source=%db_source, "DIDHub Rust server listening");
+
+    // Start the housekeeping scheduler now that the server is fully initialized
+    if let Err(e) = app_components.services.start_scheduler(&database).await {
+        tracing::error!(error = %e, "failed to start housekeeping scheduler");
+    }
+
     axum::serve(listener, app_components.router.into_make_service())
         .with_graceful_shutdown(shutdown_signal_with_cleanup(app_components.services))
         .await?;

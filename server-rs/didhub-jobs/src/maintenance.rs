@@ -28,7 +28,7 @@ impl Job for AuditRetentionJob {
     }
 
     fn default_schedule(&self) -> Option<&str> {
-        Some("0 */6 * * *") // Every 6 hours
+        Some("@hourly") // Every hour
     }
 
     async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
@@ -93,7 +93,7 @@ impl Job for MetricsUpdateJob {
     }
 
     fn default_schedule(&self) -> Option<&str> {
-        Some("*/5 * * * *") // Every 5 minutes
+        Some("@hourly") // Every hour
     }
 
     async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
@@ -188,7 +188,7 @@ impl Job for ExpiredTokensCleanupJob {
     }
 
     fn default_schedule(&self) -> Option<&str> {
-        Some("0 3 * * *") // Daily at 3am
+        Some("@daily") // Daily at 3am
     }
 
     async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {

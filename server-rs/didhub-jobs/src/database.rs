@@ -24,7 +24,7 @@ impl Job for BirthdaysDigestJob {
     }
 
     fn default_schedule(&self) -> Option<&str> {
-        Some("0 9 * * *") // Daily at 9 AM
+        Some("@daily") // Daily at 9 AM
     }
 
     async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
@@ -91,7 +91,7 @@ impl Job for OrphansPruneJob {
     }
 
     fn default_schedule(&self) -> Option<&str> {
-        Some("0 3 * * 0") // Weekly on Sunday at 3 AM
+        Some("@daily") // Daily cleanup
     }
 
     async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {
@@ -136,7 +136,7 @@ impl Job for VacuumDbJob {
     }
 
     fn default_schedule(&self) -> Option<&str> {
-        Some("0 4 1 * *") // Monthly on the 1st at 4 AM
+        Some("@monthly") // Monthly on the 1st at 4 AM
     }
 
     async fn run(&self, db: &didhub_db::Db, _cancel_token: &CancellationToken) -> Result<JobOutcome> {

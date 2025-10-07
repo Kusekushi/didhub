@@ -56,8 +56,8 @@ impl CronScheduler {
     pub async fn register_job<J: Job + Send + Sync + 'static>(&self, job: J) {
         let name = job.name().to_string();
         let config = JobScheduleConfig {
-            enabled: true,
-            schedule: job.default_schedule().unwrap_or("0 2 * * *").to_string(),
+            enabled: job.is_periodic(),
+            schedule: job.default_schedule().unwrap_or("@daily").to_string(),
             last_run: None,
         };
 
@@ -93,7 +93,6 @@ impl CronScheduler {
     /// Start the cron scheduler with all enabled jobs
     pub async fn start(&self, db: Db) -> Result<()> {
         let scheduler = JobScheduler::new().await?;
-        let scheduler_arc = Arc::new(RwLock::new(Some(scheduler)));
 
         let jobs = self.jobs.read().await;
         for (job_name, scheduled_job) in jobs.iter() {
@@ -145,21 +144,15 @@ impl CronScheduler {
                     });
                 })?;
 
-                let sched_guard = scheduler_arc.read().await;
-                if let Some(sched) = sched_guard.as_ref() {
-                    sched.add(cron_job).await?;
-                    info!(job_name = %job_name, schedule = %scheduled_job.config.schedule, "scheduled cron job");
-                }
+                scheduler.add(cron_job).await?;
+                info!(job_name = %job_name, schedule = %scheduled_job.config.schedule, "scheduled cron job");
             }
         }
 
-        let sched_guard = scheduler_arc.read().await;
-        if let Some(sched) = sched_guard.as_ref() {
-            sched.start().await?;
-        }
+        scheduler.start().await?;
 
         // Store the scheduler
-        *self.scheduler.write().await = Some(scheduler_arc.try_read().unwrap().as_ref().unwrap().clone());
+        *self.scheduler.write().await = Some(scheduler);
 
         info!("cron scheduler started");
         Ok(())
