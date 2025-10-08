@@ -196,10 +196,10 @@ export interface HousekeepingRun {
   id: number;
   job_name: string;
   started_at: string;
-  completed_at?: string;
-  status: 'running' | 'completed' | 'failed';
-  result?: string;
-  dry_run: boolean;
+  finished_at?: string | null;
+  status: 'running' | 'success' | 'error';
+  message?: string | null;
+  rows_affected?: number | null;
 }
 
 export interface UploadInfo {

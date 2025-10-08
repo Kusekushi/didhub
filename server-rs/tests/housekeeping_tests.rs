@@ -57,7 +57,8 @@ async fn housekeeping_audit_retention_flow() {
     let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let run_out: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
     assert_eq!(run_out.get("job").unwrap(), "audit_retention");
-    assert!(run_out.get("rows_affected").unwrap().as_i64().unwrap() >= 0);
+    assert_eq!(run_out.get("status").and_then(|s| s.as_str()).unwrap(), "queued");
+    assert!(run_out.get("run_id").and_then(|id| id.as_i64()).is_some());
 
     // List runs
     let runs = Request::builder().method("GET").uri("/api/housekeeping/runs")

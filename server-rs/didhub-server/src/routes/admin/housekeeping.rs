@@ -113,12 +113,22 @@ pub async fn trigger_job(
             "metadata": outcome.metadata,
         })))
     } else {
+        let run_record = state.db.start_housekeeping_run(&name).await;
+        let run_id = run_record.as_ref().ok().map(|r| r.id);
+        if let Err(err) = &run_record {
+            error!(job_name = %name, error = %err, "failed to record housekeeping run start");
+        }
+
         let db = state.db.clone();
         let registry = state.registry.clone();
         let job_name = name.clone();
+        let started_at = run_record.ok().map(|r| r.started_at);
 
         tokio::spawn(async move {
-            if let Err(err) = registry.run_job_by_name(&db, &job_name).await {
+            if let Err(err) = registry
+                .run_job_by_name_with_run(&db, &job_name, run_id)
+                .await
+            {
                 error!(job_name = %job_name, error = %err, "manual job failed");
             }
         });
@@ -126,6 +136,8 @@ pub async fn trigger_job(
         Ok(Json(serde_json::json!({
             "job": name,
             "status": "queued",
+            "run_id": run_id,
+            "started_at": started_at,
         })))
     }
 }

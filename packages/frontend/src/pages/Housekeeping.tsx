@@ -13,14 +13,16 @@ import {
 } from '@mui/material';
 import { apiClient, type HousekeepingJob } from '@didhub/api-client';
 
+type HousekeepingRunRecord = Awaited<ReturnType<typeof apiClient.admin.listHousekeepingRuns>>['runs'][number];
+
 export default function Housekeeping() {
   const [jobs, setJobs] = useState<HousekeepingJob[]>([]);
-  const [runs, setRuns] = useState<any[]>([]);
+  const [runs, setRuns] = useState<HousekeepingRunRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [dryRun, setDryRun] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmJob, setConfirmJob] = useState<any | null>(null);
-  const [confirmCandidates, setConfirmCandidates] = useState<any[]>([]);
+  const [confirmJob, setConfirmJob] = useState<string | null>(null);
+  const [confirmCandidates, setConfirmCandidates] = useState<unknown[]>([]);
 
   async function load() {
     setLoading(true);
@@ -40,7 +42,7 @@ export default function Housekeeping() {
     } catch (e) {
       console.error('Failed to load housekeeping data:', e);
       setJobs([]);
-      setRuns([]);
+  setRuns([]);
     } finally {
       setLoading(false);
     }
@@ -57,11 +59,11 @@ export default function Housekeeping() {
       // if dry run returned candidates and dry=true, open confirm dialog
       const candidates =
         res && typeof res === 'object'
-          ? ((res as any).metadata?.result?.result?.candidates ?? null)
+          ? ((res as Record<string, unknown>).metadata as { result?: { result?: { candidates?: unknown[] } } } | undefined)?.result?.result?.candidates ?? null
           : null;
       if (opts && opts.dry && Array.isArray(candidates)) {
         setConfirmJob(name);
-        setConfirmCandidates(candidates as unknown[]);
+  setConfirmCandidates(candidates);
         setConfirmOpen(true);
       }
       return res ?? null;

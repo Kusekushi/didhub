@@ -111,27 +111,25 @@ impl CronScheduler {
         let scheduler = JobScheduler::new().await?;
 
         // Collect enabled jobs info
-        let enabled_jobs: Vec<(String, Arc<dyn Job + Send + Sync>, String)> = {
+        let enabled_jobs: Vec<(String, String)> = {
             let jobs = self.jobs.read().await;
             jobs.iter()
                 .filter(|(_, sj)| sj.config.enabled)
-                .map(|(name, sj)| (name.clone(), sj.job.clone(), sj.config.schedule.clone()))
+                .map(|(name, sj)| (name.clone(), sj.config.schedule.clone()))
                 .collect()
         };
 
-        for (job_name, job_arc, schedule) in enabled_jobs {
+        for (job_name, schedule) in enabled_jobs {
             let db_clone = db.clone();
             let job_name_clone = job_name.clone();
             let cancel_token = self.cancellation_token.clone();
-            let jobs_weak = Arc::downgrade(&self.jobs);
+            let scheduler_clone_outer = self.clone();
 
             let cron_job = CronJob::new(schedule.as_str(), move |_uuid, _lock| {
-                let job = job_arc.clone();
                 let db = db_clone.clone();
                 let name = job_name_clone.clone();
                 let token = cancel_token.clone();
-                let jobs_weak = jobs_weak.clone();
-
+                let scheduler_clone = scheduler_clone_outer.clone();
                 tokio::spawn(async move {
                     // Check if scheduler is shutting down
                     if token.is_cancelled() {
@@ -141,75 +139,20 @@ impl CronScheduler {
 
                     debug!(job_name = %name, "cron job triggered");
 
-                    let run_id = match db.start_housekeeping_run(&name).await {
-                        Ok(run) => Some(run.id),
-                        Err(err) => {
+                    let run_record = db.start_housekeeping_run(&name).await;
+                    let run_id = match run_record {
+                        Ok(ref run) => Some(run.id),
+                        Err(ref err) => {
                             error!(job_name = %name, error = %err, "failed to record scheduled housekeeping run start");
                             None
                         }
                     };
 
-                    let start = Instant::now();
-                    info!(job_name = %name, "starting scheduled job execution");
-
-                    match job.run(&db, &token).await {
-                        Ok(outcome) => {
-                            let duration = start.elapsed();
-                            info!(
-                                job_name = %name,
-                                rows_affected = %outcome.rows_affected,
-                                message = ?outcome.message,
-                                duration_ms = %duration.as_millis(),
-                                "scheduled job completed successfully"
-                            );
-
-                            if let Some(run_id) = run_id {
-                                if let Err(err) = db
-                                    .finish_housekeeping_run(
-                                        run_id,
-                                        true,
-                                        outcome.message.as_deref(),
-                                        Some(outcome.rows_affected),
-                                    )
-                                    .await
-                                {
-                                    error!(job_name = %name, error = %err, "failed to finalize scheduled housekeeping run");
-                                }
-                            }
-
-                            // Update last_run
-                            if let Some(jobs_arc) = jobs_weak.upgrade() {
-                                if let Ok(mut jobs) = jobs_arc.try_write() {
-                                    if let Some(sj) = jobs.get_mut(&name) {
-                                        sj.config.last_run = Some(chrono::Utc::now());
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            let duration = start.elapsed();
-                            error!(
-                                job_name = %name,
-                                error = %e,
-                                duration_ms = %duration.as_millis(),
-                                "scheduled job failed"
-                            );
-
-                            if let Some(run_id) = run_id {
-                                let err_message = e.to_string();
-                                if let Err(err) = db
-                                    .finish_housekeeping_run(
-                                        run_id,
-                                        false,
-                                        Some(err_message.as_str()),
-                                        None,
-                                    )
-                                    .await
-                                {
-                                    error!(job_name = %name, error = %err, "failed to finalize failed scheduled housekeeping run");
-                                }
-                            }
-                        }
+                    if let Err(err) = scheduler_clone
+                        .run_job_by_name_with_run_and_token(&db, &name, run_id, token.clone())
+                        .await
+                    {
+                        error!(job_name = %name, error = %err, "scheduled job execution failed");
                     }
                 });
             })?;
@@ -250,8 +193,13 @@ impl CronScheduler {
         self.cancellation_token.clone()
     }
 
-    /// Run a job by name immediately
-    pub async fn run_job_by_name(&self, db: &Db, name: &str) -> Result<didhub_jobs::JobOutcome> {
+    async fn run_job_by_name_with_run_internal(
+        &self,
+        db: &Db,
+        name: &str,
+        existing_run_id: Option<i64>,
+        cancel_token: Option<CancellationToken>,
+    ) -> Result<didhub_jobs::JobOutcome> {
         let job_arc = {
             let jobs = self.jobs.read().await;
             if let Some(scheduled_job) = jobs.get(name) {
@@ -262,21 +210,22 @@ impl CronScheduler {
             }
         };
 
-        let run_id = match db.start_housekeeping_run(name).await {
-            Ok(run) => Some(run.id),
-            Err(err) => {
-                error!(job_name = %name, error = %err, "failed to record housekeeping run start");
-                None
+        let mut run_id = existing_run_id;
+        if run_id.is_none() {
+            match db.start_housekeeping_run(name).await {
+                Ok(run) => run_id = Some(run.id),
+                Err(err) => {
+                    error!(job_name = %name, error = %err, "failed to record housekeeping run start");
+                }
             }
-        };
+        }
 
         let start = Instant::now();
-        info!(job_name = %name, "starting manual job execution");
+        info!(job_name = %name, "starting job execution");
 
-        // Use a new token for manual runs to avoid cancellation
-        let manual_token = CancellationToken::new();
+        let token = cancel_token.unwrap_or_else(CancellationToken::new);
 
-        match job_arc.run(db, &manual_token).await {
+        match job_arc.run(db, &token).await {
             Ok(outcome) => {
                 let duration = start.elapsed();
                 info!(
@@ -284,7 +233,7 @@ impl CronScheduler {
                     rows_affected = %outcome.rows_affected,
                     message = ?outcome.message,
                     duration_ms = %duration.as_millis(),
-                    "manual job completed successfully"
+                    "job completed successfully"
                 );
 
                 if let Some(run_id) = run_id {
@@ -316,7 +265,7 @@ impl CronScheduler {
                     job_name = %name,
                     error = %e,
                     duration_ms = %duration.as_millis(),
-                    "manual job failed"
+                    "job failed"
                 );
 
                 if let Some(run_id) = run_id {
@@ -332,6 +281,35 @@ impl CronScheduler {
                 Err(e)
             }
         }
+    }
+
+    /// Run a job by name immediately, creating a housekeeping run entry automatically.
+    pub async fn run_job_by_name(&self, db: &Db, name: &str) -> Result<didhub_jobs::JobOutcome> {
+        self.run_job_by_name_with_run_internal(db, name, None, None)
+            .await
+    }
+
+    /// Run a job by name using an existing housekeeping run entry if provided.
+    pub async fn run_job_by_name_with_run(
+        &self,
+        db: &Db,
+        name: &str,
+        existing_run_id: Option<i64>,
+    ) -> Result<didhub_jobs::JobOutcome> {
+        self.run_job_by_name_with_run_internal(db, name, existing_run_id, None)
+            .await
+    }
+
+    /// Run a job by name using an existing run entry and an explicit cancellation token.
+    pub async fn run_job_by_name_with_run_and_token(
+        &self,
+        db: &Db,
+        name: &str,
+        existing_run_id: Option<i64>,
+        cancel_token: CancellationToken,
+    ) -> Result<didhub_jobs::JobOutcome> {
+        self.run_job_by_name_with_run_internal(db, name, existing_run_id, Some(cancel_token))
+            .await
     }
 
     /// Run a dry run of a job by name immediately
