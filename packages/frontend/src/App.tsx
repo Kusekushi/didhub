@@ -5,13 +5,13 @@ import { useContext, useState } from 'react';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 
-import ErrorBoundary from './components/ErrorBoundary';
-import ToolbarActions from './components/ToolbarActions';
-import PasswordChangeDialog from './components/PasswordChangeDialog';
-import AppRoutes from './components/AppRoutes';
-import { ThemeToggleContext } from './ThemeContext';
-import { useAuth } from './contexts/AuthContext';
-import { useNavigationRestrictions } from './hooks/useNavigationRestrictions';
+import ErrorBoundary from './components/ui/ErrorBoundary';
+import ToolbarActions from './components/common/ToolbarActions';
+import PasswordChangeDialog from './components/forms/PasswordChangeDialog';
+import AppRoutes from './components/common/AppRoutes';
+import { ThemeToggleContext } from './shared/contexts/ThemeContext';
+import { useAuth } from './shared/contexts/AuthContext';
+import { useNavigationRestrictions } from './shared/hooks/useNavigationRestrictions';
 import { NavigationContext } from './main';
 
 /**

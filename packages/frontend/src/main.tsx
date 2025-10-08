@@ -1,8 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { SettingsProvider } from './contexts/SettingsContext';
+import { AuthProvider, useAuth } from './shared/contexts/AuthContext';
+import { SettingsProvider } from './shared/contexts/SettingsContext';
 import HomeIcon from '@mui/icons-material/Home';
 import PeopleIcon from '@mui/icons-material/People';
 import CakeIcon from '@mui/icons-material/Cake';
@@ -12,7 +12,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 import App from './App';
-import ThemeContextProvider from './ThemeContext';
+import ThemeContextProvider from './shared/contexts/ThemeContext';
 import './style.css';
 
 const NAVIGATION_BASE = [

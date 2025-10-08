@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./src/__tests__/shared/setup.ts'],
     globals: true,
     exclude: ['**/e2e/**', '**/node_modules/**'],
     coverage: {
@@ -14,7 +14,7 @@ export default defineConfig({
       reportsDirectory: 'coverage',
       all: true,
       include: ['src/**/*.ts', 'src/**/*.tsx'],
-      exclude: ['src/test/**', 'src/**/*.d.ts', 'src/e2e/**'],
+      exclude: ['src/__tests__/**', 'src/**/*.d.ts', 'src/e2e/**'],
     },
   },
   define: {
