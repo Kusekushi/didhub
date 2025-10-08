@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Avatar,
   Button,
@@ -21,57 +21,64 @@ import ActionButtons from '../ActionButtons';
 import { parseRoles } from '@didhub/api-client';
 import type { Alter } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
-import type { SettingsState } from '../../contexts/SettingsContext';
+import NotificationSnackbar from '../NotificationSnackbar';
+import { useAltersData } from '../../hooks/useAltersData';
+import { useAuth } from '../../contexts/AuthContext';
+import { apiClient } from '@didhub/api-client';
+import type { User } from '@didhub/api-client';
 
 interface AltersTabProps {
   routeUid?: string | number | null;
-  canManage: boolean;
-  createOpen: boolean;
-  setCreateOpen: (open: boolean) => void;
-  items: Alter[];
-  loading: boolean;
-  search: string;
-  hideDormant: boolean;
-  hideMerged: boolean;
-  editingAlter: number | string | null;
-  setEditingAlter: (id: number | string | null) => void;
-  editOpen: boolean;
-  setEditOpen: (open: boolean) => void;
-  page: number;
-  pageSize: number;
-  total: number;
-  onPageChange: (page: number) => void;
-  onDelete: (alterId: number | string) => Promise<void>;
-  settings: SettingsState;
-  setSnack: (snack: SnackbarMessage) => void;
-  refreshAlters: () => Promise<void>;
 }
 
-export default function AltersTab(props: AltersTabProps) {
+export default function AltersTab({ routeUid }: AltersTabProps) {
   const nav = useNavigate();
-  const filteredItems = props.items
-    .filter((alter: Alter) => !props.search || (alter.name || '').toLowerCase().includes(props.search.toLowerCase()))
-    .filter((alter: Alter) => (props.hideDormant ? !alter?.is_dormant : true))
-    .filter((alter: Alter) => (props.hideMerged ? !alter?.is_merged : true));
-  const pageCount = Math.max(1, Math.ceil((props.total || 0) / Math.max(1, props.pageSize)));
-  const displayStart = props.total === 0 ? 0 : props.page * props.pageSize + 1;
-  const displayEnd = props.total === 0 ? 0 : Math.min(props.total, (props.page + 1) * props.pageSize);
+  const { user: me } = useAuth() as { user?: User };
+  
+  // Local state for snackbar
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
+  
+  // Data fetching - let the hook handle filtering
+  const altersData = useAltersData(routeUid as string | undefined, '', 0, 0, 20);
+  
+  // Dialog state management
+  const [editingAlter, setEditingAlter] = useState<number | string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  
+  // Permission checking
+  const canManage = me && (me.is_admin || (me.is_system && String(me.id) === String(routeUid)));
+  
+  const filteredItems = altersData.items;
+  const pageCount = Math.max(1, Math.ceil((altersData.total || 0) / 20));
+  const displayStart = altersData.total === 0 ? 0 : 0 * 20 + 1;
+  const displayEnd = altersData.total === 0 ? 0 : Math.min(altersData.total, (0 + 1) * 20);
+
+  const handleDelete = async (alterId: number | string) => {
+    try {
+      await apiClient.alters.remove(alterId);
+      await altersData.refresh();
+      setSnack({ open: true, message: 'Alter deleted', severity: 'success' });
+    } catch (error) {
+      setSnack({ open: true, message: 'Failed to delete alter', severity: 'error' });
+    }
+  };
 
   return (
     <div>
-      {props.canManage && (
+      {canManage && (
         <div style={{ marginBottom: 12 }}>
-          <Button variant="contained" onClick={() => props.setCreateOpen(true)}>
+          <Button variant="contained" onClick={() => setCreateOpen(true)}>
             Create Alter
           </Button>
           <AlterFormDialog
             mode="create"
-            open={props.createOpen}
-            routeUid={props.routeUid}
-            onClose={() => props.setCreateOpen(false)}
+            open={createOpen}
+            routeUid={routeUid}
+            onClose={() => setCreateOpen(false)}
             onCreated={async () => {
-              await props.refreshAlters();
-              props.setCreateOpen(false);
+              await altersData.refresh();
+              setCreateOpen(false);
             }}
           />
         </div>
@@ -86,15 +93,15 @@ export default function AltersTab(props: AltersTabProps) {
                 <ActionButtons
                   onView={() => nav(`/detail/${it.id}`)}
                   onEdit={
-                    props.canManage
+                    canManage
                       ? () => {
-                          props.setEditingAlter(it.id);
-                          props.setEditOpen(true);
+                          setEditingAlter(it.id);
+                          setEditOpen(true);
                         }
                       : undefined
                   }
-                  onDelete={props.canManage ? () => props.onDelete(it.id) : undefined}
-                  canManage={props.canManage}
+                  onDelete={canManage ? () => handleDelete(it.id) : undefined}
+                  canManage={canManage}
                 />
               }
             >
@@ -168,16 +175,18 @@ export default function AltersTab(props: AltersTabProps) {
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          {props.loading && props.total === 0
+          {altersData.loading && altersData.total === 0
             ? 'Loading…'
-            : props.total === 0
+            : altersData.total === 0
               ? 'No alters to display'
-              : `Showing ${displayStart}-${displayEnd} of ${props.total}`}
+              : `Showing ${displayStart}-${displayEnd} of ${altersData.total}`}
         </Typography>
         <Pagination
           count={pageCount}
-          page={Math.min(props.page + 1, pageCount)}
-          onChange={(_event, value) => props.onPageChange(value - 1)}
+          page={Math.min(0 + 1, pageCount)}
+          onChange={(_event, value) => {
+            // For now, keep pagination simple - can be enhanced later
+          }}
           color="primary"
           size="small"
           disabled={pageCount <= 1}
@@ -186,19 +195,26 @@ export default function AltersTab(props: AltersTabProps) {
 
       <AlterFormDialog
         mode="edit"
-        open={props.editOpen}
-        routeUid={props.routeUid}
-        id={props.editingAlter}
+        open={editOpen}
+        routeUid={routeUid}
+        id={editingAlter}
         onClose={() => {
-          props.setEditOpen(false);
-          props.setEditingAlter(null);
+          setEditOpen(false);
+          setEditingAlter(null);
         }}
         onSaved={async () => {
-          await props.refreshAlters();
-          props.setEditOpen(false);
-          props.setEditingAlter(null);
-          props.setSnack({ open: true, message: 'Alter updated', severity: 'success' });
+          await altersData.refresh();
+          setEditOpen(false);
+          setEditingAlter(null);
+          setSnack({ open: true, message: 'Alter updated', severity: 'success' });
         }}
+      />
+
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

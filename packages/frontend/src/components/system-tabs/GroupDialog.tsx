@@ -1,4 +1,4 @@
-import { ChangeEvent, DragEvent, FormEvent, SyntheticEvent } from 'react';
+import { ChangeEvent, DragEvent, FormEvent, SyntheticEvent, useState, useEffect } from 'react';
 import {
   Autocomplete,
   Box,
@@ -17,7 +17,10 @@ const { groups } = apiClient;
 import SigilUpload from '../SigilUpload';
 import { useAuth } from '../../contexts/AuthContext';
 import { getEffectiveOwnerId } from '../../utils/owner';
-import { SnackbarMessage } from '../NotificationSnackbar';
+import NotificationSnackbar, { SnackbarMessage } from '../NotificationSnackbar';
+import { useGroupCreationState } from '../../hooks/useGroupCreationState';
+import { useGroupEditingState } from '../../hooks/useGroupEditingState';
+import { useAlterOptions } from '../../hooks/useAlterOptions';
 
 export type GroupDialogMode = 'create' | 'edit';
 
@@ -25,39 +28,11 @@ export interface GroupDialogProps {
   mode: GroupDialogMode;
   open: boolean;
   onClose: () => void;
-
-  // Create mode props
-  newGroupName?: string;
-  setNewGroupName?: (name: string) => void;
-  newGroupDesc?: string;
-  setNewGroupDesc?: (desc: string) => void;
-  newGroupLeaders?: Alter[];
-  setNewGroupLeaders?: (leaders: Alter[]) => void;
-  newGroupSigilFiles?: File[];
-  setNewGroupSigilFiles?: (files: File[]) => void;
-  newGroupSigilUrl?: string | null;
-  setNewGroupSigilUrl?: (url: string | null) => void;
-  newGroupSigilUploading?: boolean;
-  setNewGroupSigilUploading?: (uploading: boolean) => void;
-  newGroupSigilDrag?: boolean;
-  setNewGroupSigilDrag?: (drag: boolean) => void;
-  leaderQuery?: string;
-  setLeaderQuery?: (query: string) => void;
-  altersOptions?: Alter[];
-
-  // Edit mode props
-  editingGroup?: Group | null;
-  setEditingGroup?: (group: Group | null) => void;
-  editingGroupSigilUploading?: boolean;
-  setEditingGroupSigilUploading?: (uploading: boolean) => void;
-  editingGroupSigilDrag?: boolean;
-  setEditingGroupSigilDrag?: (drag: boolean) => void;
-
-  // Common props
-  setSnack: (snack: SnackbarMessage) => void;
-  refreshGroups: () => Promise<void> | void;
+  uid: string | undefined;
   uploadFiles: (files: File[]) => Promise<string[]>;
-  uid?: string;
+  onCreated?: () => void;
+  onUpdated?: () => void;
+  group?: Group; // For edit mode
 }
 
 const leaderOptionLabel = (option: Alter | string | null): string => {
@@ -192,31 +167,50 @@ const getSigilUrlFromGroup = (group: Group | null): string | null => {
 
 export default function GroupDialog(props: GroupDialogProps) {
   const isCreate = props.mode === 'create';
-  const altersOptions = props.altersOptions ?? [];
   const auth = useAuth();
-  const editingGroup = isCreate ? null : (props.editingGroup ?? null);
+
+  // Local state for snackbar
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
+
+  // Initialize hooks for state management
+  const creationState = useGroupCreationState();
+  const editingState = useGroupEditingState();
+  const [editingGroup, setEditingGroup] = useState<Group | null>(props.group || null);
+  const [leaderQuery, setLeaderQuery] = useState('');
+  const altersOptionsResult = useAlterOptions(props.uid, leaderQuery);
+  const altersOptions = altersOptionsResult.altersOptions;
+
+  // Sync editing group when dialog opens with a group
+  useEffect(() => {
+    if (props.open && props.group && props.mode === 'edit') {
+      setEditingGroup(props.group);
+    } else if (!props.open) {
+      setEditingGroup(null);
+    }
+  }, [props.open, props.group, props.mode]);
 
   const leaderValue: Alter[] = isCreate
-    ? (props.newGroupLeaders ?? [])
+    ? creationState.newGroupLeaders
     : getLeadersFromGroup(editingGroup, altersOptions);
-  const sigilUrl = isCreate ? (props.newGroupSigilUrl ?? null) : getSigilUrlFromGroup(editingGroup);
-  const sigilUploading = isCreate ? props.newGroupSigilUploading : props.editingGroupSigilUploading;
-  const sigilDrag = isCreate ? props.newGroupSigilDrag : props.editingGroupSigilDrag;
+
+  const sigilUrl = isCreate ? creationState.newGroupSigilUrl : getSigilUrlFromGroup(editingGroup);
+  const sigilUploading = isCreate ? creationState.newGroupSigilUploading : editingState.editingGroupSigilUploading;
+  const sigilDrag = isCreate ? creationState.newGroupSigilDrag : editingState.editingGroupSigilDrag;
 
   const updateEditingGroup = (updater: (group: Group) => Group) => {
-    if (isCreate || !props.setEditingGroup || !props.editingGroup) return;
-    props.setEditingGroup(updater(props.editingGroup));
+    if (isCreate || !editingGroup) return;
+    setEditingGroup(updater(editingGroup));
   };
 
   const handleClose = () => {
-    if (!isCreate) props.setEditingGroup?.(null);
+    if (!isCreate) setEditingGroup(null);
     props.onClose();
   };
 
   const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     if (isCreate) {
-      props.setNewGroupName?.(value);
+      creationState.setNewGroupName(value);
     } else {
       updateEditingGroup((group) => ({ ...group, name: value }));
     }
@@ -225,7 +219,7 @@ export default function GroupDialog(props: GroupDialogProps) {
   const handleDescriptionChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     if (isCreate) {
-      props.setNewGroupDesc?.(value);
+      creationState.setNewGroupDesc(value);
     } else {
       updateEditingGroup((group) => ({ ...group, description: value }));
     }
@@ -233,46 +227,46 @@ export default function GroupDialog(props: GroupDialogProps) {
 
   const handleLeaderChange = (_event: SyntheticEvent, value: Alter[]) => {
     if (isCreate) {
-      props.setNewGroupLeaders?.(value);
+      creationState.setNewGroupLeaders(value);
     } else {
       updateEditingGroup((group) => ({ ...group, leaders: mapLeadersToIds(value) }));
     }
   };
 
   const handleLeaderInputChange = (_event: SyntheticEvent, value: string) => {
-    props.setLeaderQuery?.(value);
+    setLeaderQuery(value);
   };
 
   const setSigilDragState = (value: boolean) => {
-    if (isCreate) props.setNewGroupSigilDrag?.(value);
-    else props.setEditingGroupSigilDrag?.(value);
+    if (isCreate) creationState.setNewGroupSigilDrag(value);
+    else editingState.setEditingGroupSigilDrag(value);
   };
 
   const setSigilUploadingState = (value: boolean) => {
-    if (isCreate) props.setNewGroupSigilUploading?.(value);
-    else props.setEditingGroupSigilUploading?.(value);
+    if (isCreate) creationState.setNewGroupSigilUploading(value);
+    else editingState.setEditingGroupSigilUploading(value);
   };
 
   const setSigilUrlState = (value: string | null) => {
     if (isCreate) {
-      props.setNewGroupSigilUrl?.(value);
-    } else if (props.editingGroup) {
+      creationState.setNewGroupSigilUrl(value);
+    } else if (editingGroup) {
       updateEditingGroup((group) => ({ ...group, sigil: value ?? undefined }));
     }
   };
 
   const handleSigilRemove = () => {
     if (isCreate) {
-      props.setNewGroupSigilUrl?.(null);
-      props.setNewGroupSigilFiles?.([]);
+      creationState.setNewGroupSigilUrl(null);
+      creationState.setNewGroupSigilFiles([]);
     } else {
       updateEditingGroup((group) => ({ ...group, sigil: undefined }));
     }
   };
 
   const processSigilFile = async (file: File) => {
-    if (!isCreate && !props.editingGroup) return;
-    if (isCreate) props.setNewGroupSigilFiles?.([file]);
+    if (!isCreate && !editingGroup) return;
+    if (isCreate) creationState.setNewGroupSigilFiles([file]);
 
     const previewUrl = URL.createObjectURL(file);
     setSigilUrlState(previewUrl);
@@ -315,14 +309,14 @@ export default function GroupDialog(props: GroupDialogProps) {
     event?.preventDefault();
 
     if (isCreate) {
-      const trimmedName = (props.newGroupName || '').trim();
+      const trimmedName = (creationState.newGroupName || '').trim();
       if (!trimmedName) {
-        props.setSnack({ open: true, message: 'Name required', severity: 'error' });
+        setSnack({ open: true, message: 'Name required', severity: 'error' });
         return;
       }
 
       if (sigilUploading) {
-        props.setSnack({
+        setSnack({
           open: true,
           message: 'Please wait for sigil upload to finish',
           severity: 'error',
@@ -338,9 +332,9 @@ export default function GroupDialog(props: GroupDialogProps) {
         console.debug('[GroupDialog] create owner resolution', { propUid: props.uid, authUserId: auth.user?.id, owner });
         const payload: Record<string, unknown> = {
           name: trimmedName,
-          description: props.newGroupDesc || null,
+          description: creationState.newGroupDesc || null,
           sigil: sigilUrl,
-          leaders: mapLeadersToIds(props.newGroupLeaders || []),
+          leaders: mapLeadersToIds(creationState.newGroupLeaders || []),
         };
         if (typeof owner === 'number') payload.owner_user_id = owner;
         // Debug: log final payload being sent to API
@@ -350,29 +344,29 @@ export default function GroupDialog(props: GroupDialogProps) {
 
         // Allow parent refresh handler to complete before closing so callers (and tests) can rely on updated data
         try {
-          await props.refreshGroups();
+          if (props.onCreated) await props.onCreated();
         } catch (e) {
           // ignore refresh errors
         }
-        props.setSnack({ open: true, message: 'Group created', severity: 'success' });
+        setSnack({ open: true, message: 'Group created', severity: 'success' });
 
-        props.setNewGroupName?.('');
-        props.setNewGroupDesc?.('');
-        props.setNewGroupLeaders?.([]);
-        props.setNewGroupSigilFiles?.([]);
-        props.setNewGroupSigilUrl?.(null);
+        creationState.setNewGroupName('');
+        creationState.setNewGroupDesc('');
+        creationState.setNewGroupLeaders([]);
+        creationState.setNewGroupSigilFiles([]);
+        creationState.setNewGroupSigilUrl(null);
         props.onClose();
       } catch (error) {
-        props.setSnack({ open: true, message: String(error || 'create failed'), severity: 'error' });
+        setSnack({ open: true, message: String(error || 'create failed'), severity: 'error' });
       }
       return;
     }
 
-    const group = props.editingGroup;
+    const group = editingGroup;
     if (!group) return;
 
     if (sigilUploading) {
-      props.setSnack({
+      setSnack({
         open: true,
         message: 'Please wait for sigil upload to finish',
         severity: 'error',
@@ -390,20 +384,21 @@ export default function GroupDialog(props: GroupDialogProps) {
       });
 
       props.onClose();
-      props.setEditingGroup?.(null);
-      await props.refreshGroups();
-      props.setSnack({ open: true, message: 'Group updated', severity: 'success' });
+      setEditingGroup(null);
+      if (props.onUpdated) await props.onUpdated();
+      setSnack({ open: true, message: 'Group updated', severity: 'success' });
     } catch (error) {
-      props.setSnack({ open: true, message: String(error || 'update failed'), severity: 'error' });
+      setSnack({ open: true, message: String(error || 'update failed'), severity: 'error' });
     }
   };
 
   const shouldRenderForm = isCreate || Boolean(editingGroup);
 
   return (
-    <Dialog open={props.open} onClose={handleClose} fullWidth maxWidth={isCreate ? 'md' : 'sm'}>
-      <DialogTitle>{isCreate ? 'Create group' : 'Edit group'}</DialogTitle>
-      <DialogContent>
+    <>
+      <Dialog open={props.open} onClose={handleClose} fullWidth maxWidth={isCreate ? 'md' : 'sm'}>
+        <DialogTitle>{isCreate ? 'Create group' : 'Edit group'}</DialogTitle>
+        <DialogContent>
         {shouldRenderForm && (
           <Box
             component={isCreate ? 'form' : 'div'}
@@ -413,14 +408,14 @@ export default function GroupDialog(props: GroupDialogProps) {
             <TextField
               size="small"
               label="Name"
-              value={isCreate ? props.newGroupName : editingGroup?.name || ''}
+              value={isCreate ? creationState.newGroupName : editingGroup?.name || ''}
               onChange={handleNameChange}
               sx={{ minWidth: 240 }}
             />
             <TextField
               size="small"
               label="Description"
-              value={isCreate ? props.newGroupDesc : editingGroup?.description || ''}
+              value={isCreate ? creationState.newGroupDesc : editingGroup?.description || ''}
               onChange={handleDescriptionChange}
               sx={{ minWidth: 320 }}
               multiline={!isCreate}
@@ -463,5 +458,12 @@ export default function GroupDialog(props: GroupDialogProps) {
         {!isCreate && <Button onClick={() => handleSubmit()}>Save</Button>}
       </DialogActions>
     </Dialog>
+    <NotificationSnackbar
+      open={snack.open}
+      message={snack.message}
+      severity={snack.severity}
+      onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+    />
+    </>
   );
 }

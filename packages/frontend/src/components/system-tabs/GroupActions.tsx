@@ -5,16 +5,13 @@ import { useNavigate } from 'react-router-dom';
 import type { Group } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import type { SettingsState } from '../../contexts/SettingsContext';
 
 export interface GroupActionsProps {
   group: Group;
   canManage: boolean;
-  settings: SettingsState;
   setEditingGroup: (group: Group | null) => void;
   setEditGroupOpen: (open: boolean) => void;
   onDelete: (groupId: number | string) => Promise<void>;
-  setSnack: (snack: SnackbarMessage) => void;
 }
 
 /**

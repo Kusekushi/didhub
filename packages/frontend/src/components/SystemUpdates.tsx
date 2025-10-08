@@ -24,18 +24,16 @@ import {
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { apiClient, type UpdateStatus, type UpdateResult } from '@didhub/api-client';
-import { SnackbarSeverity } from './NotificationSnackbar';
+import type { AlertColor } from '@mui/material';
+import NotificationSnackbar from './NotificationSnackbar';
 
-export interface SystemUpdatesProps {
-  onMessage: (message: string, severity?: SnackbarSeverity) => void;
-}
-
-export default function SystemUpdates(props: SystemUpdatesProps) {
+export default function SystemUpdates() {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [snack, setSnack] = useState<{ open: boolean; text: string; severity: AlertColor }>({ open: false, text: '', severity: 'info' });
 
   const checkUpdates = async () => {
     setLoading(true);
@@ -45,13 +43,13 @@ export default function SystemUpdates(props: SystemUpdatesProps) {
       setLastChecked(new Date());
 
       if (status.available) {
-        props.onMessage(`Update available: ${status.current_version} → ${status.latest_version}`, 'info');
+        setSnack({ open: true, text: `Update available: ${status.current_version} → ${status.latest_version}`, severity: 'info' });
       } else {
-        props.onMessage('System is up to date', 'success');
+        setSnack({ open: true, text: 'System is up to date', severity: 'success' });
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
-      props.onMessage('Failed to check for updates', 'error');
+      setSnack({ open: true, text: 'Failed to check for updates', severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -64,15 +62,15 @@ export default function SystemUpdates(props: SystemUpdatesProps) {
       const result: UpdateResult = await apiClient.admin.performUpdate();
 
       if (result.success) {
-        props.onMessage(`Update successful: ${result.message}`, 'success');
+        setSnack({ open: true, text: `Update successful: ${result.message}`, severity: 'success' });
         // Refresh update status after successful update
         await checkUpdates();
       } else {
-        props.onMessage(`Update failed: ${result.message}`, 'error');
+        setSnack({ open: true, text: `Update failed: ${result.message}`, severity: 'error' });
       }
     } catch (error) {
       console.error('Failed to perform update:', error);
-      props.onMessage('Failed to perform update', 'error');
+      setSnack({ open: true, text: 'Failed to perform update', severity: 'error' });
     } finally {
       setUpdating(false);
     }
@@ -240,6 +238,12 @@ export default function SystemUpdates(props: SystemUpdatesProps) {
           </Button>
         </DialogActions>
       </Dialog>
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.text}
+        severity={snack.severity}
+        onClose={() => setSnack({ ...snack, open: false })}
+      />
     </>
   );
 }

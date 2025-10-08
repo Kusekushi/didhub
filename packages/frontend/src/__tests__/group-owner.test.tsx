@@ -45,30 +45,17 @@ describe('GroupDialog owner propagation', () => {
           mode="create"
           open={true}
           onClose={() => {}}
-          newGroupName={'My Group'}
-          setNewGroupName={() => {}}
-          newGroupDesc={''}
-          setNewGroupDesc={() => {}}
-          newGroupLeaders={[]}
-          setNewGroupLeaders={() => {}}
-          newGroupSigilFiles={[]}
-          setNewGroupSigilFiles={() => {}}
-          newGroupSigilUrl={null}
-          setNewGroupSigilUrl={() => {}}
-          newGroupSigilUploading={false}
-          setNewGroupSigilUploading={() => {}}
-          newGroupSigilDrag={false}
-          setNewGroupSigilDrag={() => {}}
-          leaderQuery={''}
-          setLeaderQuery={() => {}}
-          altersOptions={[]}
-          setSnack={() => {}}
-          refreshGroups={async () => {}}
-          uploadFiles={async () => []}
           uid={'42'}
+          uploadFiles={async () => []}
+          onCreated={async () => {}}
+          setSnack={() => {}}
         />
     ,
     );
+
+  // Fill in the form
+  const nameInput = await findByLabelText('Name');
+  await fireEvent.change(nameInput, { target: { value: 'My Group' } });
 
   const createButton = await findByText('Create');
   await fireEvent.click(createButton);

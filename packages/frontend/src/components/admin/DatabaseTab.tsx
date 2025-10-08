@@ -14,16 +14,13 @@ import {
   Alert,
 } from '@mui/material';
 import { apiClient } from '@didhub/api-client';
-import type { AlertColor } from '@mui/material';
+import NotificationSnackbar, { SnackbarMessage } from '../NotificationSnackbar';
 
-export interface DatabaseTabProps {
-  setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
-}
-
-export default function DatabaseTab(props: DatabaseTabProps) {
+export default function DatabaseTab() {
   const [sql, setSql] = useState('SELECT * FROM users LIMIT 10');
   const [limit, setLimit] = useState(100);
   const [loading, setLoading] = useState(false);
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
   const [results, setResults] = useState<{
     success: boolean;
     columns: string[];
@@ -34,7 +31,7 @@ export default function DatabaseTab(props: DatabaseTabProps) {
 
   async function runQuery() {
     if (!sql.trim()) {
-      props.setAdminMsg({ open: true, text: 'Please enter a SQL query', severity: 'warning' });
+      setSnack({ open: true, message: 'Please enter a SQL query', severity: 'warning' });
       return;
     }
 
@@ -43,10 +40,10 @@ export default function DatabaseTab(props: DatabaseTabProps) {
       const response = await apiClient.admin.queryDatabase({ sql: sql.trim(), limit });
       setResults(response);
       if (!response.success && response.message) {
-        props.setAdminMsg({ open: true, text: response.message, severity: 'error' });
+        setSnack({ open: true, message: response.message, severity: 'error' });
       }
     } catch (e) {
-      props.setAdminMsg({ open: true, text: `Query failed: ${String(e)}`, severity: 'error' });
+      setSnack({ open: true, message: `Query failed: ${String(e)}`, severity: 'error' });
       setResults(null);
     } finally {
       setLoading(false);
@@ -122,6 +119,12 @@ export default function DatabaseTab(props: DatabaseTabProps) {
           )}
         </Paper>
       )}
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

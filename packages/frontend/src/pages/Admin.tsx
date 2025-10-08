@@ -18,8 +18,7 @@ import {
   DatabaseTab,
   BackupRestoreTab,
 } from '../components/admin';
-import NotificationSnackbar from '../components/NotificationSnackbar';
-import { Box, List, ListItem, ListItemButton, ListItemText, type AlertColor } from '@mui/material';
+import { Box, List, ListItem, ListItemButton, ListItemText } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
   CloudUpload as UploadIcon,
@@ -41,183 +40,26 @@ import {
 export default function Admin() {
   const [tab, setTab] = useState(0);
   const [settings, setSettings] = useState({}); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const [webhook, setWebhook] = useState('');
-  const [oidcProviders, setOidcProviders] = useState([]);
-  const [discordDigestEnabled, setDiscordDigestEnabled] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  const [oidcEnabled, setOidcEnabled] = useState(true);
-  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
-  const [redisUrl, setRedisUrl] = useState('');
-  const [redisPrefixSetting, setRedisPrefixSetting] = useState('');
-  const [redisTtlSecondsSetting, setRedisTtlSecondsSetting] = useState('');
-  const [redisClientOptions, setRedisClientOptions] = useState('');
-  const [redisSessionsEnabled, setRedisSessionsEnabled] = useState(false);
-  const [redisCacheEnabled, setRedisCacheEnabled] = useState(false);
-  const [uploadDirTtlSecs, setUploadDirTtlSecs] = useState('3600');
-  const [status, setStatus] = useState('');
   const [me, setMe] = useState(null);
-  const [posts, setPosts] = useState([]);
-  const [sysRequests, setSysRequests] = useState([]);
-  const [pendingRegsCount, setPendingRegsCount] = useState(0);
-  const [pendingRegs, setPendingRegs] = useState([]);
-  const [loadingPending, setLoadingPending] = useState(false);
-  const [adminMsg, setAdminMsg] = useState<{ open: boolean; text: string; severity: AlertColor }>({
-    open: false,
-    text: '',
-    severity: 'info',
-  });
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const [perPage] = useState(10);
 
-  // Map common Redis INFO keys to friendly labels for display
   useEffect(() => {
     (async () => {
       const m = await apiClient.users.sessionIfAuthenticated();
       setMe(m);
       const s = await apiClient.admin.settings();
       setSettings(s || {});
-      const toStringOrEmpty = (value: unknown, fallback = ''): string => {
-        if (typeof value === 'string') return value;
-        if (value == null) return fallback;
-        return String(value);
-      };
-
-      setWebhook(toStringOrEmpty(s?.[SETTINGS_KEYS.DISCORD_WEBHOOK_URL]));
-      setRedisUrl(toStringOrEmpty(s?.[SETTINGS_KEYS.REDIS_URL]));
-      setRedisPrefixSetting(toStringOrEmpty(s?.[SETTINGS_KEYS.REDIS_PREFIX]));
-      setRedisTtlSecondsSetting(
-        s && s[SETTINGS_KEYS.REDIS_TTL_SECONDS] ? String(s[SETTINGS_KEYS.REDIS_TTL_SECONDS]) : '',
-      );
-      setRedisClientOptions(
-        s && s[SETTINGS_KEYS.REDIS_CLIENT_OPTIONS] ? String(s[SETTINGS_KEYS.REDIS_CLIENT_OPTIONS]) : '',
-      );
-      setUploadDirTtlSecs(
-        s && s['uploads.upload_dir_cache.ttl_secs'] ? String(s['uploads.upload_dir_cache.ttl_secs']) : '3600',
-      );
-      const rsEnabledRaw =
-        s && s[SETTINGS_KEYS.REDIS_SESSIONS_ENABLED] ? String(s[SETTINGS_KEYS.REDIS_SESSIONS_ENABLED]) : null;
-      setRedisSessionsEnabled(rsEnabledRaw === '1' || rsEnabledRaw === 'true');
-      const rcEnabledRaw =
-        s && s[SETTINGS_KEYS.REDIS_CACHE_ENABLED] ? String(s[SETTINGS_KEYS.REDIS_CACHE_ENABLED]) : null;
-      setRedisCacheEnabled(rcEnabledRaw === '1' || rcEnabledRaw === 'true');
-      const parseBool = (v: unknown) => {
-        if (v === null || typeof v === 'undefined') return false;
-        const sv = String(v).toLowerCase();
-        return sv === '1' || sv === 'true' || sv === 'yes';
-      };
-      setDiscordDigestEnabled(parseBool(s && s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED]));
-      setEmailEnabled(parseBool(s && s[SETTINGS_KEYS.EMAIL_ENABLED]));
-      // default to true to preserve existing behavior unless explicitly disabled
-      setOidcEnabled(parseBool(s && s[SETTINGS_KEYS.OIDC_ENABLED]) || true);
-      setAutoUpdateEnabled(parseBool(s && s['auto_update_enabled']));
-      await loadPendingRegistrations();
     })();
   }, []);
 
-  async function loadPendingRegistrations() {
-    setLoadingPending(true);
-    try {
-      const pageResult = await apiClient.users.list({ page: 1, perPage: 100, is_approved: false });
-      const items = pageResult.items ?? [];
-      setPendingRegs(items);
-      setPendingRegsCount(pageResult.total ?? items.length);
-    } catch {
-      setPendingRegs([]);
-      setPendingRegsCount(0);
-    } finally {
-      setLoadingPending(false);
-    }
-  }
-  useEffect(() => {
-    (async () => {
-      const p = await apiClient.admin.posts(page, perPage);
-      const postItems =
-        p && typeof p === 'object' && !Array.isArray(p) && Array.isArray((p as { items?: unknown[] }).items)
-          ? ((p as { items?: unknown[] }).items as unknown[])
-          : [];
-      setPosts(postItems);
-      try {
-        const sr = await apiClient.admin.listSystemRequests();
-        setSysRequests(sr || []);
-      } catch {
-        // Ignore errors when fetching system requests
-      }
-    })();
-  }, [page]);
-
   // Early return after all hooks to avoid hook ordering issues
   if (!me || !me.is_admin) return <div style={{ padding: 20 }}>Admin only</div>;
-
-  async function doRepost(id) {
-    setStatus('Reposting...');
-    const r = await apiClient.admin.repostPost(id);
-    if (r && r.reposted) setStatus('Reposted');
-    else setStatus(r && r.error ? String(r.error) : 'Failed');
-    setTimeout(() => setStatus(''), 2000);
-  }
-
-  async function save() {
-    setStatus('Saving...');
-    await apiClient.admin.updateSettings({
-      [SETTINGS_KEYS.DISCORD_WEBHOOK_URL]: webhook || null,
-      [SETTINGS_KEYS.OIDC_PROVIDERS]: JSON.stringify(oidcProviders || []),
-      [SETTINGS_KEYS.DISCORD_DIGEST_ENABLED]: discordDigestEnabled ? '1' : '0',
-      [SETTINGS_KEYS.EMAIL_ENABLED]: emailEnabled ? '1' : '0',
-      [SETTINGS_KEYS.OIDC_ENABLED]: oidcEnabled ? '1' : '0',
-      ['auto_update_enabled']: autoUpdateEnabled ? '1' : '0',
-      // redis settings
-      [SETTINGS_KEYS.REDIS_URL]: redisUrl || null,
-      [SETTINGS_KEYS.REDIS_PREFIX]: redisPrefixSetting || null,
-      [SETTINGS_KEYS.REDIS_TTL_SECONDS]: redisTtlSecondsSetting || null,
-      [SETTINGS_KEYS.REDIS_CLIENT_OPTIONS]: redisClientOptions || null,
-      [SETTINGS_KEYS.REDIS_SESSIONS_ENABLED]: redisSessionsEnabled ? '1' : '0',
-      [SETTINGS_KEYS.REDIS_CACHE_ENABLED]: redisCacheEnabled ? '1' : '0',
-      ['uploads.upload_dir_cache.ttl_secs']: uploadDirTtlSecs ? parseInt(uploadDirTtlSecs, 10) : 3600,
-    });
-    const updatedSettings = await apiClient.admin.settings();
-    setSettings(updatedSettings || {});
-    setStatus('Saved');
-    setTimeout(() => setStatus(''), 2000);
-  }
-
-  async function refreshSystemRequests() {
-    try {
-      const sr = await apiClient.admin.listSystemRequests();
-      setSysRequests(sr || []);
-    } catch {
-      // ignore
-    }
-  }
-
-  async function doSetRequestStatus(id, status) {
-    try {
-      const result = await apiClient.admin.decideSystemRequest(id, status);
-      if (result.success !== false) {
-        setAdminMsg({
-          open: true,
-          text: result.message ?? `Request ${status}`,
-          severity: 'success',
-        });
-        await refreshSystemRequests();
-      } else {
-        setAdminMsg({
-          open: true,
-          text: result.message ?? 'Failed to update request status',
-          severity: 'error',
-        });
-      }
-    } catch (e) {
-      setAdminMsg({ open: true, text: String(e || 'Failed'), severity: 'error' });
-    }
-  }
 
   const tabsDef = [
     {
       key: 'dashboard',
       label: 'Dashboard',
       icon: <DashboardIcon />,
-      render: () => <DashboardTab pendingRegsCount={pendingRegsCount} posts={posts} onRepost={doRepost} />,
+      render: () => <DashboardTab />,
     },
     { 
       key: 'uploads', 
@@ -235,118 +77,51 @@ export default function Admin() {
       key: 'pending',
       label: 'Pending',
       icon: <PendingIcon />,
-      render: () => (
-        <PendingTab
-          pendingRegs={pendingRegs}
-          loadingPending={loadingPending}
-          onUserUpdate={loadPendingRegistrations}
-          onSystemRequestsUpdate={setSysRequests}
-          onMessage={setAdminMsg}
-        />
-      ),
+      render: () => <PendingTab />,
     },
     {
       key: 'system',
       label: 'System Requests',
       icon: <SystemRequestsIcon />,
-      render: () => <SystemRequestsTab sysRequests={sysRequests} onSetRequestStatus={doSetRequestStatus} />,
+      render: () => <SystemRequestsTab />,
     },
     {
       key: 'settings',
       label: 'Settings',
       icon: <SettingsIcon />,
-      render: () => (
-        <SettingsTab
-          webhook={webhook}
-          uploadDirTtlSecs={uploadDirTtlSecs}
-          discordDigestEnabled={discordDigestEnabled}
-          emailEnabled={emailEnabled}
-          autoUpdateEnabled={autoUpdateEnabled}
-          status={status}
-          onWebhookChange={setWebhook}
-          onUploadDirTtlChange={setUploadDirTtlSecs}
-          onDiscordDigestChange={setDiscordDigestEnabled}
-          onEmailEnabledChange={setEmailEnabled}
-          onAutoUpdateChange={setAutoUpdateEnabled}
-          onSave={save}
-          onStatusChange={setStatus}
-          onMessage={setAdminMsg}
-        />
-      ),
+      render: () => <SettingsTab />,
     },
     {
       key: 'oidc',
       label: 'OIDC Providers',
       icon: <OidcIcon />,
-      render: () => (
-        <OidcProvidersTab
-          oidcProviders={oidcProviders}
-          oidcEnabled={oidcEnabled}
-          status={status}
-          setOidcProviders={setOidcProviders}
-          setStatus={setStatus}
-          setSettings={setSettings}
-          setAdminMsg={setAdminMsg}
-        />
-      ),
+      render: () => <OidcProvidersTab />,
     },
     {
       key: 'redis',
       label: 'Redis',
       icon: <RedisIcon />,
       render: () => (
-        <RedisTab
-          redisUrl={redisUrl}
-          redisPrefixSetting={redisPrefixSetting}
-          redisTtlSecondsSetting={redisTtlSecondsSetting}
-          redisClientOptions={redisClientOptions}
-          redisSessionsEnabled={redisSessionsEnabled}
-          redisCacheEnabled={redisCacheEnabled}
-          status={status}
-          setRedisUrl={setRedisUrl}
-          setRedisPrefixSetting={setRedisPrefixSetting}
-          setRedisTtlSecondsSetting={setRedisTtlSecondsSetting}
-          setRedisClientOptions={setRedisClientOptions}
-          setRedisSessionsEnabled={setRedisSessionsEnabled}
-          setRedisCacheEnabled={setRedisCacheEnabled}
-          setStatus={setStatus}
-          setSettings={setSettings}
-          setAdminMsg={setAdminMsg}
-        />
+        <RedisTab />
       ),
     },
     {
       key: 'updates',
       label: 'System Updates',
       icon: <UpdatesIcon />,
-      render: () => (
-        <SystemUpdates
-          onMessage={(message, severity) => setAdminMsg({ open: true, text: message, severity: severity || 'info' })}
-        />
-      ),
+      render: () => <SystemUpdates />,
     },
     {
       key: 'messages',
       label: 'Messages',
       icon: <MessagesIcon />,
-      render: () => (
-        <MessagesTab
-          posts={posts}
-          query={query}
-          page={page}
-          status={status}
-          setQuery={setQuery}
-          setPage={setPage}
-          setStatus={setStatus}
-          setAdminMsg={setAdminMsg}
-        />
-      ),
+      render: () => <MessagesTab />,
     },
     { 
       key: 'audit', 
       label: 'Audit Logs', 
       icon: <AuditIcon />,
-      render: () => <AuditTab setAdminMsg={setAdminMsg} /> 
+      render: () => <AuditTab /> 
     },
     { 
       key: 'housekeeping', 
@@ -358,13 +133,13 @@ export default function Admin() {
       key: 'database', 
       label: 'Database', 
       icon: <DatabaseIcon />,
-      render: () => <DatabaseTab setAdminMsg={setAdminMsg} /> 
+      render: () => <DatabaseTab /> 
     },
     { 
       key: 'backup-restore', 
       label: 'Backup & Restore', 
       icon: <BackupIcon />,
-      render: () => <BackupRestoreTab setAdminMsg={setAdminMsg} /> 
+      render: () => <BackupRestoreTab /> 
     },
     { 
       key: 'metrics', 
@@ -414,13 +189,6 @@ export default function Admin() {
       <Box sx={{ flex: 1, padding: 3, overflow: 'auto' }}>
         {panels[tab] ? panels[tab]() : null}
       </Box>
-
-      <NotificationSnackbar
-        open={adminMsg.open}
-        onClose={() => setAdminMsg({ ...adminMsg, open: false })}
-        message={adminMsg.text}
-        severity={adminMsg.severity}
-      />
     </Box>
   );
 }

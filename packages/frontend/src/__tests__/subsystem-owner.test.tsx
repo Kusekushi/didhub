@@ -15,7 +15,7 @@ vi.mock('@mui/material', async () => {
 });
 
 vi.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 1 } }),
+  useAuth: () => ({ user: { id: 42, is_admin: true } }), // Make user admin so canManage is true
   AuthProvider: ({ children }: any) => children,
 }));
 
@@ -51,30 +51,17 @@ describe('Subsystems owner propagation', () => {
 
     const { findByText, getByLabelText } = render(
       <SubsystemsTab
-        canManage={true}
-        createSubsystemOpen={true}
-        setCreateSubsystemOpen={() => {}}
-        newSubsystemName={'Foo'}
-        setNewSubsystemName={() => {}}
-        newSubsystemDesc={''}
-        setNewSubsystemDesc={() => {}}
-        newSubsystemType={'normal'}
-        setNewSubsystemType={() => {}}
-        subsystems={[]}
-        loading={false}
-        page={0}
-        pageSize={10}
-        total={0}
-        onPageChange={async () => {}}
         uid={'42'}
-        onDelete={async () => {}}
-        settings={{ loaded: true } as any}
-        setSnack={() => {}}
-        refreshSubsystems={async () => {}}
-        createSubsystem={async (p) => (apiClient as any).subsystems.create(p)}
-        nav={() => {}}
       />,
     );
+
+    // Click the create button to open the dialog
+    const createSubsystemButton = await findByText('Create Subsystem');
+    await fireEvent.click(createSubsystemButton);
+
+    // Fill in the name field
+    const nameField = getByLabelText('Name');
+    await fireEvent.change(nameField, { target: { value: 'Foo' } });
 
     const createButton = await findByText('Create');
     await fireEvent.click(createButton);

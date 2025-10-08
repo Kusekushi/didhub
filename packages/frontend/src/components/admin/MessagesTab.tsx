@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Typography,
   Paper,
@@ -17,7 +17,8 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { apiClient } from '@didhub/api-client';
-import type { AlertColor } from '@mui/material';
+import NotificationSnackbar, { SnackbarMessage } from '../NotificationSnackbar';
+import { downloadJson, downloadText } from '../../utils/downloadUtils';
 
 export interface Post {
   id: string;
@@ -27,71 +28,100 @@ export interface Post {
   count: number;
 }
 
-export interface MessagesTabProps {
-  posts: Post[];
-  query: string;
-  page: number;
-  status: string;
-  setQuery: (query: string) => void;
-  setPage: (page: number | ((prev: number) => number)) => void;
-  setStatus: (status: string) => void;
-  setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
-}
+export default function MessagesTab() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState('');
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
+  const [customDigestOpen, setCustomDigestOpen] = useState(false);
+  const [customDaysAhead, setCustomDaysAhead] = useState(7);
 
-export default function MessagesTab(props: MessagesTabProps) {
-  const [customDigestOpen, setCustomDigestOpen] = React.useState(false);
-  const [customDaysAhead, setCustomDaysAhead] = React.useState(7);
+  useEffect(() => {
+    const loadPosts = async () => {
+      try {
+        const p = await apiClient.admin.posts(page, 20);
+        const postItems = p && typeof p === 'object' && !Array.isArray(p) && Array.isArray((p as { items?: unknown[] }).items)
+          ? ((p as { items?: unknown[] }).items as unknown[])
+          : [];
+        setPosts(postItems as Post[]);
+      } catch (error) {
+        console.error('Failed to load posts:', error);
+      }
+    };
+
+    loadPosts();
+  }, [page]);
   async function postBirthdays() {
-    props.setStatus('Posting...');
-    const result = await apiClient.admin.postDiscordBirthdays();
-    const posted = result.status >= 200 && result.status < 400;
-    const message = result.error ?? (posted ? 'Posted birthdays digest' : 'Nothing to post');
-    if (posted) props.setStatus('Posted birthdays digest');
-    else props.setStatus(message);
-    setTimeout(() => props.setStatus(''), 4000);
+    try {
+      setStatus('Posting...');
+      const result = await apiClient.admin.postDiscordBirthdays();
+      const posted = result.status >= 200 && result.status < 400;
+      const message = result.error ?? (posted ? 'Posted birthdays digest' : 'Nothing to post');
+      if (posted) {
+        setStatus('Posted birthdays digest');
+        setSnack({ open: true, message: 'Posted birthdays digest', severity: 'success' });
+      } else {
+        setStatus(message);
+        setSnack({ open: true, message: message, severity: 'error' });
+      }
+    } catch (error) {
+      setStatus('Failed to post birthdays');
+      setSnack({ open: true, message: 'Failed to post birthdays', severity: 'error' });
+    } finally {
+      setTimeout(() => setStatus(''), 4000);
+    }
   }
 
   async function postCustomDigestHandler() {
-    props.setStatus('Posting custom digest...');
-    setCustomDigestOpen(false);
-    const r = await apiClient.admin.postCustomDigest(customDaysAhead);
-    if (r && r.posted) props.setStatus(`Posted custom digest with ${r.count} birthdays`);
-    else props.setStatus(r && r.message ? r.message : 'Failed to post custom digest');
-    setTimeout(() => props.setStatus(''), 4000);
+    try {
+      setStatus('Posting custom digest...');
+      setCustomDigestOpen(false);
+      const r = await apiClient.admin.postCustomDigest(customDaysAhead);
+      if (r && r.posted) {
+        setStatus(`Posted custom digest with ${r.count} birthdays`);
+        setSnack({ open: true, message: `Posted custom digest with ${r.count} birthdays`, severity: 'success' });
+      } else {
+        const message = r && r.message ? r.message : 'Failed to post custom digest';
+        setStatus(message);
+        setSnack({ open: true, message: message, severity: 'error' });
+      }
+    } catch (error) {
+      setStatus('Failed to post custom digest');
+      setSnack({ open: true, message: 'Failed to post custom digest', severity: 'error' });
+    } finally {
+      setTimeout(() => setStatus(''), 4000);
+    }
   }
 
   async function doRepost(id: string) {
-    props.setStatus('Reposting...');
-    const r = await apiClient.admin.repostPost(id);
-    if (r && r.reposted) props.setStatus('Reposted');
-    else props.setStatus(r && r.error ? String(r.error) : 'Failed');
-    setTimeout(() => props.setStatus(''), 2000);
+    try {
+      setStatus('Reposting...');
+      const r = await apiClient.admin.repostPost(id);
+      if (r && r.reposted) {
+        setStatus('Reposted');
+        setSnack({ open: true, message: 'Post reposted successfully', severity: 'success' });
+      } else {
+        const message = r && r.error ? String(r.error) : 'Failed to repost';
+        setStatus(message);
+        setSnack({ open: true, message: message, severity: 'error' });
+      }
+    } catch (error) {
+      setStatus('Failed to repost');
+      setSnack({ open: true, message: 'Failed to repost post', severity: 'error' });
+    } finally {
+      setTimeout(() => setStatus(''), 2000);
+    }
   }
 
   function downloadPayload(p: Post) {
     try {
       const payload = typeof p.payload === 'string' ? JSON.parse(p.payload) : p.payload || {};
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `post-${p.id}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      downloadJson(payload, `post-${p.id}`);
     } catch (e) {
       // fallback: copy raw string
       const txt = typeof p.payload === 'string' ? p.payload : JSON.stringify(p.payload || {}, null, 2);
-      const blob = new Blob([txt], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `post-${p.id}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      downloadText(txt, `post-${p.id}`);
     }
   }
 
@@ -99,11 +129,13 @@ export default function MessagesTab(props: MessagesTabProps) {
     const txt = typeof p.payload === 'string' ? p.payload : JSON.stringify(p.payload || {}, null, 2);
     try {
       await navigator.clipboard.writeText(txt);
-      props.setStatus('Copied payload');
-      setTimeout(() => props.setStatus(''), 2000);
+      setStatus('Copied payload');
+      setSnack({ open: true, message: 'Payload copied to clipboard', severity: 'success' });
     } catch (e) {
-      props.setStatus('Copy failed');
-      setTimeout(() => props.setStatus(''), 2000);
+      setStatus('Copy failed');
+      setSnack({ open: true, message: 'Failed to copy payload', severity: 'error' });
+    } finally {
+      setTimeout(() => setStatus(''), 2000);
     }
   }
 
@@ -127,18 +159,18 @@ export default function MessagesTab(props: MessagesTabProps) {
         placeholder="Search posts..."
         fullWidth
         sx={{ mb: 1 }}
-        value={props.query}
-        onChange={(e) => props.setQuery(e.target.value)}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
       />
-      {props.posts.length === 0 && <Typography>No posted messages yet.</Typography>}
-      {props.posts
+      {posts.length === 0 && <Typography>No posted messages yet.</Typography>}
+      {posts
         .filter((p) => {
-          if (!props.query) return true;
+          if (!query) return true;
           const s = (typeof p.payload === 'string' ? p.payload : JSON.stringify(p.payload || {})).toLowerCase();
           return (
-            (p.type || '').toLowerCase().includes(props.query.toLowerCase()) ||
-            (p.created_at || '').toLowerCase().includes(props.query.toLowerCase()) ||
-            s.includes(props.query.toLowerCase())
+            (p.type || '').toLowerCase().includes(query.toLowerCase()) ||
+            (p.created_at || '').toLowerCase().includes(query.toLowerCase()) ||
+            s.includes(query.toLowerCase())
           );
         })
         .map((p) => {
@@ -192,11 +224,11 @@ export default function MessagesTab(props: MessagesTabProps) {
           );
         })}
       <Stack direction="row" spacing={2} alignItems="center">
-        <Button variant="outlined" onClick={() => props.setPage((p) => Math.max(1, p - 1))} disabled={props.page <= 1}>
+        <Button variant="outlined" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
           Prev
         </Button>
-        <Typography>Page {props.page}</Typography>
-        <Button variant="outlined" onClick={() => props.setPage((p) => p + 1)}>
+        <Typography>Page {page}</Typography>
+        <Button variant="outlined" onClick={() => setPage((p) => p + 1)}>
           Next
         </Button>
       </Stack>
@@ -221,6 +253,12 @@ export default function MessagesTab(props: MessagesTabProps) {
           </Button>
         </DialogActions>
       </Dialog>
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+      />
     </>
   );
 }

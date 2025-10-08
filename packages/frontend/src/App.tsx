@@ -11,7 +11,6 @@ import PasswordChangeDialog from './components/PasswordChangeDialog';
 import AppRoutes from './components/AppRoutes';
 import { ThemeToggleContext } from './ThemeContext';
 import { useAuth } from './contexts/AuthContext';
-import { usePasswordChange } from './hooks/usePasswordChange';
 import { useNavigationRestrictions } from './hooks/useNavigationRestrictions';
 import { NavigationContext } from './main';
 
@@ -39,7 +38,6 @@ export default function App() {
 
   const navigation = useContext(NavigationContext);
 
-  const passwordChange = usePasswordChange({ changePassword });
   const navigationRestrictions = useNavigationRestrictions({ mustChange });
 
   // Define auth routes where sidebar should be hidden
@@ -216,12 +214,6 @@ export default function App() {
           {!isAuthRoute && (
             <PasswordChangeDialog
               open={!!mustChange}
-              currentPassword={passwordChange.currentPassword}
-              setCurrentPassword={passwordChange.setCurrentPassword}
-              newPassword={passwordChange.newPassword}
-              setNewPassword={passwordChange.setNewPassword}
-              error={passwordChange.error}
-              onChange={passwordChange.handleChange}
             />
           )}
         </ErrorBoundary>

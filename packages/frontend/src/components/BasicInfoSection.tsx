@@ -2,20 +2,20 @@ import React from 'react';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { parseRoles, type Alter, type UserAlterRelationship } from '@didhub/api-client';
+import { useAlterLinks } from '../hooks/useAlterLinks';
 
 export interface BasicInfoSectionProps {
   alter: Alter;
-  partnerLinks: Array<{ name: string; id?: number | string }>;
-  parentLinks: Array<{ name: string; id?: number | string }>;
-  childLinks: Array<{ name: string; id?: number | string }>;
-  userRelationships: UserAlterRelationship[];
 }
 
 export default function BasicInfoSection(props: BasicInfoSectionProps) {
+  const { partnerLinks, parentLinks, childLinks } = useAlterLinks(props.alter);
+
   // Group user relationships by type
-  const userPartners = props.userRelationships.filter((rel) => rel.relationship_type === 'partner');
-  const userParents = props.userRelationships.filter((rel) => rel.relationship_type === 'parent');
-  const userChildren = props.userRelationships.filter((rel) => rel.relationship_type === 'child');
+  const userRelationships = props.alter.user_relationships || [];
+  const userPartners = userRelationships.filter((rel) => rel.relationship_type === 'partner');
+  const userParents = userRelationships.filter((rel) => rel.relationship_type === 'parent');
+  const userChildren = userRelationships.filter((rel) => rel.relationship_type === 'child');
 
   const renderRelationshipChips = (
     links: Array<{ name: string; id?: number | string }>,
@@ -72,13 +72,13 @@ export default function BasicInfoSection(props: BasicInfoSectionProps) {
         <strong>Sexuality:</strong> {props.alter.sexuality || '-'}
       </div>
       <div>
-        <strong>Partners:</strong> {renderRelationshipChips(props.partnerLinks, userPartners, 'partner')}
+        <strong>Partners:</strong> {renderRelationshipChips(partnerLinks, userPartners, 'partner')}
       </div>
       <div>
-        <strong>Parents:</strong> {renderRelationshipChips(props.parentLinks, userParents, 'parent')}
+        <strong>Parents:</strong> {renderRelationshipChips(parentLinks, userParents, 'parent')}
       </div>
       <div>
-        <strong>Children:</strong> {renderRelationshipChips(props.childLinks, userChildren, 'child')}
+        <strong>Children:</strong> {renderRelationshipChips(childLinks, userChildren, 'child')}
       </div>
       <div>
         <strong>Species:</strong> {props.alter.species || '-'}

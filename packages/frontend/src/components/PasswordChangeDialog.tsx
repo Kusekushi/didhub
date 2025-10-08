@@ -1,20 +1,19 @@
 import React from 'react';
 import { Button, Dialog, DialogTitle, DialogContent, TextField } from '@mui/material';
+import { useAuth } from '../contexts/AuthContext';
+import { usePasswordChange } from '../hooks/usePasswordChange';
 
 export interface PasswordChangeDialogProps {
   open: boolean;
-  currentPassword: string;
-  setCurrentPassword: (password: string) => void;
-  newPassword: string;
-  setNewPassword: (password: string) => void;
-  error: string | null;
-  onChange: () => void;
 }
 
 /**
  * Password change required dialog
  */
 export default function PasswordChangeDialog(props: PasswordChangeDialogProps) {
+  const { changePassword } = useAuth();
+  const passwordChange = usePasswordChange({ changePassword });
+
   return (
     <Dialog open={props.open} disableEscapeKeyDown onClose={() => {}}>
       <DialogTitle>Password change required</DialogTitle>
@@ -23,18 +22,18 @@ export default function PasswordChangeDialog(props: PasswordChangeDialogProps) {
           <TextField
             label="Current password"
             type="password"
-            value={props.currentPassword}
-            onChange={(e) => props.setCurrentPassword(e.target.value)}
+            value={passwordChange.currentPassword}
+            onChange={(e) => passwordChange.setCurrentPassword(e.target.value)}
           />
           <TextField
             label="New password"
             type="password"
-            value={props.newPassword}
-            onChange={(e) => props.setNewPassword(e.target.value)}
+            value={passwordChange.newPassword}
+            onChange={(e) => passwordChange.setNewPassword(e.target.value)}
           />
-          {props.error && <div style={{ color: 'red' }}>{String(props.error)}</div>}
+          {passwordChange.error && <div style={{ color: 'red' }}>{String(passwordChange.error)}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button variant="contained" onClick={props.onChange}>
+            <Button variant="contained" onClick={passwordChange.handleChange}>
               Change password
             </Button>
           </div>

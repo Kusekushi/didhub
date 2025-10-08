@@ -5,16 +5,13 @@ import type { Group } from '@didhub/api-client';
 import GroupAvatar from './GroupAvatar';
 import GroupActions from './GroupActions';
 import { SnackbarMessage } from '../NotificationSnackbar';
-import type { SettingsState } from '../../contexts/SettingsContext';
 
 export interface GroupListItemProps {
   group: Group;
   canManage: boolean;
-  settings: SettingsState;
   setEditingGroup: (group: Group | null) => void;
   setEditGroupOpen: (open: boolean) => void;
   onDelete: (groupId: number | string) => Promise<void>;
-  setSnack: (snack: SnackbarMessage) => void;
   isLast: boolean;
 }
 
@@ -29,11 +26,9 @@ export default function GroupListItem(props: GroupListItemProps) {
           <GroupActions
             group={props.group}
             canManage={props.canManage}
-            settings={props.settings}
             setEditingGroup={props.setEditingGroup}
             setEditGroupOpen={props.setEditGroupOpen}
             onDelete={props.onDelete}
-            setSnack={props.setSnack}
           />
         }
       >

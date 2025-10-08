@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import { Typography, Stack, Button } from '@mui/material';
 import { apiClient } from '@didhub/api-client';
+import { downloadBlob } from '../../utils/downloadUtils';
 import AuditLogPanel from './AuditLogPanel';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import type { AlertColor } from '@mui/material';
+import NotificationSnackbar, { SnackbarMessage } from '../NotificationSnackbar';
 
-export interface AuditTabProps {
-  setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
-}
-
-export default function AuditTab(props: AuditTabProps) {
+export default function AuditTab() {
   const [confirmClearAudit, setConfirmClearAudit] = useState(false);
   const [auditReloadCounter, setAuditReloadCounter] = useState(0);
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
 
   return (
     <>
@@ -26,16 +24,9 @@ export default function AuditTab(props: AuditTabProps) {
             if (result.ok && result.content) {
               const txt = result.content;
               const blob = new Blob([txt], { type: 'text/csv' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'admin_audit.csv';
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              URL.revokeObjectURL(url);
+              downloadBlob(blob, 'admin_audit');
             } else {
-              props.setAdminMsg({ open: true, text: 'Export failed', severity: 'error' });
+              setSnack({ open: true, message: 'Export failed', severity: 'error' });
             }
           }}
         >
@@ -55,17 +46,23 @@ export default function AuditTab(props: AuditTabProps) {
           try {
             const r = await apiClient.admin.clearAuditLogs();
             if (r && r.success) {
-              props.setAdminMsg({ open: true, text: r.message || 'Cleared audit logs', severity: 'success' });
+              setSnack({ open: true, message: r.message || 'Cleared audit logs', severity: 'success' });
               setAuditReloadCounter((c) => c + 1);
             } else {
-              props.setAdminMsg({ open: true, text: 'Failed to clear', severity: 'error' });
+              setSnack({ open: true, message: 'Failed to clear', severity: 'error' });
             }
           } catch (e) {
-            props.setAdminMsg({ open: true, text: String(e || 'Failed'), severity: 'error' });
+            setSnack({ open: true, message: String(e || 'Failed'), severity: 'error' });
           } finally {
             setConfirmClearAudit(false);
           }
         }}
+      />
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
       />
     </>
   );

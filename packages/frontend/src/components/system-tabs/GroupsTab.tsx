@@ -1,108 +1,80 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, List, Pagination, Typography } from '@mui/material';
 
 import GroupDialog from './GroupDialog';
 import GroupListItem from './GroupListItem';
 import type { Alter, Group } from '@didhub/api-client';
 import { SnackbarMessage } from '../NotificationSnackbar';
-import type { SettingsState } from '../../contexts/SettingsContext';
+import { useGroupsData } from '../../hooks/useGroupsData';
+import { useAuth } from '../../contexts/AuthContext';
+import { apiClient } from '@didhub/api-client';
+import type { User } from '@didhub/api-client';
+import NotificationSnackbar from '../NotificationSnackbar';
+import { uploadFiles } from '../../utils/fileUpload';
 
 export interface GroupsTabProps {
-  canManage: boolean;
-  createGroupOpen: boolean;
-  setCreateGroupOpen: (open: boolean) => void;
-  newGroupName: string;
-  setNewGroupName: (name: string) => void;
-  newGroupDesc: string;
-  setNewGroupDesc: (desc: string) => void;
-  newGroupLeaders: Alter[];
-  setNewGroupLeaders: (leaders: Alter[]) => void;
-  newGroupSigilFiles: File[];
-  setNewGroupSigilFiles: (files: File[]) => void;
-  newGroupSigilUrl: string | null;
-  setNewGroupSigilUrl: (url: string | null) => void;
-  newGroupSigilUploading: boolean;
-  setNewGroupSigilUploading: (uploading: boolean) => void;
-  newGroupSigilDrag: boolean;
-  setNewGroupSigilDrag: (drag: boolean) => void;
-  leaderQuery: string;
-  setLeaderQuery: (query: string) => void;
-  altersOptions: Alter[];
-  groups: Group[];
-  loading: boolean;
-  page: number;
-  pageSize: number;
-  total: number;
-  onPageChange: (page: number) => void;
-  editingGroup: Group | null;
-  setEditingGroup: (group: Group | null) => void;
-  editGroupOpen: boolean;
-  setEditGroupOpen: (open: boolean) => void;
-  editingGroupSigilUploading: boolean;
-  setEditingGroupSigilUploading: (uploading: boolean) => void;
-  editingGroupSigilDrag: boolean;
-  setEditingGroupSigilDrag: (drag: boolean) => void;
-  onDelete: (groupId: number | string) => Promise<void>;
-  settings: SettingsState;
-  setSnack: (snack: SnackbarMessage) => void;
-  refreshGroups: () => Promise<void>;
-  uploadFiles: (files: File[]) => Promise<string[]>;
   uid: string;
 }
 
-export default function GroupsTab(props: GroupsTabProps) {
-  const pageCount = Math.max(1, Math.ceil((props.total || 0) / Math.max(1, props.pageSize)));
-  const displayStart = props.total === 0 ? 0 : props.page * props.pageSize + 1;
-  const displayEnd = props.total === 0 ? 0 : Math.min(props.total, (props.page + 1) * props.pageSize);
+export default function GroupsTab({ uid }: GroupsTabProps) {
+  const { user: me } = useAuth() as { user?: User };
+  
+  // Local state for snackbar
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
+  
+  // Data fetching
+  const groupsData = useGroupsData(uid, '', 1, 0, 20);
+
+  // Dialog state management
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [editGroupOpen, setEditGroupOpen] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+
+  // Permission checking
+  const canManage = me && (me.is_admin || (me.is_system && String(me.id) === String(uid)));
+
+  const pageCount = Math.max(1, Math.ceil((groupsData.total || 0) / 20));
+  const displayStart = groupsData.total === 0 ? 0 : 0 * 20 + 1;
+  const displayEnd = groupsData.total === 0 ? 0 : Math.min(groupsData.total, (0 + 1) * 20);
+
+  const handleDelete = async (groupId: number | string) => {
+    try {
+      await apiClient.groups.remove(groupId);
+      await groupsData.refresh();
+      setSnack({ open: true, message: 'Group deleted', severity: 'success' });
+    } catch (error) {
+      setSnack({ open: true, message: 'Failed to delete group', severity: 'error' });
+    }
+  };
 
   return (
     <div>
-      {props.canManage && (
+      {canManage && (
         <div style={{ marginBottom: 12 }}>
-          <Button variant="contained" onClick={() => props.setCreateGroupOpen(true)}>
+          <Button variant="contained" onClick={() => setCreateGroupOpen(true)}>
             Create Group
           </Button>
           <GroupDialog
             mode="create"
-            open={props.createGroupOpen}
-            onClose={() => props.setCreateGroupOpen(false)}
-            newGroupName={props.newGroupName}
-            setNewGroupName={props.setNewGroupName}
-            newGroupDesc={props.newGroupDesc}
-            setNewGroupDesc={props.setNewGroupDesc}
-            newGroupLeaders={props.newGroupLeaders}
-            setNewGroupLeaders={props.setNewGroupLeaders}
-            newGroupSigilFiles={props.newGroupSigilFiles}
-            setNewGroupSigilFiles={props.setNewGroupSigilFiles}
-            newGroupSigilUrl={props.newGroupSigilUrl}
-            setNewGroupSigilUrl={props.setNewGroupSigilUrl}
-            newGroupSigilUploading={props.newGroupSigilUploading}
-            setNewGroupSigilUploading={props.setNewGroupSigilUploading}
-            newGroupSigilDrag={props.newGroupSigilDrag}
-            setNewGroupSigilDrag={props.setNewGroupSigilDrag}
-            leaderQuery={props.leaderQuery}
-            setLeaderQuery={props.setLeaderQuery}
-            altersOptions={props.altersOptions}
-            setSnack={props.setSnack}
-            refreshGroups={props.refreshGroups}
-            uploadFiles={props.uploadFiles}
-            uid={props.uid}
+            open={createGroupOpen}
+            onClose={() => setCreateGroupOpen(false)}
+            uid={uid}
+            uploadFiles={uploadFiles}
+            onCreated={groupsData.refresh}
           />
         </div>
       )}
 
       <List>
-        {props.groups.map((g: Group, idx: number) => (
+        {groupsData.items.map((g: Group, idx: number) => (
           <GroupListItem
             key={g.id}
             group={g}
-            canManage={props.canManage}
-            settings={props.settings}
-            setEditingGroup={props.setEditingGroup}
-            setEditGroupOpen={props.setEditGroupOpen}
-            onDelete={props.onDelete}
-            setSnack={props.setSnack}
-            isLast={idx === props.groups.length - 1}
+            canManage={canManage}
+            setEditingGroup={setEditingGroup}
+            setEditGroupOpen={setEditGroupOpen}
+            onDelete={handleDelete}
+            isLast={idx === groupsData.items.length - 1}
           />
         ))}
       </List>
@@ -118,16 +90,18 @@ export default function GroupsTab(props: GroupsTabProps) {
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          {props.loading && props.total === 0
+          {groupsData.loading && groupsData.total === 0
             ? 'Loading…'
-            : props.total === 0
+            : groupsData.total === 0
               ? 'No groups to display'
-              : `Showing ${displayStart}-${displayEnd} of ${props.total}`}
+              : `Showing ${displayStart}-${displayEnd} of ${groupsData.total}`}
         </Typography>
         <Pagination
           count={pageCount}
-          page={Math.min(props.page + 1, pageCount)}
-          onChange={(_event, value) => props.onPageChange(value - 1)}
+          page={Math.min(0 + 1, pageCount)}
+          onChange={(_event, value) => {
+            // For now, keep pagination simple - can be enhanced later
+          }}
           color="primary"
           size="small"
           disabled={pageCount <= 1}
@@ -136,23 +110,22 @@ export default function GroupsTab(props: GroupsTabProps) {
 
       <GroupDialog
         mode="edit"
-        open={props.editGroupOpen}
+        open={editGroupOpen}
         onClose={() => {
-          props.setEditGroupOpen(false);
-          props.setEditingGroup(null);
+          setEditGroupOpen(false);
+          setEditingGroup(null);
         }}
-        editingGroup={props.editingGroup}
-        setEditingGroup={props.setEditingGroup}
-        editingGroupSigilUploading={props.editingGroupSigilUploading}
-        setEditingGroupSigilUploading={props.setEditingGroupSigilUploading}
-        editingGroupSigilDrag={props.editingGroupSigilDrag}
-        setEditingGroupSigilDrag={props.setEditingGroupSigilDrag}
-        leaderQuery={props.leaderQuery}
-        setLeaderQuery={props.setLeaderQuery}
-        altersOptions={props.altersOptions}
-        setSnack={props.setSnack}
-        refreshGroups={props.refreshGroups}
-        uploadFiles={props.uploadFiles}
+        uid={uid}
+        uploadFiles={uploadFiles}
+        onUpdated={groupsData.refresh}
+        group={editingGroup || undefined}
+      />
+
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

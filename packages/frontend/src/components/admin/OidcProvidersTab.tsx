@@ -1,17 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Paper, Stack, TextField, Button, FormControlLabel, Switch } from '@mui/material';
 import { apiClient, type OidcProviderAdminView } from '@didhub/api-client';
-import type { AlertColor } from '@mui/material';
-
-export interface OidcProvidersTabProps {
-  oidcProviders: any[];
-  oidcEnabled: boolean;
-  status: string;
-  setOidcProviders: (providers: any[]) => void;
-  setStatus: (status: string) => void;
-  setSettings: (settings: any) => void;
-  setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
-}
+import NotificationSnackbar, { SnackbarMessage } from '../NotificationSnackbar';
 
 function OidcSecretForm({
   view,
@@ -69,10 +59,11 @@ function OidcSecretForm({
   );
 }
 
-export default function OidcProvidersTab(props: OidcProvidersTabProps) {
+export default function OidcProvidersTab() {
   const [selectedOidcProvider, setSelectedOidcProvider] = useState<string>('google');
   const [providerAdminView, setProviderAdminView] = useState<OidcProviderAdminView | null>(null);
   const [updatingProvider, setUpdatingProvider] = useState(false);
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
 
   return (
     <>
@@ -124,9 +115,9 @@ export default function OidcProvidersTab(props: OidcProvidersTabProps) {
                 });
                 if (updated) {
                   setProviderAdminView(updated);
-                  props.setAdminMsg({ open: true, text: 'Updated provider', severity: 'success' });
+                  setSnack({ open: true, message: 'Updated provider', severity: 'success' });
                 } else {
-                  props.setAdminMsg({ open: true, text: 'Update failed', severity: 'error' });
+                  setSnack({ open: true, message: 'Update failed', severity: 'error' });
                 }
               } finally {
                 setUpdatingProvider(false);
@@ -139,6 +130,12 @@ export default function OidcProvidersTab(props: OidcProvidersTabProps) {
           </Typography>
         )}
       </Paper>
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+      />
     </>
   );
 }

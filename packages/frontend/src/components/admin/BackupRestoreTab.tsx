@@ -9,16 +9,14 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { apiClient } from '@didhub/api-client';
-import type { AlertColor } from '@mui/material';
+import { downloadBlob } from '../../utils/downloadUtils';
+import NotificationSnackbar, { SnackbarMessage } from '../NotificationSnackbar';
 
-export interface BackupRestoreTabProps {
-  setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
-}
-
-export default function BackupRestoreTab(props: BackupRestoreTabProps) {
+export default function BackupRestoreTab() {
   const [backupLoading, setBackupLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
 
   const handleCreateBackup = async () => {
     try {
@@ -26,24 +24,17 @@ export default function BackupRestoreTab(props: BackupRestoreTabProps) {
       const blob = await apiClient.admin.createBackup();
 
       // Create download link
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `didhub-backup-${new Date().toISOString().split('T')[0]}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, `didhub-backup-${new Date().toISOString().split('T')[0]}.zip`);
 
-      props.setAdminMsg({
+      setSnack({
         open: true,
-        text: 'Backup created and downloaded successfully',
+        message: 'Backup created and downloaded successfully',
         severity: 'success',
       });
     } catch (error) {
-      props.setAdminMsg({
+      setSnack({
         open: true,
-        text: `Backup failed: ${String(error)}`,
+        message: `Backup failed: ${String(error)}`,
         severity: 'error',
       });
     } finally {
@@ -53,9 +44,9 @@ export default function BackupRestoreTab(props: BackupRestoreTabProps) {
 
   const handleRestoreBackup = async () => {
     if (!selectedFile) {
-      props.setAdminMsg({
+      setSnack({
         open: true,
-        text: 'Please select a backup file to restore',
+        message: 'Please select a backup file to restore',
         severity: 'warning',
       });
       return;
@@ -66,9 +57,9 @@ export default function BackupRestoreTab(props: BackupRestoreTabProps) {
       const result = await apiClient.admin.restoreBackup(selectedFile);
 
       if (result.success) {
-        props.setAdminMsg({
+        setSnack({
           open: true,
-          text: result.message || 'Backup restored successfully',
+          message: result.message || 'Backup restored successfully',
           severity: 'success',
         });
         setSelectedFile(null);
@@ -76,16 +67,16 @@ export default function BackupRestoreTab(props: BackupRestoreTabProps) {
         const fileInput = document.getElementById('backup-file-input') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
       } else {
-        props.setAdminMsg({
+        setSnack({
           open: true,
-          text: result.message || 'Restore failed',
+          message: result.message || 'Restore failed',
           severity: 'error',
         });
       }
     } catch (error) {
-      props.setAdminMsg({
+      setSnack({
         open: true,
-        text: `Restore failed: ${String(error)}`,
+        message: `Restore failed: ${String(error)}`,
         severity: 'error',
       });
     } finally {
@@ -192,6 +183,12 @@ export default function BackupRestoreTab(props: BackupRestoreTabProps) {
           </Stack>
         </Paper>
       </Stack>
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

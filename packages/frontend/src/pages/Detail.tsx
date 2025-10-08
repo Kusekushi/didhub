@@ -4,20 +4,16 @@ import { Container, Grid, Typography } from '@mui/material';
 
 const G: any = Grid;
 import ConfirmDialog from '../components/ConfirmDialog';
-import InputPromptDialog from '../components/InputPromptDialog';
 import ImagesGallery from '../components/ImagesGallery';
 import BasicInfoSection from '../components/BasicInfoSection';
 import WorkAffiliationsSection from '../components/WorkAffiliationsSection';
 import { ListsSection, NotesSection } from '../components/DetailSections';
 import DetailHeader from '../components/DetailHeader';
-import NotificationSnackbar from '../components/NotificationSnackbar';
 import logger from '../logger';
 import { apiClient } from '@didhub/api-client';
 import { renderEmbeds } from '../utils/detailUtils';
 import { useAlterData } from '../hooks/useAlterData';
 import { useAlterLinks } from '../hooks/useAlterLinks';
-import { useRename } from '../hooks/useRename';
-import { usePdf } from '../hooks/usePdf';
 
 export default function Detail(): React.ReactElement {
   const { id } = useParams() as { id?: string };
@@ -39,16 +35,6 @@ export default function Detail(): React.ReactElement {
 
   const { partnerLinks, parentLinks, childLinks } = useAlterLinks(alter);
 
-  const { renaming, renameVal, renameError, startRename, cancelRename, saveRename, setRenameVal } = useRename(
-    alter,
-    (updatedAlter) => {
-      // Update the alter in the hook's state
-      refetch();
-    },
-  );
-
-  const { pdfError, pdfSnackOpen, handlePdfDownload, closePdfSnack } = usePdf();
-
   // Dialog states
   const [removeImageDialog, setRemoveImageDialog] = React.useState<{
     open: boolean;
@@ -60,24 +46,12 @@ export default function Detail(): React.ReactElement {
   if (error) return <Container sx={{ mt: 4 }}>Error: {error}</Container>;
   if (!alter) return <Container sx={{ mt: 4 }}>Alter not found</Container>;
 
-  // Computed normalized arrays
-  const affiliationsNormalized = Array.isArray(alter.affiliations)
-    ? alter.affiliations.filter((id): id is number => typeof id === 'number')
-    : [];
-
   return (
     <Container sx={{ mt: 4 }}>
       <DetailHeader
         alter={alter}
         user={user}
-        renaming={renaming}
-        renameVal={renameVal}
-        renameError={renameError}
-        onRenameValChange={setRenameVal}
-        onStartRename={startRename}
-        onCancelRename={cancelRename}
-        onSaveRename={saveRename}
-        onPdfDownload={() => handlePdfDownload(id!)}
+        onAlterUpdate={refetch}
         onBack={() => nav(-1)}
       />
 
@@ -85,21 +59,11 @@ export default function Detail(): React.ReactElement {
         <G item xs={12} md={6}>
           <BasicInfoSection
             alter={alter}
-            partnerLinks={partnerLinks}
-            parentLinks={parentLinks}
-            childLinks={childLinks}
-            userRelationships={alter.user_relationships || []}
           />
         </G>
         <G item xs={12} md={6}>
           <WorkAffiliationsSection
             alter={alter}
-            affiliationsNormalized={affiliationsNormalized}
-            affiliationGroupsMap={affiliationGroupsMap}
-            affiliationIdMap={affiliationIdMap}
-            groupObj={groupObj}
-            affiliationGroup={affiliationGroup}
-            subsystemObj={subsystemObj}
           />
         </G>
         <G item xs={12}>
@@ -112,7 +76,6 @@ export default function Detail(): React.ReactElement {
 
       <ImagesGallery
         alter={alter}
-        user={user}
         onRemoveImage={(url, alterId) => setRemoveImageDialog({ open: true, url, id: alterId })}
       />
 
@@ -137,8 +100,6 @@ export default function Detail(): React.ReactElement {
           }
         }}
       />
-
-      <NotificationSnackbar open={pdfSnackOpen} onClose={closePdfSnack} message={pdfError} severity={'error'} />
     </Container>
   );
 }

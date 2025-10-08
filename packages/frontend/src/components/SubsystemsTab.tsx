@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Button,
   Dialog,
@@ -15,50 +15,67 @@ import {
   Pagination,
   Typography,
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import type { Subsystem } from '@didhub/api-client';
 import { SnackbarMessage } from './NotificationSnackbar';
-import type { SettingsState } from '../contexts/SettingsContext';
+import { useSubsystemCreationState } from '../hooks/useSubsystemCreationState';
+import { useSubsystemsData } from '../hooks/useSubsystemsData';
+import { useAuth } from '../contexts/AuthContext';
+import { apiClient } from '@didhub/api-client';
+import type { User } from '@didhub/api-client';
+import NotificationSnackbar from './NotificationSnackbar';
 
 export interface SubsystemsTabProps {
-  canManage: boolean;
-  createSubsystemOpen: boolean;
-  setCreateSubsystemOpen: (open: boolean) => Promise<void> | void;
-  newSubsystemName: string;
-  setNewSubsystemName: (name: string) => void;
-  newSubsystemDesc: string;
-  setNewSubsystemDesc: (desc: string) => void;
-  newSubsystemType: string;
-  setNewSubsystemType: (type: string) => void;
-  subsystems: Subsystem[];
-  loading: boolean;
-  page: number;
-  pageSize: number;
-  total: number;
-  onPageChange: (page: number) => void;
   uid: string;
-  onDelete: (subsystemId: number | string) => Promise<void>;
-  settings: SettingsState;
-  setSnack: (snack: SnackbarMessage) => void;
-  refreshSubsystems: () => Promise<void> | void;
-  createSubsystem: (payload: Record<string, unknown>) => Promise<Subsystem>;
-  nav: (path: string) => void;
 }
 
-export default function SubsystemsTab(props: SubsystemsTabProps) {
-  const pageCount = Math.max(1, Math.ceil((props.total || 0) / Math.max(1, props.pageSize)));
-  const displayStart = props.total === 0 ? 0 : props.page * props.pageSize + 1;
-  const displayEnd = props.total === 0 ? 0 : Math.min(props.total, (props.page + 1) * props.pageSize);
+export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
+  const nav = useNavigate();
+  const { user: me } = useAuth() as { user?: User };
+  
+  // Local state for snackbar
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
+  
+  // Data fetching
+  const subsystemsData = useSubsystemsData(uid, '', 2, 0, 20);
+  
+  // Subsystem creation state
+  const subsystemCreationState = useSubsystemCreationState();
+
+  // Dialog state management
+  const [createSubsystemOpen, setCreateSubsystemOpen] = useState(false);
+
+  // Permission checking
+  const canManage = me && (me.is_admin || (me.is_system && String(me.id) === String(uid)));
+
+  const pageCount = Math.max(1, Math.ceil((subsystemsData.total || 0) / 20));
+  const displayStart = subsystemsData.total === 0 ? 0 : 0 * 20 + 1;
+  const displayEnd = subsystemsData.total === 0 ? 0 : Math.min(subsystemsData.total, (0 + 1) * 20);
+
+  const handleDelete = async (subsystemId: number | string) => {
+    try {
+      await apiClient.subsystems.remove(subsystemId);
+      await subsystemsData.refresh();
+      setSnack({ open: true, message: 'Subsystem deleted', severity: 'success' });
+    } catch (error) {
+      setSnack({ open: true, message: 'Failed to delete subsystem', severity: 'error' });
+    }
+  };
+
+  const handleCreateSubsystem = async (payload: Record<string, unknown>) => {
+    return await apiClient.subsystems.create(payload);
+  };
 
   return (
     <div>
-      {props.canManage && (
+      {canManage && (
         <div style={{ marginBottom: 12 }}>
-          <Button variant="contained" onClick={() => props.setCreateSubsystemOpen(true)}>
+          <Button variant="contained" onClick={() => setCreateSubsystemOpen(true)}>
             Create Subsystem
           </Button>
           <Dialog
-            open={props.createSubsystemOpen}
-            onClose={() => props.setCreateSubsystemOpen(false)}
+            open={createSubsystemOpen}
+            onClose={() => setCreateSubsystemOpen(false)}
             fullWidth
             maxWidth="sm"
           >
@@ -68,28 +85,28 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                 component="form"
                 onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
                   e.preventDefault();
-                  if (!props.newSubsystemName || !props.newSubsystemName.trim())
-                    return props.setSnack({ open: true, message: 'Name required', severity: 'error' });
+                  if (!subsystemCreationState.newSubsystemName || !subsystemCreationState.newSubsystemName.trim())
+                    return setSnack({ open: true, message: 'Name required', severity: 'error' });
                   try {
                     const payload: Record<string, unknown> = {
-                      name: props.newSubsystemName.trim(),
-                      description: props.newSubsystemDesc || null,
-                      type: props.newSubsystemType || 'normal',
+                      name: subsystemCreationState.newSubsystemName.trim(),
+                      description: subsystemCreationState.newSubsystemDesc || null,
+                      type: subsystemCreationState.newSubsystemType || 'normal',
                     };
-                    if (props.uid) payload.owner_user_id = Number(props.uid);
-                    await props.createSubsystem(payload);
+                    if (uid) payload.owner_user_id = Number(uid);
+                    await handleCreateSubsystem(payload);
                     try {
-                      await props.refreshSubsystems();
+                      await subsystemsData.refresh();
                     } catch (e) {
                       // ignore refresh errors
                     }
-                    props.setSnack({ open: true, message: 'Subsystem created', severity: 'success' });
-                    props.setNewSubsystemName('');
-                    props.setNewSubsystemDesc('');
-                    props.setNewSubsystemType('normal');
+                    setSnack({ open: true, message: 'Subsystem created', severity: 'success' });
+                    subsystemCreationState.setNewSubsystemName('');
+                    subsystemCreationState.setNewSubsystemDesc('');
+                    subsystemCreationState.setNewSubsystemType('normal');
                     // If parent handler returns a promise for closing, await it; otherwise call synchronously
                     try {
-                      const maybe = props.setCreateSubsystemOpen(false) as unknown;
+                      const maybe = setCreateSubsystemOpen(false) as unknown;
                       if (maybe && typeof (maybe as { then?: unknown }).then === 'function') {
                         await (maybe as Promise<void>);
                       }
@@ -97,7 +114,7 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                       // ignore
                     }
                   } catch (err) {
-                    props.setSnack({ open: true, message: String(err || 'create failed'), severity: 'error' });
+                    setSnack({ open: true, message: String(err || 'create failed'), severity: 'error' });
                   }
                 }}
               >
@@ -105,15 +122,15 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                   <TextField
                     size="small"
                     label="Name"
-                    value={props.newSubsystemName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => props.setNewSubsystemName(e.target.value)}
+                    value={subsystemCreationState.newSubsystemName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => subsystemCreationState.setNewSubsystemName(e.target.value)}
                     sx={{ minWidth: 240 }}
                   />
                   <TextField
                     size="small"
                     label="Description"
-                    value={props.newSubsystemDesc}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => props.setNewSubsystemDesc(e.target.value)}
+                    value={subsystemCreationState.newSubsystemDesc}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => subsystemCreationState.setNewSubsystemDesc(e.target.value)}
                     sx={{ minWidth: 320 }}
                   />
                   <Autocomplete
@@ -124,10 +141,10 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                     ]}
                     getOptionLabel={(o: { id: string; label: string } | null) => (o ? o.label : '')}
                     value={
-                      props.newSubsystemType ? { id: props.newSubsystemType, label: props.newSubsystemType } : null
+                      subsystemCreationState.newSubsystemType ? { id: subsystemCreationState.newSubsystemType, label: subsystemCreationState.newSubsystemType } : null
                     }
                     onChange={(_e: React.SyntheticEvent, v: { id: string; label: string } | null) =>
-                      props.setNewSubsystemType(v ? v.id : 'normal')
+                      subsystemCreationState.setNewSubsystemType(v ? v.id : 'normal')
                     }
                     renderInput={(params: Parameters<typeof TextField>[0]) => <TextField {...params} label="Type" />}
                     sx={{ minWidth: 180 }}
@@ -139,14 +156,14 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
               </Box>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => props.setCreateSubsystemOpen(false)}>Cancel</Button>
+              <Button onClick={() => setCreateSubsystemOpen(false)}>Cancel</Button>
             </DialogActions>
           </Dialog>
         </div>
       )}
 
       <List>
-        {props.subsystems.map((s: Subsystem, idx: number) => (
+        {subsystemsData.items.map((s: Subsystem, idx: number) => (
           <React.Fragment key={s.id}>
             <ListItem
               secondaryAction={
@@ -154,17 +171,17 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
                   <Button
                     variant="outlined"
                     size="small"
-                    onClick={() => props.nav(`/did-system/${props.uid}/subsystems/${s.id}`)}
+                    onClick={() => nav(`/did-system/${uid}/subsystems/${s.id}`)}
                   >
                     View
                   </Button>
-                  {props.canManage && (
-                    <Button variant="outlined" size="small" onClick={() => props.nav(`/subsystems/${s.id}/edit`)}>
+                  {canManage && (
+                    <Button variant="outlined" size="small" onClick={() => nav(`/subsystems/${s.id}/edit`)}>
                       Edit
                     </Button>
                   )}
-                  {props.canManage && (
-                    <Button variant="outlined" color="error" size="small" onClick={() => props.onDelete(Number(s.id))}>
+                  {canManage && (
+                    <Button variant="outlined" color="error" size="small" onClick={() => handleDelete(Number(s.id))}>
                       Delete
                     </Button>
                   )}
@@ -173,7 +190,7 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
             >
               <ListItemText primary={s.name} secondary={s.description} />
             </ListItem>
-            {idx < props.subsystems.length - 1 && <Divider component="li" />}
+            {idx < subsystemsData.items.length - 1 && <Divider component="li" />}
           </React.Fragment>
         ))}
       </List>
@@ -189,21 +206,30 @@ export default function SubsystemsTab(props: SubsystemsTabProps) {
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          {props.loading && props.total === 0
+          {subsystemsData.loading && subsystemsData.total === 0
             ? 'Loading…'
-            : props.total === 0
+            : subsystemsData.total === 0
               ? 'No subsystems to display'
-              : `Showing ${displayStart}-${displayEnd} of ${props.total}`}
+              : `Showing ${displayStart}-${displayEnd} of ${subsystemsData.total}`}
         </Typography>
         <Pagination
           count={pageCount}
-          page={Math.min(props.page + 1, pageCount)}
-          onChange={(_event, value) => props.onPageChange(value - 1)}
+          page={Math.min(0 + 1, pageCount)}
+          onChange={(_event, value) => {
+            // For now, keep pagination simple - can be enhanced later
+          }}
           color="primary"
           size="small"
           disabled={pageCount <= 1}
         />
       </div>
+
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

@@ -2,25 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Typography, Paper, Stack, TextField, Button, FormControlLabel, Switch } from '@mui/material';
 import { apiClient } from '@didhub/api-client';
 import type { AlertColor } from '@mui/material';
-
-export interface RedisTabProps {
-  redisUrl: string;
-  redisPrefixSetting: string;
-  redisTtlSecondsSetting: string;
-  redisClientOptions: string;
-  redisSessionsEnabled: boolean;
-  redisCacheEnabled: boolean;
-  status: string;
-  setRedisUrl: (url: string) => void;
-  setRedisPrefixSetting: (prefix: string) => void;
-  setRedisTtlSecondsSetting: (ttl: string) => void;
-  setRedisClientOptions: (options: string) => void;
-  setRedisSessionsEnabled: (enabled: boolean) => void;
-  setRedisCacheEnabled: (enabled: boolean) => void;
-  setStatus: (status: string) => void;
-  setSettings: (settings: any) => void;
-  setAdminMsg: (msg: { open: boolean; text: string; severity: AlertColor }) => void;
-}
+import NotificationSnackbar from '../NotificationSnackbar';
 
 function renderRedisInfo(info: Record<string, unknown> | undefined) {
   if (!info) return null;
@@ -58,11 +40,32 @@ function renderRedisInfo(info: Record<string, unknown> | undefined) {
   );
 }
 
-export default function RedisTab(props: RedisTabProps) {
+export default function RedisTab() {
+  const [redisUrl, setRedisUrl] = useState('');
+  const [redisPrefixSetting, setRedisPrefixSetting] = useState('');
+  const [redisTtlSecondsSetting, setRedisTtlSecondsSetting] = useState('');
+  const [redisClientOptions, setRedisClientOptions] = useState('');
+  const [redisSessionsEnabled, setRedisSessionsEnabled] = useState(false);
+  const [redisCacheEnabled, setRedisCacheEnabled] = useState(false);
   const [redisStatus, setRedisStatusState] = useState<any | null>(null);
+  const [snack, setSnack] = useState<{ open: boolean; text: string; severity: AlertColor }>({ open: false, text: '', severity: 'info' });
 
-  // Load Redis status on mount
+  // Load Redis settings and status on mount
   useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await apiClient.admin.settings();
+        setRedisUrl(String(settings?.redis_url || ''));
+        setRedisPrefixSetting(String(settings?.redis_prefix || ''));
+        setRedisTtlSecondsSetting(String(settings?.redis_ttl_seconds || ''));
+        setRedisClientOptions(String(settings?.redis_client_options || ''));
+        setRedisSessionsEnabled(settings?.redis_sessions_enabled === '1' || settings?.redis_sessions_enabled === 'true');
+        setRedisCacheEnabled(settings?.redis_cache_enabled === '1' || settings?.redis_cache_enabled === 'true');
+      } catch (e) {
+        setSnack({ open: true, text: `Failed to load Redis settings: ${e}`, severity: 'error' });
+      }
+    };
+
     const loadStatus = async () => {
       try {
         const rs = await apiClient.admin.redisStatus();
@@ -71,6 +74,8 @@ export default function RedisTab(props: RedisTabProps) {
         setRedisStatusState({ ok: false, error: String(e) });
       }
     };
+
+    loadSettings();
     loadStatus();
   }, []);
 
@@ -83,29 +88,29 @@ export default function RedisTab(props: RedisTabProps) {
         <Typography variant="subtitle2" gutterBottom>
           Redis configuration (optional)
         </Typography>
-        {redisStatus && redisStatus.ok && !props.redisUrl && (
+        {redisStatus && redisStatus.ok && !redisUrl && (
           <Typography variant="body2" color="info.main" sx={{ mb: 2 }}>
             Redis is configured in the app config (config.json or environment variables).
           </Typography>
         )}
         <TextField
           fullWidth
-          value={props.redisUrl}
-          onChange={(e) => props.setRedisUrl(e.target.value)}
+          value={redisUrl}
+          onChange={(e) => setRedisUrl(e.target.value)}
           placeholder="redis://localhost:6379"
           label="Redis URL"
           sx={{ mb: 2 }}
         />
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           <TextField
-            value={props.redisPrefixSetting}
-            onChange={(e) => props.setRedisPrefixSetting(e.target.value)}
+            value={redisPrefixSetting}
+            onChange={(e) => setRedisPrefixSetting(e.target.value)}
             placeholder="sess:"
             label="Key prefix"
           />
           <TextField
-            value={props.redisTtlSecondsSetting}
-            onChange={(e) => props.setRedisTtlSecondsSetting(e.target.value)}
+            value={redisTtlSecondsSetting}
+            onChange={(e) => setRedisTtlSecondsSetting(e.target.value)}
             placeholder="Session TTL (seconds)"
             label="TTL seconds"
           />
@@ -113,8 +118,8 @@ export default function RedisTab(props: RedisTabProps) {
         <FormControlLabel
           control={
             <Switch
-              checked={props.redisSessionsEnabled}
-              onChange={(e) => props.setRedisSessionsEnabled(e.target.checked)}
+              checked={redisSessionsEnabled}
+              onChange={(e) => setRedisSessionsEnabled(e.target.checked)}
             />
           }
           label="Store sessions in Redis"
@@ -122,7 +127,7 @@ export default function RedisTab(props: RedisTabProps) {
         />
         <FormControlLabel
           control={
-            <Switch checked={props.redisCacheEnabled} onChange={(e) => props.setRedisCacheEnabled(e.target.checked)} />
+            <Switch checked={redisCacheEnabled} onChange={(e) => setRedisCacheEnabled(e.target.checked)} />
           }
           label="Enable Redis caching for server data"
           sx={{ mb: 2 }}
@@ -131,28 +136,28 @@ export default function RedisTab(props: RedisTabProps) {
           fullWidth
           multiline
           minRows={3}
-          value={props.redisClientOptions}
-          onChange={(e) => props.setRedisClientOptions(e.target.value)}
+          value={redisClientOptions}
+          onChange={(e) => setRedisClientOptions(e.target.value)}
           placeholder='{"tls": {"rejectUnauthorized": false}}'
           label="Redis client options (JSON)"
         />
         <Button
           variant="contained"
           sx={{ mt: 2 }}
-          disabled={!props.redisUrl}
+          disabled={!redisUrl}
           onClick={async () => {
             try {
               await apiClient.admin.updateSettings({
-                redis_url: props.redisUrl,
-                redis_prefix: props.redisPrefixSetting,
-                redis_ttl_seconds: props.redisTtlSecondsSetting,
-                redis_client_options: props.redisClientOptions,
-                redis_sessions_enabled: props.redisSessionsEnabled,
-                redis_cache_enabled: props.redisCacheEnabled,
+                redis_url: redisUrl,
+                redis_prefix: redisPrefixSetting,
+                redis_ttl_seconds: redisTtlSecondsSetting,
+                redis_client_options: redisClientOptions,
+                redis_sessions_enabled: redisSessionsEnabled,
+                redis_cache_enabled: redisCacheEnabled,
               });
-              props.setAdminMsg({ open: true, text: 'Redis settings saved', severity: 'success' });
+              setSnack({ open: true, text: 'Redis settings saved', severity: 'success' });
             } catch (e) {
-              props.setAdminMsg({ open: true, text: `Failed to save: ${e}`, severity: 'error' });
+              setSnack({ open: true, text: `Failed to save: ${e}`, severity: 'error' });
             }
           }}
         >
@@ -198,6 +203,12 @@ export default function RedisTab(props: RedisTabProps) {
           )}
         </Typography>
       </Paper>
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.text}
+        severity={snack.severity}
+        onClose={() => setSnack({ ...snack, open: false })}
+      />
     </>
   );
 }
