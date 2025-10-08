@@ -24,6 +24,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import { apiClient, type Alter, type Group, type GroupMembersResponse } from '@didhub/api-client';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationSnackbar from '../components/NotificationSnackbar';
+import { usePdf } from '../hooks/usePdf';
 
 type LeaderOption = Partial<Alter> & { id: number | string; name?: string | null };
 
@@ -145,8 +146,7 @@ export default function GroupDetail() {
   const [leaderQuery, setLeaderQuery] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [pdfSnackOpen, setPdfSnackOpen] = useState(false);
+  const { pdfError, pdfSnackOpen, handlePdfDownload, closePdfSnack } = usePdf();
 
   const fetchMemberAlters = useCallback(
     async (groupId: string | number, ensureAlterIds: string[] = []): Promise<Alter[]> => {
@@ -396,40 +396,11 @@ export default function GroupDetail() {
     );
   }
 
-  async function exportPdf() {
-    if (!group) return;
-    try {
-      // Get JWT token from localStorage
-      const token = localStorage.getItem('didhub_jwt');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const resp = await fetch(`/api/pdf/group/${group.id}`, {
-        credentials: 'include',
-        headers,
-      });
-      if (!resp.ok) {
-        setPdfError(`Failed (${resp.status})`);
-        setPdfSnackOpen(true);
-        return;
-      }
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `group-${group.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Export failed';
-      setPdfError(message);
-      setPdfSnackOpen(true);
+  const exportPdf = useCallback(() => {
+    if (group?.id) {
+      handlePdfDownload(String(group.id), 'group');
     }
-  }
+  }, [group?.id, handlePdfDownload]);
   return (
     <Container sx={{ py: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
@@ -653,7 +624,7 @@ export default function GroupDetail() {
       )}
       <NotificationSnackbar
         open={pdfSnackOpen}
-        onClose={() => setPdfSnackOpen(false)}
+        onClose={closePdfSnack}
         message={pdfError}
         severity={'error'}
       />

@@ -468,4 +468,12 @@ export class AltersApi {
       acceptStatuses: [404],
     });
   }
+
+  async downloadPdf(id: string | number): Promise<Response> {
+    const response = await this.http.request({
+      path: `/api/pdf/alter/${id}`,
+      parse: 'none',
+    });
+    return response.raw;
+  }
 }

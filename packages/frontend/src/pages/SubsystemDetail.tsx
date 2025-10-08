@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Container,
@@ -23,6 +23,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import NotificationSnackbar from '../components/NotificationSnackbar';
 import { apiClient, parseRoles } from '@didhub/api-client';
 import type { Alter, Subsystem, User, AlterName, SubsystemMember } from '@didhub/api-client';
+import { usePdf } from '../hooks/usePdf';
 
 type AlterMember = Alter & { roles?: string[] };
 
@@ -61,8 +62,7 @@ export default function SubsystemDetail() {
   const [newMemberRole, setNewMemberRole] = useState('Member');
   const [roleInputMap, setRoleInputMap] = useState<Record<string, string>>({});
   const [loadingAlterNames, setLoadingAlterNames] = useState(false);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [pdfSnackOpen, setPdfSnackOpen] = useState(false);
+  const { pdfError, pdfSnackOpen, handlePdfDownload, closePdfSnack } = usePdf();
   useEffect(() => {
     (async () => {
       try {
@@ -234,44 +234,11 @@ export default function SubsystemDetail() {
         </Box>
       </Container>
     );
-  async function exportPdf() {
-    if (!subsystem || subsystem.id == null) {
-      setPdfError('Missing subsystem id');
-      setPdfSnackOpen(true);
-      return;
+  const exportPdf = useCallback(() => {
+    if (subsystem?.id) {
+      handlePdfDownload(String(subsystem.id), 'subsystem');
     }
-    try {
-      // Get JWT token from localStorage
-      const token = localStorage.getItem('didhub_jwt');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const resp = await fetch(`/api/pdf/subsystem/${subsystem.id}`, {
-        credentials: 'include',
-        headers,
-      });
-      if (!resp.ok) {
-        setPdfError(`Failed (${resp.status})`);
-        setPdfSnackOpen(true);
-        return;
-      }
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `subsystem-${subsystem.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Export failed';
-      setPdfError(message);
-      setPdfSnackOpen(true);
-    }
-  }
+  }, [subsystem?.id, handlePdfDownload]);
   return (
     <Container>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 2, flexWrap: 'wrap' }}>
@@ -507,7 +474,7 @@ export default function SubsystemDetail() {
       </div>
       <NotificationSnackbar
         open={pdfSnackOpen}
-        onClose={() => setPdfSnackOpen(false)}
+        onClose={closePdfSnack}
         message={pdfError}
         severity={'error'}
       />

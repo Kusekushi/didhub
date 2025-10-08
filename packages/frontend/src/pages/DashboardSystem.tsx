@@ -1,17 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Typography, Grid, Paper } from '@mui/material';
 
-import { apiClient, HttpClient } from '@didhub/api-client';
-
-const httpClient = new HttpClient();
-
-function extractTotal(value: unknown): number | null {
-  if (!value || typeof value !== 'object') return null;
-  const record = value as { total?: unknown; items?: unknown };
-  if (typeof record.total === 'number' && Number.isFinite(record.total)) return record.total;
-  if (Array.isArray(record.items)) return record.items.length;
-  return null;
-}
+import { apiClient } from '@didhub/api-client';
 
 export default function DashboardSystem(): React.ReactElement {
   const [counts, setCounts] = useState<{ alters: number | null; groups: number | null; subsystems: number | null }>({
@@ -27,29 +17,16 @@ export default function DashboardSystem(): React.ReactElement {
       const me = await apiClient.users.sessionIfAuthenticated();
       if (!me || !me.id) return;
       const uid = me.id;
-      // use API endpoints that return totals when queried via owner_user_id
-      const aRes = await httpClient.request<Record<string, unknown>>({
-        path: '/api/alters',
-        query: { user_id: uid, per_page: 1 },
-        throwOnError: false,
-      });
-      const gRes = await httpClient.request<Record<string, unknown>>({
-        path: '/api/groups',
-        query: { owner_user_id: uid, per_page: 1 },
-        throwOnError: false,
-      });
-      const sRes = await httpClient.request<Record<string, unknown>>({
-        path: '/api/subsystems',
-        query: { owner_user_id: uid, per_page: 1 },
-        throwOnError: false,
-      });
-      const aJson = aRes?.data ?? null;
-      const gJson = gRes?.data ?? null;
-      const sJson = sRes?.data ?? null;
+      // use API client methods to get totals
+      const [aRes, gRes, sRes] = await Promise.all([
+        apiClient.alters.list({ userId: uid, perPage: 1 }),
+        apiClient.groups.listPaged({ owner_user_id: uid, limit: 1 }),
+        apiClient.subsystems.listPaged({ owner_user_id: uid, limit: 1 }),
+      ]);
       setCounts({
-        alters: extractTotal(aJson),
-        groups: extractTotal(gJson),
-        subsystems: extractTotal(sJson),
+        alters: aRes.total ?? null,
+        groups: gRes.total ?? null,
+        subsystems: sRes.total ?? null,
       });
     } catch (e) {}
   }

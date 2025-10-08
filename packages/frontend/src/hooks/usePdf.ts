@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { apiClient } from '@didhub/api-client';
+
+type PdfType = 'alter' | 'group' | 'subsystem';
 
 interface UsePdfResult {
   pdfError: string | null;
   pdfSnackOpen: boolean;
-  handlePdfDownload: (id: string) => Promise<void>;
+  handlePdfDownload: (id: string, type?: PdfType) => Promise<void>;
   closePdfSnack: () => void;
 }
 
@@ -14,30 +17,34 @@ export function usePdf(): UsePdfResult {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfSnackOpen, setPdfSnackOpen] = useState(false);
 
-  const handlePdfDownload = async (id: string) => {
+  const handlePdfDownload = async (id: string, type: PdfType = 'alter') => {
     try {
-      const token = localStorage.getItem('didhub_jwt');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      let response: Response;
+
+      switch (type) {
+        case 'group':
+          response = await apiClient.groups.downloadPdf(id);
+          break;
+        case 'subsystem':
+          response = await apiClient.subsystems.downloadPdf(id);
+          break;
+        case 'alter':
+        default:
+          response = await apiClient.alters.downloadPdf(id);
+          break;
       }
 
-      const resp = await fetch(`/api/pdf/alter/${id}`, {
-        credentials: 'include',
-        headers,
-      });
-
-      if (!resp.ok) {
-        setPdfError(`Failed (${resp.status})`);
+      if (!response.ok) {
+        setPdfError(`Failed (${response.status})`);
         setPdfSnackOpen(true);
         return;
       }
 
-      const blob = await resp.blob();
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `detail-${id}.pdf`;
+      a.download = `${type}-${id}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();

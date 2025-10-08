@@ -251,6 +251,14 @@ export class SubsystemsApi {
     });
   }
 
+  async downloadPdf(id: string | number): Promise<Response> {
+    const response = await this.http.request({
+      path: `/api/pdf/subsystem/${id}`,
+      parse: 'none',
+    });
+    return response.raw;
+  }
+
   async migrateAlterAssignments(): Promise<Record<string, unknown>> {
     const response = await this.http.request<Record<string, unknown>>({
       path: '/admin/migrate-alter-subsystems',

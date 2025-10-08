@@ -249,4 +249,12 @@ export class GroupsApi {
     const resolvedGroupId = payloadGroupId ?? fallbackGroupId;
     return resolvedGroupId != null ? { group_id: resolvedGroupId, alters } : { alters };
   }
+
+  async downloadPdf(id: string | number): Promise<Response> {
+    const response = await this.http.request({
+      path: `/api/pdf/group/${id}`,
+      parse: 'none',
+    });
+    return response.raw;
+  }
 }
