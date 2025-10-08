@@ -162,7 +162,12 @@ export class HttpClient {
     let text = '';
     try {
       response = await fetch(url, init);
-      text = await response.text();
+      const parseMode = options.parse ?? 'json';
+      
+      // Only read response body as text if we need to parse it
+      if (parseMode !== 'none') {
+        text = await response.text();
+      }
     } catch (error) {
       if (debugEnabled) {
         recordHttpDebug({

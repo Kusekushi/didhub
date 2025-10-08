@@ -11,3 +11,4 @@ export { default as AuditTab } from './AuditTab';
 export { default as AuditLogPanel } from './AuditLogPanel';
 export { default as MetricsTab } from './MetricsTab';
 export { default as DatabaseTab } from './DatabaseTab';
+export { default as BackupRestoreTab } from './BackupRestoreTab';

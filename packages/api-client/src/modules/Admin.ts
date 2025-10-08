@@ -360,6 +360,34 @@ export class AdminApi {
     });
     return response.data;
   }
+
+  async createBackup(): Promise<Blob> {
+    const response = await this.http.request<unknown>({
+      path: '/api/admin/backup',
+      method: 'POST',
+      parse: 'none',
+    });
+    return response.raw.blob();
+  }
+
+  async restoreBackup(backupFile: File): Promise<AdminMessageResult> {
+    const formData = new FormData();
+    formData.append('backup', backupFile);
+
+    const response = await this.http.request<Record<string, unknown>>({
+      path: '/api/admin/restore',
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Let the browser set the Content-Type with boundary for multipart/form-data
+      },
+    });
+    const payload = isRecord(response.data) ? response.data : {};
+    return {
+      success: typeof payload.success === 'boolean' ? payload.success : undefined,
+      message: typeof payload.message === 'string' ? payload.message : undefined,
+    };
+  }
 }
 
 export interface CustomDigestResponse {

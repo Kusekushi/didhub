@@ -116,6 +116,14 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
             "/housekeeping/trigger/{name}",
             post(crate::routes::admin::housekeeping::trigger_job),
         )
+        .route(
+            "/admin/backup",
+            post(crate::routes::admin::misc::create_backup),
+        )
+        .route(
+            "/admin/restore",
+            post(crate::routes::admin::misc::restore_backup),
+        )
         .route("/metrics", get(metrics::metrics_handler))
         .layer(axum::middleware::from_fn(auth::admin_guard_middleware))
         .with_state(auth_state.clone())

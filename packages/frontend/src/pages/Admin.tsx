@@ -16,6 +16,7 @@ import {
   AuditTab,
   MetricsTab,
   DatabaseTab,
+  BackupRestoreTab,
 } from '../components/admin';
 import NotificationSnackbar from '../components/NotificationSnackbar';
 import { Box, List, ListItem, ListItemButton, ListItemText, type AlertColor } from '@mui/material';
@@ -34,6 +35,7 @@ import {
   CleaningServices as HousekeepingIcon,
   Dataset as DatabaseIcon,
   Analytics as MetricsIcon,
+  Backup as BackupIcon,
 } from '@mui/icons-material';
 
 export default function Admin() {
@@ -357,6 +359,12 @@ export default function Admin() {
       label: 'Database', 
       icon: <DatabaseIcon />,
       render: () => <DatabaseTab setAdminMsg={setAdminMsg} /> 
+    },
+    { 
+      key: 'backup-restore', 
+      label: 'Backup & Restore', 
+      icon: <BackupIcon />,
+      render: () => <BackupRestoreTab setAdminMsg={setAdminMsg} /> 
     },
     { 
       key: 'metrics', 
