@@ -8,20 +8,20 @@ export type Maybe<T> = T | null;
 
 export interface ApiClientModules {
 {% for module in api_modules %}
-  {{ module.name.lower() }}s: {{ module.name }}Api;
+  {{ module.name.lower() }}: {{ module.name }}Api;
 {% endfor %}
 }
 
 export class ApiClient implements ApiClientModules {
   readonly http: HttpClient;
 {% for module in api_modules %}
-  readonly {{ module.name.lower() }}s: {{ module.name }}Api;
+  readonly {{ module.name.lower() }}: {{ module.name }}Api;
 {% endfor %}
 
   constructor(config: HttpClientConfig = {}) {
     this.http = new HttpClient(config);
 {% for module in api_modules %}
-    this.{{ module.name.lower() }}s = new {{ module.name }}Api(this.http);
+    this.{{ module.name.lower() }} = new {{ module.name }}Api(this.http);
 {% endfor %}
   }
 }
