@@ -129,34 +129,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [me]);
   async function login(username: string, password: string) {
-    const result = await apiClient.users.login(username, password);
+    const result = await apiClient.users.post_auth_login({ username, password });
     if (result.ok) {
-      const session = await apiClient.users.session();
-      const user = session.ok ? session.user : null;
+      const session = await apiClient.users.me();
+      const user = session.ok ? session.data as User : null;
       setMe(user);
       if (user && user.must_change_password) setMustChange(true);
       initTokenState();
       return { ok: true, user };
     }
 
-    const code = result.data?.code;
+    const data = result.data as any;
+    const code = data?.code;
     if (code === 'not_approved') {
       return {
         ok: false,
         pending: true,
-        error: result.data?.error ?? 'Account awaiting approval',
+        error: data?.error ?? 'Account awaiting approval',
       };
     }
 
-    return { ok: false, error: result.data?.error ?? null };
+    return { ok: false, error: data?.error ?? null };
   }
   async function register(username: string, password: string, is_system = false) {
-    const r = await apiClient.users.register(username, password, is_system);
+    const r = await apiClient.users.post_auth_register({ username, password, is_system });
     if (r.ok) {
       // Account created. Because new accounts require admin approval, don't auto-login.
       return { ok: true, pending: true };
     }
-    return { ok: false, error: r.error ?? r.message ?? null };
+    const data = r.data as any;
+    return { ok: false, error: data?.error ?? data?.message ?? null };
   }
   async function logout() {
     setMe(null);
@@ -168,19 +170,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
   async function changePassword(current: string, next: string) {
-    const res = await apiClient.users.changePassword(current, next);
+    const res = await apiClient.users.post_me_password({ current, next });
     if (res.ok) {
       setMustChange(false);
       try {
-        const m = await apiClient.users.sessionIfAuthenticated();
-        setMe(m);
+        const m = await apiClient.users.me();
+        setMe(m.ok ? m.data as User : null);
       } catch {
         // Ignore fetch errors
       }
       return { ok: true };
     }
-    const err = res.error ?? res.message ?? 'error';
-    return { ok: false, error: String(err) };
+    const data = res.data as any;
+    return { ok: false, error: data?.error ?? data?.message ?? 'error' };
   }
   return (
     <AuthContext.Provider
@@ -212,12 +214,15 @@ if (typeof window !== 'undefined') {
       window.__didhub_refreshing = true;
       (async () => {
         try {
-          const r = await apiClient.users.refreshSession();
-          if (r && r.ok && r.token) {
-            localStorage.setItem('didhub_jwt', r.token);
-            // Clear the refreshing flag immediately since the operation is complete
-            window.__didhub_refreshing = false;
-            return;
+          const r = await apiClient.users.post_auth_refresh();
+          if (r.ok) {
+            const data = r.data as any;
+            if (data.token) {
+              localStorage.setItem('didhub_jwt', data.token);
+              // Clear the refreshing flag immediately since the operation is complete
+              window.__didhub_refreshing = false;
+              return;
+            }
           }
         } catch {
           // Ignore refresh errors

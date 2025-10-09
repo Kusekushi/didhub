@@ -3,7 +3,7 @@
       path: {{ path_expr }},
       method: '{{ method }}',
 {% if method in ['POST', 'PUT', 'PATCH'] %}
-      body: body,
+      json: body,
 {% endif %}
     });
   }

@@ -28,7 +28,7 @@ export default function Login(): React.ReactElement {
 
     async function loadProviders() {
       try {
-        const list = await apiClient.oidc.list();
+        const list = await apiClient.oidcs.oidc();
         const arr: Provider[] = Array.isArray(list) ? list : [];
         arr.push({ id: 'credentials', name: 'Username and Password' });
         if (mounted) setProviders(arr);
@@ -173,7 +173,7 @@ export default function Login(): React.ReactElement {
             }}
           />
           <FormControlLabel
-            control={<Checkbox value={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} color="primary" />}
+            control={<Checkbox checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} color="primary" name="rememberMe" />}
             label="Remember me?"
           />
           <Button
