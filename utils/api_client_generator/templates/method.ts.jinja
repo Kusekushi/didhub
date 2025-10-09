@@ -1,9 +1,14 @@
-  async {{ method_name }}({{ param_list }}{% if method in ['POST', 'PUT', 'PATCH'] %}{% if param_list %}, {% endif %}body?: any{% endif %}): Promise<any> {
-    return this.http.request({
+async {{ method_name }}({{ param_list }}): {{ return_type }} {
+    const response = await this.http.request<{{ response_type }}>({
       path: {{ path_expr }},
       method: '{{ method }}',
+{% if has_query %}
+      query,
+{% endif %}
 {% if method in ['POST', 'PUT', 'PATCH'] %}
       json: body,
 {% endif %}
     });
+    return response.data;
   }
+

@@ -1,5 +1,5 @@
-export * from './generated-client';
-export * from './Types';
+export * from './generated/Types';
+export * from './generated/Client';
 export * from './SettingsKeys';
 export * from './Util';
 export * from './core/ApiError';

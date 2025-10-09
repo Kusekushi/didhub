@@ -13,7 +13,7 @@ vi.mock('../utils/storage', () => {
     readCsrfToken: vi.fn(() => null),
   };
 });
-import { ApiClient } from '../generated-client';
+import { ApiClient } from '../generated/Client';
 import { setStoredToken, clearStoredToken, getStoredToken, hasAuthToken, readCsrfToken } from '../utils/storage';
 
 const ensureWindow = (): Window & { dispatchEvent: ReturnType<typeof vi.fn> } => {

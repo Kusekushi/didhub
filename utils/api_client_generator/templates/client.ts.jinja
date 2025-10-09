@@ -1,6 +1,10 @@
 // Auto-generated API client - do not edit manually
 
-import { ApiError, HttpClient, HttpClientConfig, HttpResponse, RequestOptions } from './core/HttpClient';
+import { ApiError, HttpClient, HttpClientConfig, HttpResponse, QueryParams, RequestOptions } from '../core/HttpClient';
+import * as Types from './Types';
+
+// Type aliases for common patterns
+export type Maybe<T> = T | null;
 
 export interface ApiClientModules {
 {% for module in api_modules %}

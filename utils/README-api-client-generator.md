@@ -58,16 +58,17 @@ The script generates `packages/api-client/src/generated-client.ts` with:
 - **ApiClientModules interface**: Defines the module structure
 - **ApiClient class**: Main client with all modules as properties
 - **Individual API classes**: `AlterApi`, `UserApi`, `GroupApi`, etc.
-- **Typed methods**: Each endpoint becomes a properly typed async method
+- **Typed methods**: Each endpoint becomes a properly typed async method with correct parameter types (query, body) and return types
 
 The generated client is completely self-contained and does not require external dependencies beyond the core utilities (`ApiError`, `getStoredToken`, `readCsrfToken`).
 
 ## Method Naming
 
-- GET `/alters` → `get_alters()`
-- POST `/alters` → `post_alters()`
-- GET `/alters/{id}` → `get_alters_by_id(id)`
-- PUT `/alters/{id}` → `put_alters_by_id(id)`
+- GET `/alters` → `get_alters()`  
+- POST `/alters` → `post_alters(body: CreateAlterPayload)`  
+- GET `/alters/{id}` → `get_alters_by_id(id: string | number)`  
+- PUT `/alters/{id}` → `put_alters_by_id(id: string | number, body: UpdateAlterPayload)`  
+- GET `/users` → `get_users(query: UsersQuery): Promise<UsersListResponse<UserOut>>`
 
 ## Integration
 
@@ -85,7 +86,6 @@ pnpm run build  # Automatically generates API client before building
 
 ## Future Improvements
 
-- Analyze Rust handler function signatures for better typing
 - Generate request/response interfaces
 - Handle authentication requirements in method signatures
 - Support for OpenAPI spec generation
