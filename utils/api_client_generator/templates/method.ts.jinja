@@ -1,4 +1,4 @@
-async {{ method_name }}({{ param_list }}): {{ return_type }} {
+public async {{ method_name }}({{ param_list }}): {{ return_type }} {
     const response = await this.http.request<{{ response_type }}>({
       path: {{ path_expr }},
       method: '{{ method }}',
