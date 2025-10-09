@@ -347,12 +347,14 @@ impl UserOperations for Db {
         user_id: &str,
         expires_at: &str,
     ) -> Result<PasswordResetToken> {
+        let id = uuid::Uuid::new_v4().to_string();
         let sel = selector.to_string();
         let vh = verifier_hash.to_string();
         let exp = expires_at.to_string();
         let rec = self.insert_and_return(
             || async {
-                let r = sqlx::query_as::<_, PasswordResetToken>("INSERT INTO password_reset_tokens (selector, verifier_hash, user_id, expires_at) VALUES (?1, ?2, ?3, ?4) RETURNING *")
+                let r = sqlx::query_as::<_, PasswordResetToken>("INSERT INTO password_reset_tokens (id, selector, verifier_hash, user_id, expires_at) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *")
+                    .bind(&id)
                     .bind(&sel)
                     .bind(&vh)
                     .bind(user_id)
@@ -361,13 +363,15 @@ impl UserOperations for Db {
                 Ok(r)
             },
             || async {
-                sqlx::query("INSERT INTO password_reset_tokens (selector, verifier_hash, user_id, expires_at) VALUES (?1, ?2, ?3, ?4)")
+                sqlx::query("INSERT INTO password_reset_tokens (id, selector, verifier_hash, user_id, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)")
+                    .bind(&id)
                     .bind(&sel)
                     .bind(&vh)
                     .bind(user_id)
                     .bind(&exp)
                     .execute(&self.pool).await?;
-                let r = sqlx::query_as::<_, PasswordResetToken>("SELECT * FROM password_reset_tokens WHERE id = LAST_INSERT_ID()")
+                let r = sqlx::query_as::<_, PasswordResetToken>("SELECT * FROM password_reset_tokens WHERE id = ?1")
+                    .bind(&id)
                     .fetch_one(&self.pool).await?;
                 Ok(r)
             }

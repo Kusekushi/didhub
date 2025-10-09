@@ -169,19 +169,23 @@ impl CommonOperations for Db {
     }
 
     async fn start_housekeeping_run(&self, job_name: &str) -> Result<HousekeepingRun> {
+        let id = uuid::Uuid::new_v4().to_string();
         let job_name = job_name.to_string();
         let rec = self.insert_and_return(
             || async {
-                let r = sqlx::query_as::<_, HousekeepingRun>("INSERT INTO housekeeping_runs (job_name) VALUES (?1) RETURNING id, job_name, started_at, finished_at, status, message, rows_affected")
+                let r = sqlx::query_as::<_, HousekeepingRun>("INSERT INTO housekeeping_runs (id, job_name) VALUES (?1, ?2) RETURNING id, job_name, started_at, finished_at, status, message, rows_affected")
+                    .bind(&id)
                     .bind(&job_name)
                     .fetch_one(&self.pool).await?;
                 Ok(r)
             },
             || async {
-                sqlx::query("INSERT INTO housekeeping_runs (job_name) VALUES (?1)")
+                sqlx::query("INSERT INTO housekeeping_runs (id, job_name) VALUES (?1, ?2)")
+                    .bind(&id)
                     .bind(&job_name)
                     .execute(&self.pool).await?;
-                let r = sqlx::query_as::<_, HousekeepingRun>("SELECT id, job_name, started_at, finished_at, status, message, rows_affected FROM housekeeping_runs WHERE id = LAST_INSERT_ID()")
+                let r = sqlx::query_as::<_, HousekeepingRun>("SELECT id, job_name, started_at, finished_at, status, message, rows_affected FROM housekeeping_runs WHERE id = ?1")
+                    .bind(&id)
                     .fetch_one(&self.pool).await?;
                 Ok(r)
             }

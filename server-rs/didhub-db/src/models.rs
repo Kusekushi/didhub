@@ -137,7 +137,7 @@ pub struct AuditLog {
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct HousekeepingRun {
-    pub id: i64,
+    pub id: String,
     pub job_name: String,
     pub started_at: String,
     pub finished_at: Option<String>,
@@ -148,7 +148,7 @@ pub struct HousekeepingRun {
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PasswordResetToken {
-    pub id: i64,
+    pub id: String,
     pub selector: String,
     pub verifier_hash: String,
     pub user_id: String,

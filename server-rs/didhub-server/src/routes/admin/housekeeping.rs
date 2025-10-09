@@ -50,7 +50,7 @@ pub struct RunsQuery {
 
 #[derive(Serialize)]
 pub struct RunRecord {
-    pub id: i64,
+    pub id: String,
     pub job_name: String,
     pub started_at: String,
     pub finished_at: Option<String>,
