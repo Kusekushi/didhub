@@ -159,7 +159,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false, error: r.error ?? r.message ?? null };
   }
   async function logout() {
-    await apiClient.users.logout();
     setMe(null);
     setMustChange(false);
     setTokenExp(null);
