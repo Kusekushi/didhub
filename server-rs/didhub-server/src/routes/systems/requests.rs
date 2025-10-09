@@ -12,7 +12,7 @@ use tracing::{debug, error, info, warn};
 
 #[derive(Serialize)]
 pub struct SystemRequestResponse {
-    pub id: i64,
+    pub id: String,
     pub status: String,
     pub note: Option<String>,
     pub decided_at: Option<String>,
@@ -21,8 +21,8 @@ pub struct SystemRequestResponse {
 
 #[derive(Serialize)]
 pub struct SystemRequestAdminResponse {
-    pub id: i64,
-    pub user_id: i64,
+    pub id: String,
+    pub user_id: String,
     pub username: String,
     pub status: String,
     pub note: Option<String>,
@@ -82,7 +82,7 @@ pub async fn request_system(
         return Err(AppError::BadRequest("already a system".into()));
     }
 
-    let rec = db.create_system_request(user.id).await.map_err(|e| {
+    let rec = db.create_system_request(&user.id).await.map_err(|e| {
         error!(
             user_id = %user.id,
             error = %e,
@@ -100,7 +100,7 @@ pub async fn request_system(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "system_request.create",
         Some("system_request"),
         Some(&rec.id.to_string()),
@@ -128,7 +128,7 @@ pub async fn my_system_request(
     );
 
     let rec = db
-        .fetch_latest_system_request_for_user(user.id)
+        .fetch_latest_system_request_for_user(&user.id)
         .await
         .map_err(|e| {
             error!(
@@ -228,7 +228,7 @@ pub struct DecisionBody {
 pub async fn decide_system_request(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(body): Json<DecisionBody>,
 ) -> Result<Json<SystemRequestResponse>, AppError> {
     debug!(
@@ -251,7 +251,7 @@ pub async fn decide_system_request(
     }
 
     let updated = db
-        .decide_system_request(id, body.approve, body.note.as_deref())
+        .decide_system_request(&id, body.approve, body.note.as_deref())
         .await
         .map_err(|e| {
             error!(
@@ -282,7 +282,7 @@ pub async fn decide_system_request(
 
         audit::record_with_metadata(
             &db,
-            Some(user.id),
+            Some(user.id.clone()),
             action,
             Some("system_request"),
             Some(&v.id.to_string()),

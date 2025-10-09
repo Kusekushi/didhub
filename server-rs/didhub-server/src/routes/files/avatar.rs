@@ -59,7 +59,7 @@ pub async fn upload_avatar(
     let mut hash_hex = String::new();
     // Capture previous avatar to optionally clean up later
     let previous_avatar = db
-        .fetch_user_by_id(user.id)
+        .fetch_user_by_id(&user.id)
         .await
         .map_err(|e| {
             error!(
@@ -216,7 +216,7 @@ pub async fn upload_avatar(
             .insert_upload(NewUpload {
                 stored_name: &final_name,
                 original_name: Some(&orig),
-                user_id: Some(user.id),
+                user_id: Some(user.id.clone()),
                 mime: Some("image/png"),
                 bytes: out_buf.len() as i64,
                 hash: Some(&hash_hex),
@@ -243,7 +243,7 @@ pub async fn upload_avatar(
     };
     let mut fields = UpdateUserFields::default();
     fields.avatar = Some(Some(saved_name.clone()));
-    db.update_user(user.id, fields).await.map_err(|e| {
+    db.update_user(&user.id, fields).await.map_err(|e| {
         error!(
             user_id = %user.id,
             error = %e,
@@ -261,7 +261,7 @@ pub async fn upload_avatar(
     // Simple mime inference already validated; assume png output
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "avatar.upload",
         Some("avatar"),
         Some(&saved_name),
@@ -332,7 +332,7 @@ pub async fn delete_avatar(
 
     let mut fields = UpdateUserFields::default();
     fields.avatar = Some(None);
-    db.update_user(user.id, fields).await.map_err(|e| {
+    db.update_user(&user.id, fields).await.map_err(|e| {
         error!(
             user_id = %user.id,
             error = %e,
@@ -347,7 +347,7 @@ pub async fn delete_avatar(
 
     audit::record_entity(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "avatar.delete",
         "avatar",
         &user.id.to_string(),

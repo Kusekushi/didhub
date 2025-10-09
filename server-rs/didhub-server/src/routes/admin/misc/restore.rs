@@ -170,7 +170,7 @@ pub async fn restore_backup(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "admin.backup.restore",
         Some("backup"),
         None,

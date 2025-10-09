@@ -114,7 +114,7 @@ pub async fn trigger_job(
         })))
     } else {
         let run_record = state.db.start_housekeeping_run(&name).await;
-        let run_id = run_record.as_ref().ok().map(|r| r.id);
+        let run_id = run_record.as_ref().ok().map(|r| r.id.to_string());
         if let Err(err) = &run_record {
             error!(job_name = %name, error = %err, "failed to record housekeeping run start");
         }
@@ -124,9 +124,10 @@ pub async fn trigger_job(
         let job_name = name.clone();
         let started_at = run_record.ok().map(|r| r.started_at);
 
+        let run_id_clone = run_id.clone();
         tokio::spawn(async move {
             if let Err(err) = registry
-                .run_job_by_name_with_run(&db, &job_name, run_id)
+                .run_job_by_name_with_run(&db, &job_name, run_id_clone)
                 .await
             {
                 error!(job_name = %job_name, error = %err, "manual job failed");

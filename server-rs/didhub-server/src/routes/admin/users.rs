@@ -53,18 +53,18 @@ pub struct UsersListResponse<T> {
 
 #[derive(Serialize)]
 pub struct UserOut {
-    pub id: i64,
+    pub id: String,
     pub username: String,
     pub avatar: Option<String>,
     pub is_system: bool,
     pub is_admin: bool,
     pub is_approved: bool,
-    pub created_at: Option<String>,
+    pub created_at: String,
 }
 
 fn user_to_out(u: &User) -> UserOut {
     UserOut {
-        id: u.id,
+        id: u.id.clone(),
         username: u.username.clone(),
         avatar: u.avatar.clone(),
         is_system: u.is_system != 0,
@@ -143,13 +143,13 @@ pub struct UpdateUserPayload {
 pub async fn get_user(
     State(db): State<Db>,
     Extension(current): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<Json<UserOut>, AppError> {
     if !current.is_approved {
         return Err(AppError::Forbidden);
     }
     let u = db
-        .fetch_user_by_id(id)
+        .fetch_user_by_id(&id)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
@@ -160,7 +160,7 @@ pub async fn update_user(
     State(db): State<Db>,
     _admin: Extension<AdminFlag>,
     Extension(actor): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<UpdateUserPayload>,
 ) -> Result<Json<UserOut>, AppError> {
     let mut fields = UpdateUserFields::default();
@@ -170,13 +170,13 @@ pub async fn update_user(
     fields.must_change_password = payload.must_change_password;
     fields.avatar = payload.avatar;
     let u = db
-        .update_user(id, fields)
+        .update_user(&id, fields)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
     audit::record_entity(
         &db,
-        Some(actor.id),
+        Some(actor.id.clone()),
         "user.update",
         "user",
         &u.id.to_string(),
@@ -187,14 +187,14 @@ pub async fn update_user(
 
 #[derive(Deserialize)]
 pub struct DeleteUserPayload {
-    pub reassign_to: Option<i64>,
+    pub reassign_to: Option<String>,
 }
 
 pub async fn delete_user(
     State(db): State<Db>,
     _admin: Extension<AdminFlag>,
     Extension(actor): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     maybe_payload: Option<Json<DeleteUserPayload>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Prevent self deletion for now (could be allowed with extra safeguards)
@@ -203,7 +203,7 @@ pub async fn delete_user(
     }
     // Ensure target exists
     let existing = db
-        .fetch_user_by_id(id)
+        .fetch_user_by_id(&id)
         .await
         .map_err(|_| AppError::Internal)?;
     if existing.is_none() {
@@ -212,28 +212,28 @@ pub async fn delete_user(
     let payload = maybe_payload
         .map(|p| p.0)
         .unwrap_or(DeleteUserPayload { reassign_to: None });
-    if let Some(to_id) = payload.reassign_to {
-        if to_id == id {
+    if let Some(ref to_id) = payload.reassign_to {
+        if *to_id == id {
             return Err(AppError::BadRequest("Cannot reassign to same user".into()));
         }
         // ensure destination exists
         if db
-            .fetch_user_by_id(to_id)
+            .fetch_user_by_id(&to_id)
             .await
             .map_err(|_| AppError::Internal)?
             .is_none()
         {
             return Err(AppError::BadRequest("Reassignment target not found".into()));
         }
-        db.reassign_user_content(id, to_id)
+        db.reassign_user_content(&id, &to_id)
             .await
             .map_err(|_| AppError::Internal)?;
     }
-    let ok = db.delete_user(id).await.map_err(|_| AppError::Internal)?;
+    let ok = db.delete_user(&id).await.map_err(|_| AppError::Internal)?;
     if !ok {
         return Err(AppError::NotFound);
     }
-    audit::record_entity(&db, Some(actor.id), "user.delete", "user", &id.to_string()).await;
+    audit::record_entity(&db, Some(actor.id.clone()), "user.delete", "user", &id).await;
     Ok(Json(
         serde_json::json!({"deleted": true, "reassigned_to": payload.reassign_to }),
     ))
@@ -280,7 +280,7 @@ pub async fn create_user(
         let mut fields = UpdateUserFields::default();
         fields.is_admin = Some(true);
         user = db
-            .update_user(user.id, fields)
+            .update_user(&user.id, fields)
             .await
             .map_err(|_| AppError::Internal)?
             .unwrap_or(user);
@@ -305,7 +305,7 @@ pub async fn admin_password_reset(
     State(db): State<Db>,
     _admin: Extension<AdminFlag>,
     Extension(actor): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<AdminPasswordResetPayload>,
 ) -> Result<Json<UserOut>, AppError> {
     if payload.password.len() < 8 {
@@ -321,16 +321,16 @@ pub async fn admin_password_reset(
     fields.password_hash = Some(hash);
     fields.must_change_password = Some(false);
     let user = db
-        .update_user(id, fields)
+        .update_user(&id, fields)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
     audit::record_entity(
         &db,
-        Some(actor.id),
+        Some(actor.id.clone()),
         "user.admin_password_reset",
         "user",
-        &id.to_string(),
+        &id,
     )
     .await;
     Ok(Json(user_to_out(&user)))
@@ -353,7 +353,7 @@ pub struct ListResponse<T> {
 
 #[derive(serde::Serialize)]
 pub struct NamesItem {
-    pub id: i64,
+    pub id: String,
     pub name: String,
 }
 
@@ -388,7 +388,7 @@ pub async fn list_user_names(
     let mut items = Vec::with_capacity(rows.len());
     for u in rows {
         items.push(NamesItem {
-            id: u.id,
+            id: u.id.clone(),
             name: u.username,
         });
     }

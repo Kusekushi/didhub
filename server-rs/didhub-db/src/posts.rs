@@ -6,21 +6,21 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait PostOperations: Send + Sync {
-    async fn create_post(&self, body: &str, created_by_user_id: Option<i64>) -> Result<Post>;
+    async fn create_post(&self, body: &str, created_by_user_id: Option<&str>) -> Result<Post>;
     async fn repost_post(
         &self,
-        original_id: i64,
-        created_by_user_id: Option<i64>,
+        original_id: &str,
+        created_by_user_id: Option<&str>,
     ) -> Result<Option<Post>>;
-    async fn fetch_post(&self, id: i64) -> Result<Option<Post>>;
+    async fn fetch_post(&self, id: &str) -> Result<Option<Post>>;
     async fn list_posts(&self, limit: i64, offset: i64) -> Result<Vec<Post>>;
     async fn count_posts(&self) -> Result<i64>;
-    async fn delete_post(&self, id: i64) -> Result<bool>;
+    async fn delete_post(&self, id: &str) -> Result<bool>;
 }
 
 #[async_trait]
 impl PostOperations for Db {
-    async fn create_post(&self, body: &str, created_by_user_id: Option<i64>) -> Result<Post> {
+    async fn create_post(&self, body: &str, created_by_user_id: Option<&str>) -> Result<Post> {
         if body.trim().is_empty() {
             anyhow::bail!("body required");
         }
@@ -49,8 +49,8 @@ impl PostOperations for Db {
 
     async fn repost_post(
         &self,
-        original_id: i64,
-        created_by_user_id: Option<i64>,
+        original_id: &str,
+        created_by_user_id: Option<&str>,
     ) -> Result<Option<Post>> {
         let orig = sqlx::query_as::<_, Post>("SELECT id, body, created_by_user_id, repost_of_post_id, created_at FROM posts WHERE id=?1")
             .bind(original_id)
@@ -81,7 +81,7 @@ impl PostOperations for Db {
         Ok(Some(rec))
     }
 
-    async fn fetch_post(&self, id: i64) -> Result<Option<Post>> {
+    async fn fetch_post(&self, id: &str) -> Result<Option<Post>> {
         Ok(sqlx::query_as::<_, Post>("SELECT id, body, created_by_user_id, repost_of_post_id, created_at FROM posts WHERE id=?1")
             .bind(id)
             .fetch_optional(&self.pool).await?)
@@ -102,7 +102,7 @@ impl PostOperations for Db {
         Ok(count)
     }
 
-    async fn delete_post(&self, id: i64) -> Result<bool> {
+    async fn delete_post(&self, id: &str) -> Result<bool> {
         let res = sqlx::query("DELETE FROM posts WHERE id=?1")
             .bind(id)
             .execute(&self.pool)

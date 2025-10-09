@@ -47,7 +47,7 @@ pub async fn create_post(
     }
     debug!(user_id=%user.id, username=%user.username, body_length=%body.body.len(), "creating post");
     let post = db
-        .create_post(&body.body, Some(user.id))
+        .create_post(&body.body, Some(user.id.as_str()))
         .await
         .map_err(|_| AppError::Internal)?;
     info!(user_id=%user.id, username=%user.username, post_id=%post.id, "post created successfully");
@@ -65,7 +65,7 @@ pub async fn create_post(
 pub async fn repost_post(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     if !user.is_admin && !user.is_system {
         warn!(user_id=%user.id, username=%user.username, post_id=%id, "unauthorized repost attempt");
@@ -73,7 +73,7 @@ pub async fn repost_post(
     }
     debug!(user_id=%user.id, username=%user.username, original_post_id=%id, "reposting post");
     let Some(post) = db
-        .repost_post(id, Some(user.id))
+        .repost_post(&id, Some(user.id.as_str()))
         .await
         .map_err(|_| AppError::Internal)?
     else {
@@ -97,19 +97,19 @@ pub async fn repost_post(
 pub async fn delete_post(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     if !user.is_admin && !user.is_system {
         warn!(user_id=%user.id, username=%user.username, post_id=%id, "unauthorized post deletion attempt");
         return Err(AppError::Forbidden);
     }
     debug!(user_id=%user.id, username=%user.username, post_id=%id, "deleting post");
-    let deleted = db.delete_post(id).await.map_err(|_| AppError::Internal)?;
+    let deleted = db.delete_post(&id).await.map_err(|_| AppError::Internal)?;
     if !deleted {
         warn!(user_id=%user.id, username=%user.username, post_id=%id, "post deletion failed - post not found");
         return Err(AppError::NotFound);
     }
     info!(user_id=%user.id, username=%user.username, post_id=%id, "post deleted successfully");
-    audit::record_entity(&db, Some(user.id), "post.delete", "post", &id.to_string()).await;
+    audit::record_entity(&db, Some(user.id.clone()), "post.delete", "post", &id).await;
     Ok(Json(serde_json::json!({"ok": true, "id": id})))
 }

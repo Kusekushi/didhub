@@ -16,24 +16,24 @@ use tracing::{debug, info, warn};
 
 #[derive(Deserialize)]
 pub struct CreateRelationshipPayload {
-    pub user_id: i64,
+    pub user_id: String,
     pub relationship_type: String,
 }
 
 #[derive(Deserialize)]
 pub struct ReplaceRelationshipsPayload {
     #[serde(default)]
-    pub partners: Vec<i64>,
+    pub partners: Vec<String>,
     #[serde(default)]
-    pub parents: Vec<i64>,
+    pub parents: Vec<String>,
     #[serde(default)]
-    pub children: Vec<i64>,
+    pub children: Vec<String>,
 }
 
 pub async fn create_relationship(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(alter_id): Path<i64>,
+    Path(alter_id): Path<String>,
     Json(payload): Json<CreateRelationshipPayload>,
 ) -> Result<Json<UserAlterRelationship>, AppError> {
     info!(
@@ -50,7 +50,7 @@ pub async fn create_relationship(
 
     // Validate that the target user is not a system user
     let target_user = db
-        .fetch_user_by_id(payload.user_id)
+        .fetch_user_by_id(&payload.user_id)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or_else(|| AppError::BadRequest("Target user not found".to_string()))?;
@@ -70,8 +70,8 @@ pub async fn create_relationship(
     // TODO: Add proper permission checks based on alter ownership
 
     let new_relationship = NewUserAlterRelationship {
-        user_id: payload.user_id,
-        alter_id,
+        user_id: payload.user_id.clone(),
+        alter_id: alter_id.clone(),
         relationship_type: payload.relationship_type.clone(),
     };
 
@@ -80,7 +80,7 @@ pub async fn create_relationship(
 
     audit::record_entity(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "user_alter_relationship.create",
         "user_alter_relationship",
         &relationship.id.to_string(),
@@ -95,7 +95,7 @@ pub async fn create_relationship(
 pub async fn delete_relationship(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path((alter_id, user_id, relationship_type)): Path<(i64, i64, String)>,
+    Path((alter_id, user_id, relationship_type)): Path<(String, String, String)>,
 ) -> Result<(), AppError> {
     // Validate relationship type
     if !["partner", "parent", "child"].contains(&relationship_type.as_str()) {
@@ -109,13 +109,13 @@ pub async fn delete_relationship(
     // TODO: Add proper permission checks
 
     let deleted = db
-        .delete_user_alter_relationship(user_id, alter_id, &relationship_type)
+        .delete_user_alter_relationship(&user_id, &alter_id, &relationship_type)
         .await?;
 
     if deleted {
         audit::record_entity(
             &db,
-            Some(user.id),
+            Some(user.id.clone()),
             "user_alter_relationship.delete",
             "user_alter_relationship",
             &format!("{}_{}_{}", user_id, alter_id, relationship_type),
@@ -130,13 +130,13 @@ pub async fn delete_relationship(
 pub async fn list_relationships(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(alter_id): Path<i64>,
+    Path(alter_id): Path<String>,
 ) -> Result<Json<Vec<UserAlterRelationship>>, AppError> {
     // Check if user has permission to view this alter
     // For now, allow any authenticated user to view relationships
     // TODO: Add proper permission checks
 
-    let relationships = db.list_user_alter_relationships_by_alter(alter_id).await?;
+    let relationships = db.list_user_alter_relationships_by_alter(&alter_id).await?;
 
     debug!(user_id=%user.id, alter_id=%alter_id, count=%relationships.len(), "listed user-alter relationships");
 
@@ -146,53 +146,53 @@ pub async fn list_relationships(
 pub async fn replace_relationships(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(alter_id): Path<i64>,
+    Path(alter_id): Path<String>,
     Json(payload): Json<ReplaceRelationshipsPayload>,
 ) -> Result<Json<super::RowsAffectedResponse>, AppError> {
     let alter = db
-        .fetch_alter(alter_id)
+        .fetch_alter(&alter_id)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
 
     if !user.is_admin {
-        let owner = alter.owner_user_id.unwrap_or(user.id);
+        let owner = alter.owner_user_id.clone().unwrap_or(user.id.clone());
         if owner != user.id {
             return Err(AppError::Forbidden);
         }
     }
 
-    let mut requested: Vec<(i64, &'static str)> = Vec::new();
-    let mut seen_pairs: HashSet<(i64, &'static str)> = HashSet::new();
+    let mut requested: Vec<(String, &'static str)> = Vec::new();
+    let mut seen_pairs: HashSet<(String, &'static str)> = HashSet::new();
 
     for user_id in payload.partners {
-        if user_id <= 0 {
+        if user_id.is_empty() {
             continue;
         }
-        if seen_pairs.insert((user_id, "partner")) {
+        if seen_pairs.insert((user_id.clone(), "partner")) {
             requested.push((user_id, "partner"));
         }
     }
 
     for user_id in payload.parents {
-        if user_id <= 0 {
+        if user_id.is_empty() {
             continue;
         }
-        if seen_pairs.insert((user_id, "parent")) {
+        if seen_pairs.insert((user_id.clone(), "parent")) {
             requested.push((user_id, "parent"));
         }
     }
 
     for user_id in payload.children {
-        if user_id <= 0 {
+        if user_id.is_empty() {
             continue;
         }
-        if seen_pairs.insert((user_id, "child")) {
+        if seen_pairs.insert((user_id.clone(), "child")) {
             requested.push((user_id, "child"));
         }
     }
 
-    let mut user_cache: HashMap<i64, bool> = HashMap::new();
+    let mut user_cache: HashMap<String, bool> = HashMap::new();
     let mut new_relationships: Vec<NewUserAlterRelationship> = Vec::with_capacity(requested.len());
 
     for (user_id, relationship_type) in requested {
@@ -200,12 +200,12 @@ pub async fn replace_relationships(
             *is_system
         } else {
             let target_user = db
-                .fetch_user_by_id(user_id)
+                .fetch_user_by_id(&user_id)
                 .await
                 .map_err(|_| AppError::Internal)?
                 .ok_or_else(|| AppError::BadRequest(format!("User {} not found", user_id)))?;
             let is_system = target_user.is_system != 0;
-            user_cache.insert(user_id, is_system);
+            user_cache.insert(user_id.clone(), is_system);
             is_system
         };
 
@@ -216,20 +216,20 @@ pub async fn replace_relationships(
         }
 
         new_relationships.push(NewUserAlterRelationship {
-            user_id,
-            alter_id,
+            user_id: user_id.clone(),
+            alter_id: alter_id.clone(),
             relationship_type: relationship_type.to_string(),
         });
     }
 
     let (relationships, rows_affected) = db
-        .replace_user_alter_relationships(alter_id, &new_relationships)
+        .replace_user_alter_relationships(&alter_id, &new_relationships)
         .await
         .map_err(|_| AppError::Internal)?;
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "user_alter_relationship.replace",
         Some("alter"),
         Some(&alter_id.to_string()),

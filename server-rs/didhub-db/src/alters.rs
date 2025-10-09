@@ -8,8 +8,8 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait AlterOperations: Send + Sync {
     async fn create_alter(&self, na: &serde_json::Value) -> Result<Alter>;
-    async fn fetch_alter(&self, id: i64) -> Result<Option<Alter>>;
-    async fn delete_alter(&self, id: i64) -> Result<bool>;
+    async fn fetch_alter(&self, id: &str) -> Result<Option<Alter>>;
+    async fn delete_alter(&self, id: &str) -> Result<bool>;
     async fn list_alters(&self, q: Option<String>, limit: i64, offset: i64) -> Result<Vec<Alter>>;
     async fn count_alters(&self, q: Option<String>) -> Result<i64>;
     async fn list_alters_by_user(
@@ -17,30 +17,30 @@ pub trait AlterOperations: Send + Sync {
         q: Option<String>,
         limit: i64,
         offset: i64,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<Vec<Alter>>;
-    async fn count_alters_by_user(&self, q: Option<String>, user_id: i64) -> Result<i64>;
+    async fn count_alters_by_user(&self, q: Option<String>, user_id: &str) -> Result<i64>;
     async fn list_alters_scoped(
         &self,
         q: Option<String>,
         limit: i64,
         offset: i64,
         user: &CurrentUser,
-        filter_user_id: Option<i64>,
+        filter_user_id: Option<&str>,
     ) -> Result<Vec<Alter>>;
     async fn count_alters_scoped(
         &self,
         q: Option<String>,
         user: &CurrentUser,
-        filter_user_id: Option<i64>,
+        filter_user_id: Option<&str>,
     ) -> Result<i64>;
-    async fn update_alter_fields(&self, id: i64, body: &serde_json::Value)
+    async fn update_alter_fields(&self, id: &str, body: &serde_json::Value)
         -> Result<Option<Alter>>;
     async fn upcoming_birthdays(&self, days_ahead: i64) -> Result<Vec<Alter>>;
     async fn batch_load_relationships(
         &self,
-        alter_ids: &[i64],
-    ) -> Result<std::collections::HashMap<i64, (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)>>;
+        alter_ids: &[&str],
+    ) -> Result<std::collections::HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)>>;
 }
 
 #[async_trait]
@@ -56,7 +56,7 @@ impl AlterOperations for Db {
         if name.is_empty() {
             anyhow::bail!("name required");
         }
-        let owner_user_id = na.get("owner_user_id").and_then(|v| v.as_i64());
+        let owner_user_id = na.get("owner_user_id").and_then(|v| v.as_str());
         let nm = name.clone();
         let owner = owner_user_id;
         let rec = self
@@ -89,7 +89,7 @@ impl AlterOperations for Db {
         Ok(rec)
     }
 
-    async fn fetch_alter(&self, id: i64) -> Result<Option<Alter>> {
+    async fn fetch_alter(&self, id: &str) -> Result<Option<Alter>> {
         let rec = sqlx::query_as::<_, Alter>("SELECT * FROM alters WHERE id=?1")
             .bind(id)
             .fetch_optional(&self.pool)
@@ -97,7 +97,7 @@ impl AlterOperations for Db {
         Ok(rec)
     }
 
-    async fn delete_alter(&self, id: i64) -> Result<bool> {
+    async fn delete_alter(&self, id: &str) -> Result<bool> {
         let res = sqlx::query("DELETE FROM alters WHERE id=?1")
             .bind(id)
             .execute(&self.pool)
@@ -147,7 +147,7 @@ impl AlterOperations for Db {
         q: Option<String>,
         limit: i64,
         offset: i64,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<Vec<Alter>> {
         let rows = if let Some(qs) = q {
             let like = format!("%{}%", qs);
@@ -173,7 +173,7 @@ impl AlterOperations for Db {
         Ok(rows)
     }
 
-    async fn count_alters_by_user(&self, q: Option<String>, user_id: i64) -> Result<i64> {
+    async fn count_alters_by_user(&self, q: Option<String>, user_id: &str) -> Result<i64> {
         if let Some(qs) = q {
             let like = format!("%{}%", qs);
             let row: (i64,) = sqlx::query_as(
@@ -200,7 +200,7 @@ impl AlterOperations for Db {
         limit: i64,
         offset: i64,
         user: &CurrentUser,
-        filter_user_id: Option<i64>,
+        filter_user_id: Option<&str>,
     ) -> Result<Vec<Alter>> {
         // If filtering by a specific user_id, allow it (admins can see any, non-admins can see others when explicitly requested)
         if let Some(uid) = filter_user_id {
@@ -226,7 +226,7 @@ impl AlterOperations for Db {
                 sql_base
             );
             sqlx::query_as::<_, Alter>(&sql)
-                .bind(user.id)
+                .bind(user.id.clone())
                 .bind(like)
                 .bind(limit)
                 .bind(offset)
@@ -238,7 +238,7 @@ impl AlterOperations for Db {
                 sql_base
             );
             sqlx::query_as::<_, Alter>(&sql)
-                .bind(user.id)
+                .bind(user.id.clone())
                 .bind(limit)
                 .bind(offset)
                 .fetch_all(&self.pool)
@@ -251,7 +251,7 @@ impl AlterOperations for Db {
         &self,
         q: Option<String>,
         user: &CurrentUser,
-        filter_user_id: Option<i64>,
+        filter_user_id: Option<&str>,
     ) -> Result<i64> {
         // If filtering by a specific user_id, allow it
         if let Some(uid) = filter_user_id {
@@ -276,7 +276,7 @@ impl AlterOperations for Db {
                 sql_base
             );
             let row: (i64,) = sqlx::query_as(&sql)
-                .bind(user.id)
+                .bind(user.id.clone())
                 .bind(like)
                 .fetch_one(&self.pool)
                 .await?;
@@ -284,7 +284,7 @@ impl AlterOperations for Db {
         } else {
             let sql = format!("SELECT count(*) as c FROM alters WHERE {}", sql_base);
             let row: (i64,) = sqlx::query_as(&sql)
-                .bind(user.id)
+                .bind(user.id.clone())
                 .fetch_one(&self.pool)
                 .await?;
             Ok(row.0)
@@ -293,7 +293,7 @@ impl AlterOperations for Db {
 
     async fn update_alter_fields(
         &self,
-        id: i64,
+        id: &str,
         body: &serde_json::Value,
     ) -> Result<Option<Alter>> {
         let mut sets: Vec<String> = Vec::new();
@@ -436,8 +436,8 @@ impl AlterOperations for Db {
 
     async fn batch_load_relationships(
         &self,
-        alter_ids: &[i64],
-    ) -> Result<std::collections::HashMap<i64, (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)>> {
+        alter_ids: &[&str],
+    ) -> Result<std::collections::HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)>> {
         use std::collections::HashMap;
 
         if alter_ids.is_empty() {
@@ -452,7 +452,7 @@ impl AlterOperations for Db {
 
         // Batch query all partners
         let partners_query = format!("SELECT alter_id, partner_alter_id FROM alter_partners WHERE alter_id IN ({}) OR partner_alter_id IN ({})", placeholders_str, placeholders_str);
-        let mut partners_query = sqlx::query_as::<_, (i64, i64)>(&partners_query);
+        let mut partners_query = sqlx::query_as::<_, (String, String)>(&partners_query);
         for id in alter_ids {
             partners_query = partners_query.bind(id);
         }
@@ -466,7 +466,7 @@ impl AlterOperations for Db {
             "SELECT alter_id, parent_alter_id FROM alter_parents WHERE alter_id IN ({})",
             placeholders_str
         );
-        let mut parents_query = sqlx::query_as::<_, (i64, i64)>(&parents_query);
+        let mut parents_query = sqlx::query_as::<_, (String, String)>(&parents_query);
         for id in alter_ids {
             parents_query = parents_query.bind(id);
         }
@@ -477,7 +477,7 @@ impl AlterOperations for Db {
             "SELECT alter_id, parent_alter_id FROM alter_parents WHERE parent_alter_id IN ({})",
             placeholders_str
         );
-        let mut children_query = sqlx::query_as::<_, (i64, i64)>(&children_query);
+        let mut children_query = sqlx::query_as::<_, (String, String)>(&children_query);
         for id in alter_ids {
             children_query = children_query.bind(id);
         }
@@ -488,28 +488,28 @@ impl AlterOperations for Db {
             "SELECT alter_id, affiliation_id FROM alter_affiliations WHERE alter_id IN ({})",
             placeholders_str
         );
-        let mut affiliations_query = sqlx::query_as::<_, (i64, i64)>(&affiliations_query);
+        let mut affiliations_query = sqlx::query_as::<_, (String, String)>(&affiliations_query);
         for id in alter_ids {
             affiliations_query = affiliations_query.bind(id);
         }
         let affiliations_rows = affiliations_query.fetch_all(&self.pool).await?;
 
         // Build the result map
-        let mut result: HashMap<i64, (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)> = HashMap::new();
+        let mut result: HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)> = HashMap::new();
         for &id in alter_ids {
-            result.insert(id, (Vec::new(), Vec::new(), Vec::new(), Vec::new()));
+            result.insert(id.to_string(), (Vec::new(), Vec::new(), Vec::new(), Vec::new()));
         }
 
         // Process partners (bidirectional)
         for (a, b) in partners_rows {
             for &id in alter_ids {
                 if a == id {
-                    if let Some((partners, _, _, _)) = result.get_mut(&id) {
-                        partners.push(b);
+                    if let Some((partners, _, _, _)) = result.get_mut(id) {
+                        partners.push(b.clone());
                     }
                 } else if b == id {
-                    if let Some((partners, _, _, _)) = result.get_mut(&id) {
-                        partners.push(a);
+                    if let Some((partners, _, _, _)) = result.get_mut(id) {
+                        partners.push(a.clone());
                     }
                 }
             }

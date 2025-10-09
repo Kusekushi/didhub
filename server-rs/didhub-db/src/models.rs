@@ -1,5 +1,34 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Post {
+    pub id: String,
+    pub body: String,
+    pub created_by_user_id: Option<String>,
+    pub repost_of_post_id: Option<String>,
+    pub created_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct User {
+    pub id: String,
+    pub username: String,
+    pub email: Option<String>,
+    pub password_hash: Option<String>,
+    pub avatar: Option<String>,
+    pub is_system: i64,
+    pub is_admin: i64,
+    pub is_approved: i64,
+    pub must_change_password: i64,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+    pub roles: String,
+    pub settings: String,
+    pub is_active: i64,
+    pub email_verified: i64,
+    pub last_login_at: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DbBackend {
     Sqlite,
@@ -14,42 +43,62 @@ pub struct Db {
     pub url: String,
 }
 
+#[derive(serde::Serialize)]
+pub struct SystemSummary {
+    pub user_id: String,
+    pub username: String,
+    pub avatar: Option<String>,
+    pub alters: i64,
+    pub groups: i64,
+    pub subsystems: i64,
+}
+
+#[derive(serde::Serialize)]
+pub struct SystemDetail {
+    pub user_id: String,
+    pub username: String,
+    pub alters: Vec<String>,
+    pub groups: Vec<String>,
+    pub subsystems: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Group {
-    pub id: i64,
+    pub id: String,
     pub name: String,
     pub description: Option<String>,
+    pub avatar_url: Option<String>,
+    pub banner_url: Option<String>,
+    pub color: Option<String>,
     pub sigil: Option<String>,
     pub leaders: Option<String>,
     pub metadata: Option<String>,
-    pub owner_user_id: Option<i64>,
-    pub created_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub owner_user_id: Option<String>,
+    pub is_public: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Subsystem {
-    pub id: i64,
+    pub id: String,
     pub name: String,
     pub description: Option<String>,
+    pub avatar_url: Option<String>,
+    pub banner_url: Option<String>,
+    pub color: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub owner_user_id: Option<String>,
+    pub is_public: bool,
     pub leaders: Option<String>,
     pub metadata: Option<String>,
-    pub owner_user_id: Option<i64>,
-    pub created_at: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct Post {
-    pub id: i64,
-    pub body: String,
-    pub created_by_user_id: Option<i64>,
-    pub repost_of_post_id: Option<i64>,
-    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct SystemRequest {
-    pub id: i64,
-    pub user_id: i64,
+    pub id: String,
+    pub user_id: String,
     pub status: String,
     pub note: Option<String>,
     pub decided_at: Option<String>,
@@ -58,8 +107,8 @@ pub struct SystemRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct SystemRequestAdmin {
-    pub id: i64,
-    pub user_id: i64,
+    pub id: String,
+    pub user_id: String,
     pub username: String,
     pub status: String,
     pub note: Option<String>,
@@ -78,7 +127,7 @@ pub struct Setting {
 pub struct AuditLog {
     pub id: i64,
     pub created_at: Option<String>,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
     pub action: String,
     pub entity_type: Option<String>,
     pub entity_id: Option<String>,
@@ -102,22 +151,9 @@ pub struct PasswordResetToken {
     pub id: i64,
     pub selector: String,
     pub verifier_hash: String,
-    pub user_id: i64,
+    pub user_id: String,
     pub expires_at: String,
     pub used_at: Option<String>,
-    pub created_at: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
-pub struct User {
-    pub id: i64,
-    pub username: String,
-    pub password_hash: String,
-    pub avatar: Option<String>,
-    pub is_system: i64,
-    pub is_admin: i64,
-    pub is_approved: i64,
-    pub must_change_password: i64,
     pub created_at: Option<String>,
 }
 
@@ -153,7 +189,7 @@ pub struct UpdateUserFields {
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Alter {
-    pub id: i64,
+    pub id: String,
     pub name: String,
     pub description: Option<String>,
     pub age: Option<String>,
@@ -176,14 +212,14 @@ pub struct Alter {
     pub is_system_host: i64,
     pub is_dormant: i64,
     pub is_merged: i64,
-    pub owner_user_id: Option<i64>,
-    pub created_at: Option<String>,
+    pub owner_user_id: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct NewAlter {
     pub name: String,
-    pub owner_user_id: Option<i64>,
+    pub owner_user_id: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
@@ -191,7 +227,7 @@ pub struct UploadRow {
     pub id: i64,
     pub stored_name: String,
     pub original_name: Option<String>,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
     pub mime: Option<String>,
     pub bytes: Option<i64>,
     pub hash: Option<String>,
@@ -203,7 +239,7 @@ pub struct UploadRow {
 pub struct NewUpload<'a> {
     pub stored_name: &'a str,
     pub original_name: Option<&'a str>,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
     pub mime: Option<&'a str>,
     pub bytes: i64,
     pub hash: Option<&'a str>,
@@ -212,8 +248,8 @@ pub struct NewUpload<'a> {
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct UserAlterRelationship {
     pub id: i64,
-    pub user_id: i64,
-    pub alter_id: i64,
+    pub user_id: String,
+    pub alter_id: String,
     pub relationship_type: String,
     pub created_at: Option<String>,
     pub username: Option<String>,
@@ -221,26 +257,7 @@ pub struct UserAlterRelationship {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewUserAlterRelationship {
-    pub user_id: i64,
-    pub alter_id: i64,
+    pub user_id: String,
+    pub alter_id: String,
     pub relationship_type: String,
-}
-
-#[derive(serde::Serialize)]
-pub struct SystemSummary {
-    pub user_id: i64,
-    pub username: String,
-    pub avatar: Option<String>,
-    pub alters: i64,
-    pub groups: i64,
-    pub subsystems: i64,
-}
-
-#[derive(serde::Serialize)]
-pub struct SystemDetail {
-    pub user_id: i64,
-    pub username: String,
-    pub alters: Vec<i64>,
-    pub groups: Vec<i64>,
-    pub subsystems: Vec<i64>,
 }

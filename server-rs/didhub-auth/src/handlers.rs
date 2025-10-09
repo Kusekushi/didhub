@@ -118,8 +118,8 @@ pub async fn register(
     record_auth_operation("register", "success");
     audit::record_entity(
         &state.db,
-        Some(created.id),
-        "auth.register",
+        Some(created.id.to_string()),
+        "user.create",
         "user",
         &created.id.to_string(),
     )
@@ -158,7 +158,8 @@ pub async fn login(
         .await;
         return Err(AppError::Unauthorized);
     };
-    let parsed_hash = PasswordHash::new(&user.password_hash).map_err(|_| AppError::Internal)?;
+    let password_hash = user.password_hash.as_ref().ok_or(AppError::Internal)?;
+    let parsed_hash = PasswordHash::new(password_hash).map_err(|_| AppError::Internal)?;
     if !Argon2::default()
         .verify_password(payload.password.as_bytes(), &parsed_hash)
         .is_ok()
@@ -167,7 +168,7 @@ pub async fn login(
         record_auth_operation("login", "failure");
         audit::record_with_metadata(
             &state.db,
-            Some(user.id),
+            Some(user.id.to_string()),
             "auth.login.fail",
             Some("user"),
             Some(&user.id.to_string()),
@@ -182,7 +183,7 @@ pub async fn login(
         record_auth_operation("login", "failure");
         audit::record_with_metadata(
             &state.db,
-            Some(user.id),
+            Some(user.id.to_string()),
             "auth.login.not_approved",
             Some("user"),
             Some(&user.id.to_string()),
@@ -205,7 +206,7 @@ pub async fn login(
     record_auth_operation("login", "success");
     audit::record_entity(
         &state.db,
-        Some(user.id),
+        Some(user.id.to_string()),
         "auth.login.success",
         "user",
         &user.id.to_string(),
@@ -298,7 +299,8 @@ pub async fn change_password(
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::Unauthorized)?;
-    let parsed_hash = PasswordHash::new(&db_user.password_hash).map_err(|_| AppError::Internal)?;
+    let password_hash = db_user.password_hash.as_ref().ok_or(AppError::Internal)?;
+    let parsed_hash = PasswordHash::new(password_hash).map_err(|_| AppError::Internal)?;
     if !Argon2::default()
         .verify_password(payload.current_password.as_bytes(), &parsed_hash)
         .is_ok()
@@ -316,7 +318,7 @@ pub async fn change_password(
     fields.must_change_password = Some(false);
     let _ = state
         .db
-        .update_user(db_user.id, fields)
+        .update_user(&db_user.id, fields)
         .await
         .map_err(|_| AppError::Internal)?;
 
@@ -326,7 +328,7 @@ pub async fn change_password(
         tracing::warn!(username=%user.username, error=?e, "failed to invalidate user cache after password change");
     }
 
-    audit::record_simple(&state.db, Some(user.id), "user.password.change").await;
+    audit::record_simple(&state.db, Some(user.id.to_string()), "user.password.change").await;
     record_auth_operation("change_password", "success");
     Ok((
         StatusCode::OK,

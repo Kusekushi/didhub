@@ -61,13 +61,13 @@ pub async fn request_reset(
     let expires_at = now_plus_hours(2);
 
     let _ = db
-        .insert_password_reset(&selector, &hash.to_hex().to_string(), user.id, &expires_at)
+        .insert_password_reset(&selector, &hash.to_hex().to_string(), &user.id, &expires_at)
         .await
         .map_err(|_| AppError::Internal)?;
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "password_reset.request",
         None,
         None,

@@ -6,11 +6,11 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait SystemRequestOperations: Send + Sync {
-    async fn create_system_request(&self, user_id: i64) -> Result<SystemRequest>;
-    async fn fetch_system_request(&self, id: i64) -> Result<Option<SystemRequest>>;
+    async fn create_system_request(&self, user_id: &str) -> Result<SystemRequest>;
+    async fn fetch_system_request(&self, id: &str) -> Result<Option<SystemRequest>>;
     async fn fetch_latest_system_request_for_user(
         &self,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<Option<SystemRequest>>;
     async fn list_system_requests(
         &self,
@@ -26,7 +26,7 @@ pub trait SystemRequestOperations: Send + Sync {
     ) -> Result<Vec<SystemRequestAdmin>>;
     async fn decide_system_request(
         &self,
-        id: i64,
+        id: &str,
         approve: bool,
         note: Option<&str>,
     ) -> Result<Option<SystemRequest>>;
@@ -34,7 +34,7 @@ pub trait SystemRequestOperations: Send + Sync {
 
 #[async_trait]
 impl SystemRequestOperations for Db {
-    async fn create_system_request(&self, user_id: i64) -> Result<SystemRequest> {
+    async fn create_system_request(&self, user_id: &str) -> Result<SystemRequest> {
         // ensure only one pending per user (return existing pending if present)
         if let Some(existing) = sqlx::query_as::<_, SystemRequest>("SELECT * FROM system_requests WHERE user_id=?1 AND status='pending' ORDER BY id DESC LIMIT 1")
             .bind(user_id)
@@ -67,7 +67,7 @@ impl SystemRequestOperations for Db {
         Ok(rec)
     }
 
-    async fn fetch_system_request(&self, id: i64) -> Result<Option<SystemRequest>> {
+    async fn fetch_system_request(&self, id: &str) -> Result<Option<SystemRequest>> {
         Ok(
             sqlx::query_as::<_, SystemRequest>("SELECT * FROM system_requests WHERE id=?1")
                 .bind(id)
@@ -78,7 +78,7 @@ impl SystemRequestOperations for Db {
 
     async fn fetch_latest_system_request_for_user(
         &self,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<Option<SystemRequest>> {
         Ok(sqlx::query_as::<_, SystemRequest>(
             "SELECT * FROM system_requests WHERE user_id=?1 ORDER BY id DESC LIMIT 1",
@@ -150,7 +150,7 @@ impl SystemRequestOperations for Db {
 
     async fn decide_system_request(
         &self,
-        id: i64,
+        id: &str,
         approve: bool,
         note: Option<&str>,
     ) -> Result<Option<SystemRequest>> {

@@ -24,7 +24,7 @@ pub struct ListQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
     pub fields: Option<String>,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -38,7 +38,7 @@ pub struct ListResponse<T> {
 #[derive(serde::Deserialize)]
 pub struct CreateAlterPayload {
     pub name: Option<String>,
-    pub owner_user_id: Option<i64>,
+    pub owner_user_id: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -50,13 +50,13 @@ pub struct UpdateAlterPayload {
 #[derive(serde::Deserialize)]
 pub struct ReplaceAlterRelationshipsPayload {
     #[serde(default)]
-    pub partners: Vec<i64>,
+    pub partners: Vec<String>,
     #[serde(default)]
-    pub parents: Vec<i64>,
+    pub parents: Vec<String>,
     #[serde(default)]
-    pub children: Vec<i64>,
+    pub children: Vec<String>,
     #[serde(default)]
-    pub affiliations: Vec<i64>,
+    pub affiliations: Vec<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -66,7 +66,7 @@ pub struct RowsAffectedResponse {
 
 #[derive(serde::Serialize)]
 pub struct AlterOut {
-    pub id: i64,
+    pub id: String,
     pub name: String,
     pub description: Option<String>,
     pub age: Option<String>,
@@ -87,29 +87,29 @@ pub struct AlterOut {
     pub notes: Option<String>,
     #[serde(default)]
     pub images: Vec<String>,
-    pub subsystem: Option<i64>,
+    pub subsystem: Option<String>,
     #[serde(default)]
     pub system_roles: Vec<String>,
     pub is_system_host: i64,
     pub is_dormant: i64,
     pub is_merged: i64,
-    pub owner_user_id: Option<i64>,
-    pub created_at: Option<String>,
-    pub partners: Vec<i64>,
-    pub parents: Vec<i64>,
-    pub children: Vec<i64>,
-    pub affiliations: Vec<i64>,
+    pub owner_user_id: Option<String>,
+    pub created_at: String,
+    pub partners: Vec<String>,
+    pub parents: Vec<String>,
+    pub children: Vec<String>,
+    pub affiliations: Vec<String>,
     pub user_relationships: Vec<UserAlterRelationship>,
 }
 
 async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
     let (partners, parents, children, affiliations, user_relationships) = if include_rels {
         tokio::join!(
-            db.partners_of(a.id),
-            db.parents_of(a.id),
-            db.children_of(a.id),
-            db.affiliations_of(a.id),
-            db.list_user_alter_relationships_by_alter(a.id)
+            db.partners_of(&a.id),
+            db.parents_of(&a.id),
+            db.children_of(&a.id),
+            db.affiliations_of(&a.id),
+            db.list_user_alter_relationships_by_alter(&a.id)
         )
     } else {
         // Skip expensive relationship queries when not needed
@@ -120,7 +120,7 @@ async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
     let interests = normalize_string_list(a.interests.as_deref());
     let images = normalize_image_list(a.images.as_deref());
     let system_roles = normalize_string_list(a.system_roles.as_deref());
-    let subsystem = parse_optional_i64(a.subsystem.as_deref());
+    let subsystem = a.subsystem;
 
     AlterOut {
         id: a.id,
@@ -156,15 +156,15 @@ async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
     }
 }
 
-static EMPTY_RELS: (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>) = (vec![], vec![], vec![], vec![]);
+static EMPTY_RELS: (Vec<String>, Vec<String>, Vec<String>, Vec<String>) = (vec![], vec![], vec![], vec![]);
 
-fn parse_optional_i64(raw: Option<&str>) -> Option<i64> {
+fn parse_optional_string(raw: Option<&str>) -> Option<String> {
     raw.and_then(|value| {
         let trimmed = value.trim();
         if trimmed.is_empty() {
             None
         } else {
-            trimmed.parse::<i64>().ok()
+            Some(trimmed.to_string())
         }
     })
 }
@@ -204,13 +204,13 @@ fn normalize_subsystem_field(body: &mut serde_json::Value) {
     }
 }
 
-fn project_with_rel_batch(a: Alter, rels: &(Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>)) -> AlterOut {
+fn project_with_rel_batch(a: Alter, rels: &(Vec<String>, Vec<String>, Vec<String>, Vec<String>)) -> AlterOut {
     let (partners, parents, children, affiliations) = rels;
     let soul_songs = normalize_string_list(a.soul_songs.as_deref());
     let interests = normalize_string_list(a.interests.as_deref());
     let images = normalize_image_list(a.images.as_deref());
     let system_roles = normalize_string_list(a.system_roles.as_deref());
-    let subsystem = parse_optional_i64(a.subsystem.as_deref());
+    let subsystem = a.subsystem;
 
     AlterOut {
         id: a.id,
@@ -271,7 +271,7 @@ pub async fn list_alters(
 
     // For now: visibility rule - only admins/system users see all. Regular users see alters they own OR global (no owner) OR created by approved users.
     let rows = db
-        .list_alters_scoped(q.q.clone(), limit, offset, &user, q.user_id)
+        .list_alters_scoped(q.q.clone(), limit, offset, &user, q.user_id.as_deref())
         .await
         .map_err(|e| {
             error!(
@@ -286,7 +286,7 @@ pub async fn list_alters(
         })?;
 
     let total = db
-        .count_alters_scoped(q.q.clone(), &user, q.user_id)
+        .count_alters_scoped(q.q.clone(), &user, q.user_id.as_deref())
         .await
         .map_err(|e| {
             error!(
@@ -336,7 +336,7 @@ pub async fn list_alters(
     if let Some(_w) = wanted {
         // For now only handle simple projection (relationships toggle)
         if include_rels {
-            let alter_ids: Vec<i64> = rows.iter().map(|a| a.id).collect();
+            let alter_ids: Vec<&str> = rows.iter().map(|a| a.id.as_str()).collect();
             let relationships = db.batch_load_relationships(&alter_ids).await?;
             let capacity = rows.len();
             let mut out = Vec::with_capacity(capacity);
@@ -378,7 +378,7 @@ pub async fn list_alters(
     }
 
     if include_rels {
-        let alter_ids: Vec<i64> = rows.iter().map(|a| a.id).collect();
+        let alter_ids: Vec<&str> = rows.iter().map(|a| a.id.as_str()).collect();
         let relationships = db
             .batch_load_relationships(&alter_ids)
             .await
@@ -422,9 +422,9 @@ pub async fn list_alters(
 
 #[derive(serde::Serialize)]
 pub struct NamesItem {
-    pub id: i64,
+    pub id: String,
     pub name: String,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
     pub username: Option<String>,
 }
 
@@ -436,7 +436,7 @@ pub async fn list_alter_names(
     let limit = q.limit.unwrap_or(500).clamp(1, 2000);
     let offset = q.offset.unwrap_or(0).max(0);
     let rows = db
-        .list_alters_scoped(q.q.clone(), limit, offset, &user, q.user_id)
+        .list_alters_scoped(q.q.clone(), limit, offset, &user, q.user_id.as_deref())
         .await
         .map_err(|_| AppError::Internal)?;
 
@@ -444,16 +444,16 @@ pub async fn list_alter_names(
         return Ok(Json(Vec::new()));
     }
 
-    let mut owner_ids: Vec<i64> = Vec::new();
+    let mut owner_ids: Vec<String> = Vec::new();
     for a in &rows {
-        if let Some(id) = a.owner_user_id {
-            owner_ids.push(id);
+        if let Some(id) = &a.owner_user_id {
+            owner_ids.push(id.clone());
         }
     }
     owner_ids.sort_unstable();
     owner_ids.dedup();
 
-    let mut username_lookup: HashMap<i64, String> = HashMap::new();
+    let mut username_lookup: HashMap<String, String> = HashMap::new();
     if !owner_ids.is_empty() {
         let mut qb = QueryBuilder::<sqlx::Any>::new("SELECT id, username FROM users WHERE id IN (");
         {
@@ -465,7 +465,7 @@ pub async fn list_alter_names(
         qb.push(")");
 
         match qb
-            .build_query_as::<(i64, String)>()
+            .build_query_as::<(String, String)>()
             .fetch_all(&db.pool)
             .await
         {
@@ -485,7 +485,7 @@ pub async fn list_alter_names(
         items.push(NamesItem {
             id: a.id,
             name: a.name,
-            user_id: a.owner_user_id,
+            user_id: a.owner_user_id.clone(),
             username: a
                 .owner_user_id
                 .and_then(|owner| username_lookup.get(&owner).cloned()),
@@ -501,7 +501,7 @@ pub async fn search_alters(
 ) -> Result<Json<ListResponse<NamesItem>>, AppError> {
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
     let rows = db
-        .list_alters_scoped(q.q.clone(), limit, 0, &user, q.user_id)
+        .list_alters_scoped(q.q.clone(), limit, 0, &user, q.user_id.as_deref())
         .await
         .map_err(|_| AppError::Internal)?;
 
@@ -514,16 +514,16 @@ pub async fn search_alters(
         }));
     }
 
-    let mut owner_ids: Vec<i64> = Vec::new();
+    let mut owner_ids: Vec<String> = Vec::new();
     for a in &rows {
-        if let Some(id) = a.owner_user_id {
-            owner_ids.push(id);
+        if let Some(id) = &a.owner_user_id {
+            owner_ids.push(id.clone());
         }
     }
     owner_ids.sort_unstable();
     owner_ids.dedup();
 
-    let mut username_lookup: HashMap<i64, String> = HashMap::new();
+    let mut username_lookup: HashMap<String, String> = HashMap::new();
     if !owner_ids.is_empty() {
         let mut qb = QueryBuilder::<sqlx::Any>::new("SELECT id, username FROM users WHERE id IN (");
         {
@@ -535,7 +535,7 @@ pub async fn search_alters(
         qb.push(")");
 
         match qb
-            .build_query_as::<(i64, String)>()
+            .build_query_as::<(String, String)>()
             .fetch_all(&db.pool)
             .await
         {
@@ -555,7 +555,7 @@ pub async fn search_alters(
         items.push(NamesItem {
             id: a.id,
             name: a.name,
-            user_id: a.owner_user_id,
+            user_id: a.owner_user_id.clone(),
             username: a
                 .owner_user_id
                 .and_then(|owner| username_lookup.get(&owner).cloned()),
@@ -585,7 +585,7 @@ pub async fn create_alter(
         return Err(AppError::BadRequest("name is required".into()));
     }
     // Ownership rules: non-admin cannot create for another owner
-    if let Some(explicit) = body.get("owner_user_id").and_then(|v| v.as_i64()) {
+    if let Some(explicit) = body.get("owner_user_id").and_then(|v| v.as_str()) {
         if !user.is_admin && explicit != user.id {
             record_entity_operation("alter", "create", "failure");
             return Err(AppError::Forbidden);
@@ -603,10 +603,10 @@ pub async fn create_alter(
 
     // Create the minimal record (DB create reads name + owner_user_id), then persist other fields via update_alter_fields
     // Extract relationship arrays (if present) so we can apply them after create
-    let mut rel_partners: Option<Vec<i64>> = None;
-    let mut rel_parents: Option<Vec<i64>> = None;
-    let mut rel_children: Option<Vec<i64>> = None;
-    let mut rel_affiliations: Option<Vec<i64>> = None;
+    let mut rel_partners: Option<Vec<String>> = None;
+    let mut rel_parents: Option<Vec<String>> = None;
+    let mut rel_children: Option<Vec<String>> = None;
+    let mut rel_affiliations: Option<Vec<String>> = None;
     if let Some(obj) = body.as_object() {
         for (k, target) in [
             ("partners", &mut rel_partners),
@@ -616,7 +616,7 @@ pub async fn create_alter(
         ] {
             if let Some(v) = obj.get(k) {
                 if let Some(arr) = v.as_array() {
-                    *target = Some(arr.iter().filter_map(|x| x.as_i64()).collect());
+                    *target = Some(arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect());
                 }
             }
         }
@@ -628,7 +628,7 @@ pub async fn create_alter(
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
     // Apply remaining fields (if any) to the newly created alter
     let _updated = db
-        .update_alter_fields(created.id, &body)
+        .update_alter_fields(&created.id, &body)
         .await
         .map_err(|e| {
             tracing::error!(error=%e, "update_alter_fields failed during create");
@@ -636,32 +636,32 @@ pub async fn create_alter(
         })?;
     // Apply relationship arrays after the record exists
     if let Some(p) = rel_partners {
-        db.replace_partners(created.id, &p).await.map_err(|e| {
+        db.replace_partners(&created.id, &p).await.map_err(|e| {
             tracing::error!(error=%e, "replace_partners failed during create");
             AppError::Internal
         })?;
     }
     if let Some(p) = rel_parents {
-        db.replace_parents(created.id, &p).await.map_err(|e| {
+        db.replace_parents(&created.id, &p).await.map_err(|e| {
             tracing::error!(error=%e, "replace_parents failed during create");
             AppError::Internal
         })?;
     }
     if let Some(c) = rel_children {
-        db.replace_children(created.id, &c).await.map_err(|e| {
+        db.replace_children(&created.id, &c).await.map_err(|e| {
             tracing::error!(error=%e, "replace_children failed during create");
             AppError::Internal
         })?;
     }
     if let Some(a) = rel_affiliations {
-        db.replace_affiliations(created.id, &a).await.map_err(|e| {
+        db.replace_affiliations(&created.id, &a).await.map_err(|e| {
             tracing::error!(error=%e, "replace_affiliations failed during create");
             AppError::Internal
         })?;
     }
     audit::record_entity(
         &db,
-        Some(user.id),
+        Some(user.id.to_string()),
         "alter.create",
         "alter",
         &created.id.to_string(),
@@ -670,7 +670,7 @@ pub async fn create_alter(
     record_entity_operation("alter", "create", "success");
     let out = project_with_rel(
         &db,
-        db.fetch_alter(created.id)
+        db.fetch_alter(&created.id)
             .await
             .map_err(|_| AppError::Internal)?
             .ok_or(AppError::NotFound)?,
@@ -683,7 +683,7 @@ pub async fn create_alter(
 pub async fn get_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<Json<AlterOut>, AppError> {
     debug!(
         user_id = %user.id,
@@ -696,7 +696,7 @@ pub async fn get_alter(
     );
 
     let a = db
-        .fetch_alter(id)
+        .fetch_alter(&id)
         .await
         .map_err(|e| {
             error!(
@@ -717,8 +717,8 @@ pub async fn get_alter(
         })?;
 
     if !(user.is_admin || user.is_system) {
-        match (user.is_approved, a.owner_user_id) {
-            (true, Some(owner)) if owner != user.id => {
+        match (user.is_approved, &a.owner_user_id) {
+            (true, Some(owner)) if *owner != user.id => {
                 warn!(
                     user_id = %user.id,
                     alter_id = %id,
@@ -728,7 +728,7 @@ pub async fn get_alter(
                 return Err(AppError::Forbidden);
             }
             (true, None) => {} // approved user can see unowned
-            (false, Some(owner)) if owner != user.id => {
+            (false, Some(owner)) if *owner != user.id => {
                 warn!(
                     user_id = %user.id,
                     alter_id = %id,
@@ -753,7 +753,7 @@ pub async fn get_alter(
         user_id = %user.id,
         alter_id = %a.id,
         alter_name = %a.name,
-        owner_user_id = ?a.owner_user_id,
+        owner_user_id = ?&a.owner_user_id,
         "Alter fetched and access authorized successfully"
     );
 
@@ -772,17 +772,17 @@ pub async fn get_alter(
 pub async fn replace_alter_relationships(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<ReplaceAlterRelationshipsPayload>,
 ) -> Result<Json<RowsAffectedResponse>, AppError> {
     let existing = db
-        .fetch_alter(id)
+        .fetch_alter(&id)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
 
     if !user.is_admin {
-        let owner = existing.owner_user_id.unwrap_or(user.id);
+        let owner = existing.owner_user_id.unwrap_or(user.id.clone());
         if owner != user.id {
             return Err(AppError::Forbidden);
         }
@@ -817,19 +817,19 @@ pub async fn replace_alter_relationships(
     affiliations.dedup();
 
     let partner_rows = db
-        .replace_partners(id, &partners)
+        .replace_partners(&id, &partners)
         .await
         .map_err(|_| AppError::Internal)?;
     let parent_rows = db
-        .replace_parents(id, &parents)
+        .replace_parents(&id, &parents)
         .await
         .map_err(|_| AppError::Internal)?;
     let child_rows = db
-        .replace_children(id, &children)
+        .replace_children(&id, &children)
         .await
         .map_err(|_| AppError::Internal)?;
     let affiliation_rows = db
-        .replace_affiliations(id, &affiliations)
+        .replace_affiliations(&id, &affiliations)
         .await
         .map_err(|_| AppError::Internal)?;
 
@@ -837,7 +837,7 @@ pub async fn replace_alter_relationships(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.to_string()),
         "alter.relationships.replace",
         Some("alter"),
         Some(&id.to_string()),
@@ -867,7 +867,7 @@ pub async fn replace_alter_relationships(
 pub async fn update_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<UpdateAlterPayload>,
 ) -> Result<Json<AlterOut>, AppError> {
     let UpdateAlterPayload { rest } = payload;
@@ -878,17 +878,17 @@ pub async fn update_alter(
         return Err(AppError::validation(["no update fields provided"]));
     }
     let existing = db
-        .fetch_alter(id)
+        .fetch_alter(&id)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
     if !user.is_admin {
-        let owner = existing.owner_user_id.unwrap_or(user.id);
+        let owner = existing.owner_user_id.as_ref().unwrap_or(&user.id).clone();
         if owner != user.id {
             tracing::debug!(
                 target = "didhub_server",
                 user_id = user.id,
-                owner_user_id = existing.owner_user_id,
+                owner_user_id = ?&existing.owner_user_id,
                 msg = "update_alter forbidden: user is not owner nor admin"
             );
             record_entity_operation("alter", "update", "failure");
@@ -907,10 +907,10 @@ pub async fn update_alter(
 
     normalize_subsystem_field(&mut body);
     // Extract relationship arrays before generic update
-    let mut rel_partners: Option<Vec<i64>> = None;
-    let mut rel_parents: Option<Vec<i64>> = None;
-    let mut rel_children: Option<Vec<i64>> = None;
-    let mut rel_affiliations: Option<Vec<i64>> = None;
+    let mut rel_partners: Option<Vec<String>> = None;
+    let mut rel_parents: Option<Vec<String>> = None;
+    let mut rel_children: Option<Vec<String>> = None;
+    let mut rel_affiliations: Option<Vec<String>> = None;
     if let Some(obj) = body.as_object() {
         for (k, target) in [
             ("partners", &mut rel_partners),
@@ -920,33 +920,33 @@ pub async fn update_alter(
         ] {
             if let Some(v) = obj.get(k) {
                 if let Some(arr) = v.as_array() {
-                    *target = Some(arr.iter().filter_map(|x| x.as_i64()).collect());
+                    *target = Some(arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect());
                 }
             }
         }
     }
     let updated = db
-        .update_alter_fields(id, &body)
+        .update_alter_fields(&id, &body)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
     if let Some(p) = rel_partners {
-        db.replace_partners(id, &p)
+        db.replace_partners(&id, &p)
             .await
             .map_err(|_| AppError::Internal)?;
     }
     if let Some(p) = rel_parents {
-        db.replace_parents(id, &p)
+        db.replace_parents(&id, &p)
             .await
             .map_err(|_| AppError::Internal)?;
     }
     if let Some(c) = rel_children {
-        db.replace_children(id, &c)
+        db.replace_children(&id, &c)
             .await
             .map_err(|_| AppError::Internal)?;
     }
     if let Some(a) = rel_affiliations {
-        db.replace_affiliations(id, &a)
+        db.replace_affiliations(&id, &a)
             .await
             .map_err(|_| AppError::Internal)?;
     }
@@ -959,20 +959,20 @@ pub async fn update_alter(
 pub async fn delete_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<impl axum::response::IntoResponse, AppError> {
     if !user.is_admin {
         let existing = db
-            .fetch_alter(id)
+            .fetch_alter(&id)
             .await
             .map_err(|_| AppError::Internal)?
             .ok_or(AppError::NotFound)?;
-        if existing.owner_user_id.unwrap_or(user.id) != user.id {
+        if existing.owner_user_id.unwrap_or(user.id.clone()) != user.id {
             record_entity_operation("alter", "delete", "failure");
             return Err(AppError::Forbidden);
         }
     }
-    let ok = db.delete_alter(id).await.map_err(|_| AppError::Internal)?;
+    let ok = db.delete_alter(&id).await.map_err(|_| AppError::Internal)?;
     if !ok {
         record_entity_operation("alter", "delete", "failure");
         return Err(AppError::NotFound);
@@ -992,29 +992,29 @@ pub struct FamilyTreeResponse {
 
 #[derive(serde::Serialize)]
 pub struct FamilyTreeEdges {
-    pub parent: Vec<(i64, i64)>,  // (parent_id, child_id)
-    pub partner: Vec<(i64, i64)>, // (partner1_id, partner2_id)
+    pub parent: Vec<(String, String)>,  // (parent_id, child_id)
+    pub partner: Vec<(String, String)>, // (partner1_id, partner2_id)
 }
 
 #[derive(serde::Serialize, Clone)]
 pub struct FamilyTreeNode {
-    pub id: i64,
+    pub id: String,
     pub name: String,
-    pub partners: Vec<i64>,
-    pub parents: Vec<i64>,
-    pub children: Vec<i64>, // Keep as IDs for flat representation
-    pub affiliations: Vec<i64>,
+    pub partners: Vec<String>,
+    pub parents: Vec<String>,
+    pub children: Vec<String>, // Keep as IDs for flat representation
+    pub affiliations: Vec<String>,
     pub duplicated: bool,
 }
 
 #[derive(serde::Serialize, Clone)]
 pub struct NestedFamilyTreeNode {
-    pub id: i64,
+    pub id: String,
     pub name: String,
-    pub partners: Vec<i64>,
-    pub parents: Vec<i64>,
+    pub partners: Vec<String>,
+    pub parents: Vec<String>,
     pub children: Vec<NestedFamilyTreeNode>, // Nested for tree building
-    pub affiliations: Vec<i64>,
+    pub affiliations: Vec<String>,
     pub duplicated: bool,
 }
 
@@ -1036,14 +1036,14 @@ pub async fn family_tree(
     // Build flat nodes first
     for alter in &alters {
         // Store alter data for later use
-        alter_data.insert(alter.id, alter.clone());
+        alter_data.insert(alter.id.clone(), alter.clone());
 
         // Get relationship data for this alter
         let (partners, parents, children, affiliations) = tokio::join!(
-            db.partners_of(alter.id),
-            db.parents_of(alter.id),
-            db.children_of(alter.id),
-            db.affiliations_of(alter.id)
+            db.partners_of(&alter.id),
+            db.parents_of(&alter.id),
+            db.children_of(&alter.id),
+            db.affiliations_of(&alter.id)
         );
 
         let partners = partners.unwrap_or_default();
@@ -1053,7 +1053,7 @@ pub async fn family_tree(
 
         // Create the flat node
         let node = FamilyTreeNode {
-            id: alter.id,
+            id: alter.id.clone(),
             name: alter.name.clone(),
             partners: partners.clone(),
             parents: parents.clone(),
@@ -1061,17 +1061,17 @@ pub async fn family_tree(
             affiliations: affiliations.clone(),
             duplicated: false,
         };
-        nodes_map.insert(alter.id, node);
+        nodes_map.insert(alter.id.clone(), node);
 
-        // Add parent edges (parent_id, child_id)
+    // Add parent edges (parent_id, child_id)
         for parent_id in parents {
-            parent_edges.push((parent_id, alter.id));
+            parent_edges.push((parent_id, alter.id.clone()));
         }
 
         // Add partner edges (only add if current alter's ID is smaller to avoid duplicates)
         for partner_id in partners {
             if alter.id < partner_id {
-                partner_edges.push((alter.id, partner_id));
+                partner_edges.push((alter.id.clone(), partner_id));
             }
         }
     }
@@ -1081,16 +1081,16 @@ pub async fn family_tree(
     let mut built_nodes = std::collections::HashMap::new();
 
     fn build_node(
-        node_id: i64,
-        nodes_map: &std::collections::HashMap<i64, FamilyTreeNode>,
-        visited: &mut std::collections::HashSet<i64>,
-        built_nodes: &mut std::collections::HashMap<i64, NestedFamilyTreeNode>,
+        node_id: String,
+        nodes_map: &std::collections::HashMap<String, FamilyTreeNode>,
+        visited: &mut std::collections::HashSet<String>,
+        built_nodes: &mut std::collections::HashMap<String, NestedFamilyTreeNode>,
     ) -> Option<NestedFamilyTreeNode> {
         if visited.contains(&node_id) {
             // Return a duplicated marker node
             return Some(NestedFamilyTreeNode {
-                id: node_id,
-                name: nodes_map.get(&node_id)?.name.clone(),
+                id: node_id.clone(),
+                name: nodes_map.get(&node_id).unwrap().name.clone(),
                 partners: Vec::new(),
                 parents: Vec::new(),
                 children: Vec::new(),
@@ -1104,17 +1104,17 @@ pub async fn family_tree(
         }
 
         let flat_node = nodes_map.get(&node_id)?;
-        visited.insert(node_id);
+        visited.insert(node_id.clone());
 
         let mut children = Vec::new();
         for child_id in &flat_node.children {
-            if let Some(child_node) = build_node(*child_id, nodes_map, visited, built_nodes) {
+            if let Some(child_node) = build_node(child_id.clone(), nodes_map, visited, built_nodes) {
                 children.push(child_node);
             }
         }
 
         let built_node = NestedFamilyTreeNode {
-            id: flat_node.id,
+            id: flat_node.id.clone(),
             name: flat_node.name.clone(),
             partners: flat_node.partners.clone(),
             parents: flat_node.parents.clone(),
@@ -1131,8 +1131,8 @@ pub async fn family_tree(
     // First, collect all child IDs
     let mut all_child_ids = std::collections::HashSet::new();
     for node in nodes_map.values() {
-        for &child_id in &node.children {
-            all_child_ids.insert(child_id);
+        for child_id in &node.children {
+            all_child_ids.insert(child_id.clone());
         }
     }
 
@@ -1140,7 +1140,7 @@ pub async fn family_tree(
     for (id, _) in &nodes_map {
         // A node is a root if it's not a child of any other node in the dataset
         if !all_child_ids.contains(id) {
-            if let Some(tree_node) = build_node(*id, &nodes_map, &mut visited, &mut built_nodes) {
+            if let Some(tree_node) = build_node(id.clone(), &nodes_map, &mut visited, &mut built_nodes) {
                 tree_roots.push(tree_node);
             }
         }
@@ -1149,15 +1149,15 @@ pub async fn family_tree(
     // Collect all unique user IDs from alters and user relationships
     let mut user_ids = std::collections::HashSet::new();
     for alter in &alters {
-        if let Some(owner_id) = alter.owner_user_id {
-            user_ids.insert(owner_id);
+        if let Some(owner_id) = &alter.owner_user_id {
+            user_ids.insert((*owner_id).clone());
         }
     }
 
     // Also collect user IDs from user relationships
     for alter in &alters {
         let relationships = db
-            .list_user_alter_relationships_by_alter(alter.id)
+            .list_user_alter_relationships_by_alter(&alter.id)
             .await
             .unwrap_or_default();
         for relationship in relationships {
@@ -1168,7 +1168,7 @@ pub async fn family_tree(
     // Fetch user data for owners
     let mut owners_map = std::collections::HashMap::new();
     for user_id in user_ids {
-        if let Ok(Some(user)) = db.fetch_user_by_id(user_id).await {
+        if let Ok(Some(user)) = db.fetch_user_by_id(&user_id).await {
             owners_map.insert(
                 user.id.to_string(),
                 serde_json::json!({
@@ -1184,10 +1184,10 @@ pub async fn family_tree(
     let mut user_relationships_map = std::collections::HashMap::new();
     for alter in &alters {
         let relationships = db
-            .list_user_alter_relationships_by_alter(alter.id)
+            .list_user_alter_relationships_by_alter(&alter.id)
             .await
             .unwrap_or_default();
-        user_relationships_map.insert(alter.id, relationships);
+        user_relationships_map.insert(alter.id.clone(), relationships);
     }
 
     let edges = FamilyTreeEdges {
@@ -1204,20 +1204,20 @@ pub async fn family_tree(
             let user_relationships = user_relationships_map
                 .get(&id)
                 .unwrap_or(&empty_relationships);
-            let user_partners: Vec<i64> = user_relationships
+            let user_partners: Vec<String> = user_relationships
                 .iter()
                 .filter(|r| r.relationship_type == "partner")
-                .map(|r| r.user_id)
+                .map(|r| r.user_id.clone())
                 .collect();
-            let user_parents: Vec<i64> = user_relationships
+            let user_parents: Vec<String> = user_relationships
                 .iter()
                 .filter(|r| r.relationship_type == "parent")
-                .map(|r| r.user_id)
+                .map(|r| r.user_id.clone())
                 .collect();
-            let user_children: Vec<i64> = user_relationships
+            let user_children: Vec<String> = user_relationships
                 .iter()
                 .filter(|r| r.relationship_type == "child")
-                .map(|r| r.user_id)
+                .map(|r| r.user_id.clone())
                 .collect();
 
             let system_roles = alter
@@ -1234,7 +1234,7 @@ pub async fn family_tree(
                     "children": node.children,
                     "age": alter.and_then(|a| a.age.clone()),
                     "system_roles": system_roles,
-                    "owner_user_id": alter.and_then(|a| a.owner_user_id),
+                    "owner_user_id": alter.and_then(|a| a.owner_user_id.clone()),
                     "user_partners": user_partners,
                     "user_parents": user_parents,
                     "user_children": user_children
@@ -1259,24 +1259,24 @@ pub struct DeleteImagePayload {
 pub async fn delete_alter_image(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<DeleteImagePayload>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     if payload.url.trim().is_empty() {
         return Err(AppError::BadRequest("URL is required".to_string()));
     }
     let existing = db
-        .fetch_alter(id)
+        .fetch_alter(&id)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
     if !user.is_admin {
-        let owner = existing.owner_user_id.unwrap_or(user.id);
+        let owner = existing.owner_user_id.clone().unwrap_or(user.id.clone());
         if owner != user.id {
             tracing::debug!(
                 target = "didhub_server",
-                user_id = user.id,
-                owner_user_id = existing.owner_user_id,
+                user_id = %user.id,
+                owner_user_id = ?existing.owner_user_id,
                 msg = "delete_alter_image forbidden: user is not owner nor admin"
             );
             return Err(AppError::Forbidden);
@@ -1305,7 +1305,7 @@ pub async fn delete_alter_image(
         ),
     );
     let _updated = db
-        .update_alter_fields(id, &serde_json::Value::Object(update_payload))
+        .update_alter_fields(&id, &serde_json::Value::Object(update_payload))
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;

@@ -20,7 +20,7 @@ pub struct GroupListQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
     pub fields: Option<String>,
-    pub owner_user_id: Option<i64>,
+    pub owner_user_id: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -33,18 +33,18 @@ pub struct PagedGroups<T> {
 
 #[derive(serde::Serialize)]
 pub struct GroupOut {
-    pub id: i64,
+    pub id: String,
     pub name: String,
     pub description: Option<String>,
     pub sigil: Option<String>,
-    pub leaders: Vec<i64>,
+    pub leaders: Vec<String>,
     pub metadata: Option<String>,
-    pub owner_user_id: Option<i64>,
+    pub owner_user_id: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub alters: Vec<i64>,
+    pub alters: Vec<String>,
 }
 
-fn deserialize_leader_ids(raw: Option<&str>) -> Vec<i64> {
+fn deserialize_leader_ids(raw: Option<&str>) -> Vec<String> {
     match raw {
         Some(text) => serde_json::from_str::<serde_json::Value>(text)
             .map(|value| parse_leaders(&value))
@@ -69,14 +69,14 @@ fn project(g: didhub_db::Group) -> GroupOut {
 
 async fn batch_load_group_members(
     db: &Db,
-    group_ids: &[i64],
-) -> Result<HashMap<i64, Vec<i64>>, AppError> {
+    group_ids: &[&str],
+) -> Result<HashMap<String, Vec<String>>, AppError> {
     db.batch_load_group_members(group_ids)
         .await
         .map_err(|_| AppError::Internal)
 }
 
-fn project_group_with_members(g: didhub_db::Group, members: &[i64]) -> GroupOut {
+fn project_group_with_members(g: didhub_db::Group, members: &[String]) -> GroupOut {
     let leaders = deserialize_leader_ids(g.leaders.as_deref());
     GroupOut {
         id: g.id,
@@ -99,7 +99,7 @@ pub async fn list_groups(
     let offset = q.offset.unwrap_or(0).max(0);
     debug!(user_id=%user.id, query=?q.q, limit=%limit, offset=%offset, fields=?q.fields, owner_user_id=?q.owner_user_id, "listing groups");
 
-    let (rows, total) = if let Some(owner_id) = q.owner_user_id {
+    let (rows, total) = if let Some(owner_id) = q.owner_user_id.as_deref() {
         // Explicitly filtering by owner - allow any owner
         let rows = db
             .list_groups_by_owner(owner_id, q.q.clone(), limit, offset)
@@ -135,11 +135,11 @@ pub async fn list_groups(
     } else {
         // Regular user with no filters - show only their own groups
         let rows = db
-            .list_groups_by_owner(user.id, None, limit, offset)
+            .list_groups_by_owner(&user.id, None, limit, offset)
             .await
             .map_err(|_| AppError::Internal)?;
         let total = db
-            .count_groups_by_owner(user.id, None)
+            .count_groups_by_owner(&user.id, None)
             .await
             .map_err(|_| AppError::Internal)?;
         (rows, total)
@@ -174,9 +174,10 @@ pub async fn list_groups(
     if include_members {
         let mut group_ids = Vec::with_capacity(row_count);
         for g in &rows {
-            group_ids.push(g.id);
+            group_ids.push(g.id.clone());
         }
-        let members = batch_load_group_members(&db, &group_ids).await?;
+        let group_id_refs: Vec<&str> = group_ids.iter().map(|s| s.as_str()).collect();
+        let members = batch_load_group_members(&db, &group_id_refs).await?;
         let mut items = Vec::with_capacity(row_count);
         for g in rows {
             let alters = members.get(&g.id).map(|v| v.as_slice()).unwrap_or(&[]);
@@ -210,7 +211,7 @@ pub struct CreateGroupPayload {
     pub sigil: Option<String>,
     pub leaders: Option<serde_json::Value>,
     pub metadata: Option<String>,
-    pub owner_user_id: Option<i64>,
+    pub owner_user_id: Option<String>,
 }
 
 pub async fn create_group(
@@ -230,14 +231,14 @@ pub async fn create_group(
         .unwrap_or_default();
     // Ownership rules: allow explicit owner_user_id when provided, but disallow non-admin users
     // from creating a group for another user.
-    let owner: Option<i64> = if let Some(explicit) = payload.owner_user_id {
+    let owner: Option<&str> = if let Some(explicit) = payload.owner_user_id.as_deref() {
         if !user.is_admin && explicit != user.id {
             return Err(AppError::Forbidden);
         }
         Some(explicit)
     } else {
         // default owner is the creating user
-        Some(user.id)
+        Some(&user.id)
     };
 
     let created = db
@@ -267,11 +268,11 @@ pub async fn create_group(
 pub async fn get_group(
     Extension(_user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<Json<GroupOut>, AppError> {
     debug!(group_id=%id, "fetching group");
     let g = db
-        .fetch_group(id)
+        .fetch_group(&id)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
@@ -288,7 +289,7 @@ pub struct UpdateGroupPayload {
 pub async fn update_group(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<UpdateGroupPayload>,
 ) -> Result<Json<GroupOut>, AppError> {
     if payload
@@ -302,7 +303,7 @@ pub async fn update_group(
     }
     let mut rest = payload.rest;
     debug!(user_id=%user.id, group_id=%id, update_fields=?rest, "updating group");
-    check_group_ownership(&db, &user, id).await?;
+    check_group_ownership(&db, &user, &id).await?;
     if let Some(obj) = rest.as_object_mut() {
         if let Some(raw) = obj.get("leaders").cloned() {
             let ids = parse_leaders(&raw);
@@ -313,7 +314,7 @@ pub async fn update_group(
         }
     }
     let updated = db
-        .update_group(id, &rest)
+        .update_group(&id, &rest)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
@@ -326,11 +327,11 @@ pub async fn update_group(
 pub async fn delete_group(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<axum::http::StatusCode, AppError> {
     debug!(user_id=%user.id, group_id=%id, "deleting group");
-    check_group_ownership(&db, &user, id).await?;
-    let ok = db.delete_group(id).await.map_err(|_| AppError::Internal)?;
+    check_group_ownership(&db, &user, &id).await?;
+    let ok = db.delete_group(&id).await.map_err(|_| AppError::Internal)?;
     if !ok {
         warn!(user_id=%user.id, group_id=%id, "group deletion failed - group not found");
         return Err(AppError::NotFound);
@@ -343,19 +344,19 @@ pub async fn delete_group(
 
 #[derive(serde::Deserialize)]
 pub struct ToggleLeaderPayload {
-    pub alter_id: i64,
+    pub alter_id: String,
     pub add: Option<bool>,
 }
 
 pub async fn toggle_leader(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<ToggleLeaderPayload>,
 ) -> Result<Json<GroupOut>, AppError> {
     debug!(user_id=%user.id, group_id=%id, alter_id=%payload.alter_id, add=%payload.add.unwrap_or(true), "toggling group leader");
     let existing = db
-        .fetch_group(id)
+        .fetch_group(&id)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
@@ -364,14 +365,14 @@ pub async fn toggle_leader(
     let add = payload.add.unwrap_or(true);
     if add {
         if !leaders.contains(&payload.alter_id) {
-            leaders.push(payload.alter_id);
+            leaders.push(payload.alter_id.clone());
         }
     } else {
         leaders.retain(|x| *x != payload.alter_id);
     }
     let body = serde_json::json!({"leaders": leaders});
     let updated = db
-        .update_group(id, &body)
+        .update_group(&id, &body)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
@@ -389,18 +390,18 @@ pub async fn toggle_leader(
 
 #[derive(serde::Serialize)]
 pub struct GroupMembersOut {
-    pub group_id: i64,
-    pub alters: Vec<i64>,
+    pub group_id: String,
+    pub alters: Vec<String>,
 }
 
 pub async fn list_group_members(
     Extension(_user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<Json<GroupMembersOut>, AppError> {
     debug!(group_id=%id, "listing group members");
     let members = db
-        .list_alters_in_group(id)
+        .list_alters_in_group(&id)
         .await
         .map_err(|_| AppError::Internal)?;
     debug!(group_id=%id, member_count=%members.len(), "group members listed");

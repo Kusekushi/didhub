@@ -150,7 +150,7 @@ pub async fn upsert_setting(
     };
 
     // Fire and forget audit
-    audit::record_settings_update(&db, Some(user.id), &key).await;
+    audit::record_settings_update(&db, Some(user.id.clone()), &key).await;
     debug!(user_id=%user.id, setting_key=%key, "setting updated");
     if key == "app.upload_dir" {
         if let Some(g) = upload_dir::global() {
@@ -207,7 +207,7 @@ pub async fn bulk_upsert_settings(
     }
 
     // Fire and forget audit for all updates
-    audit::record_settings_update(&db, Some(user.id), "bulk_update").await;
+    audit::record_settings_update(&db, Some(user.id.clone()), "bulk_update").await;
 
     info!(user_id=%user.id, settings_count=%results.len(), "bulk settings update completed successfully");
     Ok(Json(results))

@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
                 .await?;
             // Grant admin privileges to the bootstrap admin user
             db.update_user(
-                u.id,
+                &u.id,
                 didhub_db::UpdateUserFields {
                     is_admin: Some(true),
                     ..Default::default()

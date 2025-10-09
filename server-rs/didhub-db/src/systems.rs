@@ -17,7 +17,7 @@ pub trait SystemOperations {
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<SystemSummary>, i64)>;
-    async fn get_system_detail(&self, user_id: i64) -> Result<SystemDetail>;
+    async fn get_system_detail(&self, user_id: &str) -> Result<SystemDetail>;
 }
 
 #[async_trait]
@@ -45,7 +45,7 @@ impl SystemOperations for Db {
         sql = sql.replace("?L", &format!("?{}", next_pos));
         next_pos += 1;
         sql = sql.replace("?O", &format!("?{}", next_pos));
-        let mut qx = sqlx::query_as::<_, (i64, String, Option<String>, i64, i64, i64)>(&sql);
+        let mut qx = sqlx::query_as::<_, (String, String, Option<String>, i64, i64, i64)>(&sql);
         // bind search if present
         params.sort_by_key(|(i, _)| *i);
         for (_i, v) in params {
@@ -88,22 +88,22 @@ impl SystemOperations for Db {
         Ok((items, total))
     }
 
-    async fn get_system_detail(&self, user_id: i64) -> Result<SystemDetail> {
-        let alters = sqlx::query_as::<_, (i64,)>(
+    async fn get_system_detail(&self, user_id: &str) -> Result<SystemDetail> {
+        let alters = sqlx::query_as::<_, (String,)>(
             "SELECT id FROM alters WHERE owner_user_id=?1 ORDER BY id DESC",
         )
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
 
-        let groups = sqlx::query_as::<_, (i64,)>(
+        let groups = sqlx::query_as::<_, (String,)>(
             "SELECT id FROM groups WHERE owner_user_id=?1 ORDER BY id DESC",
         )
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
 
-        let subsystems = sqlx::query_as::<_, (i64,)>(
+        let subsystems = sqlx::query_as::<_, (String,)>(
             "SELECT id FROM subsystems WHERE owner_user_id=?1 ORDER BY id DESC",
         )
         .bind(user_id)

@@ -1,5 +1,5 @@
 export interface Alter {
-  id?: number;
+  id?: string;
   name?: string;
   description?: string;
   age?: number | string | null;
@@ -7,9 +7,9 @@ export interface Alter {
   pronouns?: string;
   birthday?: string;
   sexuality?: string;
-  partners?: number[];
-  parents?: number[];
-  children?: number[];
+  partners?: string[];
+  parents?: string[];
+  children?: string[];
   species?: string;
   alter_type?: string;
   job?: string;
@@ -18,42 +18,42 @@ export interface Alter {
   interests?: string[];
   triggers?: string;
   notes?: string;
-  affiliations?: number[]; // Backend returns array of group IDs
-  subsystem?: number | null;
+  affiliations?: string[]; // Backend returns array of group IDs
+  subsystem?: string | null;
   system_roles?: string[];
   is_system_host?: boolean;
   is_dormant?: boolean;
   is_merged?: boolean;
   images?: string[];
-  owner_user_id?: number | null;
+  owner_user_id?: string | null;
   created_at?: string;
   user_relationships?: UserAlterRelationship[];
   [k: string]: unknown;
 }
 
 export interface Group {
-  id?: number;
+  id?: string;
   name?: string;
   description?: string;
   sigil?: unknown;
-  leaders?: number[];
-  owner_user_id?: number | null;
+  leaders?: string[];
+  owner_user_id?: string | null;
   metadata?: unknown;
   [k: string]: unknown;
 }
 
 export interface Subsystem {
-  id?: number;
+  id?: string;
   name?: string;
   description?: string;
   type?: string;
-  leaders?: number[];
-  owner_user_id?: number | null;
+  leaders?: string[];
+  owner_user_id?: string | null;
   [k: string]: unknown;
 }
 
 export interface User {
-  user_id?: number;
+  user_id?: string;
   username?: string;
   display_name?: string;
   is_admin?: boolean;
@@ -61,7 +61,7 @@ export interface User {
   must_change_password?: boolean;
   avatar?: string | null;
   created_at?: string;
-  id?: number;
+  id?: string;
   is_approved?: boolean;
   [k: string]: unknown;
 }
@@ -102,25 +102,25 @@ export interface UpdateCheckQuery {
 }
 
 export interface UserAlterRelationship {
-  id: number;
-  user_id: number;
-  alter_id: number;
+  id: string;
+  user_id: string;
+  alter_id: string;
   relationship_type: 'partner' | 'parent' | 'child';
   created_at?: string;
   username?: string;
 }
 
 export interface AlterRelationshipSet {
-  partners: number[];
-  parents: number[];
-  children: number[];
-  affiliations: number[];
+  partners: string[];
+  parents: string[];
+  children: string[];
+  affiliations: string[];
 }
 
 export interface UserAlterRelationshipSet {
-  partners: number[];
-  parents: number[];
-  children: number[];
+  partners: string[];
+  parents: string[];
+  children: string[];
 }
 
 export interface PaginatedResponse<T> {
@@ -148,9 +148,9 @@ export interface UserListOptions {
 }
 
 export interface AuditLogEntry {
-  id?: number;
+  id?: string;
   timestamp?: string;
-  user_id?: number;
+  user_id?: string;
   username?: string;
   action: string;
   details?: Record<string, unknown>;
@@ -164,7 +164,7 @@ export interface AuditLogResponse {
 }
 
 export interface SystemRequest {
-  id: number;
+  id: string;
   status: string;
   note?: string;
   decided_at?: string;
@@ -172,8 +172,8 @@ export interface SystemRequest {
 }
 
 export interface SystemRequestAdmin {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   username: string;
   status: string;
   note?: string;
@@ -193,7 +193,7 @@ export interface HousekeepingJob {
 }
 
 export interface HousekeepingRun {
-  id: number;
+  id: string;
   job_name: string;
   started_at: string;
   finished_at?: string | null;

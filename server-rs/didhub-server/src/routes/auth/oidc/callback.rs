@@ -160,12 +160,12 @@ pub async fn callback(
     if let Some(em) = email.as_ref() {
         if let Ok(Some(existing_by_username)) = db.fetch_user_by_username(em).await {
             let _ = db
-                .link_oidc_identity(&id, &subject, existing_by_username.id)
+                .link_oidc_identity(&id, &subject, &existing_by_username.id)
                 .await;
             let token = issue_jwt(&cfg, &existing_by_username.username)?;
             audit::record_with_metadata(
                 &db,
-                Some(existing_by_username.id),
+                Some(existing_by_username.id.clone()),
                 "oidc.login.link",
                 Some("oidc_provider"),
                 Some(&id),
@@ -211,11 +211,11 @@ pub async fn callback(
         .await
         .map_err(|_| AppError::Internal)?;
 
-    let _ = db.link_oidc_identity(&id, &subject, new_user.id).await;
+    let _ = db.link_oidc_identity(&id, &subject, &new_user.id).await;
     let token = issue_jwt(&cfg, &new_user.username)?;
     audit::record_with_metadata(
         &db,
-        Some(new_user.id),
+        Some(new_user.id.clone()),
         "oidc.provision",
         Some("oidc_provider"),
         Some(&id),

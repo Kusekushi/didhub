@@ -282,7 +282,7 @@ impl Db {
 
                     // Make the user an admin
                     self.update_user(
-                        user.id,
+                        &user.id,
                         UpdateUserFields {
                             is_admin: Some(true),
                             ..Default::default()

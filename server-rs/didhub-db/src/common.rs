@@ -22,7 +22,7 @@ pub trait CommonOperations: Send + Sync {
     // Audit operations
     async fn insert_audit(
         &self,
-        user_id: Option<i64>,
+        user_id: Option<String>,
         action: &str,
         entity_type: Option<&str>,
         entity_id: Option<&str>,
@@ -48,7 +48,7 @@ pub trait CommonOperations: Send + Sync {
 
     async fn finish_housekeeping_run(
         &self,
-        id: i64,
+        id: String,
         success: bool,
         message: Option<&str>,
         rows: Option<i64>,
@@ -86,7 +86,7 @@ impl CommonOperations for Db {
 
     async fn insert_audit(
         &self,
-        user_id: Option<i64>,
+        user_id: Option<String>,
         action: &str,
         entity_type: Option<&str>,
         entity_id: Option<&str>,
@@ -191,7 +191,7 @@ impl CommonOperations for Db {
 
     async fn finish_housekeeping_run(
         &self,
-        id: i64,
+        id: String,
         success: bool,
         message: Option<&str>,
         rows: Option<i64>,

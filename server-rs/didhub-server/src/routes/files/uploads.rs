@@ -141,7 +141,7 @@ pub async fn upload_file(
                         .insert_upload(NewUpload {
                             stored_name: &final_name,
                             original_name: Some(&original_name),
-                            user_id: Some(user.id),
+                            user_id: Some(user.id.clone()),
                             mime: Some("image/png"),
                             bytes: processed_bytes.len() as i64,
                             hash: Some(&hash_hex),
@@ -207,7 +207,7 @@ pub async fn upload_file(
             .insert_upload(NewUpload {
                 stored_name: &safe_name,
                 original_name: Some(&original_name),
-                user_id: Some(user.id),
+                user_id: Some(user.id.clone()),
                 mime: mime_guess,
                 bytes: raw.len() as i64,
                 hash: Some(&hash.to_hex().to_string()),
@@ -217,7 +217,7 @@ pub async fn upload_file(
         record_upload_operation("upload", "success", Some(raw.len() as i64));
         audit::record_with_metadata(
             &db,
-            Some(user.id),
+            Some(user.id.clone()),
             "upload.create",
             Some("upload"),
             Some(&safe_name),

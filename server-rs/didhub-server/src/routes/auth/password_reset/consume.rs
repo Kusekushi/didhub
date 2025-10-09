@@ -43,7 +43,7 @@ pub async fn consume_reset(
 
     let now = chrono::Utc::now().to_rfc3339();
     let is_valid = db
-        .validate_password_reset_token(rec.id, &now)
+        .validate_password_reset_token(&rec.id.to_string(), &now)
         .await
         .map_err(|_| AppError::Internal)?;
 
@@ -72,17 +72,17 @@ pub async fn consume_reset(
         .hash_password(payload.new_password.as_bytes(), &salt)
         .map_err(|_| AppError::Internal)?
         .to_string();
-    db.update_user_password(rec.user_id, &pw_hash)
+    db.update_user_password(&rec.user_id.to_string(), &pw_hash)
         .await
         .map_err(|_| AppError::Internal)?;
 
-    db.mark_password_reset_used(rec.id)
+    db.mark_password_reset_used(&rec.id.to_string())
         .await
         .map_err(|_| AppError::Internal)?;
 
     audit::record_with_metadata(
         &db,
-        Some(rec.user_id),
+        Some(rec.user_id.clone()),
         "password_reset.consume",
         None,
         None,

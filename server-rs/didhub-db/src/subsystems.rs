@@ -13,13 +13,13 @@ pub trait SubsystemOperations {
         &self,
         name: &str,
         description: Option<&str>,
-        leaders: &[i64],
+        leaders: &[String],
         metadata: Option<&str>,
-        owner_user_id: Option<i64>,
+        owner_user_id: Option<&str>,
     ) -> Result<Subsystem>;
 
     /// Fetch a subsystem by ID
-    async fn fetch_subsystem(&self, id: i64) -> Result<Option<Subsystem>>;
+    async fn fetch_subsystem(&self, id: &str) -> Result<Option<Subsystem>>;
 
     /// List subsystems with optional search and pagination
     async fn list_subsystems(
@@ -27,36 +27,36 @@ pub trait SubsystemOperations {
         q: Option<String>,
         limit: i64,
         offset: i64,
-        owner_user_id: Option<i64>,
+        owner_user_id: Option<&str>,
     ) -> Result<Vec<Subsystem>>;
 
     /// Count subsystems with optional search
-    async fn count_subsystems(&self, q: Option<String>, owner_user_id: Option<i64>) -> Result<i64>;
+    async fn count_subsystems(&self, q: Option<String>, owner_user_id: Option<&str>) -> Result<i64>;
 
     /// Update a subsystem
     async fn update_subsystem(
         &self,
-        id: i64,
+        id: &str,
         body: &serde_json::Value,
     ) -> Result<Option<Subsystem>>;
 
     /// Delete a subsystem
-    async fn delete_subsystem(&self, id: i64) -> Result<bool>;
+    async fn delete_subsystem(&self, id: &str) -> Result<bool>;
 
     /// Add an alter to a subsystem
-    async fn add_alter_to_subsystem(&self, alter_id: i64, subsystem_id: i64) -> Result<()>;
+    async fn add_alter_to_subsystem(&self, alter_id: &str, subsystem_id: &str) -> Result<()>;
 
     /// Remove an alter from a subsystem
-    async fn remove_alter_from_subsystem(&self, alter_id: i64, subsystem_id: i64) -> Result<()>;
+    async fn remove_alter_from_subsystem(&self, alter_id: &str, subsystem_id: &str) -> Result<()>;
 
     /// List all alters in a subsystem
-    async fn list_alters_in_subsystem(&self, subsystem_id: i64) -> Result<Vec<i64>>;
+    async fn list_alters_in_subsystem(&self, subsystem_id: &str) -> Result<Vec<String>>;
 
     /// Batch load members for multiple subsystems
     async fn batch_load_subsystem_members(
         &self,
-        subsystem_ids: &[i64],
-    ) -> Result<std::collections::HashMap<i64, Vec<i64>>>;
+        subsystem_ids: &[&str],
+    ) -> Result<std::collections::HashMap<String, Vec<String>>>;
 }
 
 #[async_trait]
@@ -65,9 +65,9 @@ impl SubsystemOperations for Db {
         &self,
         name: &str,
         description: Option<&str>,
-        leaders: &[i64],
+        leaders: &[String],
         metadata: Option<&str>,
-        owner_user_id: Option<i64>,
+        owner_user_id: Option<&str>,
     ) -> Result<Subsystem> {
         let start = Instant::now();
         if name.trim().is_empty() {
@@ -114,7 +114,7 @@ impl SubsystemOperations for Db {
         Ok(rec)
     }
 
-    async fn fetch_subsystem(&self, id: i64) -> Result<Option<Subsystem>> {
+    async fn fetch_subsystem(&self, id: &str) -> Result<Option<Subsystem>> {
         let start = Instant::now();
         let result = match self.backend {
             DbBackend::Sqlite => {
@@ -140,7 +140,7 @@ impl SubsystemOperations for Db {
         q: Option<String>,
         limit: i64,
         offset: i64,
-        owner_user_id: Option<i64>,
+        owner_user_id: Option<&str>,
     ) -> Result<Vec<Subsystem>> {
         let start = Instant::now();
         let rows = match (q, owner_user_id) {
@@ -175,7 +175,7 @@ impl SubsystemOperations for Db {
         Ok(rows)
     }
 
-    async fn count_subsystems(&self, q: Option<String>, owner_user_id: Option<i64>) -> Result<i64> {
+    async fn count_subsystems(&self, q: Option<String>, owner_user_id: Option<&str>) -> Result<i64> {
         let start = Instant::now();
         let result = match (q, owner_user_id) {
             (Some(qs), Some(owner_id)) => {
@@ -219,7 +219,7 @@ impl SubsystemOperations for Db {
 
     async fn update_subsystem(
         &self,
-        id: i64,
+        id: &str,
         body: &serde_json::Value,
     ) -> Result<Option<Subsystem>> {
         let start = Instant::now();
@@ -256,7 +256,7 @@ impl SubsystemOperations for Db {
         result
     }
 
-    async fn delete_subsystem(&self, id: i64) -> Result<bool> {
+    async fn delete_subsystem(&self, id: &str) -> Result<bool> {
         let start = Instant::now();
         let result = delete_entity(self, "subsystems", id).await;
         record_db_operation(
@@ -272,7 +272,7 @@ impl SubsystemOperations for Db {
         result
     }
 
-    async fn add_alter_to_subsystem(&self, alter_id: i64, subsystem_id: i64) -> Result<()> {
+    async fn add_alter_to_subsystem(&self, alter_id: &str, subsystem_id: &str) -> Result<()> {
         let start = Instant::now();
         sqlx::query(
             "INSERT OR IGNORE INTO alter_subsystems (alter_id, subsystem_id) VALUES (?1, ?2)",
@@ -285,7 +285,7 @@ impl SubsystemOperations for Db {
         Ok(())
     }
 
-    async fn remove_alter_from_subsystem(&self, alter_id: i64, subsystem_id: i64) -> Result<()> {
+    async fn remove_alter_from_subsystem(&self, alter_id: &str, subsystem_id: &str) -> Result<()> {
         let start = Instant::now();
         sqlx::query("DELETE FROM alter_subsystems WHERE alter_id=?1 AND subsystem_id=?2")
             .bind(alter_id)
@@ -296,9 +296,9 @@ impl SubsystemOperations for Db {
         Ok(())
     }
 
-    async fn list_alters_in_subsystem(&self, subsystem_id: i64) -> Result<Vec<i64>> {
+    async fn list_alters_in_subsystem(&self, subsystem_id: &str) -> Result<Vec<String>> {
         let start = Instant::now();
-        let rows = sqlx::query_as::<_, (i64,)>(
+        let rows = sqlx::query_as::<_, (String,)>(
             "SELECT alter_id FROM alter_subsystems WHERE subsystem_id=?1",
         )
         .bind(subsystem_id)
@@ -311,8 +311,8 @@ impl SubsystemOperations for Db {
 
     async fn batch_load_subsystem_members(
         &self,
-        subsystem_ids: &[i64],
-    ) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
+        subsystem_ids: &[&str],
+    ) -> Result<std::collections::HashMap<String, Vec<String>>> {
         let start = Instant::now();
         use std::collections::HashMap;
 
@@ -332,16 +332,16 @@ impl SubsystemOperations for Db {
             "SELECT subsystem_id, alter_id FROM alter_subsystems WHERE subsystem_id IN ({})",
             placeholders_str
         );
-        let mut q = sqlx::query_as::<_, (i64, i64)>(&query);
+        let mut q = sqlx::query_as::<_, (String, String)>(&query);
         for id in subsystem_ids {
             q = q.bind(id);
         }
         let rows = q.fetch_all(&self.pool).await?;
 
         // Build the result map
-        let mut result: HashMap<i64, Vec<i64>> = HashMap::new();
+        let mut result: HashMap<String, Vec<String>> = HashMap::new();
         for &id in subsystem_ids {
-            result.insert(id, Vec::new());
+            result.insert(id.to_string(), Vec::new());
         }
 
         // Process members

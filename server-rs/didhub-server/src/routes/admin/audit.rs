@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct AuditLogResponse {
     pub id: i64,
     pub created_at: Option<String>,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
     pub action: String,
     pub entity_type: Option<String>,
     pub entity_id: Option<String>,

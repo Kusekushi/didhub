@@ -14,13 +14,13 @@ pub trait GroupOperations {
         name: &str,
         description: Option<&str>,
         sigil: Option<&str>,
-        leaders: &[i64],
+        leaders: &[String],
         metadata: Option<&str>,
-        owner_user_id: Option<i64>,
+        owner_user_id: Option<&str>,
     ) -> Result<Group>;
 
     /// Fetch a group by ID
-    async fn fetch_group(&self, id: i64) -> Result<Option<Group>>;
+    async fn fetch_group(&self, id: &str) -> Result<Option<Group>>;
 
     /// List groups with optional search and pagination
     async fn list_groups(&self, q: Option<String>, limit: i64, offset: i64) -> Result<Vec<Group>>;
@@ -28,7 +28,7 @@ pub trait GroupOperations {
     /// List groups owned by a specific user with optional search and pagination
     async fn list_groups_by_owner(
         &self,
-        owner_user_id: i64,
+        owner_user_id: &str,
         q: Option<String>,
         limit: i64,
         offset: i64,
@@ -38,19 +38,19 @@ pub trait GroupOperations {
     async fn count_groups(&self, q: Option<String>) -> Result<i64>;
 
     /// Count groups owned by a specific user with optional search
-    async fn count_groups_by_owner(&self, owner_user_id: i64, q: Option<String>) -> Result<i64>;
+    async fn count_groups_by_owner(&self, owner_user_id: &str, q: Option<String>) -> Result<i64>;
 
     /// Update a group
-    async fn update_group(&self, id: i64, body: &serde_json::Value) -> Result<Option<Group>>;
+    async fn update_group(&self, id: &str, body: &serde_json::Value) -> Result<Option<Group>>;
 
     /// Delete a group
-    async fn delete_group(&self, id: i64) -> Result<bool>;
+    async fn delete_group(&self, id: &str) -> Result<bool>;
 
     /// Batch load members for multiple groups
     async fn batch_load_group_members(
         &self,
-        group_ids: &[i64],
-    ) -> Result<std::collections::HashMap<i64, Vec<i64>>>;
+        group_ids: &[&str],
+    ) -> Result<std::collections::HashMap<String, Vec<String>>>;
 }
 
 #[async_trait]
@@ -60,9 +60,9 @@ impl GroupOperations for Db {
         name: &str,
         description: Option<&str>,
         sigil: Option<&str>,
-        leaders: &[i64],
+        leaders: &[String],
         metadata: Option<&str>,
-        owner_user_id: Option<i64>,
+        owner_user_id: Option<&str>,
     ) -> Result<Group> {
         let start = Instant::now();
         if name.trim().is_empty() {
@@ -113,7 +113,7 @@ impl GroupOperations for Db {
         Ok(rec)
     }
 
-    async fn fetch_group(&self, id: i64) -> Result<Option<Group>> {
+    async fn fetch_group(&self, id: &str) -> Result<Option<Group>> {
         let start = Instant::now();
         let result = match self.backend {
             DbBackend::Sqlite => sqlx::query_as::<_, Group>("SELECT id, name, description, sigil, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM groups WHERE id=?1").bind(id).fetch_optional(&self.pool).await?,
@@ -152,7 +152,7 @@ impl GroupOperations for Db {
 
     async fn list_groups_by_owner(
         &self,
-        owner_user_id: i64,
+        owner_user_id: &str,
         q: Option<String>,
         limit: i64,
         offset: i64,
@@ -193,7 +193,7 @@ impl GroupOperations for Db {
         Ok(result)
     }
 
-    async fn count_groups_by_owner(&self, owner_user_id: i64, q: Option<String>) -> Result<i64> {
+    async fn count_groups_by_owner(&self, owner_user_id: &str, q: Option<String>) -> Result<i64> {
         let start = Instant::now();
         let result = if let Some(qs) = q {
             let like = format!("%{}%", qs);
@@ -217,7 +217,7 @@ impl GroupOperations for Db {
         Ok(result)
     }
 
-    async fn update_group(&self, id: i64, body: &serde_json::Value) -> Result<Option<Group>> {
+    async fn update_group(&self, id: &str, body: &serde_json::Value) -> Result<Option<Group>> {
         let start = Instant::now();
         if body.as_object().map(|m| m.is_empty()).unwrap_or(true) {
             let result = self.fetch_group(id).await;
@@ -253,7 +253,7 @@ impl GroupOperations for Db {
         result
     }
 
-    async fn delete_group(&self, id: i64) -> Result<bool> {
+    async fn delete_group(&self, id: &str) -> Result<bool> {
         let start = Instant::now();
         let result = delete_entity(self, "groups", id).await;
         record_db_operation(
@@ -271,8 +271,8 @@ impl GroupOperations for Db {
 
     async fn batch_load_group_members(
         &self,
-        group_ids: &[i64],
-    ) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
+        group_ids: &[&str],
+    ) -> Result<std::collections::HashMap<String, Vec<String>>> {
         let start = Instant::now();
         use std::collections::HashMap;
 
@@ -292,16 +292,16 @@ impl GroupOperations for Db {
             "SELECT affiliation_id, alter_id FROM alter_affiliations WHERE affiliation_id IN ({})",
             placeholders_str
         );
-        let mut q = sqlx::query_as::<_, (i64, i64)>(&query);
+        let mut q = sqlx::query_as::<_, (String, String)>(&query);
         for id in group_ids {
             q = q.bind(id);
         }
         let rows = q.fetch_all(&self.pool).await?;
 
         // Build the result map
-        let mut result: HashMap<i64, Vec<i64>> = HashMap::new();
+        let mut result: HashMap<String, Vec<String>> = HashMap::new();
         for &id in group_ids {
-            result.insert(id, Vec::new());
+            result.insert(id.to_string(), Vec::new());
         }
 
         // Process members

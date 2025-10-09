@@ -2,7 +2,7 @@ use crate::{common::CommonOperations, Db};
 use serde_json::json;
 use tracing::debug;
 
-pub async fn record_simple(db: &Db, user_id: Option<i64>, action: &str) {
+pub async fn record_simple(db: &Db, user_id: Option<String>, action: &str) {
     debug!(user_id=?user_id, action=%action, "recording audit event");
     let _ = db
         .insert_audit(user_id, action, None, None, None, None)
@@ -11,7 +11,7 @@ pub async fn record_simple(db: &Db, user_id: Option<i64>, action: &str) {
 
 pub async fn record_entity(
     db: &Db,
-    user_id: Option<i64>,
+    user_id: Option<String>,
     action: &str,
     entity_type: &str,
     entity_id: &str,
@@ -31,7 +31,7 @@ pub async fn record_entity(
 
 pub async fn record_with_metadata(
     db: &Db,
-    user_id: Option<i64>,
+    user_id: Option<String>,
     action: &str,
     entity_type: Option<&str>,
     entity_id: Option<&str>,
@@ -50,7 +50,7 @@ pub async fn record_with_metadata(
         .await;
 }
 
-pub async fn record_settings_update(db: &Db, user_id: Option<i64>, key: &str) {
+pub async fn record_settings_update(db: &Db, user_id: Option<String>, key: &str) {
     let meta = json!({"key": key});
     let _ = db
         .insert_audit(

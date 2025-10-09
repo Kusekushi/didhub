@@ -1,6 +1,6 @@
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CurrentUser {
-    pub id: i64,
+    pub id: String,
     pub username: String,
     pub avatar: Option<String>,
     pub is_admin: bool,

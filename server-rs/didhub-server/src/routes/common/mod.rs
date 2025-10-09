@@ -4,21 +4,22 @@ use didhub_middleware::types::CurrentUser;
 use std::collections::HashSet;
 use tracing::{error, warn};
 
-fn push_unique(acc: &mut Vec<i64>, seen: &mut HashSet<i64>, value: i64) {
-    if seen.insert(value) {
+fn push_unique(acc: &mut Vec<String>, seen: &mut HashSet<String>, value: String) {
+    if seen.insert(value.clone()) {
         acc.push(value);
     }
 }
 
-fn parse_single_id(text: &str) -> Option<i64> {
+fn parse_single_id(text: &str) -> Option<String> {
     let cleaned = text.trim().trim_start_matches('#');
     if cleaned.is_empty() {
         return None;
     }
-    cleaned.parse::<i64>().ok()
+    // For UUID conversion, we'll accept UUID strings directly
+    Some(cleaned.to_string())
 }
 
-fn parse_string_ids(text: &str, acc: &mut Vec<i64>, seen: &mut HashSet<i64>) {
+fn parse_string_ids(text: &str, acc: &mut Vec<String>, seen: &mut HashSet<String>) {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return;
@@ -34,7 +35,7 @@ fn parse_string_ids(text: &str, acc: &mut Vec<i64>, seen: &mut HashSet<i64>) {
     }
 }
 
-fn collect_leader_ids(value: &serde_json::Value, acc: &mut Vec<i64>, seen: &mut HashSet<i64>) {
+fn collect_leader_ids(value: &serde_json::Value, acc: &mut Vec<String>, seen: &mut HashSet<String>) {
     match value {
         serde_json::Value::Array(items) => {
             for item in items {
@@ -48,7 +49,7 @@ fn collect_leader_ids(value: &serde_json::Value, acc: &mut Vec<i64>, seen: &mut 
         }
         serde_json::Value::Number(num) => {
             if let Some(id) = num.as_i64() {
-                push_unique(acc, seen, id);
+                push_unique(acc, seen, id.to_string());
             }
         }
         serde_json::Value::String(text) => parse_string_ids(text, acc, seen),
@@ -56,9 +57,9 @@ fn collect_leader_ids(value: &serde_json::Value, acc: &mut Vec<i64>, seen: &mut 
     }
 }
 
-pub fn parse_leaders(raw: &serde_json::Value) -> Vec<i64> {
-    let mut acc: Vec<i64> = Vec::new();
-    let mut seen: HashSet<i64> = HashSet::new();
+pub fn parse_leaders(raw: &serde_json::Value) -> Vec<String> {
+    let mut acc: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
     collect_leader_ids(raw, &mut acc, &mut seen);
     acc
 }
@@ -180,12 +181,12 @@ pub fn require_admin(user: &CurrentUser) -> Result<(), AppError> {
 
 pub fn check_ownership_with_existing(
     user: &CurrentUser,
-    owner_id: Option<i64>,
+    owner_id: Option<String>,
 ) -> Result<(), AppError> {
     if user.is_admin {
         return Ok(());
     }
-    let owner = owner_id.unwrap_or(user.id);
+    let owner = owner_id.unwrap_or_else(|| user.id.clone());
     if owner != user.id {
         warn!(
             user_id = %user.id,
@@ -200,7 +201,7 @@ pub fn check_ownership_with_existing(
 pub async fn check_subsystem_ownership(
     db: &Db,
     user: &CurrentUser,
-    id: i64,
+    id: &str,
 ) -> Result<(), AppError> {
     if user.is_admin {
         return Ok(());
@@ -209,7 +210,7 @@ pub async fn check_subsystem_ownership(
         error!(user_id = %user.id, subsystem_id = %id, error = %e, "Failed to fetch subsystem for permission check");
         AppError::Internal
     })? {
-        let owner_id = existing.owner_user_id.unwrap_or(user.id);
+        let owner_id = existing.owner_user_id.clone().unwrap_or_else(|| user.id.clone());
         if owner_id != user.id {
             warn!(user_id = %user.id, subsystem_id = %id, owner_id = %owner_id, "User attempted to access subsystem without permission");
             return Err(AppError::Forbidden);
@@ -218,7 +219,7 @@ pub async fn check_subsystem_ownership(
     Ok(())
 }
 
-pub async fn check_group_ownership(db: &Db, user: &CurrentUser, id: i64) -> Result<(), AppError> {
+pub async fn check_group_ownership(db: &Db, user: &CurrentUser, id: &str) -> Result<(), AppError> {
     if user.is_admin {
         return Ok(());
     }
@@ -226,7 +227,7 @@ pub async fn check_group_ownership(db: &Db, user: &CurrentUser, id: i64) -> Resu
         error!(user_id = %user.id, group_id = %id, error = %e, "Failed to fetch group for permission check");
         AppError::Internal
     })? {
-        let owner_id = existing.owner_user_id.unwrap_or(user.id);
+        let owner_id = existing.owner_user_id.clone().unwrap_or_else(|| user.id.clone());
         if owner_id != user.id {
             warn!(user_id = %user.id, group_id = %id, owner_id = %owner_id, "User attempted to access group without permission");
             return Err(AppError::Forbidden);

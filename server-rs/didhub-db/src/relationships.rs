@@ -28,29 +28,29 @@ fn insert_ignore_query(backend: crate::DbBackend, table: &str, cols: &[&str]) ->
 
 #[async_trait::async_trait]
 pub trait AlterRelationships {
-    async fn replace_partners(&self, id: i64, partners: &[i64]) -> Result<u64>;
-    async fn replace_parents(&self, id: i64, parents: &[i64]) -> Result<u64>;
-    async fn replace_children(&self, id: i64, children: &[i64]) -> Result<u64>;
-    async fn replace_affiliations(&self, id: i64, affiliations: &[i64]) -> Result<u64>;
-    async fn partners_of(&self, id: i64) -> Result<Vec<i64>>;
-    async fn parents_of(&self, id: i64) -> Result<Vec<i64>>;
-    async fn children_of(&self, id: i64) -> Result<Vec<i64>>;
-    async fn affiliations_of(&self, id: i64) -> Result<Vec<i64>>;
-    async fn remove_user_from_group(&self, user_id: i64, group_id: i64) -> Result<bool>;
-    async fn add_user_to_group(&self, user_id: i64, group_id: i64) -> Result<bool>;
+    async fn replace_partners(&self, id: &str, partners: &[String]) -> Result<u64>;
+    async fn replace_parents(&self, id: &str, parents: &[String]) -> Result<u64>;
+    async fn replace_children(&self, id: &str, children: &[String]) -> Result<u64>;
+    async fn replace_affiliations(&self, id: &str, affiliations: &[String]) -> Result<u64>;
+    async fn partners_of(&self, id: &str) -> Result<Vec<String>>;
+    async fn parents_of(&self, id: &str) -> Result<Vec<String>>;
+    async fn children_of(&self, id: &str) -> Result<Vec<String>>;
+    async fn affiliations_of(&self, id: &str) -> Result<Vec<String>>;
+    async fn remove_user_from_group(&self, user_id: &str, group_id: &str) -> Result<bool>;
+    async fn add_user_to_group(&self, user_id: &str, group_id: &str) -> Result<bool>;
     async fn prune_orphan_group_members(&self) -> Result<i64>;
     async fn prune_orphan_subsystem_members(&self) -> Result<i64>;
     async fn list_user_groups_scoped(
         &self,
-        user_id: i64,
+        user_id: &str,
         query: Option<&str>,
     ) -> Result<Vec<Group>>;
-    async fn list_alters_in_group(&self, group_id: i64) -> Result<Vec<i64>>;
+    async fn list_alters_in_group(&self, group_id: &str) -> Result<Vec<String>>;
 }
 
 #[async_trait::async_trait]
 impl AlterRelationships for Db {
-    async fn replace_partners(&self, id: i64, partners: &[i64]) -> Result<u64> {
+    async fn replace_partners(&self, id: &str, partners: &[String]) -> Result<u64> {
         let start = Instant::now();
         let mut rows_affected =
             sqlx::query("DELETE FROM alter_partners WHERE alter_id=?1 OR partner_alter_id=?1")
@@ -62,7 +62,7 @@ impl AlterRelationships for Db {
             if *p == id {
                 continue;
             }
-            let (low, high) = if id < *p { (id, *p) } else { (*p, id) };
+            let (low, high) = if id < p.as_str() { (id, p.as_str()) } else { (p.as_str(), id) };
             let q = insert_ignore_query(
                 self.backend,
                 "alter_partners",
@@ -84,7 +84,7 @@ impl AlterRelationships for Db {
         Ok(rows_affected)
     }
 
-    async fn replace_parents(&self, id: i64, parents: &[i64]) -> Result<u64> {
+    async fn replace_parents(&self, id: &str, parents: &[String]) -> Result<u64> {
         let start = Instant::now();
         let mut rows_affected = sqlx::query("DELETE FROM alter_parents WHERE alter_id=?1")
             .bind(id)
@@ -102,7 +102,7 @@ impl AlterRelationships for Db {
             );
             rows_affected += sqlx::query(&q)
                 .bind(id)
-                .bind(*p)
+                .bind(p)
                 .execute(&self.pool)
                 .await?
                 .rows_affected();
@@ -116,7 +116,7 @@ impl AlterRelationships for Db {
         Ok(rows_affected)
     }
 
-    async fn replace_children(&self, id: i64, children: &[i64]) -> Result<u64> {
+    async fn replace_children(&self, id: &str, children: &[String]) -> Result<u64> {
         let start = Instant::now();
         let mut rows_affected = sqlx::query("DELETE FROM alter_parents WHERE parent_alter_id=?1")
             .bind(id)
@@ -133,7 +133,7 @@ impl AlterRelationships for Db {
                 &["alter_id", "parent_alter_id"],
             );
             rows_affected += sqlx::query(&q)
-                .bind(*c)
+                .bind(c)
                 .bind(id)
                 .execute(&self.pool)
                 .await?
@@ -148,7 +148,7 @@ impl AlterRelationships for Db {
         Ok(rows_affected)
     }
 
-    async fn replace_affiliations(&self, id: i64, affiliations: &[i64]) -> Result<u64> {
+    async fn replace_affiliations(&self, id: &str, affiliations: &[String]) -> Result<u64> {
         let start = Instant::now();
         let mut rows_affected = sqlx::query("DELETE FROM alter_affiliations WHERE alter_id=?1")
             .bind(id)
@@ -162,7 +162,7 @@ impl AlterRelationships for Db {
                 &["affiliation_id", "alter_id"],
             );
             rows_affected += sqlx::query(&q)
-                .bind(*a)
+                .bind(a)
                 .bind(id)
                 .execute(&self.pool)
                 .await?
@@ -177,9 +177,9 @@ impl AlterRelationships for Db {
         Ok(rows_affected)
     }
 
-    async fn partners_of(&self, id: i64) -> Result<Vec<i64>> {
+    async fn partners_of(&self, id: &str) -> Result<Vec<String>> {
         let start = Instant::now();
-        let rows = sqlx::query_as::<_, (i64,i64)>("SELECT alter_id, partner_alter_id FROM alter_partners WHERE alter_id=?1 OR partner_alter_id=?1")
+        let rows = sqlx::query_as::<_, (String,String)>("SELECT alter_id, partner_alter_id FROM alter_partners WHERE alter_id=?1 OR partner_alter_id=?1")
             .bind(id).fetch_all(&self.pool).await?;
         let mut out = Vec::new();
         for (a, b) in rows {
@@ -195,9 +195,9 @@ impl AlterRelationships for Db {
         Ok(out)
     }
 
-    async fn parents_of(&self, id: i64) -> Result<Vec<i64>> {
+    async fn parents_of(&self, id: &str) -> Result<Vec<String>> {
         let start = Instant::now();
-        let rows = sqlx::query_as::<_, (i64,)>(
+        let rows = sqlx::query_as::<_, (String,)>(
             "SELECT parent_alter_id FROM alter_parents WHERE alter_id=?1",
         )
         .bind(id)
@@ -208,9 +208,9 @@ impl AlterRelationships for Db {
         Ok(result)
     }
 
-    async fn children_of(&self, id: i64) -> Result<Vec<i64>> {
+    async fn children_of(&self, id: &str) -> Result<Vec<String>> {
         let start = Instant::now();
-        let rows = sqlx::query_as::<_, (i64,)>(
+        let rows = sqlx::query_as::<_, (String,)>(
             "SELECT alter_id FROM alter_parents WHERE parent_alter_id=?1",
         )
         .bind(id)
@@ -221,9 +221,9 @@ impl AlterRelationships for Db {
         Ok(result)
     }
 
-    async fn affiliations_of(&self, id: i64) -> Result<Vec<i64>> {
+    async fn affiliations_of(&self, id: &str) -> Result<Vec<String>> {
         let start = Instant::now();
-        let rows = sqlx::query_as::<_, (i64,)>(
+        let rows = sqlx::query_as::<_, (String,)>(
             "SELECT affiliation_id FROM alter_affiliations WHERE alter_id=?1",
         )
         .bind(id)
@@ -239,9 +239,9 @@ impl AlterRelationships for Db {
         Ok(result)
     }
 
-    async fn list_alters_in_group(&self, group_id: i64) -> Result<Vec<i64>> {
+    async fn list_alters_in_group(&self, group_id: &str) -> Result<Vec<String>> {
         let start = Instant::now();
-        let rows = sqlx::query_as::<_, (i64,)>(
+        let rows = sqlx::query_as::<_, (String,)>(
             "SELECT alter_id FROM alter_affiliations WHERE affiliation_id=?1",
         )
         .bind(group_id)
@@ -259,7 +259,7 @@ impl AlterRelationships for Db {
 
     async fn list_user_groups_scoped(
         &self,
-        user_id: i64,
+        user_id: &str,
         query: Option<&str>,
     ) -> Result<Vec<Group>> {
         let start = Instant::now();
@@ -283,7 +283,7 @@ impl AlterRelationships for Db {
         Ok(rows)
     }
 
-    async fn remove_user_from_group(&self, user_id: i64, group_id: i64) -> Result<bool> {
+    async fn remove_user_from_group(&self, user_id: &str, group_id: &str) -> Result<bool> {
         let start = Instant::now();
         let res =
             sqlx::query("DELETE FROM user_group_memberships WHERE user_id=?1 AND group_id=?2")
@@ -301,7 +301,7 @@ impl AlterRelationships for Db {
         Ok(success)
     }
 
-    async fn add_user_to_group(&self, user_id: i64, group_id: i64) -> Result<bool> {
+    async fn add_user_to_group(&self, user_id: &str, group_id: &str) -> Result<bool> {
         let start = Instant::now();
         let q = insert_ignore_query(
             self.backend,
@@ -317,7 +317,7 @@ impl AlterRelationships for Db {
         record_db_operation(
             "add_user_to_group",
             "user_group_memberships",
-            if success { "success" } else { "already_exists" },
+            if success { "success" } else { "already_member" },
             start.elapsed(),
         );
         Ok(success)

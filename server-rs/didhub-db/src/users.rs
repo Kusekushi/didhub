@@ -3,6 +3,7 @@ use crate::models::{NewUser, PasswordResetToken, UpdateUserFields, User, UserLis
 use crate::{Db, DbBackend};
 use anyhow::Result;
 use async_trait::async_trait;
+use sqlx::Row;
 use tracing::{debug, info, warn};
 
 #[async_trait]
@@ -10,34 +11,34 @@ pub trait UserOperations {
     // User CRUD operations
     async fn create_user(&self, nu: NewUser) -> Result<User>;
     async fn fetch_user_by_username(&self, username: &str) -> Result<Option<User>>;
-    async fn fetch_user_by_id(&self, id: i64) -> Result<Option<User>>;
+    async fn fetch_user_by_id(&self, id: &str) -> Result<Option<User>>;
     async fn list_users(&self, limit: i64, offset: i64) -> Result<Vec<User>>;
     async fn list_users_advanced(&self, filters: &UserListFilters) -> Result<(Vec<User>, i64)>;
-    async fn update_user(&self, id: i64, fields: UpdateUserFields) -> Result<Option<User>>;
-    async fn update_user_password(&self, id: i64, password_hash: &str) -> Result<Option<User>>;
-    async fn delete_user(&self, id: i64) -> Result<bool>;
-    async fn reassign_user_content(&self, from_user: i64, to_user: i64) -> Result<()>;
+    async fn update_user(&self, id: &str, fields: UpdateUserFields) -> Result<Option<User>>;
+    async fn update_user_password(&self, id: &str, password_hash: &str) -> Result<Option<User>>;
+    async fn delete_user(&self, id: &str) -> Result<bool>;
+    async fn reassign_user_content(&self, from_user: &str, to_user: &str) -> Result<()>;
 
     // OIDC identity operations
     async fn fetch_user_by_oidc(&self, provider: &str, subject: &str) -> Result<Option<User>>;
-    async fn link_oidc_identity(&self, provider: &str, subject: &str, user_id: i64) -> Result<()>;
+    async fn link_oidc_identity(&self, provider: &str, subject: &str, user_id: &str) -> Result<()>;
 
     // Password reset operations
     async fn insert_password_reset(
         &self,
         selector: &str,
         verifier_hash: &str,
-        user_id: i64,
+        user_id: &str,
         expires_at: &str,
     ) -> Result<PasswordResetToken>;
     async fn fetch_password_reset_by_selector(
         &self,
         selector: &str,
     ) -> Result<Option<PasswordResetToken>>;
-    async fn mark_password_reset_used(&self, id: i64) -> Result<()>;
+    async fn mark_password_reset_used(&self, id: &str) -> Result<()>;
     async fn validate_password_reset_token(
         &self,
-        token_id: i64,
+        token_id: &str,
         current_time: &str,
     ) -> Result<bool>;
     async fn clear_expired_password_resets(&self) -> Result<i64>;
@@ -46,6 +47,7 @@ pub trait UserOperations {
 #[async_trait]
 impl UserOperations for Db {
     async fn create_user(&self, nu: NewUser) -> Result<User> {
+        let id = uuid::Uuid::new_v4().to_string();
         let username = nu.username.clone();
         debug!(username=%username, is_system=%nu.is_system, is_approved=%nu.is_approved, "creating new user");
         let password_hash = nu.password_hash;
@@ -53,7 +55,8 @@ impl UserOperations for Db {
         let is_approved = if nu.is_approved { 1 } else { 0 };
         let rec = self.insert_and_return(
             || async {
-                let r = sqlx::query_as::<_, User>("INSERT INTO users (username, password_hash, is_system, is_approved) VALUES (?1, ?2, ?3, ?4) RETURNING id, username, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at")
+                let r = sqlx::query_as::<_, User>("INSERT INTO users (id, username, password_hash, is_system, is_approved) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id, username, email, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at")
+                    .bind(&id)
                     .bind(&username)
                     .bind(&password_hash)
                     .bind(is_system)
@@ -62,13 +65,15 @@ impl UserOperations for Db {
                 Ok(r)
             },
             || async {
-                sqlx::query("INSERT INTO users (username, password_hash, is_system, is_approved) VALUES (?1, ?2, ?3, ?4)")
+                sqlx::query("INSERT INTO users (id, username, password_hash, is_system, is_approved) VALUES (?1, ?2, ?3, ?4, ?5)")
+                    .bind(&id)
                     .bind(&username)
                     .bind(&password_hash)
                     .bind(is_system)
                     .bind(is_approved)
                     .execute(&self.pool).await?;
-                let r = sqlx::query_as::<_, User>("SELECT id, username, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at FROM users WHERE id = LAST_INSERT_ID()")
+                let r = sqlx::query_as::<_, User>("SELECT id, username, email, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE id = ?1")
+                    .bind(&id)
                     .fetch_one(&self.pool).await?;
                 Ok(r)
             }
@@ -78,15 +83,15 @@ impl UserOperations for Db {
     }
 
     async fn fetch_user_by_username(&self, username: &str) -> Result<Option<User>> {
-        let rec = sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = ?1")
+        let rec = sqlx::query_as::<_, User>("SELECT id, username, email, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE username = ?1")
             .bind(username)
             .fetch_optional(&self.pool)
             .await?;
         Ok(rec)
     }
 
-    async fn fetch_user_by_id(&self, id: i64) -> Result<Option<User>> {
-        let rec = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id=?1")
+    async fn fetch_user_by_id(&self, id: &str) -> Result<Option<User>> {
+        let rec = sqlx::query_as::<_, User>("SELECT id, username, email, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE id=?1")
             .bind(id)
             .fetch_optional(&self.pool)
             .await?;
@@ -171,7 +176,7 @@ impl UserOperations for Db {
         Ok((rows, total))
     }
 
-    async fn update_user(&self, id: i64, fields: UpdateUserFields) -> Result<Option<User>> {
+    async fn update_user(&self, id: &str, fields: UpdateUserFields) -> Result<Option<User>> {
         debug!(user_id=%id, has_password=%fields.password_hash.is_some(), has_system=%fields.is_system.is_some(), has_admin=%fields.is_admin.is_some(), has_approved=%fields.is_approved.is_some(), has_must_change=%fields.must_change_password.is_some(), has_avatar=%fields.avatar.is_some(), "updating user");
         let mut sets: Vec<String> = Vec::new();
         // We'll build query manually with positional parameters ?1..?N.
@@ -215,7 +220,6 @@ impl UserOperations for Db {
         sql.push_str(&sets.join(","));
         sql.push_str(&format!(" WHERE id=?{}", idx));
         let id_pos = idx;
-        bind_values.push((id_pos, BindVal::S(id.to_string())));
         // Build query with dynamic positional binds
         let mut q = sqlx::query(&sql);
         // sort by position
@@ -230,6 +234,7 @@ impl UserOperations for Db {
                 }
             }
         }
+        q = q.bind(id);
         q.execute(&self.pool).await?;
         let result = self.fetch_user_by_id(id).await;
         if let Ok(Some(ref user)) = &result {
@@ -238,7 +243,7 @@ impl UserOperations for Db {
         result
     }
 
-    async fn update_user_password(&self, id: i64, password_hash: &str) -> Result<Option<User>> {
+    async fn update_user_password(&self, id: &str, password_hash: &str) -> Result<Option<User>> {
         debug!(user_id=%id, "updating user password");
         sqlx::query("UPDATE users SET password_hash=?1, must_change_password=0 WHERE id=?2")
             .bind(password_hash)
@@ -252,7 +257,7 @@ impl UserOperations for Db {
         result
     }
 
-    async fn delete_user(&self, id: i64) -> Result<bool> {
+    async fn delete_user(&self, id: &str) -> Result<bool> {
         debug!(user_id=%id, "deleting user and related data");
         // Remove related non-audit references first (audit logs intentionally retained if referencing user id textually)
         // OIDC identities
@@ -279,7 +284,7 @@ impl UserOperations for Db {
         Ok(deleted)
     }
 
-    async fn reassign_user_content(&self, from_user: i64, to_user: i64) -> Result<()> {
+    async fn reassign_user_content(&self, from_user: &str, to_user: &str) -> Result<()> {
         // For each table that has owner_user_id, update rows referencing from_user
         for (table, col) in [
             ("groups", "owner_user_id"),
@@ -305,7 +310,7 @@ impl UserOperations for Db {
         Ok(rec)
     }
 
-    async fn link_oidc_identity(&self, provider: &str, subject: &str, user_id: i64) -> Result<()> {
+    async fn link_oidc_identity(&self, provider: &str, subject: &str, user_id: &str) -> Result<()> {
         match self.backend {
             DbBackend::Sqlite => {
                 sqlx::query("INSERT OR IGNORE INTO oidc_identities(provider, subject, user_id) VALUES (?1, ?2, ?3)")
@@ -339,7 +344,7 @@ impl UserOperations for Db {
         &self,
         selector: &str,
         verifier_hash: &str,
-        user_id: i64,
+        user_id: &str,
         expires_at: &str,
     ) -> Result<PasswordResetToken> {
         let sel = selector.to_string();
@@ -382,7 +387,7 @@ impl UserOperations for Db {
         .await?)
     }
 
-    async fn mark_password_reset_used(&self, id: i64) -> Result<()> {
+    async fn mark_password_reset_used(&self, id: &str) -> Result<()> {
         let now = chrono::Utc::now().to_rfc3339();
         sqlx::query("UPDATE password_reset_tokens SET used_at=?1 WHERE id=?2")
             .bind(&now)
@@ -394,7 +399,7 @@ impl UserOperations for Db {
 
     async fn validate_password_reset_token(
         &self,
-        token_id: i64,
+        token_id: &str,
         current_time: &str,
     ) -> Result<bool> {
         let (still_valid,):(i64,) = sqlx::query_as("SELECT CASE WHEN used_at IS NULL AND expires_at >= ?1 THEN 1 ELSE 0 END FROM password_reset_tokens WHERE id=?2")

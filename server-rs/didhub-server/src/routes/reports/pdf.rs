@@ -18,7 +18,7 @@ use didhub_pdf::simple_pdf;
 use tracing::{debug, error, info, warn};
 
 pub async fn export_alter(
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Extension(db): Extension<Db>,
     Extension(udc): Extension<UploadDirCache>,
     Extension(_user): Extension<CurrentUser>,
@@ -30,7 +30,7 @@ pub async fn export_alter(
     );
 
     let alter = db
-        .fetch_alter(id)
+        .fetch_alter(&id)
         .await
         .map_err(|e| {
             error!(
@@ -60,10 +60,10 @@ pub async fn export_alter(
 
     // Get relationships
     let (partner_ids, parent_ids, child_ids, affiliation_ids) = tokio::join!(
-        db.partners_of(alter.id),
-        db.parents_of(alter.id),
-        db.children_of(alter.id),
-        db.affiliations_of(alter.id)
+        db.partners_of(&alter.id),
+        db.parents_of(&alter.id),
+        db.children_of(&alter.id),
+        db.affiliations_of(&alter.id)
     );
 
     let partner_ids = partner_ids?;
@@ -74,28 +74,28 @@ pub async fn export_alter(
     // Fetch alter names for relationships
     let mut partner_names = Vec::new();
     for partner_id in &partner_ids {
-        if let Some(partner_alter) = db.fetch_alter(*partner_id).await? {
+        if let Some(partner_alter) = db.fetch_alter(partner_id).await? {
             partner_names.push(partner_alter.name);
         }
     }
 
     let mut parent_names = Vec::new();
     for parent_id in &parent_ids {
-        if let Some(parent_alter) = db.fetch_alter(*parent_id).await? {
+        if let Some(parent_alter) = db.fetch_alter(parent_id).await? {
             parent_names.push(parent_alter.name);
         }
     }
 
     let mut child_names = Vec::new();
     for child_id in &child_ids {
-        if let Some(child_alter) = db.fetch_alter(*child_id).await? {
+        if let Some(child_alter) = db.fetch_alter(child_id).await? {
             child_names.push(child_alter.name);
         }
     }
 
     let mut affiliation_names = Vec::new();
     for affiliation_id in &affiliation_ids {
-        if let Some(affiliation_alter) = db.fetch_alter(*affiliation_id).await? {
+        if let Some(affiliation_alter) = db.fetch_alter(affiliation_id).await? {
             affiliation_names.push(affiliation_alter.name);
         }
     }
@@ -248,7 +248,7 @@ pub async fn export_alter(
 }
 
 pub async fn export_group(
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Extension(db): Extension<Db>,
     Extension(_user): Extension<CurrentUser>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -259,7 +259,7 @@ pub async fn export_group(
     );
 
     let group = db
-        .fetch_group(id)
+        .fetch_group(&id)
         .await
         .map_err(|e| {
             error!(
@@ -321,7 +321,7 @@ pub async fn export_group(
 }
 
 pub async fn export_subsystem(
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Extension(db): Extension<Db>,
     Extension(_user): Extension<CurrentUser>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -332,7 +332,7 @@ pub async fn export_subsystem(
     );
 
     let subsystem = db
-        .fetch_subsystem(id)
+        .fetch_subsystem(&id)
         .await
         .map_err(|e| {
             error!(

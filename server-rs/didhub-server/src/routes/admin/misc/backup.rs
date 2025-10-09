@@ -171,7 +171,7 @@ pub async fn create_backup(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "admin.backup.create",
         Some("backup"),
         None,

@@ -21,7 +21,7 @@ pub struct ListQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
     pub per_page: Option<i64>,
-    pub owner_user_id: Option<i64>,
+    pub owner_user_id: Option<String>,
     pub fields: Option<String>,
 }
 
@@ -35,17 +35,17 @@ pub struct Paged<T> {
 
 #[derive(serde::Serialize)]
 pub struct SubsystemOut {
-    pub id: i64,
+    pub id: String,
     pub name: String,
     pub description: Option<String>,
-    pub leaders: Vec<i64>,
+    pub leaders: Vec<String>,
     pub metadata: Option<String>,
-    pub owner_user_id: Option<i64>,
+    pub owner_user_id: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub alters: Vec<i64>,
+    pub alters: Vec<String>,
 }
 
-fn deserialize_leader_ids(raw: Option<&str>) -> Vec<i64> {
+fn deserialize_leader_ids(raw: Option<&str>) -> Vec<String> {
     match raw {
         Some(text) => serde_json::from_str::<serde_json::Value>(text)
             .map(|value| parse_leaders(&value))
@@ -69,14 +69,15 @@ fn project(s: didhub_db::Subsystem) -> SubsystemOut {
 
 async fn batch_load_subsystem_members(
     db: &Db,
-    subsystem_ids: &[i64],
-) -> Result<HashMap<i64, Vec<i64>>, AppError> {
-    db.batch_load_subsystem_members(subsystem_ids)
+    subsystem_ids: &[String],
+) -> Result<HashMap<String, Vec<String>>, AppError> {
+    let ids: Vec<&str> = subsystem_ids.iter().map(|s| s.as_str()).collect();
+    db.batch_load_subsystem_members(&ids)
         .await
         .map_err(|_| AppError::Internal)
 }
 
-fn project_subsystem_with_members(s: didhub_db::Subsystem, members: &[i64]) -> SubsystemOut {
+fn project_subsystem_with_members(s: didhub_db::Subsystem, members: &[String]) -> SubsystemOut {
     let leaders = deserialize_leader_ids(s.leaders.as_deref());
     SubsystemOut {
         id: s.id,
@@ -112,10 +113,11 @@ pub async fn list_subsystems(
     // If no owner_user_id specified in query, default to current user unless admin
     let effective_owner_user_id =
         q.owner_user_id
-            .or_else(|| if user.is_admin { None } else { Some(user.id) });
+            .or_else(|| if user.is_admin { None } else { Some(user.id.clone()) })
+            .map(|id| id.to_string());
 
     let rows = db
-        .list_subsystems(q.q.clone(), limit, offset, effective_owner_user_id)
+        .list_subsystems(q.q.clone(), limit, offset, effective_owner_user_id.as_deref())
         .await
         .map_err(|e| {
             error!(
@@ -130,7 +132,7 @@ pub async fn list_subsystems(
         })?;
 
     let total = db
-        .count_subsystems(q.q.clone(), effective_owner_user_id)
+        .count_subsystems(q.q.clone(), effective_owner_user_id.as_deref())
         .await
         .map_err(|e| {
             error!(
@@ -175,7 +177,7 @@ pub async fn list_subsystems(
     if include_members {
         let mut subsystem_ids = Vec::with_capacity(row_count);
         for s in &rows {
-            subsystem_ids.push(s.id);
+            subsystem_ids.push(s.id.clone());
         }
         let members = batch_load_subsystem_members(&db, &subsystem_ids).await?;
         let mut items = Vec::with_capacity(row_count);
@@ -225,7 +227,7 @@ pub struct CreateSubsystemPayload {
     pub description: Option<String>,
     pub leaders: Option<serde_json::Value>,
     pub metadata: Option<String>,
-    pub owner_user_id: Option<i64>,
+    pub owner_user_id: Option<String>,
 }
 
 pub async fn create_subsystem(
@@ -266,13 +268,13 @@ pub async fn create_subsystem(
 
     // Ownership rules: allow explicit owner_user_id when provided, but disallow non-admin users
     // from creating a subsystem for another user.
-    let owner: Option<i64> = if let Some(explicit) = payload.owner_user_id {
+    let owner: Option<String> = if let Some(explicit) = payload.owner_user_id {
         if !user.is_admin && explicit != user.id {
             return Err(AppError::Forbidden);
         }
         Some(explicit)
     } else {
-        Some(user.id)
+        Some(user.id.to_string())
     };
 
     let created = db
@@ -281,7 +283,7 @@ pub async fn create_subsystem(
             payload.description.as_deref(),
             &leaders_vec,
             payload.metadata.as_deref(),
-            owner,
+            owner.as_deref(),
         )
         .await
         .map_err(|e| {
@@ -303,7 +305,7 @@ pub async fn create_subsystem(
 
     audit::record_entity(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "subsystem.create",
         "subsystem",
         &created.id.to_string(),
@@ -325,7 +327,7 @@ pub async fn create_subsystem(
 pub async fn get_subsystem(
     Extension(_user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<Json<SubsystemOut>, AppError> {
     debug!(
         user_id = %_user.id,
@@ -334,7 +336,7 @@ pub async fn get_subsystem(
     );
 
     let s = db
-        .fetch_subsystem(id)
+        .fetch_subsystem(&id)
         .await
         .map_err(|e| {
             error!(
@@ -374,7 +376,7 @@ pub struct UpdateSubsystemPayload {
 pub async fn update_subsystem(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<UpdateSubsystemPayload>,
 ) -> Result<Json<SubsystemOut>, AppError> {
     debug!(
@@ -400,7 +402,7 @@ pub async fn update_subsystem(
         return Err(AppError::BadRequest("no update fields".into()));
     }
 
-    check_subsystem_ownership(&db, &user, id).await?;
+    check_subsystem_ownership(&db, &user, &id).await?;
 
     debug!(
         user_id = %user.id,
@@ -420,7 +422,7 @@ pub async fn update_subsystem(
     }
 
     let updated = db
-        .update_subsystem(id, &rest)
+        .update_subsystem(&id, &rest)
         .await
         .map_err(|e| {
             error!(
@@ -449,7 +451,7 @@ pub async fn update_subsystem(
 
     audit::record_entity(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "subsystem.update",
         "subsystem",
         &id.to_string(),
@@ -471,7 +473,7 @@ pub async fn update_subsystem(
 pub async fn delete_subsystem(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<axum::http::StatusCode, AppError> {
     debug!(
         user_id = %user.id,
@@ -481,7 +483,7 @@ pub async fn delete_subsystem(
         "Starting subsystem deletion"
     );
 
-    check_subsystem_ownership(&db, &user, id).await?;
+    check_subsystem_ownership(&db, &user, &id).await?;
 
     debug!(
         user_id = %user.id,
@@ -489,7 +491,7 @@ pub async fn delete_subsystem(
         "Permission check passed, proceeding with deletion"
     );
 
-    let ok = db.delete_subsystem(id).await.map_err(|e| {
+    let ok = db.delete_subsystem(&id).await.map_err(|e| {
         error!(
             user_id = %user.id,
             subsystem_id = %id,
@@ -510,7 +512,7 @@ pub async fn delete_subsystem(
 
     audit::record_entity(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "subsystem.delete",
         "subsystem",
         &id.to_string(),
@@ -530,14 +532,14 @@ pub async fn delete_subsystem(
 
 #[derive(serde::Deserialize)]
 pub struct ToggleLeaderPayload {
-    pub alter_id: i64,
+    pub alter_id: String,
     pub add: Option<bool>,
 }
 
 pub async fn toggle_leader(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<ToggleLeaderPayload>,
 ) -> Result<Json<SubsystemOut>, AppError> {
     debug!(
@@ -551,7 +553,7 @@ pub async fn toggle_leader(
     );
 
     let existing = db
-        .fetch_subsystem(id)
+        .fetch_subsystem(&id)
         .await
         .map_err(|e| {
             error!(
@@ -586,7 +588,7 @@ pub async fn toggle_leader(
 
     if add {
         if !was_present {
-            leaders.push(payload.alter_id);
+            leaders.push(payload.alter_id.clone());
             debug!(
                 user_id = %user.id,
                 subsystem_id = %id,
@@ -622,7 +624,7 @@ pub async fn toggle_leader(
 
     let body = serde_json::json!({"leaders": leaders});
     let updated = db
-        .update_subsystem(id, &body)
+        .update_subsystem(&id, &body)
         .await
         .map_err(|e| {
             error!(
@@ -644,7 +646,7 @@ pub async fn toggle_leader(
 
     audit::record_entity(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "subsystem.leaders.toggle",
         "subsystem",
         &id.to_string(),
@@ -664,20 +666,20 @@ pub async fn toggle_leader(
 
 #[derive(serde::Deserialize)]
 pub struct MemberChangePayload {
-    pub alter_id: i64,
+    pub alter_id: String,
     pub add: Option<bool>,
 }
 
 #[derive(serde::Serialize)]
 pub struct MembersOut {
-    pub subsystem_id: i64,
-    pub alters: Vec<i64>,
+    pub subsystem_id: String,
+    pub alters: Vec<String>,
 }
 
 pub async fn change_member(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
     Json(payload): Json<MemberChangePayload>,
 ) -> Result<Json<MembersOut>, AppError> {
     debug!(
@@ -691,7 +693,7 @@ pub async fn change_member(
     );
 
     let existing = db
-        .fetch_subsystem(id)
+        .fetch_subsystem(&id)
         .await
         .map_err(|e| {
             error!(
@@ -721,7 +723,7 @@ pub async fn change_member(
 
     let add = payload.add.unwrap_or(true);
     if add {
-        db.add_alter_to_subsystem(payload.alter_id, id)
+        db.add_alter_to_subsystem(&payload.alter_id.to_string(), &id)
             .await
             .map_err(|e| {
                 error!(
@@ -743,7 +745,7 @@ pub async fn change_member(
 
         audit::record_with_metadata(
             &db,
-            Some(user.id),
+            Some(user.id.clone()),
             "subsystem.member.add",
             Some("subsystem"),
             Some(&id.to_string()),
@@ -751,7 +753,7 @@ pub async fn change_member(
         )
         .await;
     } else {
-        db.remove_alter_from_subsystem(payload.alter_id, id)
+        db.remove_alter_from_subsystem(&payload.alter_id.to_string(), &id)
             .await
             .map_err(|e| {
                 error!(
@@ -773,7 +775,7 @@ pub async fn change_member(
 
         audit::record_with_metadata(
             &db,
-            Some(user.id),
+            Some(user.id.clone()),
             "subsystem.member.remove",
             Some("subsystem"),
             Some(&id.to_string()),
@@ -782,7 +784,7 @@ pub async fn change_member(
         .await;
     }
 
-    let members = db.list_alters_in_subsystem(id).await.map_err(|e| {
+    let members = db.list_alters_in_subsystem(&id).await.map_err(|e| {
         error!(
             user_id = %user.id,
             subsystem_id = %id,
@@ -810,7 +812,7 @@ pub async fn change_member(
 pub async fn list_members(
     Extension(_user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Result<Json<MembersOut>, AppError> {
     debug!(
         user_id = %_user.id,
@@ -818,7 +820,7 @@ pub async fn list_members(
         "Listing subsystem members"
     );
 
-    let members = db.list_alters_in_subsystem(id).await.map_err(|e| {
+    let members = db.list_alters_in_subsystem(&id).await.map_err(|e| {
         error!(
             user_id = %_user.id,
             subsystem_id = %id,

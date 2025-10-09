@@ -4,7 +4,7 @@ use anyhow::Result;
 pub async fn update_entity(
     db: &Db,
     table: &str,
-    id: i64,
+    id: &str,
     body: &serde_json::Value,
     fields: &[&str],
 ) -> Result<()> {
@@ -52,7 +52,7 @@ pub async fn update_entity(
     Ok(())
 }
 
-pub async fn delete_entity(db: &Db, table: &str, id: i64) -> Result<bool> {
+pub async fn delete_entity(db: &Db, table: &str, id: &str) -> Result<bool> {
     let res = sqlx::query(&format!("DELETE FROM {} WHERE id=?1", table))
         .bind(id)
         .execute(&db.pool)

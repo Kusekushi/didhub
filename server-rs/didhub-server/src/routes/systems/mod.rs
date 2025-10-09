@@ -55,14 +55,14 @@ pub async fn list_systems(
 pub async fn get_system(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
-    Path(uid): Path<i64>,
+    Path(uid): Path<String>,
 ) -> Result<Json<SystemDetail>, AppError> {
     // Users can only view their own system unless they are admin
     if !user.is_admin && user.id != uid {
         return Err(AppError::Forbidden);
     }
     let requested_user = db
-        .fetch_user_by_id(uid)
+        .fetch_user_by_id(&uid)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
@@ -71,7 +71,7 @@ pub async fn get_system(
     }
 
     let detail = db
-        .get_system_detail(uid)
+        .get_system_detail(&uid.to_string())
         .await
         .map_err(|_| AppError::Internal)?;
 

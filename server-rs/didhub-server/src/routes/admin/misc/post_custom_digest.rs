@@ -70,7 +70,7 @@ pub async fn post_custom_digest(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.clone()),
         "digest.birthdays.custom",
         Some("digest"),
         None,

@@ -114,7 +114,7 @@ where
             .and_then(|h| h.to_str().ok())
             .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
             .unwrap_or_else(|| "anon".into());
-        let user_id = req.extensions().get::<CurrentUser>().map(|u| u.id);
+        let user_id = req.extensions().get::<CurrentUser>().map(|u| u.id.clone());
         Box::pin(async move {
             let resp = inner.call(req).await?;
             if resp.status() == StatusCode::TOO_MANY_REQUESTS {
@@ -244,7 +244,7 @@ where
                     tokio::spawn(async move {
                         audit::record_with_metadata(
                             &db_for_audit,
-                            audit_user,
+                            audit_user.map(|id| id.to_string()),
                             "rate_limit.denied",
                             Some("route"),
                             Some(path_clone.as_str()),
