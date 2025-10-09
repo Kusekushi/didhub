@@ -1,6 +1,9 @@
-  async {{ method_name }}({{ param_list }}): Promise<any> {
+  async {{ method_name }}({{ param_list }}{% if method in ['POST', 'PUT', 'PATCH'] %}{% if param_list %}, {% endif %}body?: any{% endif %}): Promise<any> {
     return this.http.request({
       path: {{ path_expr }},
       method: '{{ method }}',
+{% if method in ['POST', 'PUT', 'PATCH'] %}
+      body: body,
+{% endif %}
     });
   }

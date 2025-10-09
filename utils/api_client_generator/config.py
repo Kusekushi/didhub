@@ -14,6 +14,7 @@ ROUTE_FILES = [
     "src/router/auth_routes.rs",
     "src/router/protected_routes.rs",
     "src/router/admin_routes.rs",
+    "src/router/builder.rs",
 ]
 
 # Module mapping for path prefixes

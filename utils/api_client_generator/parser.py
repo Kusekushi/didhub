@@ -3,8 +3,8 @@ Rust route parser for extracting API endpoints from Axum route definitions.
 """
 
 import re
-import sys
 from collections import defaultdict
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -14,12 +14,20 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config import MODULE_MAP, ROUTE_FILES, VALID_HTTP_METHODS
 from models import ApiModule, Endpoint
 
+# Tree-sitter imports
+import tree_sitter
+from tree_sitter import Language, Parser
+import tree_sitter_rust as tsrust
+
 
 class RustRouteParser:
     """Parses Rust route definitions from Axum router code"""
 
     def __init__(self, server_root: Path):
         self.server_root = server_root
+        # Set up tree-sitter parser
+        self.parser = Parser()
+        self.parser.language = Language(tsrust.language())
 
     def parse_routes(self) -> List[ApiModule]:
         """Parse all route files and return organized API modules"""
@@ -39,64 +47,91 @@ class RustRouteParser:
         return sorted(api_modules, key=lambda m: m.name)
 
     def _parse_route_file(self, file_path: Path, modules: Dict[str, List[Endpoint]]):
-        """Parse a single route file"""
+        """Parse a single route file using tree-sitter"""
         content = file_path.read_text()
-
+        
         # Determine auth level from filename
         auth_required = "protected" in file_path.name or "admin" in file_path.name
         is_admin = "admin" in file_path.name
 
-        # Find route definitions - handle multi-line routes
-        lines = content.split('\n')
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            if line.startswith('.route('):
-                # Parse multi-line route definition
-                path, methods_str, lines_consumed = self._parse_multiline_route(lines[i:])
-                i += lines_consumed
+        # Parse with tree-sitter
+        tree = self.parser.parse(bytes(content, 'utf-8'))
+        root = tree.root_node
 
-                if path and methods_str:
-                    # Parse methods and handlers
-                    method_handlers = self._parse_method_handlers(methods_str)
+        # Find all call expressions that are method calls to 'route'
+        for node in self._traverse_tree(root):
+            if node.type == 'call_expression':
+                method_call = self._extract_method_call(node)
+                if method_call and method_call['method'] == 'route':
+                    path, methods_str = self._extract_route_args(method_call['args'])
+                    if path and methods_str:
+                        # Parse methods and handlers
+                        method_handlers = self._parse_method_handlers(methods_str)
 
-                    for method, handler in method_handlers:
-                        endpoint = Endpoint(
-                            path=path,
-                            method=method.upper(),
-                            handler=handler,
-                            auth_required=auth_required,
-                            is_admin=is_admin
-                        )
+                        for method, handler in method_handlers:
+                            endpoint = Endpoint(
+                                path=path,
+                                method=method.upper(),
+                                handler=handler,
+                                auth_required=auth_required,
+                                is_admin=is_admin
+                            )
 
-                        # Determine module from path
-                        module_name = self._determine_module_from_path(path)
-                        modules[module_name].append(endpoint)
-            else:
-                i += 1
+                            # Determine module from path
+                            module_name = self._determine_module_from_path(path)
+                            modules[module_name].append(endpoint)
 
-    def _parse_multiline_route(self, lines: List[str]) -> Tuple[Optional[str], Optional[str], int]:
-        """Parse a multi-line route definition"""
-        route_content = ""
-        paren_count = 0
-        i = 0
+    def _traverse_tree(self, node):
+        """Traverse the AST tree"""
+        yield node
+        for child in node.children:
+            yield from self._traverse_tree(child)
 
-        for line in lines:
-            route_content += line.strip()
-            paren_count += line.count('(') - line.count(')')
+    def _extract_method_call(self, call_node):
+        """Extract method call information from a call_expression node"""
+        # Check if it's a method call (has a field expression before)
+        if call_node.parent and call_node.parent.type == 'field_expression':
+            field_expr = call_node.parent
+            if field_expr.child_by_field_name('field') and field_expr.child_by_field_name('field').text.decode('utf-8') == 'route':
+                # Get arguments
+                args = []
+                arguments_node = call_node.child_by_field_name('arguments')
+                if arguments_node:
+                    for arg in arguments_node.children:
+                        if arg.type not in ['(', ')', ',']:
+                            args.append(arg)
+                return {'method': 'route', 'args': args}
+        return None
 
-            if paren_count == 0 and route_content.strip().endswith(')'):
-                break
-            i += 1
+    def _extract_route_args(self, args):
+        """Extract path and methods from route call arguments"""
+        if len(args) >= 2:
+            path_node = args[0]
+            methods_node = args[1]
+            
+            # Extract path string
+            path = self._extract_string_literal(path_node)
+            
+            # Extract methods string (this is more complex, need to reconstruct the method call)
+            methods_str = self._extract_method_call_text(methods_node)
+            
+            return path, methods_str
+        return None, None
 
-        # Extract path and methods from .route("path", methods...)
-        route_match = re.search(r'\.route\(\s*["\']([^"\']+)["\']\s*,\s*(.+)\)', route_content)
-        if route_match:
-            path = route_match.group(1)
-            methods_str = route_match.group(2).rstrip(')')
-            return path, methods_str, i + 1
+    def _extract_string_literal(self, node):
+        """Extract string literal value"""
+        if node.type == 'string_literal':
+            text = node.text.decode('utf-8')
+            # Remove quotes
+            if text.startswith('"') and text.endswith('"'):
+                return text[1:-1]
+            elif text.startswith("'") and text.endswith("'"):
+                return text[1:-1]
+        return None
 
-        return None, None, i + 1
+    def _extract_method_call_text(self, node):
+        """Extract the text of a method call node"""
+        return node.text.decode('utf-8')
 
     def _parse_method_handlers(self, methods_str: str) -> List[Tuple[str, str]]:
         """Parse method-handler pairs like 'get(handler).post(other_handler)'"""
@@ -120,11 +155,11 @@ class RustRouteParser:
         return pairs
 
     def _extract_method_handler(self, method_handler_str: str) -> Tuple[Optional[str], Optional[str]]:
-        """Extract method and handler from 'method(handler)'"""
+        """Extract method and handler from 'method(handler)' or 'method(handler),'"""
         for method in VALID_HTTP_METHODS:
             if method_handler_str.startswith(method + '('):
-                # Extract handler from method(handler)
-                handler_match = re.match(rf'{method}\(\s*([^)]+)\s*\)', method_handler_str)
+                # Extract handler from method(handler) or method(handler),
+                handler_match = re.match(rf'{method}\(\s*([^)]+)\s*\),?', method_handler_str)
                 if handler_match:
                     return method, handler_match.group(1)
         return None, None
