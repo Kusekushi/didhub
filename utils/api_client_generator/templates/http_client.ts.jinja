@@ -1,0 +1,210 @@
+export class HttpClient {
+  private readonly baseUrl: string;
+  private readonly credentials?: RequestCredentials;
+  private readonly defaultHeaders: HeadersInit | undefined;
+
+  constructor(config: HttpClientConfig = {}) {
+    this.baseUrl = config.baseUrl ?? '';
+    this.credentials = config.credentials;
+    this.defaultHeaders = config.defaultHeaders;
+  }
+
+  async request<T = unknown>(options: RequestOptions): Promise<HttpResponse<T>> {
+    const method: HttpMethod = (options.method ?? 'GET').toUpperCase() as HttpMethod;
+    const url = this.buildUrl(options.path, options.query);
+    const headers = new Headers(this.defaultHeaders);
+    const debugEnabled = isHttpDebugEnabled();
+    const requestId = debugEnabled ? ++httpRequestCounter : 0;
+    const startedAt = debugEnabled ? Date.now() : 0;
+
+    if (options.headers) {
+      new Headers(options.headers).forEach((value, key) => headers.set(key, value));
+    }
+
+    const init: RequestInit = {
+      method,
+      headers,
+      credentials: options.credentials ?? this.credentials ?? 'include',
+      cache: 'no-store',
+    };
+
+    const shouldAttachAuth = options.auth ?? options.path.startsWith('/api');
+    if (shouldAttachAuth) {
+      const token = getStoredToken();
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', 'Bearer ' + token);
+      }
+    }
+
+    if (options.json !== undefined) {
+      if (!headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+      }
+      init.body = JSON.stringify(options.json);
+    } else if (options.body instanceof FormData) {
+      init.body = options.body;
+    } else if (options.body !== undefined) {
+      init.body = options.body as BodyInit;
+    }
+
+    if (
+      shouldAttachAuth &&
+      MUTATING_METHODS.includes(method) &&
+      typeof document !== 'undefined' &&
+      !headers.has('x-csrf-token')
+    ) {
+      const csrf = readCsrfToken();
+      if (csrf) headers.set('x-csrf-token', csrf);
+    }
+
+    if (debugEnabled) {
+      recordHttpDebug({
+        event: 'start',
+        id: requestId,
+        ts: startedAt,
+        method,
+        url,
+        path: options.path,
+        query: options.query ?? null,
+        hasJsonBody: typeof options.json !== 'undefined',
+        hasBody: typeof options.body !== 'undefined',
+        headers: Array.from(headers.entries()),
+      });
+    }
+
+    let response: Response;
+    let text = '';
+    try {
+      response = await fetch(url, init);
+      const parseMode = options.parse ?? 'json';
+
+      // Only read response body as text if we need to parse it
+      if (parseMode !== 'none') {
+        text = await response.text();
+      }
+    } catch (error) {
+      if (debugEnabled) {
+        recordHttpDebug({
+          event: 'error',
+          id: requestId,
+          ts: Date.now(),
+          method,
+          url,
+          path: options.path,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      throw error;
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    const parseMode = options.parse ?? 'json';
+    let data: unknown = undefined;
+
+    if (parseMode === 'json') {
+      if (text.length === 0) {
+        data = null;
+      } else {
+        try {
+          data = JSON.parse(text);
+        } catch (error) {
+          if (contentType.includes('application/json')) {
+            throw new ApiError('Failed to parse JSON response', {
+              status: response.status,
+              data: undefined,
+              response,
+              url,
+            });
+          }
+          data = null;
+        }
+      }
+    } else if (parseMode === 'text') {
+      data = text;
+    }
+
+    if (parseMode === 'none') {
+      data = undefined;
+    }
+
+    if (data && typeof data === 'object' && (data as { code?: string }).code === 'must_change_password') {
+      try {
+        window.dispatchEvent(new CustomEvent('didhub:must-change-password'));
+      } catch {}
+    }
+
+    if (response.status === 401) {
+      try {
+        window.dispatchEvent(new CustomEvent('didhub:unauthorized'));
+      } catch {}
+    }
+
+    const ok = response.ok;
+    const accept = options.acceptStatuses ?? [];
+    const shouldThrow = options.throwOnError !== false && !ok && !accept.includes(response.status);
+
+    if (debugEnabled) {
+      const finishedAt = Date.now();
+      recordHttpDebug({
+        event: 'complete',
+        id: requestId,
+        ts: finishedAt,
+        durationMs: finishedAt - startedAt,
+        method,
+        url,
+        path: options.path,
+        status: response.status,
+        ok,
+        parseMode,
+        responseLength: text.length,
+        responsePreview: text.length > 160 ? `${text.slice(0, 160)}…` : text,
+      });
+    }
+
+    if (shouldThrow) {
+      throw new ApiError(response.statusText || 'API request failed', {
+        status: response.status,
+        data: data as T,
+        response,
+        url,
+      });
+    }
+
+    return {
+      status: response.status,
+      ok,
+      data: data as T,
+      raw: response,
+      headers: response.headers,
+      url,
+      text,
+    };
+  }
+
+  private buildUrl(path: string, query?: QueryParams): string {
+    const base = this.baseUrl ? this.baseUrl.replace(/\/$/, '') : '';
+    const resolvedPath =
+      path.startsWith('http://') || path.startsWith('https://')
+        ? path
+        : `${base}${path.startsWith('/') ? path : `/${path}`}`;
+
+    if (!query || Object.keys(query).length === 0) return resolvedPath;
+    const searchParams = new URLSearchParams();
+
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          if (item === undefined || item === null) return;
+          searchParams.append(key, String(item));
+        });
+        return;
+      }
+      searchParams.append(key, String(value));
+    });
+
+    const queryString = searchParams.toString();
+    if (!queryString) return resolvedPath;
+    return `${resolvedPath}${resolvedPath.includes('?') ? '&' : '?'}${queryString}`;
+  }
+}

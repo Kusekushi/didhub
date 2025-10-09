@@ -18,7 +18,13 @@ import { join } from 'node:path';
 
 function run(cmd, opts = {}) {
   console.log('\n>>', cmd);
-  execSync(cmd, { stdio: 'inherit', ...opts });
+  try {
+    execSync(cmd, { stdio: 'inherit', ...opts });
+  } catch (error) {
+    console.error(`Command failed: ${cmd}`);
+    console.error(error.message);
+    throw error;
+  }
 }
 
 const root = process.cwd();
@@ -45,14 +51,19 @@ const outRoot = join(root, 'dist', 'release');
 const relDir = `didhub-${version}-${stamp}`;
 const dest = join(outRoot, relDir);
 
-if (!existsSync(outRoot)) mkdirSync(outRoot, { recursive: true });
 console.log('Output dir:', dest);
 if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
 mkdirSync(dest, { recursive: true });
+console.log('Created output directory');
 
-// 1. Build frontend
+// 1. Generate and build API client
+console.log('Step 1: Generating API client...');
+run('pnpm run generate-api-client');
+console.log('Step 1: Building API client...');
 run('pnpm run build:api-client');
+console.log('Step 1: Building family tree...');
 run('pnpm run build:family-tree');
+console.log('Step 1: Building frontend...');
 run('pnpm run build:frontend');
 
 // 1.5. Generate license files
@@ -63,8 +74,13 @@ if (existsSync(join(root, 'static'))) {
   // Ensure server-rs/static exists and copy built frontend there so include_dir! sees it
   const serverStatic = join(root, 'server-rs', 'static');
   try {
+    // Clean any existing static files first
+    if (existsSync(serverStatic)) {
+      rmSync(serverStatic, { recursive: true, force: true });
+    }
     mkdirSync(serverStatic, { recursive: true });
     cpSync(join(root, 'static'), serverStatic, { recursive: true });
+    console.log('Static assets copied to server-rs/static for embedding');
   } catch (e) {
     console.warn('failed copying static to server-rs/static (continuing):', e.message);
   }
@@ -73,13 +89,28 @@ if (existsSync(join(root, 'static'))) {
 // 3. Build Rust binary (release)
 run('cargo build --release --manifest-path server-rs/Cargo.toml --features embed_static,updater');
 
-// 4. Copy binary
+// 4. Verify binaries exist before copying
 const binName = process.platform === 'win32' ? 'didhub-server.exe' : 'didhub-server';
-copyFileSync(join(root, 'server-rs', 'target', 'release', binName), join(dest, binName));
+const binPath = join(root, 'server-rs', 'target', 'release', binName);
+if (!existsSync(binPath)) {
+  throw new Error(`Rust binary not found: ${binPath}`);
+}
+
+// 5. Copy binaries
+copyFileSync(binPath, join(dest, binName));
 const seedBinName = process.platform === 'win32' ? 'seed.exe' : 'seed';
-copyFileSync(join(root, 'server-rs', 'target', 'release', seedBinName), join(dest, seedBinName));
+const seedBinPath = join(root, 'server-rs', 'target', 'release', seedBinName);
+if (!existsSync(seedBinPath)) {
+  throw new Error(`Seed binary not found: ${seedBinPath}`);
+}
+copyFileSync(seedBinPath, join(dest, seedBinName));
+
 const configGenBinName = process.platform === 'win32' ? 'config_generator.exe' : 'config_generator';
-copyFileSync(join(root, 'server-rs', 'target', 'release', configGenBinName), join(dest, configGenBinName));
+const configGenBinPath = join(root, 'server-rs', 'target', 'release', configGenBinName);
+if (!existsSync(configGenBinPath)) {
+  throw new Error(`Config generator binary not found: ${configGenBinPath}`);
+}
+copyFileSync(configGenBinPath, join(dest, configGenBinName));
 
 // 5. Copy static assets (already built into static/) (skipped)
 // if (existsSync(join(root,'static'))) {
@@ -97,6 +128,22 @@ writeFileSync(join(dest, 'VERSION'), version + '\n');
 copyFileSync(join(root, 'docs', 'running.md'), join(dest, 'RUN.md'));
 
 console.log('Release bundle created at', dest);
+console.log('\nContents:');
+readdirSync(dest).forEach(file => {
+  const stat = statSync(join(dest, file));
+  console.log(`  ${file}${stat.isDirectory() ? '/' : ''}`);
+});
+
+// 9. Clean up temporary static files
+const serverStatic = join(root, 'server-rs', 'static');
+if (existsSync(serverStatic)) {
+  try {
+    rmSync(serverStatic, { recursive: true, force: true });
+    console.log('Cleaned up temporary static files from server-rs/static');
+  } catch (e) {
+    console.warn('Failed to clean up server-rs/static (continuing):', e.message);
+  }
+}
 
 // 9. SBOM generation (Syft) if syft present
 try {

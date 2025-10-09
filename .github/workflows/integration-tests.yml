@@ -107,6 +107,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.1
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -140,6 +142,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.1
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -179,6 +183,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.1
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -212,6 +218,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.1
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -256,6 +264,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.1
 
       - name: Setup Node
         uses: actions/setup-node@v5

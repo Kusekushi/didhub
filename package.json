@@ -4,8 +4,8 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-  "build": "pnpm run build:api-client && pnpm run build:family-tree && pnpm run build:frontend && pnpm run generate-licenses",
-  "test": "pnpm run test:family-tree && pnpm run test:frontend && pnpm run test:api-client",
+    "build": "pnpm run generate-api-client && pnpm run build:api-client && pnpm run build:family-tree && pnpm run build:frontend && pnpm run generate-licenses",
+    "test": "pnpm run test:family-tree && pnpm run test:frontend && pnpm run test:api-client",
     "test:e2e": "pnpm --stream -r run test:e2e",
     "// Per-package": "//////////////////////////////////////////////////////////////////////////////////",
     "build:frontend": "pnpm -C packages/frontend run build",
@@ -30,12 +30,13 @@
     "lint:ci": "pnpm --stream -r run lint:ci",
     "license-check": "pnpm licenses -P ls",
     "generate-licenses": "cd packages/frontend && pnpm exec license-checker --production --json > ../../static/licenses-frontend.json && cd ../../server-rs && cargo license --json --all-features > ../static/licenses-backend.json && cd .. && node scripts/copy-licenses.js",
+    "generate-api-client": "python \"utils/api_client_generator/main.py\" --server-root \"server-rs/didhub-server\" --output-dir \"packages/api-client/src\"",
     "bundle:release": "node scripts/bundle-release.mjs"
   },
   "devDependencies": {
     "minimist": "^1.2.8",
-    "concurrently": "^8.2.0",
-    "cross-env": "^7.0.3"
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0"
   },
-  "packageManager": "pnpm@10.16.1"
+  "packageManager": "pnpm@10.18.1"
 }

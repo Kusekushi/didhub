@@ -1,0 +1,38 @@
+// Auto-generated API client - do not edit manually
+
+import { ApiError, HttpClient, HttpClientConfig, HttpResponse, RequestOptions } from './core/HttpClient';
+
+export interface ApiClientModules {
+{% for module in api_modules %}
+  {{ module.name.lower() }}s: {{ module.name }}Api;
+{% endfor %}
+}
+
+export class ApiClient implements ApiClientModules {
+  readonly http: HttpClient;
+{% for module in api_modules %}
+  readonly {{ module.name.lower() }}s: {{ module.name }}Api;
+{% endfor %}
+
+  constructor(config: HttpClientConfig = {}) {
+    this.http = new HttpClient(config);
+{% for module in api_modules %}
+    this.{{ module.name.lower() }}s = new {{ module.name }}Api(this.http);
+{% endfor %}
+  }
+}
+
+{% for module in api_modules %}
+export class {{ module.name }}Api {
+  constructor(private readonly http: HttpClient) {}
+
+{% for method in module.methods %}{{ method }}{% endfor %}
+}
+
+{% endfor %}
+
+export function createApiClient(config: HttpClientConfig = {}): ApiClient {
+  return new ApiClient(config);
+}
+
+export const apiClient = new ApiClient();

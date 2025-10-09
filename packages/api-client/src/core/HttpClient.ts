@@ -1,4 +1,5 @@
-import { ApiError } from './ApiError';
+// Auto-generated HttpClient - do not edit manually
+
 import { getStoredToken, readCsrfToken } from '../utils/storage';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
@@ -150,121 +151,66 @@ export class HttpClient {
         ts: startedAt,
         method,
         url,
-        path: options.path,
-        query: options.query ?? null,
-        hasJsonBody: typeof options.json !== 'undefined',
-        hasBody: typeof options.body !== 'undefined',
-        headers: Array.from(headers.entries()),
+        headers: Object.fromEntries(headers.entries()),
       });
     }
 
     let response: Response;
-    let text = '';
     try {
       response = await fetch(url, init);
-      const parseMode = options.parse ?? 'json';
-      
-      // Only read response body as text if we need to parse it
-      if (parseMode !== 'none') {
-        text = await response.text();
-      }
     } catch (error) {
       if (debugEnabled) {
         recordHttpDebug({
           event: 'error',
           id: requestId,
           ts: Date.now(),
-          method,
-          url,
-          path: options.path,
-          message: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.message : String(error),
         });
       }
       throw error;
     }
 
-    const contentType = response.headers.get('content-type') ?? '';
-    const parseMode = options.parse ?? 'json';
-    let data: unknown = undefined;
+    const responseText = await response.text();
+    let responseData: unknown = responseText;
 
-    if (parseMode === 'json') {
-      if (text.length === 0) {
-        data = null;
-      } else {
-        try {
-          data = JSON.parse(text);
-        } catch (error) {
-          if (contentType.includes('application/json')) {
-            throw new ApiError('Failed to parse JSON response', {
-              status: response.status,
-              data: undefined,
-              response,
-              url,
-            });
-          }
-          data = null;
-        }
+    const parse = options.parse ?? 'json';
+    if (parse === 'json' && responseText) {
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        // If JSON parsing fails, keep as text
       }
-    } else if (parseMode === 'text') {
-      data = text;
     }
 
-    if (parseMode === 'none') {
-      data = undefined;
-    }
-
-    if (data && typeof data === 'object' && (data as { code?: string }).code === 'must_change_password') {
-      try {
-        window.dispatchEvent(new CustomEvent('didhub:must-change-password'));
-      } catch {}
-    }
-
-    if (response.status === 401) {
-      try {
-        window.dispatchEvent(new CustomEvent('didhub:unauthorized'));
-      } catch {}
-    }
-
-    const ok = response.ok;
-    const accept = options.acceptStatuses ?? [];
-    const shouldThrow = options.throwOnError !== false && !ok && !accept.includes(response.status);
-
-    if (debugEnabled) {
-      const finishedAt = Date.now();
-      recordHttpDebug({
-        event: 'complete',
-        id: requestId,
-        ts: finishedAt,
-        durationMs: finishedAt - startedAt,
-        method,
-        url,
-        path: options.path,
-        status: response.status,
-        ok,
-        parseMode,
-        responseLength: text.length,
-        responsePreview: text.length > 160 ? `${text.slice(0, 160)}…` : text,
-      });
-    }
-
-    if (shouldThrow) {
-      throw new ApiError(response.statusText || 'API request failed', {
-        status: response.status,
-        data: data as T,
-        response,
-        url,
-      });
-    }
-
-    return {
+    const httpResponse: HttpResponse<T> = {
       status: response.status,
-      ok,
-      data: data as T,
+      ok: response.ok,
+      data: responseData as T,
       raw: response,
       headers: response.headers,
       url,
-      text,
+      text: responseText,
     };
+
+    if (debugEnabled) {
+      recordHttpDebug({
+        event: 'complete',
+        id: requestId,
+        ts: Date.now(),
+        status: response.status,
+        duration: Date.now() - startedAt,
+        size: responseText.length,
+      });
+    }
+
+    const acceptStatuses = options.acceptStatuses ?? [200, 201, 202, 204];
+    const shouldThrow = options.throwOnError ?? !acceptStatuses.includes(response.status);
+
+    if (shouldThrow && !response.ok) {
+      throw new ApiError(httpResponse);
+    }
+
+    return httpResponse;
   }
 
   private buildUrl(path: string, query?: QueryParams): string {
@@ -289,8 +235,16 @@ export class HttpClient {
       searchParams.append(key, String(value));
     });
 
-    const queryString = searchParams.toString();
-    if (!queryString) return resolvedPath;
-    return `${resolvedPath}${resolvedPath.includes('?') ? '&' : '?'}${queryString}`;
+    return `${resolvedPath}?${searchParams.toString()}`;
+  }
+}
+
+export class ApiError extends Error {
+  public readonly response: HttpResponse;
+
+  constructor(response: HttpResponse) {
+    super(`HTTP ${response.status}: ${response.text}`);
+    this.name = 'ApiError';
+    this.response = response;
   }
 }

@@ -1,0 +1,48 @@
+"""
+Configuration and constants for the API client generator.
+"""
+
+from pathlib import Path
+
+# Default paths
+DEFAULT_SERVER_ROOT = Path("../../server-rs/didhub-server")
+DEFAULT_OUTPUT_DIR = Path("../../packages/api-client/src")
+GENERATED_FILE_NAME = "generated-client.ts"
+
+# Route files to parse
+ROUTE_FILES = [
+    "src/router/auth_routes.rs",
+    "src/router/protected_routes.rs",
+    "src/router/admin_routes.rs",
+]
+
+# Module mapping for path prefixes
+MODULE_MAP = {
+    'alters': 'Alter',
+    'groups': 'Group',
+    'systems': 'Subsystem',
+    'subsystems': 'Subsystem',
+    'me': 'User',
+    'upload': 'Files',
+    'auth': 'User',
+    'oidc': 'OIDC',
+    'password-reset': 'User',
+    'health': 'misc',
+    'metrics': 'misc',
+    'uploads': 'misc',
+    's': 'misc',
+    'assets': 'misc',
+    'posts': 'Post',
+    'pdf': 'Report',
+    'users': 'Admin',
+    'system-requests': 'Admin',
+    'settings': 'Admin',
+    'admin': 'Admin',
+    'audit': 'Admin',
+    'housekeeping': 'Admin',
+    'version': 'misc',
+    'debug': 'misc',
+}
+
+# HTTP methods to recognize
+VALID_HTTP_METHODS = {'get', 'post', 'put', 'delete', 'patch', 'head', 'options'}

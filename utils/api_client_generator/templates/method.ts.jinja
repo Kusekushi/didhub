@@ -1,0 +1,6 @@
+  async {{ method_name }}({{ param_list }}): Promise<any> {
+    return this.http.request({
+      path: {{ path_expr }},
+      method: '{{ method }}',
+    });
+  }
