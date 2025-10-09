@@ -1,10 +1,11 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
-import { Home, Login } from '@mui/icons-material';
+import { Home } from '@mui/icons-material';
 
 import Admin from '../../features/admin/Admin';
 import AwaitingApproval from '../../features/auth/AwaitingApproval';
+import Login from '../../features/auth/Login';
 import SignUp from '../../features/auth/SignUp';
 import Birthdays from '../../features/birthdays/Birthdays';
 import UserSettings from '../../features/settings/UserSettings';
