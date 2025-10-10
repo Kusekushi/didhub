@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 
-import { apiClient, getTokenExp } from '@didhub/api-client';
-import type { User } from '@didhub/api-client';
+import { apiClient, getTokenExp, ApiError } from '@didhub/api-client';
+import type { ApiUser } from '@didhub/api-client';
 import { getMe } from '../hooks/useMe';
 
 /**
@@ -9,9 +9,9 @@ import { getMe } from '../hooks/useMe';
  */
 type AuthContextShape = {
   /** Current authenticated user or null if not logged in */
-  user: User | null;
+  user: ApiUser | null;
   /** Function to manually set the current user */
-  setUser: (u: User | null) => void;
+  setUser: (u: ApiUser | null) => void;
   /** Function to refetch the current user from the server */
   refetchUser: () => Promise<void>;
   /** Whether the user must change their password */
@@ -20,7 +20,7 @@ type AuthContextShape = {
   login: (
     username: string,
     password: string,
-  ) => Promise<{ ok: boolean; user?: User | null; error?: string | null; pending?: boolean }>;
+  ) => Promise<{ ok: boolean; user?: ApiUser; pending?: boolean; error?: string | null }>;
   /** Logout function */
   logout: () => Promise<void>;
   /** Register function */
@@ -47,10 +47,10 @@ const AuthContext = createContext<AuthContextShape | null>(null);
  * @returns The provider component wrapping children
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [me, setMe] = useState<User | null>(() => {
+  const [me, setMe] = useState<ApiUser | null>(() => {
     try {
       const raw = localStorage.getItem('didhub_me');
-      return raw ? (JSON.parse(raw) as User) : null;
+      return raw ? (JSON.parse(raw) as ApiUser) : null;
     } catch {
       return null;
     }
@@ -148,36 +148,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [me]);
   async function login(username: string, password: string) {
-    const result = await apiClient.users.post_auth_login({ username, password });
-    if (result.ok) {
-      const session = await apiClient.users.me();
-      const user = session.ok ? session.data as User : null;
-      setMe(user);
-      if (user && user.must_change_password) setMustChange(true);
-      initTokenState();
-      return { ok: true, user };
-    }
+    try {
+      const result = await apiClient.users.post_auth_login({ username, password });
+      if (result.ok) {
+        const session = await apiClient.users.get_me();
+        const user = session.ok ? session.data as ApiUser : null;
+        setMe(user);
+        if (user && user.must_change_password) setMustChange(true);
+        initTokenState();
+        return { ok: true, user };
+      }
 
-    const data = result.data as any;
-    const code = data?.code;
-    if (code === 'not_approved') {
-      return {
-        ok: false,
-        pending: true,
-        error: data?.error ?? 'Account awaiting approval',
-      };
-    }
+      const data = result.data as any;
+      const code = data?.code;
+      if (code === 'not_approved') {
+        return {
+          ok: false,
+          pending: true,
+          error: data?.error ?? 'Account awaiting approval',
+        };
+      }
 
-    return { ok: false, error: data?.error ?? null };
+      return { ok: false, error: data?.error ?? null };
+    } catch (error) {
+      // Handle API errors (non-2xx responses)
+      if (error instanceof ApiError) {
+        const data = error.data as any;
+        const code = data?.code;
+        if (code === 'not_approved') {
+          return {
+            ok: false,
+            pending: true,
+            error: data?.error ?? 'Account awaiting approval',
+          };
+        }
+        return { ok: false, error: data?.error ?? error.message ?? 'Login failed' };
+      }
+      // Handle unexpected errors
+      return { ok: false, error: 'An unexpected error occurred' };
+    }
   }
   async function register(username: string, password: string, is_system = false) {
-    const r = await apiClient.users.post_auth_register({ username, password, is_system });
-    if (r.ok) {
-      // Account created. Because new accounts require admin approval, don't auto-login.
-      return { ok: true, pending: true };
+    try {
+      const r = await apiClient.users.post_auth_register({ username, password, is_system });
+      if (r.ok) {
+        // Account created. Because new accounts require admin approval, don't auto-login.
+        return { ok: true, pending: true };
+      }
+      const data = r.data as any;
+      return { ok: false, error: data?.error ?? data?.message ?? null };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const data = error.data as any;
+        return { ok: false, error: data?.error ?? data?.message ?? error.message ?? null };
+      }
+      return { ok: false, error: 'An unexpected error occurred' };
     }
-    const data = r.data as any;
-    return { ok: false, error: data?.error ?? data?.message ?? null };
   }
   async function logout() {
     setMe(null);
@@ -193,8 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (res.ok) {
       setMustChange(false);
       try {
-        const m = await apiClient.users.me();
-        setMe(m.ok ? m.data as User : null);
+        const m = await apiClient.users.get_me();
+        setMe(m.ok ? m.data as ApiUser : null);
       } catch {
         // Ignore fetch errors
       }
