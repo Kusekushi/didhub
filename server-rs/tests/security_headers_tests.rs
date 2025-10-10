@@ -1,4 +1,4 @@
-use didhub_server::{build_router, db::Db, config::AppConfig};
+use didhub_server::{db::Db, config::AppConfig};
 use tower::ServiceExt;
 use axum::http::Request;
 use axum::body::Body;
@@ -16,7 +16,8 @@ async fn security_headers_present() {
     let mut cfg = AppConfig::default_for_tests();
     cfg.content_security_policy = Some("default-src 'self'".into());
     cfg.enable_hsts = true; // tests run http but we can still set header
-    let app = build_router(db, cfg).await;
+    let app_components = didhub_server::build_app(db, cfg).await;
+    let app = app_components.router;
     let resp = app.clone().oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap()).await.unwrap();
     assert!(resp.headers().get("X-Frame-Options").is_some());
     assert!(resp.headers().get("X-Content-Type-Options").is_some());

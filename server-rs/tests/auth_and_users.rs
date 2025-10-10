@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::{Db, UpdateUserFields}};
+use didhub_server::{config::AppConfig, db::{Db, UpdateUserFields}};
 use axum::{body::{Body, self}, http::{Request, StatusCode}};
 use tower::util::ServiceExt; // oneshot
 use serde_json::json;
@@ -63,7 +63,8 @@ async fn auth_register_login_and_me() {
     sqlite_migrator().run(&pool).await.expect("run migrations");
     let db = Db::from_any_pool(pool, didhub_server::db::DbBackend::Sqlite, sqlite_url.clone());
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     let token = register_and_login(&db, &app, "auth_user", "pw", true).await;
 
@@ -88,7 +89,8 @@ async fn admin_user_routes() {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_path).await.expect("connect sqlite");
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // create admin and regular user
     let token_admin = register_and_login(&db, &app, "admin_u", "pw", true).await;

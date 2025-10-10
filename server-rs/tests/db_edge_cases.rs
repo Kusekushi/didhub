@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::Db, logging};
+use didhub_server::{config::AppConfig, db::Db, logging};
 use serde_json::json;
 use std::fs;
 use uuid::Uuid;
@@ -55,7 +55,8 @@ async fn auth_req(app: &axum::Router, method: axum::http::Method, path: &str, to
 async fn update_user_avatar_set_and_clear() {
     let (db, cfg) = new_test_db().await;
     logging::init(false);
-    let app = build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let app = app_components.router;
 
     // create a user directly
     let res = sqlx::query("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 0);")
@@ -106,7 +107,8 @@ async fn update_user_avatar_set_and_clear() {
 async fn replace_relationships_self_and_duplicates() {
     let (db, cfg) = new_test_db().await;
     logging::init(false);
-    let app = build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let app = app_components.router;
 
     // create two alters
     let res1 = sqlx::query("INSERT INTO alters (name, owner_user_id) VALUES (?, ?)")
@@ -144,7 +146,8 @@ async fn replace_relationships_self_and_duplicates() {
 async fn update_user_avatar_api_fields() {
     let (db, cfg) = new_test_db().await;
     logging::init(false);
-    let _app = build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let _app = app_components.router;
 
     // create a user via the public create_user helper
     let nu = didhub_server::db::NewUser { username: "avatar_api_user".into(), password_hash: "hash".into(), is_system: false, is_approved: false };

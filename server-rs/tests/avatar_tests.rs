@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::Db, logging};
+use didhub_server::{config::AppConfig, db::Db, logging};
 use axum::{body::{Body, self}, http::{Request, StatusCode}};
 use tower::ServiceExt;
 use serde_json::Value;
@@ -9,7 +9,8 @@ async fn setup() -> (axum::Router, String) {
     let db = Db::connect_with_file(&db_file).await.expect("connect sqlite");
     let mut cfg = AppConfig::default_for_tests();
     cfg.upload_dir = format!("uploads-test-{}", uuid::Uuid::new_v4());
-    let router = build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let router = app_components.router;
     // fetch CSRF cookie/token
     let health = router.clone().oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
     let cookie = health.headers().get("set-cookie").map(|h| h.to_str().unwrap().to_string()).unwrap_or_default();

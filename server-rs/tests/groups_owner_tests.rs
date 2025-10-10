@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::{Db, UpdateUserFields}, logging};
+use didhub_server::{config::AppConfig, db::{Db, UpdateUserFields}, logging};
 use axum::{body::{Body, self}, http::{Request, StatusCode}};
 use tower::util::ServiceExt; // oneshot
 use serde_json::json;
@@ -64,7 +64,8 @@ async fn admin_can_create_group_for_other_user() {
     sqlite_migrator().run(&pool).await.expect("run migrations");
     let db = Db::from_any_pool(pool, didhub_server::db::DbBackend::Sqlite, sqlite_url.clone());
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // register admin and target user
     let _tok_admin = register_and_login(&db, &app, "admin_u", "pw", true).await;
@@ -106,7 +107,8 @@ async fn nonadmin_cannot_create_for_other_but_can_create_for_self() {
     sqlite_migrator().run(&pool).await.expect("run migrations");
     let db = Db::from_any_pool(pool, didhub_server::db::DbBackend::Sqlite, sqlite_url.clone());
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // create two users
     let token_a = register_and_login(&db, &app, "user_a", "pw", true).await;

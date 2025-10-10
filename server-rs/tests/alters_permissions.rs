@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::Db};
+use didhub_server::{config::AppConfig, db::Db};
 use axum::{body::{Body, self}, http::{Request, StatusCode}};
 use tower::util::ServiceExt; // oneshot
 use serde_json::json;
@@ -133,7 +133,8 @@ async fn alters_visibility_matrix() {
     sqlite_migrator().run(&pool).await.expect("run migrations");
     let db = Db::from_any_pool(pool, didhub_server::db::DbBackend::Sqlite, sqlite_url.clone());
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // Diagnostic: attempt to create a user directly to surface DB errors quickly
     match db.create_user(didhub_server::db::NewUser { username: "diaguser".into(), password_hash: "x".into(), is_system: false, is_approved: false }).await {

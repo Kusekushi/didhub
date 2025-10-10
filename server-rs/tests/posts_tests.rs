@@ -1,4 +1,4 @@
-use didhub_server::{db::Db, config::AppConfig, build_router};
+use didhub_server::{db::Db, config::AppConfig};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
@@ -17,7 +17,8 @@ async fn setup() -> (Db, AppConfig, axum::Router) {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_file).await.expect("connect sqlite");
     let cfg = AppConfig::default_for_tests();
-    let app = build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let app = app_components.router;
     (db, cfg, app)
 }
 

@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::{Db, UpdateUserFields}};
+use didhub_server::{config::AppConfig, db::{Db, UpdateUserFields}};
 use axum::{http::{Request, StatusCode}, body::Body};
 use tower::ServiceExt; // oneshot
 use http_body_util::BodyExt;
@@ -11,7 +11,8 @@ async fn setup() -> (axum::Router, Db, String) {
     cfg.bootstrap_admin_username = Some("admin".into());
     cfg.bootstrap_admin_password = Some("adminpw".into());
     db.ensure_bootstrap_admin(&cfg).await.unwrap();
-    let router = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let router = app_components.router;
     // login admin
     let login = Request::builder().method("POST").uri("/api/auth/login").header("content-type","application/json")
         .body(Body::from(json!({"username":"admin","password":"adminpw"}).to_string())).unwrap();

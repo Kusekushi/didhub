@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::Db, logging};
+use didhub_server::{config::AppConfig, db::Db, logging};
 use axum::{body::{Body, self}, http::Request};
 use tower::ServiceExt;
 use serde_json::Value;
@@ -11,7 +11,8 @@ async fn setup() -> (axum::Router, String, String) {
     let pool = sqlx::any::AnyPoolOptions::new().max_connections(1).connect(&sqlite_url).await.expect("connect sqlite");
     let db = Db::from_any_pool(pool, didhub_server::db::DbBackend::Sqlite, sqlite_url.clone());
     let cfg = AppConfig::default_for_tests();
-    let router = build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let router = app_components.router;
     // register user
     let payload = serde_json::json!({"username":"guser","password":"pw","is_system":true});
     let res = router.clone().oneshot(Request::builder().method("POST").uri("/api/auth/register")

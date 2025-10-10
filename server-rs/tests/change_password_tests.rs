@@ -10,7 +10,8 @@ async fn setup() -> (Router, String) {
     let pool = sqlx::any::AnyPoolOptions::new().max_connections(1).connect(&sqlite_url).await.expect("connect sqlite");
     let db = Db::from_any_pool(pool, didhub_server::db::DbBackend::Sqlite, sqlite_url.clone());
     let cfg = AppConfig::default_for_tests();
-    let app = didhub_server::build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let app = app_components.router;
     // register
     let _ = app.clone().oneshot(http::Request::post("/api/auth/register").header("content-type","application/json").body(Body::from(json!({"username":"changer","password":"origpass"}).to_string())).unwrap()).await.unwrap();
     // fetch health to get initial CSRF cookie

@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::Db};
+use didhub_server::{config::AppConfig, db::Db};
 use axum::{Router, body::Body, http::{Request, StatusCode}};
 use http_body_util::BodyExt; // for collect
 use tower::ServiceExt;
@@ -23,7 +23,8 @@ async fn test_ctx() -> (Router, Db, String) {
     cfg.bootstrap_admin_username = Some("admin".into());
     cfg.bootstrap_admin_password = Some("adminpw".into());
     db.ensure_bootstrap_admin(&cfg).await.unwrap();
-    let router = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let router = app_components.router;
     // fetch CSRF cookie/token
     let health = router.clone().oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
     let cookie = health.headers().get("set-cookie").map(|h| h.to_str().unwrap().to_string()).unwrap_or_default();

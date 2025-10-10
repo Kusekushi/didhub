@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::Db, logging};
+use didhub_server::{config::AppConfig, db::Db, logging};
 use std::fs;
 use uuid::Uuid;
 
@@ -24,7 +24,8 @@ async fn new_test_db() -> (Db, AppConfig) {
 async fn replace_parents_children_affiliations_self_and_duplicates() {
     let (db, cfg) = new_test_db().await;
     logging::init(false);
-    let _app = build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let _app = app_components.router;
 
     // Insert three alters
     let a1 = sqlx::query("INSERT INTO alters (name) VALUES (?)").bind("P1").execute(&db.pool).await.unwrap().last_insert_id().expect("insert id");

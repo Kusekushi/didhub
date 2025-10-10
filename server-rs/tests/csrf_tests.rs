@@ -7,7 +7,8 @@ async fn test_app() -> Router {
     let db_file = format!("test-data/csrf-{}.sqlite", uuid::Uuid::new_v4());
     let db = server::db::Db::connect_with_file(&db_file).await.expect("connect sqlite");
     let cfg = server::config::AppConfig::default_for_tests();
-    server::build_router(db, cfg).await
+    let app_components = server::build_app(db, cfg).await;
+    app_components.router
 }
 
 #[tokio::test]

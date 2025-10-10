@@ -7,9 +7,10 @@ async fn test_app() -> Router {
     let db_file = format!("test-data/csrf-rot-{}.sqlite", uuid::Uuid::new_v4());
     let sqlite_url = format!("sqlite://{}", db_file.replace('\\', "/"));
     let pool = sqlx::any::AnyPoolOptions::new().max_connections(1).connect(&sqlite_url).await.expect("connect sqlite");
-    let db = server::db::Db::from_any_pool(pool, server::db::DbBackend::Sqlite, sqlite_url.clone());
+    let db = server::db::Db::from_any_pool(pool, server::db::DbBackend::DbBackend::Sqlite, sqlite_url.clone());
     let cfg = server::config::AppConfig::default_for_tests();
-    server::build_router(db, cfg).await
+    let app_components = server::build_app(db, cfg).await;
+    app_components.router
 }
 
 #[tokio::test]

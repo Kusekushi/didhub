@@ -81,25 +81,3 @@ pub async fn build_app(db: db::Db, cfg: config::AppConfig) -> AppComponents {
         services: service_components,
     }
 }
-
-/// Build the main application router with all routes and middleware.
-///
-/// This function constructs the Axum router with:
-/// - Authentication middleware
-/// - Rate limiting
-/// - CORS configuration
-/// - All API route handlers
-/// - Static file serving
-///
-/// # Arguments
-///
-/// * `db` - Database connection pool
-/// * `cfg` - Application configuration
-///
-/// # Returns
-///
-/// A configured Axum `Router` ready to serve requests
-#[deprecated(note = "Use build_app instead to get both router and services for proper shutdown")]
-pub async fn build_router(db: db::Db, cfg: config::AppConfig) -> Router {
-    build_app(db, cfg).await.router
-}

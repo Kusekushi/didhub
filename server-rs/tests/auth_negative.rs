@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::Db};
+use didhub_server::{config::AppConfig, db::Db};
 use axum::{body::Body, http::Request};
 use tower::util::ServiceExt;
 use serde_json::json;
@@ -21,7 +21,8 @@ async fn register_duplicate_fails() {
     if std::path::Path::new(&db_path).exists() { let _ = std::fs::remove_file(&db_path); }
     let db = Db::connect_with_file(&db_path).await.unwrap();
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     let payload = json!({"username":"dup_user","password":"pw"});
     let (s1, _) = post_json(&app, "/api/auth/register", payload.clone()).await;
@@ -37,7 +38,8 @@ async fn login_wrong_password_fails() {
     if std::path::Path::new(&db_path).exists() { let _ = std::fs::remove_file(&db_path); }
     let db = Db::connect_with_file(&db_path).await.unwrap();
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     let _ = post_json(&app, "/api/auth/register", json!({"username":"lp","password":"right"})).await;
     let (s, b) = post_json(&app, "/api/auth/login", json!({"username":"lp","password":"wrong"})).await;
@@ -51,7 +53,8 @@ async fn access_protected_without_token_fails() {
     if std::path::Path::new(&db_path).exists() { let _ = std::fs::remove_file(&db_path); }
     let db = Db::connect_with_file(&db_path).await.unwrap();
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     let req = Request::get("/api/me").body(Body::empty()).unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();
@@ -64,7 +67,8 @@ async fn invalid_token_fails() {
     if std::path::Path::new(&db_path).exists() { let _ = std::fs::remove_file(&db_path); }
     let db = Db::connect_with_file(&db_path).await.unwrap();
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     let req = Request::get("/api/me").header("authorization","Bearer bad.token.here").body(Body::empty()).unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();

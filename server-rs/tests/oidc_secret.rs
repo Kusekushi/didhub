@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db};
+use didhub_server::{config::AppConfig, db};
 use sqlx::any::AnyPoolOptions;
 use axum::{body::Body, http::{Request, StatusCode}};
 use tower::ServiceExt; // for oneshot
@@ -24,7 +24,8 @@ async fn test_app() -> (axum::Router, db::Db) {
         .execute(&database.pool)
         .await
         .unwrap();
-    let app = build_router(database.clone(), cfg).await;
+    let app_components = didhub_server::build_app(database.clone(), cfg).await;
+    let app = app_components.router;
     (app, database)
 }
 

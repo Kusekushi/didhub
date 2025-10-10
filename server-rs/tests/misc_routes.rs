@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::Db, logging};
+use didhub_server::{config::AppConfig, db::Db, logging};
 use axum::{body::Body, http::Request, http::StatusCode};
 use tower::util::ServiceExt;
 
@@ -21,7 +21,8 @@ async fn health_and_version_routes() {
     let pool = sqlx::any::AnyPoolOptions::new().max_connections(1).connect(&sqlite_url).await.expect("connect sqlite");
     let db = Db::from_any_pool(pool, didhub_server::db::DbBackend::Sqlite, sqlite_url.clone());
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let app = app_components.router;
 
     // health
     let resp = app.clone().oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();

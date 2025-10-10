@@ -20,7 +20,8 @@ async fn bootstrap(username: &str) -> (Router, Db, String) {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_file).await.unwrap();
     let cfg = test_cfg();
-    let app = didhub_server::build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let app = app_components.router;
     // register
     let body = json!({"username":username, "password":"pass123"});
     let res = app.clone().oneshot(http::Request::post("/api/auth/register").header("content-type","application/json").body(Body::from(body.to_string())).unwrap()).await.unwrap();

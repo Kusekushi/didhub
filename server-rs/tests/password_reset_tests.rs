@@ -18,7 +18,8 @@ async fn bootstrap() -> (Router, Db, String) {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_file).await.expect("connect sqlite");
     let cfg = test_cfg();
-    let app = didhub_server::build_router(db.clone(), cfg.clone()).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
+    let app = app_components.router;
     let _ = app.clone().oneshot(http::Request::post("/api/auth/register").header("content-type","application/json").body(Body::from(json!({"username":"resetuser","password":"oldpass"}).to_string())).unwrap()).await.unwrap();
     let res = app.clone().oneshot(http::Request::post("/api/auth/login").header("content-type","application/json").body(Body::from(json!({"username":"resetuser","password":"oldpass"}).to_string())).unwrap()).await.unwrap();
     let _ = body::to_bytes(res.into_body(), 1024*1024).await.unwrap();

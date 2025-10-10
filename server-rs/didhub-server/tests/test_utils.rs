@@ -2,7 +2,7 @@ use axum::{
     body::{self, Body},
     http::Request,
 };
-use didhub_server::{build_router, config::AppConfig, db::Db, logging};
+use didhub_server::{build_app, config::AppConfig, db::Db, logging};
 use tower::util::ServiceExt;
 
 pub fn test_cfg() -> AppConfig {
@@ -51,7 +51,8 @@ pub async fn setup_router_db() -> (axum::Router, Db) {
         sqlite_url.clone(),
     );
     let cfg = test_cfg();
-    let router = build_router(db.clone(), cfg.clone()).await;
+    let app_components = build_app(db.clone(), cfg.clone()).await;
+    let router = app_components.router;
     (router, db)
 }
 

@@ -1,4 +1,4 @@
-use didhub_server::{build_router, config::AppConfig, db::{Db, UpdateUserFields}};
+use didhub_server::{config::AppConfig, db::{Db, UpdateUserFields}};
 use axum::{body::{Body, self}, http::{Request, StatusCode}};
 use tower::util::ServiceExt; // oneshot
 use serde_json::json;
@@ -84,7 +84,8 @@ async fn alters_admin_can_get_owner_alter() {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_path).await.expect("connect sqlite");
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // Create two users
     let token_owner = register_and_login(&db, &app, "admin_vis_owner", "pw", true).await;
@@ -114,7 +115,8 @@ async fn alters_update_relationships_changes_db() {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_path).await.expect("connect sqlite");
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // Create two users
     let token_owner = register_and_login(&db, &app, "rel_owner", "pw", true).await;
@@ -156,7 +158,8 @@ async fn alters_admin_delete_other_users_alter() {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_path).await.expect("connect sqlite");
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // Create owner and admin
     let token_owner = register_and_login(&db, &app, "adm_owner", "pw", true).await;
@@ -189,7 +192,8 @@ async fn alters_names_search_projection_and_delete() {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_path).await.expect("connect sqlite");
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // Create two users
     let token_u1 = register_and_login(&db, &app, "cov_user1", "pw", true).await;
@@ -250,7 +254,8 @@ async fn alters_get_visibility_and_projection_false_branch() {
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&db_path).await.expect("connect sqlite");
     let cfg = test_cfg();
-    let app = build_router(db.clone(), cfg).await;
+    let app_components = didhub_server::build_app(db.clone(), cfg).await;
+    let app = app_components.router;
 
     // Create users
     let token_a = register_and_login(&db, &app, "vis_user_a", "pw", true).await; // will be approved
