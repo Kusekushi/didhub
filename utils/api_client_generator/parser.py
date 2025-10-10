@@ -28,6 +28,11 @@ class RustRouteParser:
         # Set up tree-sitter parser
         self.parser = Parser()
         self.parser.language = Language(tsrust.language())
+        self.debug = os.environ.get('API_CLIENT_GENERATOR_DEBUG') == '1'
+
+    def _debug(self, message: str):
+        if self.debug:
+            print(message)
 
     def parse_routes(self) -> Tuple[List[ApiModule], List[TypeDefinition]]:
         """Parse all route files and return organized API modules and type definitions"""
@@ -41,7 +46,7 @@ class RustRouteParser:
         # Parse struct definitions from route handler files
         all_type_definitions = []
         self._parse_struct_definitions_from_dir(self.server_root, all_type_definitions, module_prefix='crate')
-
+        
         # Parse selected didhub-db models that are safe to expose via the API client
         db_root = self.server_root.parent / "didhub-db"
         if db_root.exists():
@@ -86,9 +91,9 @@ class RustRouteParser:
             if module_name != 'misc':  # Skip misc modules
                 api_modules.append(ApiModule(module_name, endpoints))
 
-        print(f"DEBUG: Collected {len(referenced_types)} referenced types:")
+        self._debug(f"DEBUG: Collected {len(referenced_types)} referenced types:")
         for t in sorted(referenced_types):
-            print(f"DEBUG:   {t}")
+            self._debug(f"DEBUG:   {t}")
 
         return sorted(api_modules, key=lambda m: m.name), type_definitions
 
@@ -99,10 +104,10 @@ class RustRouteParser:
         for route_file in ROUTE_FILES:
             file_path = self.server_root / route_file
             if file_path.exists():
-                print(f"DEBUG: Parsing router file: {file_path}")
+                self._debug(f"DEBUG: Parsing router file: {file_path}")
                 self._parse_route_file(file_path, modules, referenced_types)
             else:
-                print(f"DEBUG: Router file not found: {file_path}")
+                self._debug(f"DEBUG: Router file not found: {file_path}")
 
     def _parse_route_file(self, file_path: Path, modules: Dict[str, List[Endpoint]], referenced_types: set):
         """Parse a single route file using tree-sitter"""
@@ -179,16 +184,16 @@ class RustRouteParser:
 
             search_start = cursor
 
-        print(f"DEBUG: Found {len(route_matches)} route matches in {file_path.name}")
+        self._debug(f"DEBUG: Found {len(route_matches)} route matches in {file_path.name}")
         for path_match, methods_match in route_matches[:3]:  # Debug first 3
-            print(f"DEBUG:   path='{path_match}', methods='{methods_match}'")
+            self._debug(f"DEBUG:   path='{path_match}', methods='{methods_match}'")
 
         for path, methods_str in route_matches:
             if path and methods_str:
                 # Parse methods and handlers
                 method_handlers = self._parse_method_handlers(methods_str)
 
-                print(f"DEBUG:   path='{path}' -> {len(method_handlers)} handlers: {method_handlers[:2]}")
+                self._debug(f"DEBUG:   path='{path}' -> {len(method_handlers)} handlers: {method_handlers[:2]}")
 
                 for method, handler in method_handlers:
                     endpoint = Endpoint(
@@ -606,20 +611,43 @@ class RustRouteParser:
 
         return f"{current_module}::{rust_type}"
 
-    def _parse_function_from_file(self, endpoint: Endpoint, function_name: str, file_path: Path, current_module: str):
+    def _parse_function_from_file(self, endpoint: Endpoint, function_name: str, file_path: Path, current_module: str) -> bool:
         if not file_path.exists():
-            return
+            return False
 
         content = file_path.read_text()
         tree = self.parser.parse(bytes(content, 'utf-8'))
         root = tree.root_node
 
+        debug_listing = []
+        debug_nodes = []
+        debug_errors = []
+
         for node in self._traverse_tree(root):
             if node.type == 'function_item':
                 identifier = node.child_by_field_name('name')
                 if identifier and identifier.text.decode('utf-8') == function_name:
+                    if 'upload_file' in endpoint.handler:
+                        self._debug(f"DEBUG: Found function node for {endpoint.handler} in {file_path}")
                     self._extract_function_signature(endpoint, node, current_module)
-                    break
+                    return True
+                elif 'upload_file' in endpoint.handler and identifier:
+                    debug_listing.append(identifier.text.decode('utf-8'))
+            elif 'upload_file' in endpoint.handler:
+                node_text = node.text.decode('utf-8', errors='ignore')
+                if 'upload_file' in node_text[:200]:
+                    debug_nodes.append(node.type)
+            if node.type == 'ERROR':
+                debug_errors.append(node.text.decode('utf-8', errors='ignore')[:100])
+
+        if 'upload_file' in endpoint.handler:
+            self._debug(f"DEBUG: function names in {file_path}: {debug_listing[:10]}")
+            self._debug(f"DEBUG: node types containing 'upload_file': {debug_nodes[:10]}")
+            if debug_errors:
+                self._debug(f"DEBUG: parse errors in {file_path}: {debug_errors[:3]}")
+
+        # Fallback to textual parsing when AST lookup fails (e.g., due to parse errors)
+        return self._parse_function_textually(endpoint, content, function_name, current_module)
 
     def _parse_handler_function(self, endpoint: Endpoint):
         """Parse the handler function to extract parameter and return types"""
@@ -638,13 +666,39 @@ class RustRouteParser:
                 self.server_root / f"src/routes/{relative_path}/mod.rs",
             ]
 
-            file_path = next((c for c in candidate_files if c.exists()), None)
-            if not file_path:
+            function_name = handler_parts[-1]
+            current_module = 'crate::routes::' + '::'.join(module_segments) if module_segments else 'crate::routes'
+
+            found = False
+            for candidate in candidate_files:
+                if candidate.exists() and self._parse_function_from_file(endpoint, function_name, candidate, current_module):
+                    found = True
+                    break
+
+            if found:
                 return
 
-            function_name = handler_parts[-1]
-            current_module = 'crate::routes::' + '::'.join(module_segments)
-            self._parse_function_from_file(endpoint, function_name, file_path, current_module)
+            # If the handler is re-exported from a nested module (e.g. mod.rs `pub use foo::bar;`),
+            # try looking into the nested module directory using the function name as the final segment.
+            if module_segments:
+                submodule_segments = module_segments + [function_name]
+                sub_relative_path = '/'.join(submodule_segments)
+                sub_candidates = [
+                    self.server_root / f"src/routes/{sub_relative_path}.rs",
+                    self.server_root / f"src/routes/{sub_relative_path}/mod.rs",
+                ]
+                sub_current_module = 'crate::routes::' + '::'.join(submodule_segments)
+
+                for candidate in sub_candidates:
+                    if candidate.exists() and self._parse_function_from_file(endpoint, function_name, candidate, sub_current_module):
+                        return
+
+                submodule_dir = self.server_root / f"src/routes/{relative_path}"
+                if submodule_dir.exists():
+                    for child in submodule_dir.iterdir():
+                        if child.is_file() and child.suffix == '.rs' and child.name != 'mod.rs':
+                            if self._parse_function_from_file(endpoint, function_name, child, sub_current_module):
+                                return
 
         elif endpoint.handler.startswith('auth::'):
             handler_parts = endpoint.handler.split('::')
@@ -673,6 +727,68 @@ class RustRouteParser:
                 endpoint.response_type = 'String'
                 endpoint.parameters = []
 
+    def _parse_function_textually(self, endpoint: Endpoint, content: str, function_name: str, current_module: str) -> bool:
+        """Fallback parser that extracts function signature information using regex."""
+        # Match function signature with optional visibility/async modifiers
+        pattern = re.compile(
+            rf"pub\s+(?:async\s+)?fn\s+{function_name}\s*\((?P<params>.*?)\)\s*(?:->\s*(?P<ret>[^\{{]+))?\{{",
+            re.DOTALL,
+        )
+
+        match = pattern.search(content)
+        if not match:
+            return False
+
+        params_block = match.group('params') or ''
+        return_block = match.group('ret') or ''
+
+        # Split parameters respecting nested generics/parentheses
+        params = []
+        depth = 0
+        current = []
+        for ch in params_block:
+            if ch == ',' and depth == 0:
+                param = ''.join(current).strip()
+                if param:
+                    params.append(param)
+                current = []
+                continue
+
+            if ch in '<({[':
+                depth += 1
+            elif ch in '>)}]':
+                depth = max(depth - 1, 0)
+
+            current.append(ch)
+
+        final_param = ''.join(current).strip()
+        if final_param:
+            params.append(final_param)
+
+        for param in params:
+            if ':' not in param:
+                continue
+
+            _, type_part = param.split(':', 1)
+            type_text = type_part.strip()
+
+            query_inner = self._extract_generic_inner(type_text, 'Query')
+            if query_inner:
+                endpoint.query_type = self._qualify_type(query_inner, current_module)
+                continue
+
+            json_inner = self._extract_generic_inner(type_text, 'Json')
+            if json_inner:
+                endpoint.body_type = self._qualify_type(json_inner, current_module)
+
+        return_type_text = return_block.strip()
+        if return_type_text:
+            json_inner = self._extract_generic_inner(return_type_text, 'Json')
+            if json_inner:
+                endpoint.response_type = self._qualify_type(json_inner, current_module)
+
+        return bool(endpoint.query_type or endpoint.body_type or endpoint.response_type)
+
     def _extract_function_signature(self, endpoint: Endpoint, function_node, current_module: str):
         """Extract parameter and return types from a function node"""
         # Extract parameters
@@ -687,24 +803,37 @@ class RustRouteParser:
 
     def _extract_generic_inner(self, type_text: str, generic: str) -> Optional[str]:
         """Extract the inner type from a generic like Generic<T> handling nested generics."""
-        search = f'{generic}<'
-        idx = type_text.find(search)
-        if idx == -1:
-            return None
+        idx = 0
+        generic_len = len(generic)
 
-        start = idx + len(search)
-        depth = 0
-        i = start
-        while i < len(type_text):
-            ch = type_text[i]
-            if ch == '<':
-                depth += 1
-            elif ch == '>':
-                if depth == 0:
-                    return type_text[start:i].strip()
-                depth -= 1
-            i += 1
-        return None
+        while idx < len(type_text):
+            idx = type_text.find(generic, idx)
+            if idx == -1:
+                return None
+
+            cursor = idx + generic_len
+            while cursor < len(type_text) and type_text[cursor].isspace():
+                cursor += 1
+
+            if cursor >= len(type_text) or type_text[cursor] != '<':
+                idx = cursor
+                continue
+
+            start = cursor + 1
+            depth = 0
+            i = start
+            while i < len(type_text):
+                ch = type_text[i]
+                if ch == '<':
+                    depth += 1
+                elif ch == '>':
+                    if depth == 0:
+                        return type_text[start:i].strip()
+                    depth -= 1
+                i += 1
+
+            # If we reach here, we had an unmatched '<'; try the next occurrence
+            idx = cursor + 1
 
     def _extract_parameters(self, endpoint: Endpoint, parameters_node, current_module: str):
         """Extract query and body parameters from function parameters"""
@@ -731,22 +860,12 @@ class RustRouteParser:
         # Return type is typically: Result<Json<UsersListResponse<UserOut>>, AppError>
         return_type_text = return_type_node.text.decode('utf-8').strip()
         
-        # Look for Json<T> in the return type
-        json_start = return_type_text.find('Json<')
-        if json_start != -1:
-            # Find the matching closing >
-            bracket_count = 0
-            for i in range(json_start + 5, len(return_type_text)):  # Start after 'Json<'
-                if return_type_text[i] == '<':
-                    bracket_count += 1
-                elif return_type_text[i] == '>':
-                    if bracket_count == 0:
-                        # Found the matching closing >
-                        rust_type = return_type_text[json_start + 5:i]
-                        endpoint.response_type = self._qualify_type(rust_type, current_module)
-                        break
-                    else:
-                        bracket_count -= 1
+        if 'upload_file' in endpoint.handler:
+            self._debug(f"DEBUG: return type for {endpoint.handler} -> {return_type_text}")
+
+        json_inner = self._extract_generic_inner(return_type_text, 'Json')
+        if json_inner:
+            endpoint.response_type = self._qualify_type(json_inner, current_module)
 
     def _rust_type_to_typescript(self, rust_type: str) -> str:
         """Convert Rust type to TypeScript type"""
@@ -836,8 +955,8 @@ class RustRouteParser:
                     if include_filter and not include_filter(rel_path):
                         continue
                     rust_files.append(file_path)
-        
-        print(f"DEBUG: Found {len(rust_files)} Rust files in {src_root}")
+
+        self._debug(f"DEBUG: Found {len(rust_files)} Rust files in {src_root}")
         for file_path in rust_files:
             self._parse_structs_from_file(file_path, type_definitions, module_prefix, src_root)
 
@@ -857,10 +976,10 @@ class RustRouteParser:
                         type_definitions.append(struct_def)
             
             if struct_count > 0:
-                print(f"DEBUG: {file_path}: {struct_count} structs found")
+                self._debug(f"DEBUG: {file_path}: {struct_count} structs found")
         except Exception as e:
             # Skip files that can't be parsed
-            print(f"DEBUG: Failed to parse {file_path}: {e}")
+            self._debug(f"DEBUG: Failed to parse {file_path}: {e}")
             pass
 
     def _parse_struct_definition(self, struct_node, file_path: Path, module_prefix: str, src_root: Path) -> Optional[TypeDefinition]:
@@ -876,7 +995,7 @@ class RustRouteParser:
             return None
         
         struct_name = name_node.text.decode('utf-8')
-        print(f"DEBUG: Parsing struct {struct_name}")
+        self._debug(f"DEBUG: Parsing struct {struct_name}")
         
         # Check if it's a public struct (starts with 'pub')
         visibility = None
@@ -887,12 +1006,12 @@ class RustRouteParser:
         
         if visibility:
             vis_text = visibility.text.decode('utf-8')
-            print(f"DEBUG: Visibility: {repr(vis_text)}")
+            self._debug(f"DEBUG: Visibility: {repr(vis_text)}")
         else:
-            print(f"DEBUG: No visibility found")
+            self._debug(f"DEBUG: No visibility found")
         
         if not visibility or visibility.text.decode('utf-8') != 'pub':
-            print(f"DEBUG: Skipping non-public struct {struct_name}")
+            self._debug(f"DEBUG: Skipping non-public struct {struct_name}")
             return None
         
         # Parse type parameters for generic structs
@@ -905,15 +1024,15 @@ class RustRouteParser:
                             if subchild.type == 'type_identifier':
                                 type_params.append(subchild.text.decode('utf-8'))
                 break
-        
-        print(f"DEBUG: Struct {struct_name} has type_params: {type_params}")
+
+        self._debug(f"DEBUG: Struct {struct_name} has type_params: {type_params}")
 
         module_parts = self._compute_module_parts(file_path, src_root)
         module_path = self._build_module_path(module_prefix, module_parts)
         full_path = f"{module_path}::{struct_name}" if module_path else f"{module_prefix}::{struct_name}"
         ts_name = self._build_ts_name(module_prefix, module_parts, struct_name)
-        print(f"DEBUG: Struct {struct_name} resolved to {full_path} -> TS {ts_name}")
-        
+        self._debug(f"DEBUG: Struct {struct_name} resolved to {full_path} -> TS {ts_name}")
+
         # Parse fields
         fields = []
         body_node = None
