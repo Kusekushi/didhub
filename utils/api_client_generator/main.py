@@ -48,6 +48,17 @@ def main():
     client_code = generator.generate_client_code()
     types_code = generator.generate_types_code()
 
+    total_endpoints = sum(len(module.endpoints) for module in api_modules)
+    generated_bindings = generator.total_method_bindings
+
+    print(
+        f"Sanity check: parsed {total_endpoints} endpoints, generated {generated_bindings} bindings"
+    )
+    if total_endpoints != generated_bindings:
+        print("WARNING: Endpoint count does not match generated bindings!")
+    else:
+        print("Endpoint binding count matches parsed routes.")
+
     # Write generated client code
     client_output_file = output_dir / "generated" / "Client.ts"
     with open(client_output_file, 'w', encoding='utf-8') as f:
@@ -57,12 +68,6 @@ def main():
     types_output_file = output_dir / "generated" / "Types.ts"
     with open(types_output_file, 'w', encoding='utf-8') as f:
         f.write(types_code)
-
-    # Check if the admin get_users endpoint includes the expected query parameter signature
-    if 'get_users(query: Types.AdminUsersUsersQuery)' in client_code:
-        print("SUCCESS: get_users with query parameter found in generated code")
-    else:
-        print("ERROR: get_users with query parameter NOT found in generated code")
 
     print(f"Generated API client written to {client_output_file}")
     print(f"Generated types written to {types_output_file}")
