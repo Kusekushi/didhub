@@ -5,158 +5,16 @@ use axum::{
     extract::{Extension, Path, Query, State},
     Json,
 };
-use didhub_db::relationships::AlterRelationships;
+pub use didhub_db::Alter;
 use didhub_db::{
-    alters::AlterOperations, audit, models::UserAlterRelationship,
-    user_alter_relationships::UserAlterRelationshipOperations, users::UserOperations, Alter as DbAlter, Db,
+    alters::AlterOperations, audit, relationships::AlterRelationships, user_alter_relationships::UserAlterRelationshipOperations, users::UserOperations, Db
 };
 use didhub_error::AppError;
 use didhub_metrics::record_entity_operation;
 use didhub_middleware::types::CurrentUser;
-use serde::Deserialize;
 use sqlx::QueryBuilder;
 use std::collections::HashMap;
 use tracing::{debug, error, info, warn};
-
-#[derive(Deserialize)]
-pub struct ListQuery {
-    pub q: Option<String>,
-    pub limit: Option<i64>,
-    pub offset: Option<i64>,
-    pub fields: Option<String>,
-    pub user_id: Option<String>,
-}
-
-#[derive(serde::Serialize)]
-pub struct ListResponse<T> {
-    pub items: Vec<T>,
-    pub total: i64,
-    pub limit: i64,
-    pub offset: i64,
-}
-
-#[derive(serde::Deserialize)]
-pub struct CreateAlterPayload {
-    pub name: Option<String>,
-    pub owner_user_id: Option<String>,
-}
-
-#[derive(serde::Deserialize)]
-pub struct UpdateAlterPayload {
-    #[serde(flatten)]
-    pub rest: serde_json::Value,
-}
-
-#[derive(serde::Deserialize)]
-pub struct ReplaceAlterRelationshipsPayload {
-    #[serde(default)]
-    pub partners: Vec<String>,
-    #[serde(default)]
-    pub parents: Vec<String>,
-    #[serde(default)]
-    pub children: Vec<String>,
-    #[serde(default)]
-    pub affiliations: Vec<String>,
-}
-
-#[derive(serde::Serialize)]
-pub struct RowsAffectedResponse {
-    pub rows_affected: u64,
-}
-
-#[derive(serde::Serialize)]
-pub struct Alter {
-    pub id: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub age: Option<String>,
-    pub gender: Option<String>,
-    pub pronouns: Option<String>,
-    pub birthday: Option<String>,
-    pub sexuality: Option<String>,
-    pub species: Option<String>,
-    pub alter_type: Option<String>,
-    pub job: Option<String>,
-    pub weapon: Option<String>,
-    pub triggers: Option<String>,
-    pub metadata: Option<String>,
-    #[serde(default)]
-    pub soul_songs: Vec<String>,
-    #[serde(default)]
-    pub interests: Vec<String>,
-    pub notes: Option<String>,
-    #[serde(default)]
-    pub images: Vec<String>,
-    pub subsystem: Option<String>,
-    #[serde(default)]
-    pub system_roles: Vec<String>,
-    pub is_system_host: i64,
-    pub is_dormant: i64,
-    pub is_merged: i64,
-    pub owner_user_id: Option<String>,
-    pub created_at: String,
-    pub partners: Vec<String>,
-    pub parents: Vec<String>,
-    pub children: Vec<String>,
-    pub affiliations: Vec<String>,
-    pub user_relationships: Vec<UserAlterRelationship>,
-}
-
-async fn project_with_rel(db: &Db, a: DbAlter, include_rels: bool) -> Alter {
-    let (partners, parents, children, affiliations, user_relationships) = if include_rels {
-        tokio::join!(
-            db.partners_of(&a.id),
-            db.parents_of(&a.id),
-            db.children_of(&a.id),
-            db.affiliations_of(&a.id),
-            db.list_user_alter_relationships_by_alter(&a.id)
-        )
-    } else {
-        // Skip expensive relationship queries when not needed
-        (Ok(vec![]), Ok(vec![]), Ok(vec![]), Ok(vec![]), Ok(vec![]))
-    };
-
-    let soul_songs = normalize_string_list(a.soul_songs.as_deref());
-    let interests = normalize_string_list(a.interests.as_deref());
-    let images = normalize_image_list(a.images.as_deref());
-    let system_roles = normalize_string_list(a.system_roles.as_deref());
-    let subsystem = a.subsystem;
-
-    Alter {
-        id: a.id,
-        name: a.name,
-        description: a.description,
-        age: a.age,
-        gender: a.gender,
-        pronouns: a.pronouns,
-        birthday: a.birthday,
-        sexuality: a.sexuality,
-        species: a.species,
-        alter_type: a.alter_type,
-        job: a.job,
-        weapon: a.weapon,
-        triggers: a.triggers,
-        metadata: a.metadata,
-        soul_songs,
-        interests,
-        notes: a.notes,
-        images,
-        subsystem,
-        system_roles,
-        is_system_host: a.is_system_host,
-        is_dormant: a.is_dormant,
-        is_merged: a.is_merged,
-        owner_user_id: a.owner_user_id,
-        created_at: a.created_at,
-        partners: partners.unwrap_or_default(),
-        parents: parents.unwrap_or_default(),
-        children: children.unwrap_or_default(),
-        affiliations: affiliations.unwrap_or_default(),
-        user_relationships: user_relationships.unwrap_or_default(),
-    }
-}
-
-static EMPTY_RELS: (Vec<String>, Vec<String>, Vec<String>, Vec<String>) = (vec![], vec![], vec![], vec![]);
 
 fn normalize_subsystem_field(body: &mut serde_json::Value) {
     use serde_json::Value;
@@ -193,46 +51,60 @@ fn normalize_subsystem_field(body: &mut serde_json::Value) {
     }
 }
 
-fn project_with_rel_batch(a: DbAlter, rels: &(Vec<String>, Vec<String>, Vec<String>, Vec<String>)) -> Alter {
-    let (partners, parents, children, affiliations) = rels;
-    let soul_songs = normalize_string_list(a.soul_songs.as_deref());
-    let interests = normalize_string_list(a.interests.as_deref());
-    let images = normalize_image_list(a.images.as_deref());
-    let system_roles = normalize_string_list(a.system_roles.as_deref());
-    let subsystem = a.subsystem;
-
-    Alter {
-        id: a.id,
-        name: a.name,
-        description: a.description,
-        age: a.age,
-        gender: a.gender,
-        pronouns: a.pronouns,
-        birthday: a.birthday,
-        sexuality: a.sexuality,
-        species: a.species,
-        alter_type: a.alter_type,
-        job: a.job,
-        weapon: a.weapon,
-        triggers: a.triggers,
-        metadata: a.metadata,
-        soul_songs,
-        interests,
-        notes: a.notes,
-        images,
-        subsystem,
-        system_roles,
-        is_system_host: a.is_system_host,
-        is_dormant: a.is_dormant,
-        is_merged: a.is_merged,
-        owner_user_id: a.owner_user_id,
-        created_at: a.created_at,
-        partners: partners.clone(),
-        parents: parents.clone(),
-        children: children.clone(),
-        affiliations: affiliations.clone(),
-        user_relationships: vec![],
+fn strip_relationship_fields(body: &mut serde_json::Value) {
+    if let Some(obj) = body.as_object_mut() {
+        for key in [
+            "partners",
+            "parents",
+            "children",
+            "affiliations",
+            "user_relationships",
+        ] {
+            if obj.remove(key).is_some() {
+                warn!(field = key, "Relationship field dropped from alter payload");
+            }
+        }
     }
+}
+
+#[derive(serde::Deserialize)]
+pub struct ListQuery {
+    pub q: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+    pub fields: Option<String>,
+    pub user_id: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+pub struct ListResponse<T> {
+    pub items: Vec<T>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(transparent)]
+pub struct UpdateAlterPayload {
+    pub rest: serde_json::Value,
+}
+
+#[derive(serde::Deserialize)]
+pub struct ReplaceAlterRelationshipsPayload {
+    #[serde(default)]
+    pub partners: Vec<String>,
+    #[serde(default)]
+    pub parents: Vec<String>,
+    #[serde(default)]
+    pub children: Vec<String>,
+    #[serde(default)]
+    pub affiliations: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+pub struct RowsAffectedResponse {
+    pub rows_affected: i64,
 }
 
 pub async fn list_alters(
@@ -287,27 +159,18 @@ pub async fn list_alters(
             AppError::Internal
         })?;
 
-    let wanted: Option<std::collections::HashSet<String>> = q.fields.as_ref().map(|f| {
-        f.split(',')
-            .filter(|s| !s.is_empty())
-            .map(|s| s.trim().to_string())
-            .collect()
-    });
+    if let Some(fields) = q.fields.as_ref() {
+        let requested_relationships = fields
+            .split(',')
+            .map(|s| s.trim())
+            .any(|field| matches!(field, "relationships" | "rels"));
+        if requested_relationships {
+            warn!("Relationships are no longer included in alter list responses");
+        }
+    }
 
-    let include_rels = wanted
-        .as_ref()
-        .map(|w| w.contains("relationships") || w.contains("rels"))
-        .unwrap_or(true);
-
-    debug!(
-        user_id = %user.id,
-        returned_count = rows.len(),
-        total_count = total,
-        include_relationships = include_rels,
-        "Alter list query completed, processing results"
-    );
-
-    if rows.is_empty() {
+    let returned_count = rows.len();
+    if returned_count == 0 {
         info!(
             user_id = %user.id,
             result_count = 0,
@@ -322,91 +185,19 @@ pub async fn list_alters(
         }));
     }
 
-    if let Some(_w) = wanted {
-        // For now only handle simple projection (relationships toggle)
-        if include_rels {
-            let alter_ids: Vec<&str> = rows.iter().map(|a| a.id.as_str()).collect();
-            let relationships = db.batch_load_relationships(&alter_ids).await?;
-            let capacity = rows.len();
-            let mut out = Vec::with_capacity(capacity);
-            for a in rows.into_iter() {
-                let rels = relationships.get(&a.id).unwrap_or(&EMPTY_RELS);
-                out.push(project_with_rel_batch(a, rels));
-            }
-            info!(
-                user_id = %user.id,
-                result_count = out.len(),
-                total_count = total,
-                "Alter list with field filtering completed successfully"
-            );
-            return Ok(Json(ListResponse {
-                items: out,
-                total,
-                limit,
-                offset,
-            }));
-        } else {
-            let capacity = rows.len();
-            let mut out = Vec::with_capacity(capacity);
-            for a in rows.into_iter() {
-                out.push(project_with_rel(&db, a, false).await);
-            }
-            info!(
-                user_id = %user.id,
-                result_count = out.len(),
-                total_count = total,
-                "Alter list with field filtering completed successfully"
-            );
-            return Ok(Json(ListResponse {
-                items: out,
-                total,
-                limit,
-                offset,
-            }));
-        }
-    }
+    info!(
+        user_id = %user.id,
+        result_count = returned_count,
+        total_count = total,
+        "Alter list completed successfully"
+    );
 
-    if include_rels {
-        let alter_ids: Vec<&str> = rows.iter().map(|a| a.id.as_str()).collect();
-        let relationships = db
-            .batch_load_relationships(&alter_ids)
-            .await
-            .map_err(|_| AppError::Internal)?;
-        let mut out = Vec::with_capacity(rows.len());
-        for a in rows {
-            let rels = relationships.get(&a.id).unwrap_or(&EMPTY_RELS);
-            out.push(project_with_rel_batch(a, rels));
-        }
-        info!(
-            user_id = %user.id,
-            result_count = out.len(),
-            total_count = total,
-            "Alter list completed successfully"
-        );
-        Ok(Json(ListResponse {
-            items: out,
-            total,
-            limit,
-            offset,
-        }))
-    } else {
-        let mut out = Vec::with_capacity(rows.len());
-        for a in rows {
-            out.push(project_with_rel(&db, a, false).await);
-        }
-        info!(
-            user_id = %user.id,
-            result_count = out.len(),
-            total_count = total,
-            "Alter list completed successfully"
-        );
-        Ok(Json(ListResponse {
-            items: out,
-            total,
-            limit,
-            offset,
-        }))
-    }
+    Ok(Json(ListResponse {
+        items: rows,
+        total,
+        limit,
+        offset,
+    }))
 }
 
 #[derive(serde::Serialize)]
@@ -589,27 +380,7 @@ pub async fn create_alter(
     }
 
     normalize_subsystem_field(&mut body);
-
-    // Create the minimal record (DB create reads name + owner_user_id), then persist other fields via update_alter_fields
-    // Extract relationship arrays (if present) so we can apply them after create
-    let mut rel_partners: Option<Vec<String>> = None;
-    let mut rel_parents: Option<Vec<String>> = None;
-    let mut rel_children: Option<Vec<String>> = None;
-    let mut rel_affiliations: Option<Vec<String>> = None;
-    if let Some(obj) = body.as_object() {
-        for (k, target) in [
-            ("partners", &mut rel_partners),
-            ("parents", &mut rel_parents),
-            ("children", &mut rel_children),
-            ("affiliations", &mut rel_affiliations),
-        ] {
-            if let Some(v) = obj.get(k) {
-                if let Some(arr) = v.as_array() {
-                    *target = Some(arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect());
-                }
-            }
-        }
-    }
+    strip_relationship_fields(&mut body);
 
     let created = db
         .create_alter(&body)
@@ -623,31 +394,6 @@ pub async fn create_alter(
             tracing::error!(error=%e, "update_alter_fields failed during create");
             AppError::Internal
         })?;
-    // Apply relationship arrays after the record exists
-    if let Some(p) = rel_partners {
-        db.replace_partners(&created.id, &p).await.map_err(|e| {
-            tracing::error!(error=%e, "replace_partners failed during create");
-            AppError::Internal
-        })?;
-    }
-    if let Some(p) = rel_parents {
-        db.replace_parents(&created.id, &p).await.map_err(|e| {
-            tracing::error!(error=%e, "replace_parents failed during create");
-            AppError::Internal
-        })?;
-    }
-    if let Some(c) = rel_children {
-        db.replace_children(&created.id, &c).await.map_err(|e| {
-            tracing::error!(error=%e, "replace_children failed during create");
-            AppError::Internal
-        })?;
-    }
-    if let Some(a) = rel_affiliations {
-        db.replace_affiliations(&created.id, &a).await.map_err(|e| {
-            tracing::error!(error=%e, "replace_affiliations failed during create");
-            AppError::Internal
-        })?;
-    }
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
@@ -657,16 +403,12 @@ pub async fn create_alter(
     )
     .await;
     record_entity_operation("alter", "create", "success");
-    let out = project_with_rel(
-        &db,
-        db.fetch_alter(&created.id)
-            .await
-            .map_err(|_| AppError::Internal)?
-            .ok_or(AppError::NotFound)?,
-        true,
-    )
-    .await;
-    Ok(Json(out))
+    let alter = db
+        .fetch_alter(&created.id)
+        .await
+        .map_err(|_| AppError::Internal)?
+        .ok_or(AppError::NotFound)?;
+    Ok(Json(alter))
 }
 
 pub async fn get_alter(
@@ -746,16 +488,14 @@ pub async fn get_alter(
         "Alter fetched and access authorized successfully"
     );
 
-    let out = project_with_rel(&db, a, true).await;
-
     info!(
         user_id = %user.id,
-        alter_id = %out.id,
-        alter_name = %out.name,
+        alter_id = %a.id,
+        alter_name = %a.name,
         "Alter retrieval completed successfully"
     );
 
-    Ok(Json(out))
+    Ok(Json(a))
 }
 
 pub async fn replace_alter_relationships(
@@ -850,7 +590,8 @@ pub async fn replace_alter_relationships(
         "replaced alter relationships",
     );
 
-    Ok(Json(RowsAffectedResponse { rows_affected }))
+    // FIXME: Return type
+    Ok(Json(RowsAffectedResponse { rows_affected: rows_affected.try_into().unwrap() }))
 }
 
 pub async fn update_alter(
@@ -895,54 +636,22 @@ pub async fn update_alter(
     }
 
     normalize_subsystem_field(&mut body);
-    // Extract relationship arrays before generic update
-    let mut rel_partners: Option<Vec<String>> = None;
-    let mut rel_parents: Option<Vec<String>> = None;
-    let mut rel_children: Option<Vec<String>> = None;
-    let mut rel_affiliations: Option<Vec<String>> = None;
-    if let Some(obj) = body.as_object() {
-        for (k, target) in [
-            ("partners", &mut rel_partners),
-            ("parents", &mut rel_parents),
-            ("children", &mut rel_children),
-            ("affiliations", &mut rel_affiliations),
-        ] {
-            if let Some(v) = obj.get(k) {
-                if let Some(arr) = v.as_array() {
-                    *target = Some(arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect());
-                }
-            }
-        }
-    }
+    strip_relationship_fields(&mut body);
     let updated = db
         .update_alter_fields(&id, &body)
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
-    if let Some(p) = rel_partners {
-        db.replace_partners(&id, &p)
-            .await
-            .map_err(|_| AppError::Internal)?;
-    }
-    if let Some(p) = rel_parents {
-        db.replace_parents(&id, &p)
-            .await
-            .map_err(|_| AppError::Internal)?;
-    }
-    if let Some(c) = rel_children {
-        db.replace_children(&id, &c)
-            .await
-            .map_err(|_| AppError::Internal)?;
-    }
-    if let Some(a) = rel_affiliations {
-        db.replace_affiliations(&id, &a)
-            .await
-            .map_err(|_| AppError::Internal)?;
-    }
-    audit::record_entity(&db, Some(user.id.as_str()), "alter.update", "alter", &id.to_string()).await;
+    audit::record_entity(
+        &db,
+        Some(user.id.as_str()),
+        "alter.update",
+        "alter",
+        &id.to_string(),
+    )
+    .await;
     record_entity_operation("alter", "update", "success");
-    let out = project_with_rel(&db, updated, true).await;
-    Ok(Json(out))
+    Ok(Json(updated))
 }
 
 pub async fn delete_alter(
@@ -966,7 +675,14 @@ pub async fn delete_alter(
         record_entity_operation("alter", "delete", "failure");
         return Err(AppError::NotFound);
     }
-    audit::record_entity(&db, Some(user.id.as_str()), "alter.delete", "alter", &id.to_string()).await;
+    audit::record_entity(
+        &db,
+        Some(user.id.as_str()),
+        "alter.delete",
+        "alter",
+        &id.to_string(),
+    )
+    .await;
     record_entity_operation("alter", "delete", "success");
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
@@ -1052,7 +768,7 @@ pub async fn family_tree(
         };
         nodes_map.insert(alter.id.clone(), node);
 
-    // Add parent edges (parent_id, child_id)
+        // Add parent edges (parent_id, child_id)
         for parent_id in parents {
             parent_edges.push((parent_id, alter.id.clone()));
         }
@@ -1097,7 +813,8 @@ pub async fn family_tree(
 
         let mut children = Vec::new();
         for child_id in &flat_node.children {
-            if let Some(child_node) = build_node(child_id.clone(), nodes_map, visited, built_nodes) {
+            if let Some(child_node) = build_node(child_id.clone(), nodes_map, visited, built_nodes)
+            {
                 children.push(child_node);
             }
         }
@@ -1129,7 +846,9 @@ pub async fn family_tree(
     for (id, _) in &nodes_map {
         // A node is a root if it's not a child of any other node in the dataset
         if !all_child_ids.contains(id) {
-            if let Some(tree_node) = build_node(id.clone(), &nodes_map, &mut visited, &mut built_nodes) {
+            if let Some(tree_node) =
+                build_node(id.clone(), &nodes_map, &mut visited, &mut built_nodes)
+            {
                 tree_roots.push(tree_node);
             }
         }

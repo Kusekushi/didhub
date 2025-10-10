@@ -250,5 +250,6 @@ pub async fn replace_relationships(
         "replaced user-alter relationships",
     );
 
-    Ok(Json(super::RowsAffectedResponse { rows_affected }))
+    // FIXME: Return type
+    Ok(Json(super::RowsAffectedResponse { rows_affected: rows_affected.try_into().unwrap() }))
 }
