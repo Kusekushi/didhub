@@ -7,7 +7,6 @@ from pathlib import Path
 # Default paths
 DEFAULT_SERVER_ROOT = Path("../../server-rs/didhub-server")
 DEFAULT_OUTPUT_DIR = Path("../../packages/api-client/src")
-GENERATED_FILE_NAME = "generated-client.ts"
 
 # Route files to parse
 ROUTE_FILES = [
@@ -23,16 +22,16 @@ MODULE_MAP = {
     'groups': 'Group',
     'systems': 'Subsystem',
     'subsystems': 'Subsystem',
-    'me': 'User',
+    'me': 'Users',
     'upload': 'Files',
-    'auth': 'User',
+    'uploads': 'Files',
+    'assets': 'Files',
+    'auth': 'Users',
     'oidc': 'OIDC',
-    'password-reset': 'User',
+    'password-reset': 'Users',
     'health': 'misc',
     'metrics': 'misc',
-    'uploads': 'misc',
     's': 'misc',
-    'assets': 'misc',
     'posts': 'Post',
     'pdf': 'Report',
     'users': 'Admin',

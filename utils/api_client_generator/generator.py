@@ -6,7 +6,7 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Set
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -23,6 +23,18 @@ class TypeScriptGenerator:
         self.api_modules = api_modules
         self.type_definitions = type_definitions
         self.env = self._setup_jinja_env()
+        self.rust_to_ts: Dict[str, str] = {}
+        simple_name_map: Dict[str, Set[str]] = defaultdict(set)
+
+        for type_def in self.type_definitions:
+            self.rust_to_ts[type_def.rust_path] = type_def.name
+            simple_name_map[type_def.original_name].add(type_def.name)
+
+        self.simple_to_ts = {
+            name: next(iter(names))
+            for name, names in simple_name_map.items()
+            if len(names) == 1
+        }
 
     def _setup_jinja_env(self) -> Environment:
         """Setup Jinja2 environment with templates"""
@@ -101,10 +113,12 @@ class TypeScriptGenerator:
         
         # Add query parameters
         if endpoint.query_type:
-            params.append('query: QueryParams')
+            ts_query_type = self._rust_type_to_typescript(endpoint.query_type)
+            params.append(f'query: {ts_query_type}')
         
         # Add body parameter for POST/PUT/PATCH
-        if endpoint.method in ['POST', 'PUT', 'PATCH']:
+        has_body_param = endpoint.method in ['POST', 'PUT', 'PATCH']
+        if has_body_param:
             if endpoint.body_type:
                 # Convert Rust type to TypeScript type
                 ts_body_type = self._rust_type_to_typescript(endpoint.body_type)
@@ -128,8 +142,11 @@ class TypeScriptGenerator:
 
         # Determine return type
         response_ts_type = self._rust_type_to_typescript(endpoint.response_type) if endpoint.response_type else 'any'
-        return_type = f'Promise<{response_ts_type}>'
+        return_type = f'Promise<HttpResponse<{response_ts_type}>>'
         response_type = response_ts_type
+
+        use_json_body = has_body_param and endpoint.body_type is not None
+        use_body_payload = has_body_param and not use_json_body
 
         # Render method template
         template = self.env.get_template('method.ts.jinja')
@@ -140,7 +157,9 @@ class TypeScriptGenerator:
             method=endpoint.method,
             return_type=return_type,
             response_type=response_type,
-            has_query=endpoint.query_type is not None
+            has_query=endpoint.query_type is not None,
+            use_json_body=use_json_body,
+            use_body_payload=use_body_payload
         )
 
     def _path_to_method_name(self, path: str, method: str, include_method_in_name: bool = False) -> str:
@@ -175,113 +194,248 @@ class TypeScriptGenerator:
         if not name:
             name = f'{method.lower()}_request'
 
-        return name
-
-    def _rust_type_to_typescript(self, rust_type: str) -> str:
-        """Convert Rust type to TypeScript type"""
-        # Basic type mappings - extend as needed
-        type_mappings = {
-            'i32': 'number',
-            'i64': 'number',
-            'f32': 'number',
-            'f64': 'number',
-            'bool': 'boolean',
-            'String': 'string',
-            'Vec': 'Array',
-            'Option': 'Maybe',
-            'HashMap': 'Record<string, ',
-            'BTreeMap': 'Record<string, ',
-            'serde_json::Value': 'any',
+        prefix_map = {
+            'GET': 'get',
+            'POST': 'post',
+            'PUT': 'put',
+            'PATCH': 'patch',
+            'DELETE': 'delete'
         }
 
-        # Handle option types
-        if rust_type.startswith('Option<') and rust_type.endswith('>'):
-            inner_type = rust_type[7:-1]
-            ts_inner_type = self._rust_type_to_typescript(inner_type)
-            return f'Maybe<{ts_inner_type}>'
+        snake_name = name
+        prefix = prefix_map.get(method)
+        if prefix and not snake_name.startswith(f'{prefix}_'):
+            snake_name = f'{prefix}_{snake_name}' if snake_name else prefix
 
-        # Handle vector types
-        if rust_type.startswith('Vec<') and rust_type.endswith('>'):
-            inner_type = rust_type[4:-1]
-            ts_inner_type = self._rust_type_to_typescript(inner_type)
-            return f'Array<{ts_inner_type}>'
+        return snake_name
 
-        # Handle array types (T[])
+    def _split_generic_params(self, params_str: str) -> List[str]:
+        params = []
+        current = []
+        angle_depth = 0
+        paren_depth = 0
+
+        for char in params_str:
+            if char == '<':
+                angle_depth += 1
+                current.append(char)
+            elif char == '>':
+                angle_depth -= 1
+                current.append(char)
+            elif char == '(':  # nested tuple inside generics
+                paren_depth += 1
+                current.append(char)
+            elif char == ')':
+                paren_depth -= 1
+                current.append(char)
+            elif char == ',' and angle_depth == 0 and paren_depth == 0:
+                param = ''.join(current).strip()
+                if param:
+                    params.append(param)
+                current = []
+            else:
+                current.append(char)
+
+        final = ''.join(current).strip()
+        if final:
+            params.append(final)
+
+        return params
+
+    def _split_tuple_elements(self, tuple_str: str) -> List[str]:
+        elements = []
+        current = []
+        angle_depth = 0
+        paren_depth = 0
+
+        for char in tuple_str:
+            if char == '<':
+                angle_depth += 1
+                current.append(char)
+            elif char == '>':
+                angle_depth -= 1
+                current.append(char)
+            elif char == '(':
+                paren_depth += 1
+                current.append(char)
+            elif char == ')':
+                paren_depth -= 1
+                current.append(char)
+            elif char == ',' and angle_depth == 0 and paren_depth == 0:
+                element = ''.join(current).strip()
+                if element:
+                    elements.append(element)
+                current = []
+            else:
+                current.append(char)
+
+        final = ''.join(current).strip()
+        if final:
+            elements.append(final)
+
+        return elements
+
+    def _resolve_custom_type(self, rust_type: str, for_types_file: bool) -> str | None:
+        if rust_type in self.rust_to_ts:
+            ts_name = self.rust_to_ts[rust_type]
+            return ts_name if for_types_file else f'Types.{ts_name}'
+
+        simple = rust_type.split('::')[-1]
+        ts_name = self.simple_to_ts.get(simple)
+        if ts_name:
+            return ts_name if for_types_file else f'Types.{ts_name}'
+
+        return None
+
+    def _rust_type_to_typescript(self, rust_type: str, for_types_file: bool = False) -> str:
+        """Convert Rust type to TypeScript type"""
+        if not rust_type:
+            return 'any'
+
+        rust_type = rust_type.strip()
+
+        # Option types map to Maybe<> in client and union in types file
+        option_prefixes = (
+            'Option<',
+            'std::option::Option<',
+            'core::option::Option<',
+        )
+        for prefix in option_prefixes:
+            if rust_type.startswith(prefix) and rust_type.endswith('>'):
+                inner = rust_type[len(prefix):-1].strip()
+                ts_inner = self._rust_type_to_typescript(inner, for_types_file)
+                return f'{ts_inner} | null' if for_types_file else f'Maybe<{ts_inner}>'
+
+        # Vec<T>
+        vec_prefixes = (
+            'Vec<',
+            'std::vec::Vec<',
+            'alloc::vec::Vec<',
+        )
+        for prefix in vec_prefixes:
+            if rust_type.startswith(prefix) and rust_type.endswith('>'):
+                inner = rust_type[len(prefix):-1].strip()
+                ts_inner = self._rust_type_to_typescript(inner, for_types_file)
+                return f'Array<{ts_inner}>'
+
+        # Slices T[]
         if rust_type.endswith('[]'):
-            inner_type = rust_type[:-2]
-            ts_inner_type = self._rust_type_to_typescript(inner_type)
-            return f'Array<{ts_inner_type}>'
+            inner = rust_type[:-2].strip()
+            ts_inner = self._rust_type_to_typescript(inner, for_types_file)
+            return f'Array<{ts_inner}>'
 
-        # Handle map types
-        if rust_type.startswith('HashMap<') and rust_type.endswith('>'):
-            key_value_types = rust_type[8:-1].split(',')
-            if len(key_value_types) == 2:
-                key_type = key_value_types[0].strip()
-                value_type = key_value_types[1].strip()
-                ts_key_type = self._rust_type_to_typescript(key_type)
-                ts_value_type = self._rust_type_to_typescript(value_type)
-                return f'Record<{ts_key_type}, {ts_value_type}>'
-        if rust_type.startswith('BTreeMap<') and rust_type.endswith('>'):
-            key_value_types = rust_type[9:-1].split(',')
-            if len(key_value_types) == 2:
-                key_type = key_value_types[0].strip()
-                value_type = key_value_types[1].strip()
-                ts_key_type = self._rust_type_to_typescript(key_type)
-                ts_value_type = self._rust_type_to_typescript(value_type)
-                return f'Record<{ts_key_type}, {ts_value_type}>'
+        # HashMap / BTreeMap style dictionaries
+        map_prefixes = (
+            ('HashMap<', 8),
+            ('std::collections::HashMap<', len('std::collections::HashMap<')),
+            ('std::collections::hash_map::HashMap<', len('std::collections::hash_map::HashMap<')),
+        )
+        for prefix, offset in map_prefixes:
+            if rust_type.startswith(prefix) and rust_type.endswith('>'):
+                params = self._split_generic_params(rust_type[offset:-1])
+                if len(params) == 2:
+                    key_ts = self._rust_type_to_typescript(params[0], for_types_file)
+                    val_ts = self._rust_type_to_typescript(params[1], for_types_file)
+                    return f'Record<{key_ts}, {val_ts}>'
 
-        # Handle generic types by processing recursively
-        if '<' in rust_type and '>' in rust_type:
-            # Parse generic type like Type<Param1, Param2>
-            base_type = rust_type.split('<')[0]
-            params_str = rust_type[len(base_type)+1:-1]  # Remove base< and >
-            
-            # Parse parameters, handling nested generics
-            params = []
-            current_param = ""
-            level = 0
-            for char in params_str:
-                if char == '<':
-                    level += 1
-                elif char == '>':
-                    level -= 1
-                elif char == ',' and level == 0:
-                    params.append(current_param.strip())
-                    current_param = ""
-                    continue
-                current_param += char
-            if current_param.strip():
-                params.append(current_param.strip())
-            
-            # Convert each parameter
-            ts_params = [self._rust_type_to_typescript(param) for param in params]
-            
-            # Convert base type
-            ts_base = self._rust_type_to_typescript(base_type)
-            
+        btree_prefixes = (
+            ('BTreeMap<', 9),
+            ('std::collections::BTreeMap<', len('std::collections::BTreeMap<')),
+        )
+        for prefix, offset in btree_prefixes:
+            if rust_type.startswith(prefix) and rust_type.endswith('>'):
+                params = self._split_generic_params(rust_type[offset:-1])
+                if len(params) == 2:
+                    key_ts = self._rust_type_to_typescript(params[0], for_types_file)
+                    val_ts = self._rust_type_to_typescript(params[1], for_types_file)
+                    return f'Record<{key_ts}, {val_ts}>'
+
+        # Tuple types e.g. (T1, T2)
+        tuple_start = rust_type.find('(')
+        if tuple_start != -1 and rust_type.endswith(')'):
+            prefix = rust_type[:tuple_start]
+            if not prefix or prefix.endswith('::'):
+                inner = rust_type[tuple_start + 1:-1].strip()
+            else:
+                inner = ''
+            if inner == '':
+                # Fall back to generic handling if this wasn't actually a tuple
+                pass
+            else:
+                elements = self._split_tuple_elements(inner)
+                ts_elements = [self._rust_type_to_typescript(elem, for_types_file) for elem in elements]
+
+                if len(ts_elements) == 1:
+                    return ts_elements[0]
+
+                return f'[{", ".join(ts_elements)}]'
+
+        if rust_type.startswith('(') and rust_type.endswith(')'):
+            inner = rust_type[1:-1].strip()
+            if not inner:
+                return '[]'
+
+            elements = self._split_tuple_elements(inner)
+            ts_elements = [self._rust_type_to_typescript(elem, for_types_file) for elem in elements]
+
+            if len(ts_elements) == 1:
+                return ts_elements[0]
+
+            return f'[{", ".join(ts_elements)}]'
+
+        # Generic types e.g. Foo<Bar, Baz>
+        if '<' in rust_type and rust_type.endswith('>'):
+            base = rust_type[:rust_type.find('<')].strip()
+            params_str = rust_type[rust_type.find('<') + 1:-1]
+            params = self._split_generic_params(params_str)
+            ts_params = [self._rust_type_to_typescript(param, for_types_file) for param in params]
+            ts_base = self._rust_type_to_typescript(base, for_types_file)
             return f'{ts_base}<{", ".join(ts_params)}>'
 
-        # Default to string for unknown types
-        result = type_mappings.get(rust_type, rust_type)
-        
-        # Handle qualified names (e.g., super::TypeName -> TypeName)
-        if '::' in result:
-            result = result.split('::')[-1]  # Take the last part after ::
-        
-        # If this is a custom type (interface we generated), prefix with Types.
-        # Handle generic types by extracting the base type name
-        base_type = result.split('<')[0]  # Remove generic parameters
-        type_names = [td.name for td in self.type_definitions]
-        if base_type in type_names:
-            result = f'Types.{result}'
-        
-        return result
+        primitive_map = {
+            'String': 'string',
+            'str': 'string',
+            'bool': 'boolean',
+            'i8': 'number',
+            'i16': 'number',
+            'i32': 'number',
+            'i64': 'number',
+            'isize': 'number',
+            'u8': 'number',
+            'u16': 'number',
+            'u32': 'number',
+            'u64': 'number',
+            'usize': 'number',
+            'f32': 'number',
+            'f64': 'number',
+            'serde_json::Value': 'any',
+            'axum::response::Response': 'any',
+        }
+
+        if rust_type in primitive_map:
+            return primitive_map[rust_type]
+
+        if rust_type.startswith('crate::') or rust_type.startswith('didhub_db::') or '::' in rust_type:
+            resolved = self._resolve_custom_type(rust_type, for_types_file)
+            if resolved:
+                return resolved
+            rust_type = rust_type.split('::')[-1]
+
+            if rust_type in primitive_map:
+                return primitive_map[rust_type]
+
+        # Handle simple custom types by name if unambiguous
+        resolved = self._resolve_custom_type(rust_type, for_types_file)
+        if resolved:
+            return resolved
+
+        return rust_type
 
     def _generate_type_definitions(self) -> List[str]:
         """Generate TypeScript interface definitions"""
         interfaces = []
         
-        for type_def in self.type_definitions:
+        for type_def in sorted(self.type_definitions, key=lambda td: td.name):
             interface_code = self._generate_interface(type_def)
             interfaces.append(interface_code)
         
@@ -300,7 +454,8 @@ class TypeScriptGenerator:
         
         # Fields
         for field_name, field_type in type_def.fields:
-            lines.append(f"  {field_name}: {field_type};")
+            ts_field_type = self._rust_type_to_typescript(field_type, for_types_file=True)
+            lines.append(f"  {field_name}: {ts_field_type};")
         
         lines.append("}")
         lines.append("")  # Empty line between interfaces

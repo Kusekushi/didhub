@@ -5,10 +5,12 @@ public async {{ method_name }}({{ param_list }}): {{ return_type }} {
 {% if has_query %}
       query,
 {% endif %}
-{% if method in ['POST', 'PUT', 'PATCH'] %}
+{% if use_json_body %}
       json: body,
+{% elif use_body_payload %}
+      body,
 {% endif %}
     });
-    return response.data;
+    return response;
   }
 

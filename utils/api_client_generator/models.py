@@ -29,8 +29,11 @@ class ApiModule:
 @dataclass
 class TypeDefinition:
     """Represents a TypeScript interface definition"""
-    name: str
-    fields: List[Tuple[str, str]]  # (field_name, field_type)
+    name: str  # TypeScript-friendly unique name
+    rust_path: str  # Fully-qualified Rust path (e.g. crate::routes::admin::uploads::ListParams)
+    module_path: str  # Module portion of the path (e.g. crate::routes::admin::uploads)
+    original_name: str  # Original Rust struct name (e.g. ListParams)
+    fields: List[Tuple[str, str]]  # (field_name, rust_type)
     is_generic: bool = False
     type_params: List[str] = None  # For generic types like T, U
 

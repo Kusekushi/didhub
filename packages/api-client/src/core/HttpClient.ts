@@ -7,16 +7,24 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 
 export type QueryValue = string | number | boolean | null | undefined;
 export type QueryParams = Record<string, QueryValue | QueryValue[]>;
 
+export type QueryInput =
+  | QueryParams
+  | URLSearchParams
+  | string
+  | null
+  | undefined
+  | Record<string, unknown>
+  | object;
 export interface HttpClientConfig {
   baseUrl?: string;
   credentials?: RequestCredentials;
   defaultHeaders?: HeadersInit;
 }
 
-export interface RequestOptions<TBody = unknown> {
+export interface RequestOptions<TBody = unknown, TQuery extends QueryInput = QueryInput> {
   method?: HttpMethod;
   path: string;
-  query?: QueryParams;
+  query?: TQuery;
   headers?: HeadersInit;
   json?: unknown;
   body?: TBody;
@@ -96,7 +104,9 @@ export class HttpClient {
     this.defaultHeaders = config.defaultHeaders;
   }
 
-  async request<T = unknown>(options: RequestOptions): Promise<HttpResponse<T>> {
+  async request<T = unknown, TBody = unknown, TQuery extends QueryInput = QueryInput>(
+    options: RequestOptions<TBody, TQuery>
+  ): Promise<HttpResponse<T>> {
     const method: HttpMethod = (options.method ?? 'GET').toUpperCase() as HttpMethod;
     const url = this.buildUrl(options.path, options.query);
     const headers = new Headers(this.defaultHeaders);
@@ -213,17 +223,32 @@ export class HttpClient {
     return httpResponse;
   }
 
-  private buildUrl(path: string, query?: QueryParams): string {
+  private buildUrl(path: string, query?: QueryInput): string {
     const base = this.baseUrl ? this.baseUrl.replace(/\/$/, '') : '';
     const resolvedPath =
       path.startsWith('http://') || path.startsWith('https://')
         ? path
         : `${base}${path.startsWith('/') ? path : `/${path}`}`;
 
-    if (!query || Object.keys(query).length === 0) return resolvedPath;
+    if (!query) return resolvedPath;
+
+    if (typeof query === 'string') {
+      const trimmed = query.startsWith('?') ? query.slice(1) : query;
+      return trimmed ? `${resolvedPath}?${trimmed}` : resolvedPath;
+    }
+
+    if (query instanceof URLSearchParams) {
+      const paramsString = query.toString();
+      return paramsString ? `${resolvedPath}?${paramsString}` : resolvedPath;
+    }
+
+    const flatQuery = this.normalizeQuery(query as Record<string, unknown>);
+    if (Object.keys(flatQuery).length === 0) {
+      return resolvedPath;
+    }
     const searchParams = new URLSearchParams();
 
-    Object.entries(query).forEach(([key, value]) => {
+    Object.entries(flatQuery).forEach(([key, value]) => {
       if (value === undefined || value === null) return;
       if (Array.isArray(value)) {
         value.forEach((item) => {
@@ -236,6 +261,49 @@ export class HttpClient {
     });
 
     return `${resolvedPath}?${searchParams.toString()}`;
+  }
+
+  private normalizeQuery(query: Record<string, unknown> | object): QueryParams {
+    const entries = Object.entries(query ?? {});
+    if (entries.length === 0) return {};
+
+    const normalized: QueryParams = {};
+
+    for (const [key, value] of entries) {
+      const normalizedValue = this.normalizeQueryValue(value);
+      if (normalizedValue === undefined) continue;
+      normalized[key] = normalizedValue;
+    }
+
+    return normalized;
+  }
+
+  private normalizeQueryValue(
+    value: unknown
+  ): QueryValue | QueryValue[] | undefined {
+    if (value === undefined || value === null) return undefined;
+
+    if (Array.isArray(value)) {
+      const arrayValues = value
+        .map((item) => this.normalizeQueryValue(item))
+        .flatMap((item) => (Array.isArray(item) ? item : item !== undefined ? [item] : []));
+      return arrayValues.length > 0 ? arrayValues : undefined;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    switch (typeof value) {
+      case 'string':
+      case 'number':
+      case 'boolean':
+        return value;
+      case 'object':
+        return JSON.stringify(value);
+      default:
+        return String(value);
+    }
   }
 }
 

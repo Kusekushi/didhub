@@ -9,7 +9,7 @@ from pathlib import Path
 # Add current directory to path for relative imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import DEFAULT_OUTPUT_DIR, DEFAULT_SERVER_ROOT, GENERATED_FILE_NAME
+from config import DEFAULT_OUTPUT_DIR, DEFAULT_SERVER_ROOT
 from generator import TypeScriptGenerator
 from parser import RustRouteParser
 
@@ -58,8 +58,8 @@ def main():
     with open(types_output_file, 'w', encoding='utf-8') as f:
         f.write(types_code)
 
-    # Check if get_users is in the generated code
-    if 'get_users(query: QueryParams)' in client_code:
+    # Check if the admin get_users endpoint includes the expected query parameter signature
+    if 'get_users(query: Types.AdminUsersUsersQuery)' in client_code:
         print("SUCCESS: get_users with query parameter found in generated code")
     else:
         print("ERROR: get_users with query parameter NOT found in generated code")
