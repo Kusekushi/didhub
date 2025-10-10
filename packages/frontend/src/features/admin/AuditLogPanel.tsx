@@ -48,24 +48,24 @@ export default function AuditLogPanel(props: AuditLogPanelProps) {
     setLoading(true);
     try {
       const parsedUserId = filters.user_id ? parseInt(filters.user_id, 10) : undefined;
-      const r = await apiClient.admin.auditLogs({
-        page: 1,
-        perPage: 500,
+      const r = await apiClient.admins.audit({
         action: filters.action || undefined,
-        userId: Number.isNaN(parsedUserId ?? NaN) ? undefined : parsedUserId,
+        user_id: parsedUserId,
         from: filters.from || undefined,
         to: filters.to || undefined,
+        limit: 500,
+        offset: 0,
       });
-      const normalized: AuditLogEntry[] = Array.isArray(r?.items)
-        ? r.items.map((item: any, idx: number) => ({
-            id: String(item.id ?? item.timestamp ?? `entry-${idx}`),
-            created_at: String(item.timestamp ?? item.created_at ?? ''),
+      const normalized: AuditLogEntry[] = Array.isArray(r)
+        ? r.map((item: any, idx: number) => ({
+            id: String(item.id ?? `entry-${idx}`),
+            created_at: String(item.created_at ?? ''),
             action: String(item.action ?? ''),
-            user_id: item.user_id ?? item.userId,
-            entity_type: item.entity_type ?? item.entityType,
-            entity_id: item.entity_id ?? item.entityId,
-            ip: item.ip_address ?? item.ipAddress ?? item.ip,
-            metadata: item.details ?? item.metadata ?? {},
+            user_id: item.user_id,
+            entity_type: item.entity_type,
+            entity_id: item.entity_id,
+            ip: item.ip,
+            metadata: item.metadata ?? {},
           }))
         : [];
       setRows(normalized);

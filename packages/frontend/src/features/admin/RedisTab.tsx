@@ -54,13 +54,13 @@ export default function RedisTab() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const settings = await apiClient.admin.settings();
-        setRedisUrl(String(settings?.redis_url || ''));
-        setRedisPrefixSetting(String(settings?.redis_prefix || ''));
-        setRedisTtlSecondsSetting(String(settings?.redis_ttl_seconds || ''));
-        setRedisClientOptions(String(settings?.redis_client_options || ''));
-        setRedisSessionsEnabled(settings?.redis_sessions_enabled === '1' || settings?.redis_sessions_enabled === 'true');
-        setRedisCacheEnabled(settings?.redis_cache_enabled === '1' || settings?.redis_cache_enabled === 'true');
+        const settings = await apiClient.admin.get_settings();
+        setRedisUrl(String(settings?.data.redis_url || ''));
+        setRedisPrefixSetting(String(settings?.data.redis_prefix || ''));
+        setRedisTtlSecondsSetting(String(settings?.data.redis_ttl_seconds || ''));
+        setRedisClientOptions(String(settings?.data.redis_client_options || ''));
+        setRedisSessionsEnabled(settings?.data.redis_sessions_enabled === '1' || settings?.data.redis_sessions_enabled === 'true');
+        setRedisCacheEnabled(settings?.data.redis_cache_enabled === '1' || settings?.data.redis_cache_enabled === 'true');
       } catch (e) {
         setSnack({ open: true, text: `Failed to load Redis settings: ${e}`, severity: 'error' });
       }
@@ -68,7 +68,7 @@ export default function RedisTab() {
 
     const loadStatus = async () => {
       try {
-        const rs = await apiClient.admin.redisStatus();
+        const rs = await apiClient.admin.get_admin_redis();
         setRedisStatusState(rs || null);
       } catch (e) {
         setRedisStatusState({ ok: false, error: String(e) });
@@ -147,7 +147,7 @@ export default function RedisTab() {
           disabled={!redisUrl}
           onClick={async () => {
             try {
-              await apiClient.admin.updateSettings({
+              await apiClient.admin.put_settings({
                 redis_url: redisUrl,
                 redis_prefix: redisPrefixSetting,
                 redis_ttl_seconds: redisTtlSecondsSetting,
@@ -172,7 +172,7 @@ export default function RedisTab() {
             variant="outlined"
             onClick={async () => {
               try {
-                const rs = await apiClient.admin.redisStatus();
+                const rs = await apiClient.admin.get_admin_redis();
                 setRedisStatusState(rs || null);
               } catch (e) {
                 setRedisStatusState({ ok: false, error: String(e) });

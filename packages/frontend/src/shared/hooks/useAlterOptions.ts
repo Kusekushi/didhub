@@ -21,7 +21,7 @@ export function useAlterOptions(uid?: string, leaderQuery: string = '', enabled 
         const key = `${uid}:${q}`;
 
         const options = await altersRequestCache.fetch<Alter[]>(key, () =>
-          apiClient.alters.search({ userId: uid, query: q, includeRelationships: true }),
+          apiClient.alter.get_alters_search({ userId: uid, query: q, includeRelationships: true }),
         );
 
         if (!mounted) return;

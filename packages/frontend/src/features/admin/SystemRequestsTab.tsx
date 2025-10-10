@@ -20,7 +20,7 @@ export default function SystemRequestsTab() {
   useEffect(() => {
     const loadSystemRequests = async () => {
       try {
-        const sr = await apiClient.admin.listSystemRequests();
+        const sr = await apiClient.admin.get_system_requests();
         setSysRequests(sr || []);
       } catch (e) {
         setSnack({ open: true, text: `Failed to load system requests: ${e}`, severity: 'error' });
@@ -31,7 +31,7 @@ export default function SystemRequestsTab() {
 
   const handleSetRequestStatus = async (id: number, status: 'approved' | 'rejected') => {
     try {
-      const result = await apiClient.admin.decideSystemRequest(id, status);
+      const result = await apiClient.admin.post_system_requests_by_id_decide(id, status);
       if (result.success !== false) {
         setSnack({
           open: true,
@@ -39,7 +39,7 @@ export default function SystemRequestsTab() {
           severity: 'success',
         });
         // Refresh the list
-        const sr = await apiClient.admin.listSystemRequests();
+        const sr = await apiClient.admin.get_system_requests();
         setSysRequests(sr || []);
       } else {
         setSnack({

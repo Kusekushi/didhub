@@ -15,7 +15,7 @@ export default function SettingsTab() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const s = await apiClient.admin.settings();
+        const s = await apiClient.admin.get_settings();
         if (s) {
           setWebhook(String(s[SETTINGS_KEYS.DISCORD_WEBHOOK_URL] || ''));
           setUploadDirTtlSecs(s['uploads.upload_dir_cache.ttl_secs'] ? String(s['uploads.upload_dir_cache.ttl_secs']) : '3600');
@@ -34,7 +34,7 @@ export default function SettingsTab() {
   const handleReloadUploadDir = async () => {
     try {
       setStatus('Reloading upload dir...');
-      const r = await apiClient.admin.reloadUploadDirectory();
+      const r = await apiClient.admin.post_admin_reload_upload_dir();
       const msg = r && r.dir ? `Reloaded upload dir: ${r.dir}` : 'Reloaded upload dir';
       setStatus(msg);
       setSnack({ open: true, message: msg, severity: 'success' });
@@ -49,7 +49,7 @@ export default function SettingsTab() {
   const handleSave = async () => {
     try {
       setStatus('Saving...');
-      await apiClient.admin.updateSettings({
+      await apiClient.admin.put_settings({
         [SETTINGS_KEYS.DISCORD_WEBHOOK_URL]: webhook || null,
         [SETTINGS_KEYS.DISCORD_DIGEST_ENABLED]: discordDigestEnabled ? '1' : '0',
         [SETTINGS_KEYS.EMAIL_ENABLED]: emailEnabled ? '1' : '0',

@@ -27,7 +27,7 @@ export default function Housekeeping() {
   async function load() {
     setLoading(true);
     try {
-      const jobsResult = await apiClient.admin.listHousekeepingJobs();
+      const jobsResult = await apiClient.admin.get_housekeeping_jobs();
       setJobs(jobsResult.jobs);
 
       // Initialize dry run state for each job
@@ -37,7 +37,7 @@ export default function Housekeeping() {
       });
       setDryRun(initialDryRun);
 
-      const runsResult = await apiClient.admin.listHousekeepingRuns(1, 50);
+      const runsResult = await apiClient.admin.get_housekeeping_runs(1, 50);
       setRuns(runsResult.runs);
     } catch (e) {
       console.error('Failed to load housekeeping data:', e);
@@ -54,7 +54,7 @@ export default function Housekeeping() {
 
   async function onRun(name: string, opts?: { dry?: boolean }) {
     try {
-      const res = await apiClient.admin.triggerHousekeepingJob(name, { dry: opts?.dry });
+      const res = await apiClient.admin.post_housekeeping_trigger_by_name(name, { dry: opts?.dry });
       await load();
       // if dry run returned candidates and dry=true, open confirm dialog
       const candidates =
@@ -76,7 +76,7 @@ export default function Housekeeping() {
   async function confirmExecute() {
     if (!confirmJob) return;
     try {
-      await apiClient.admin.triggerHousekeepingJob(confirmJob, { dry: false });
+      await apiClient.admin.post_housekeeping_trigger_by_name(confirmJob, { dry: false });
     } catch (e) {
       // ignore
     } finally {

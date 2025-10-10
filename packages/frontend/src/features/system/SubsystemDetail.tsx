@@ -23,6 +23,7 @@ import { Alter, Subsystem, User, AlterName, apiClient, SubsystemMember, parseRol
 
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 import { usePdf } from '../../shared/hooks/usePdf';
+import { useAuth } from '../../shared/contexts/AuthContext';
 
 type AlterMember = Alter & { roles?: string[] };
 
@@ -31,7 +32,7 @@ export default function SubsystemDetail() {
   const nav = useNavigate();
   const [subsystem, setSubsystem] = useState<Subsystem | null>(null);
   const [members, setMembers] = useState<AlterMember[]>([]);
-  const [me, setMe] = useState<User | null>(null);
+  const { user: me } = useAuth();
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -71,12 +72,6 @@ export default function SubsystemDetail() {
           return;
         }
         // fetch user first
-        try {
-          const muser = await apiClient.users.sessionIfAuthenticated();
-          setMe(muser);
-        } catch {
-          setMe(null);
-        }
         const subsystemData = await apiClient.subsystems.get(sid);
         setSubsystem(subsystemData ?? null);
         if (subsystemData) {

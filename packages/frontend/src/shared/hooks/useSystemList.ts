@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
-import { apiClient } from '@didhub/api-client';
-import type { User } from '@didhub/api-client';
-
-export type SystemSummary = User & { description?: string | null };
+import { apiClient, ApiSystemSummary } from '@didhub/api-client';
 
 /**
  * Hook for managing system list data and search
  */
 export function useSystemList() {
-  const [systems, setSystems] = useState<SystemSummary[]>([]);
+  const [systems, setSystems] = useState<ApiSystemSummary[]>([]);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -16,8 +13,9 @@ export function useSystemList() {
   useEffect(() => {
     (async () => {
       try {
-        const s = await apiClient.users.systems();
-        setSystems(s || []);
+        const res = await apiClient.subsystem.get_systems();
+        const data = res && Array.isArray((res as any).data) ? (res as any).data : [];
+        setSystems(data);
       } catch (e) {
         setSystems([]);
       }

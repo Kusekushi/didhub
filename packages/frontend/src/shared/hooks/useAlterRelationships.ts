@@ -50,7 +50,7 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
     }
 
     const fetchPromise = (async () => {
-      let items = await apiClient.alters.names();
+      let items = (await apiClient.alter.get_alters_names()).data;
       if (!Array.isArray(items)) {
         debugLog('Alter names endpoint returned non-array payload, normalizing to empty array', items);
         items = [];
@@ -59,14 +59,14 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
       if (!items.length) {
         debugLog('Alter names endpoint returned empty; falling back to alters.list');
         try {
-          const listPage = await apiClient.alters.list({ perPage: 1000 });
-          items = listPage.items
+          const listPage = await apiClient.alter.get_alters({ perPage: 1000 });
+          items = listPage.data.items
             .filter((alter): alter is Alter => Boolean(alter) && typeof alter.id !== 'undefined')
             .map((alter) => ({
               id: typeof alter.id === 'number' ? alter.id : Number(alter.id),
               name: alter.name ?? '',
               username: (alter as { username?: string }).username ?? undefined,
-              user_id: (alter as { user_id?: number }).user_id ?? null,
+              user_id: (alter as { user_id?: string }).user_id ?? null,
             }));
           debugLog('Fallback alters.list loaded', { count: items.length, sample: items.slice(0, 5) });
         } catch (fallbackError) {
@@ -104,7 +104,7 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
 
         const register = (
           alias: string | number | null | undefined,
-          idValue: number | string,
+          idValue: string,
           collector: Set<string>,
         ) => {
           if (alias == null) return;
@@ -121,22 +121,22 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
         };
 
         const ensureOptionForId = async (identifier: number | string) => {
-          const idValue = identifier as number | string;
+          const idValue = identifier as string;
           if (aliasMap[String(idValue)] || aliasMap[String(idValue).toLowerCase()]) return;
 
           try {
-            const fetched = await apiClient.alters.get(idValue);
+            const fetched = (await apiClient.alter.get_alters_by_id(idValue)).data;
             if (fetched && typeof fetched.id !== 'undefined') {
               const display = formatAlterDisplayName({
-                id: fetched.id as number,
+                id: fetched.id,
                 name: fetched.name ?? undefined,
                 username: (fetched as { username?: string }).username,
               });
               const aliases = new Set<string>();
-              register(display, fetched.id as number | string, aliases);
-              register(fetched.name, fetched.id as number | string, aliases);
-              register((fetched as { username?: string }).username, fetched.id as number | string, aliases);
-              const option = { id: fetched.id as number | string, label: display, aliases: Array.from(aliases) };
+              register(display, fetched.id, aliases);
+              register(fetched.name, fetched.id, aliases);
+              register((fetched as { username?: string }).username, fetched.id, aliases);
+              const option = { id: fetched.id, label: display, aliases: Array.from(aliases) };
               addOption(option);
               idName[String(fetched.id)] = display;
               return;
@@ -155,7 +155,7 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
 
         // Process base items
         for (const it of baseItems) {
-          const idValue = it.id as number | string;
+          const idValue = it.id;
           const display = formatAlterDisplayName(it);
           idName[String(idValue)] = display;
           const aliases = new Set<string>();

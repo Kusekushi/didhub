@@ -13,7 +13,7 @@ type SnackbarState = {
 };
 
 export default function UserSettings() {
-  const { user, setUser, changePassword } = useAuth();
+  const { user, refetchUser, changePassword } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,30 +28,35 @@ export default function UserSettings() {
   async function doUpload() {
     if (!file) return;
     setLoading(true);
-    const res = await apiClient.files.uploadAvatar(file);
+    const body = new FormData();
+    body.append('file', file);
+    const res = await apiClient.users.post_me_avatar(body);
     setLoading(false);
-    if (!res.error) {
-      const me = await apiClient.users.sessionIfAuthenticated();
-      setUser(me);
+    if (res.ok) {
+      await refetchUser();
       setMsg({ open: true, text: 'Avatar updated', severity: 'success' });
     } else {
-      setMsg({ open: true, text: res.message ?? 'Avatar upload failed', severity: 'error' });
+      const data = res.data as any;
+      setMsg({ open: true, text: data?.message ?? data?.error ?? 'Avatar upload failed', severity: 'error' });
     }
   }
 
   async function doDelete() {
     setLoading(true);
-    await apiClient.files.deleteAvatar();
+    const res = await apiClient.users.delete_me_avatar();
     setLoading(false);
-    const me = await apiClient.users.sessionIfAuthenticated();
-    setUser(me);
+    if (res.ok) {
+      await refetchUser();
+    } else {
+      const data = res.data as any;
+      setMsg({ open: true, text: data?.message ?? data?.error ?? 'Avatar delete failed', severity: 'error' });
+    }
   }
 
   async function doRefreshProfile() {
     setLoading(true);
     try {
-      const me = await apiClient.users.sessionIfAuthenticated();
-      setUser(me);
+      await refetchUser();
       setMsg({ open: true, text: 'Profile refreshed', severity: 'success' });
     } catch (e) {
       setMsg({ open: true, text: String(e || 'refresh failed'), severity: 'error' });
@@ -76,8 +81,7 @@ export default function UserSettings() {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        const me = await apiClient.users.sessionIfAuthenticated();
-        setUser(me);
+        await refetchUser();
       } else {
         setPwMsg({ open: true, text: String(r?.error ?? 'change failed'), severity: 'error' });
       }
@@ -90,8 +94,8 @@ export default function UserSettings() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await apiClient.admin.mySystemRequest();
-        setMyRequest(r ?? null);
+        const r = await apiClient.users.get_me_request_system();
+        setMyRequest(r.data ?? null);
       } catch (e) {
         setMyRequest(null);
       }
@@ -162,14 +166,14 @@ export default function UserSettings() {
             onClick={async () => {
               setLoading(true);
               try {
-                const res = await apiClient.admin.requestSystemApproval();
-                if (res && typeof res.id !== 'undefined') {
-                  const me = await apiClient.users.sessionIfAuthenticated();
-                  setUser(me);
-                  setMyRequest(res as SystemRequest);
+                const res = await apiClient.users.post_me_request_system({});
+                if (res.ok && res.data && typeof (res.data as any).id !== 'undefined') {
+                  await refetchUser();
+                  setMyRequest(res.data as SystemRequest);
                   setPwMsg({ open: true, text: 'System request submitted', severity: 'success' });
                 } else {
-                  setPwMsg({ open: true, text: 'Request failed', severity: 'error' });
+                  const data = res.data as any;
+                  setPwMsg({ open: true, text: data?.message ?? data?.error ?? 'Request failed', severity: 'error' });
                 }
               } catch (e) {
                 setPwMsg({ open: true, text: String(e || 'request failed'), severity: 'error' });

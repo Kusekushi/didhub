@@ -58,7 +58,7 @@ export default function UserListPanel() {
   async function load() {
     setLoading(true);
     try {
-      const r = await apiClient.users.list({ query: q, page: 1, perPage: 200 });
+      const r = await apiClient.admin.get_users({ q, page: 1, per_page: 200 });
       setUsers(r.items ?? []);
     } catch (e) {
       setUsers([]);
@@ -110,7 +110,7 @@ export default function UserListPanel() {
                   size="small"
                   variant="contained"
                   onClick={async () => {
-                    await apiClient.users.update(u.id, { is_system: !u.is_system });
+                    await apiClient.admin.put_users_by_id(u.id, { is_system: !u.is_system });
                     await load();
                   }}
                 >
@@ -121,7 +121,7 @@ export default function UserListPanel() {
                   variant={u.is_admin ? 'contained' : 'outlined'}
                   color={u.is_admin ? 'secondary' : 'primary'}
                   onClick={async () => {
-                    await apiClient.users.update(u.id, { is_admin: !u.is_admin });
+                    await apiClient.admin.put_users_by_id(u.id, { is_admin: !u.is_admin });
                     await load();
                   }}
                 >
@@ -234,11 +234,7 @@ export default function UserListPanel() {
                 return;
               }
               try {
-                await apiClient.admin.createUser(createForm.username, createForm.password, {
-                  is_admin: createForm.is_admin,
-                  is_system: createForm.is_system,
-                  is_approved: createForm.is_approved,
-                });
+                await apiClient.admin.post_users(createForm);
                 setCreateDialog({ open: false });
                 setCreateForm({
                   username: '',

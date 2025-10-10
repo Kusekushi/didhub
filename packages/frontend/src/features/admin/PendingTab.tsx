@@ -15,7 +15,7 @@ export default function PendingTab() {
   async function loadPendingRegistrations() {
     setLoadingPending(true);
     try {
-      const pageResult = await apiClient.users.list({ page: 1, perPage: 100, is_approved: false });
+      const pageResult = await apiClient.admin.get_users({ page: 1, perPage: 100, is_approved: false });
       const items = pageResult.items ?? [];
       setPendingRegs(items);
     } catch {
@@ -27,12 +27,12 @@ export default function PendingTab() {
 
   const handleApprove = async (user: { id: number; username: string }) => {
     try {
-      await apiClient.users.update(user.id, { is_approved: true });
+      await apiClient.admin.put_users_by_id(user.id, { is_approved: true });
       setSnack({ open: true, message: `Approved ${user.username}`, severity: 'success' });
       loadPendingRegistrations();
       // Refresh system requests
       try {
-        const sr = await apiClient.admin.listSystemRequests();
+        const sr = await apiClient.admin.get_system_requests();
         // Note: This would need to be handled by parent or a global state
         // For now, we'll just refresh pending registrations
       } catch (e) {
@@ -45,7 +45,7 @@ export default function PendingTab() {
 
   const handleReject = async (user: { id: number; username: string }) => {
     try {
-      await apiClient.users.update(user.id, { is_approved: false });
+      await apiClient.admin.put_users_by_id(user.id, { is_approved: false });
       setSnack({ open: true, message: `Rejected ${user.username}`, severity: 'info' });
       loadPendingRegistrations();
     } catch (e) {

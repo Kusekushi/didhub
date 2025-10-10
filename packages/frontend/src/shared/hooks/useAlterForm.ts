@@ -45,11 +45,10 @@ const emptyAlter: Alter = {
   notes: '',
   affiliations: [],
   subsystem: null,
-  group: null,
   system_roles: [],
-  is_system_host: false,
-  is_dormant: false,
-  is_merged: false,
+  is_system_host: 0,
+  is_dormant: 0,
+  is_merged: 0,
 };
 
 function isRelationshipType(value: unknown): value is RelationshipType {

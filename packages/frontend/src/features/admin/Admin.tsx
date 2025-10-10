@@ -1,6 +1,5 @@
 import React from 'react';
-import { useEffect, useState } from 'react';
-import { apiClient } from '@didhub/api-client';
+import { useState } from 'react';
 import { Box, List, ListItem, ListItemButton, ListItemText } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -19,6 +18,7 @@ import {
   Analytics as MetricsIcon,
   Backup as BackupIcon,
 } from '@mui/icons-material';
+import { useMe } from '../../shared/hooks/useMe';
 import Housekeeping from './Housekeeping';
 import AdminUploads from './AdminUploads';
 import AuditTab from './AuditTab';
@@ -37,17 +37,7 @@ import UsersTab from './UsersTab';
 
 export default function Admin() {
   const [tab, setTab] = useState(0);
-  const [settings, setSettings] = useState({}); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const [me, setMe] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      const m = await apiClient.users.sessionIfAuthenticated();
-      setMe(m);
-      const s = await apiClient.admin.settings();
-      setSettings(s || {});
-    })();
-  }, []);
+  const { me } = useMe();
 
   // Early return after all hooks to avoid hook ordering issues
   if (!me || !me.is_admin) return <div style={{ padding: 20 }}>Admin only</div>;
@@ -146,7 +136,6 @@ export default function Admin() {
       render: () => <MetricsTab /> 
     },
   ];
-  // Helper renderers for each panel — keeps the JSX organized and allows easy reordering.
 
   const panels = tabsDef.map((tdef) => tdef.render || (() => null));
 

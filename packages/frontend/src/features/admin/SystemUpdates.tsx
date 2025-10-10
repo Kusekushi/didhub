@@ -38,7 +38,7 @@ export default function SystemUpdates() {
   const checkUpdates = async () => {
     setLoading(true);
     try {
-      const status = await apiClient.admin.updateStatus();
+      const status = await apiClient.admin.get_admin_update_check();
       setUpdateStatus(status);
       setLastChecked(new Date());
 
@@ -59,7 +59,7 @@ export default function SystemUpdates() {
     setConfirmDialog(false);
     setUpdating(true);
     try {
-      const result: UpdateResult = await apiClient.admin.performUpdate();
+      const result: UpdateResult = await apiClient.admin.post_admin_update();
 
       if (result.success) {
         setSnack({ open: true, text: `Update successful: ${result.message}`, severity: 'success' });

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { apiClient, type Subsystem } from '@didhub/api-client';
 import { EntityFetchFilters, useEntityData } from './useEntityData';
 
-const { subsystems } = apiClient;
+const { subsystem } = apiClient;
 
 /**
  * Hook to manage subsystems data for a system
@@ -16,8 +16,8 @@ export function useSubsystemsData(
 ) {
   const fetchSubsystems = useCallback(
     ({ owner_user_id, query, includeMembers, limit, offset }: EntityFetchFilters) =>
-      subsystems.listPaged({ owner_user_id, query, includeMembers, limit, offset }),
-    [subsystems],
+      subsystem.get_subsystems({ owner_user_id, query, includeMembers, limit, offset }),
+    [subsystem],
   );
 
   return useEntityData<Subsystem>(2, fetchSubsystems, uid, search, activeTab, page, pageSize);

@@ -23,14 +23,14 @@ export function usePdf(): UsePdfResult {
 
       switch (type) {
         case 'group':
-          response = await apiClient.groups.downloadPdf(id);
+          response = await apiClient.report.get_pdf_group_by_id(id);
           break;
         case 'subsystem':
-          response = await apiClient.subsystems.downloadPdf(id);
+          response = await apiClient.report.get_pdf_subsystem_by_id(id);
           break;
         case 'alter':
         default:
-          response = await apiClient.alters.downloadPdf(id);
+          response = await apiClient.report.get_pdf_alter_by_id(id);
           break;
       }
 

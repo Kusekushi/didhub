@@ -13,7 +13,7 @@ export default function MetricsTab() {
       const run = async () => {
         try {
           setLoading(true);
-          const txt = await apiClient.admin.getMetrics();
+          const txt = (await apiClient.admin.get_metrics()).data;
           setRaw(txt);
         } catch (e) {
         } finally {
@@ -30,7 +30,7 @@ export default function MetricsTab() {
   async function load() {
     try {
       setLoading(true);
-      const txt = await apiClient.admin.getMetrics();
+      const txt = (await apiClient.admin.get_metrics()).data;
       setRaw(txt);
     } catch (e) {
       setRaw(`# fetch error: ${String(e)}`);

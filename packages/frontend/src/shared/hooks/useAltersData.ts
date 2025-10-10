@@ -29,7 +29,7 @@ export function useAltersData(
     const load = async () => {
       try {
         setLoading(true);
-        const pageResult = await apiClient.alters.list({
+        const pageResult = await apiClient.alter.get_alters({
           userId: uid,
           query: search,
           includeRelationships: true,
@@ -37,8 +37,8 @@ export function useAltersData(
           offset,
         });
         if (cancelled) return;
-        setItems(pageResult.items);
-        setTotal(pageResult.total);
+        setItems(pageResult.data.items);
+        setTotal(pageResult.data.total);
       } catch (e) {
         logger.warn('failed loading alters', e);
         if (!cancelled) {
@@ -61,15 +61,15 @@ export function useAltersData(
     if (!uid || activeTab !== 0) return;
     try {
       const offset = Math.max(0, page) * Math.max(1, pageSize);
-      const pageResult = await apiClient.alters.list({
+      const pageResult = await apiClient.alter.get_alters({
         userId: uid,
         query: search,
         includeRelationships: true,
         perPage: pageSize,
         offset,
       });
-      setItems(pageResult.items);
-      setTotal(pageResult.total);
+      setItems(pageResult.data.items);
+      setTotal(pageResult.data.total);
     } catch (e) {
       logger.warn('refreshAlters failed', e);
     }

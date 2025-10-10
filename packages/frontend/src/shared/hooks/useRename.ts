@@ -68,9 +68,9 @@ export function useRename(alter: Alter | null, onRenamed?: (updatedAlter: Alter)
 
     try {
       setRenameError(null);
-      const updated = await apiClient.alters.update(alter.id as string | number, { name: newName });
+      const updated = await apiClient.alter.put_alters_by_id(alter.id as string | number, { name: newName });
       if (updated && onRenamed) {
-        onRenamed(updated);
+        onRenamed(updated.data);
       }
       setRenaming(false);
     } catch (e) {

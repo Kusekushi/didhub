@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useRef, useC
 
 import { apiClient, getTokenExp } from '@didhub/api-client';
 import type { User } from '@didhub/api-client';
+import { getMe } from '../hooks/useMe';
 
 /**
  * Shape of the authentication context.
@@ -11,6 +12,8 @@ type AuthContextShape = {
   user: User | null;
   /** Function to manually set the current user */
   setUser: (u: User | null) => void;
+  /** Function to refetch the current user from the server */
+  refetchUser: () => Promise<void>;
   /** Whether the user must change their password */
   mustChange: boolean;
   /** Login function */
@@ -77,17 +80,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshTimer.current = window.setTimeout(async () => {
       if (refreshingRef.current) return;
       refreshingRef.current = true;
-      const r = await apiClient.users.refreshSession();
-      refreshingRef.current = false;
-      if (!r.ok) {
-        // Failed refresh -> trigger logout
+      try {
+        const r = await apiClient.users.post_auth_refresh();
+        refreshingRef.current = false;
+        if (!r.ok) {
+          // Failed refresh -> trigger logout
+          await logout();
+          return;
+        }
+        const data = r.data as any;
+        const token = data?.token;
+        if (!token) {
+          await logout();
+          return;
+        }
+        try {
+          localStorage.setItem('didhub_jwt', token);
+        } catch {
+          // Ignore localStorage errors
+        }
+        const newExp = token ? getTokenExp(token) : null;
+        setTokenExp(newExp);
+        scheduleRefresh(newExp);
+      } catch {
+        refreshingRef.current = false;
+        // On unexpected error, ensure we clear state and log out.
         await logout();
-        return;
       }
-      // Update exp from new token
-      const newExp = r.token ? getTokenExp(r.token) : null;
-      setTokenExp(newExp);
-      scheduleRefresh(newExp);
     }, delayMs) as unknown as number;
   }, []);
 
@@ -184,9 +203,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = res.data as any;
     return { ok: false, error: data?.error ?? data?.message ?? 'error' };
   }
+  const refetchUser = useCallback(async () => {
+    const user = await getMe();
+    setMe(user);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user: me, setUser: setMe, mustChange, login, logout, register, changePassword, tokenExp }}
+      value={{ user: me, setUser: setMe, refetchUser, mustChange, login, logout, register, changePassword, tokenExp }}
     >
       {children}
     </AuthContext.Provider>

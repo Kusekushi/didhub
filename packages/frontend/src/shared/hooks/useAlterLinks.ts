@@ -21,10 +21,10 @@ export function useAlterLinks(alter: Alter | null) {
   useEffect(() => {
     async function loadAlterNamesMap() {
       try {
-        const namesRes = await apiClient.alters.names();
+        const namesRes = await apiClient.alter.get_alters_names();
         const map = new Map<string, number | string>();
         const idMap = new Map<number | string, string>();
-        namesRes.forEach((it) => {
+        namesRes.data.forEach((it) => {
           if (it && it.name) {
             map.set(String(it.name).toLowerCase(), (it.id ?? it.name) as number | string);
             if (it.id !== undefined && it.id !== null) idMap.set(it.id as number | string, it.name as string);
@@ -53,8 +53,8 @@ export function useAlterLinks(alter: Alter | null) {
         const map = alterNamesMap ?? new Map<string, number | string>();
         if (!alterNamesMap) {
           try {
-            const namesRes = await apiClient.alters.names();
-            namesRes.forEach((it) => {
+            const namesRes = await apiClient.alter.get_alters_names();
+            namesRes.data.forEach((it) => {
               if (it && it.name) map.set(String(it.name).toLowerCase(), (it.id ?? it.name) as number | string);
             });
           } catch (e) {
@@ -72,7 +72,7 @@ export function useAlterLinks(alter: Alter | null) {
               continue;
             }
             try {
-              const fetched = await apiClient.alters.get(maybeNum);
+              const fetched = (await apiClient.alter.get_alters_by_id(maybeNum)).data;
               if (fetched && fetched.name) {
                 const newMap = new Map(alterIdToNameMap?.entries() || []);
                 newMap.set(maybeNum, fetched.name);
@@ -111,8 +111,8 @@ export function useAlterLinks(alter: Alter | null) {
           const map = alterNamesMap ?? new Map<string, number | string>();
           if (!alterNamesMap) {
             try {
-              const namesRes = await apiClient.alters.names();
-              namesRes.forEach((it) => {
+              const namesRes = await apiClient.alter.get_alters_names();
+              namesRes.data.forEach((it) => {
                 if (it && it.name) map.set(String(it.name).toLowerCase(), (it.id ?? it.name) as number | string);
               });
             } catch (e) {
@@ -130,7 +130,7 @@ export function useAlterLinks(alter: Alter | null) {
                 continue;
               }
               try {
-                const fetched = await apiClient.alters.get(maybeNum);
+                const fetched = (await apiClient.alter.get_alters_by_id(maybeNum)).data;
                 if (fetched && fetched.name) {
                   const newMap = new Map(alterIdToNameMap?.entries() || []);
                   newMap.set(maybeNum, fetched.name);

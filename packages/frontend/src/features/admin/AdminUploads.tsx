@@ -167,7 +167,7 @@ export default function AdminUploads() {
 
       if (retentionDays === null) {
         try {
-          const setting = await apiClient.admin.getSetting('uploads.delete.retention.days');
+          const setting = await apiClient.admin.settings_by_key('uploads.delete.retention.days');
           const parsed = parseSettingValue(setting);
           setRetentionDays(parsed ?? 0);
         } catch {

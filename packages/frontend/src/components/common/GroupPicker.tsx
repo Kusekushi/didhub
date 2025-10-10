@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
 
-import { apiClient, type Group } from '@didhub/api-client';
+import { apiClient, Group } from '@didhub/api-client';
 
 import InputPromptDialog from '../forms/InputPromptDialog';
 import { useAuth } from '../../shared/contexts/AuthContext';
@@ -29,7 +29,7 @@ export default function GroupPicker(props: GroupPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-    const items = await apiClient.groups.list({ query: q || '' });
+    const items = (await apiClient.group.get_groups({ q: q || null })).data.items;
     setOptions(items);
   }
 
@@ -83,18 +83,26 @@ export default function GroupPicker(props: GroupPickerProps) {
     if (multiple) {
       if (!props.value) return [];
       const arr = Array.isArray(props.value) ? props.value : [props.value];
-      return arr
-        .map((v) => parseNumericId(v))
-        .filter((id): id is number => typeof id === 'number')
-        .map((id) => options.find((x) => x.id === id) || { name: String(id) });
+      return arr.map((v) => {
+      if (v && typeof v === 'object') {
+        // prefer existing option by id if available
+        const id = (v as any).id;
+        if (id != null) return options.find((x) => String(x.id) === String(id)) || (v as Option);
+        return v as Option;
+      }
+      // treat primitive values (UUID string or number) as id strings
+      const idStr = String(v ?? '');
+      return options.find((x) => String(x.id) === idStr) || { name: idStr };
+      });
     }
     if (!props.value) return null;
-    if (typeof props.value === 'object') return props.value as Option;
-    const numeric = parseNumericId(props.value);
-    if (typeof numeric === 'number') {
-      return options.find((x) => x.id === numeric) || { name: String(numeric) };
+    if (typeof props.value === 'object') {
+      const id = (props.value as any).id;
+      if (id != null) return options.find((x) => String(x.id) === String(id)) || (props.value as Option);
+      return props.value as Option;
     }
-    return null;
+    const idStr = String(props.value);
+    return options.find((x) => String(x.id) === idStr) || { name: idStr };
   })();
 
   const label = multiple ? 'Affiliations' : 'Affiliation';
@@ -131,7 +139,7 @@ export default function GroupPicker(props: GroupPickerProps) {
               // Debug: log payload prior to API call
               // eslint-disable-next-line no-console
               console.debug('[GroupPicker] inline create payload', payload);
-              const group = await apiClient.groups.create(payload);
+              const group = (await apiClient.group.post_groups(payload)).data;
               const createdId = parseNumericId(group?.id);
               if (group && createdId != null) {
                 setOptions((prev) => [group, ...prev]);

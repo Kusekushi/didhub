@@ -18,7 +18,7 @@ export default function DetailHeader(props: DetailHeaderProps) {
     props.onAlterUpdate,
   );
 
-  const { pdfError, pdfSnackOpen, handlePdfDownload, closePdfSnack } = usePdf();
+  const { handlePdfDownload } = usePdf();
 
   return (
     <>

@@ -9,7 +9,7 @@ export async function uploadFiles(files: FileList | File[] | null | undefined): 
   const arr: File[] = Array.isArray(files) ? files : Array.from(files as FileList);
   for (const f of arr) {
     try {
-      const res = await apiClient.files.upload(f);
+      const res = await apiClient.files.post_upload(f);
       if (typeof res.url === 'string' && res.url) {
         urls.push(res.url);
         continue;

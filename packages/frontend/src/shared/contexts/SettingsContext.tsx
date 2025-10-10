@@ -39,7 +39,7 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
         return;
       }
       try {
-        const s = await apiClient.admin.settings();
+        const s = await apiClient.admins.get_settings();
         if (!mounted) return;
         setState({
           loaded: true,

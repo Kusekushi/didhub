@@ -18,15 +18,15 @@ export function useGroupResolution(groupIdOrName: string | number | null | undef
         // Try numeric ID first
         if (typeof groupIdOrName === 'number' || (typeof groupIdOrName === 'string' && !isNaN(Number(groupIdOrName)))) {
           const id = typeof groupIdOrName === 'number' ? groupIdOrName : Number(groupIdOrName);
-          const groupData = await apiClient.groups.get(id);
-          setGroup(groupData);
+          const groupData = await apiClient.group.get_groups_by_id(id);
+          setGroup(groupData.data);
           return;
         }
 
         // Name-based lookup
         const name = String(groupIdOrName);
-        const groups = await apiClient.groups.list({ query: name, includeMembers: true });
-        const found = groups.find(
+        const groups = await apiClient.group.get_groups({ query: name, includeMembers: true });
+        const found = groups.data.items.find(
           (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
         );
         setGroup(found || null);
@@ -58,15 +58,15 @@ export function useSubsystemResolution(subsystemIdOrName: string | number | null
         // Try numeric ID first
         if (typeof subsystemIdOrName === 'number' || (typeof subsystemIdOrName === 'string' && !isNaN(Number(subsystemIdOrName)))) {
           const id = typeof subsystemIdOrName === 'number' ? subsystemIdOrName : Number(subsystemIdOrName);
-          const subsystemData = await apiClient.subsystems.get(id);
-          setSubsystem(subsystemData);
+          const subsystemData = await apiClient.subsystem.get_subsystems_by_id(id);
+          setSubsystem(subsystemData.data);
           return;
         }
 
         // Name-based lookup
         const name = String(subsystemIdOrName);
-        const subsystems = await apiClient.subsystems.list({ query: name, includeMembers: true });
-        const found = subsystems.find(
+        const subsystems = await apiClient.subsystem.get_subsystems({ query: name, includeMembers: true });
+        const found = subsystems.data.items.find(
           (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
         );
         setSubsystem(found || null);

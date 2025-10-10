@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Container, Typography, Grid, Paper } from '@mui/material';
 
 import { apiClient } from '@didhub/api-client';
+import { getMe } from '../../shared/hooks/useMe';
 
 export default function DashboardSystem(): React.ReactElement {
   const [counts, setCounts] = useState<{ alters: number | null; groups: number | null; subsystems: number | null }>({
@@ -14,7 +15,7 @@ export default function DashboardSystem(): React.ReactElement {
   }, []);
   async function fetchOverview() {
     try {
-      const me = await apiClient.users.sessionIfAuthenticated();
+      const me = await getMe();
       if (!me || !me.id) return;
       const uid = me.id;
       // use API client methods to get totals

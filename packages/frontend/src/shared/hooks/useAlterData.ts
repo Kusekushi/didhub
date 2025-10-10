@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { apiClient, type Alter, type Group, type User, type Subsystem } from '@didhub/api-client';
+import { apiClient, type Alter, type Group, type Subsystem } from '@didhub/api-client';
 
 /**
  * Hook to manage alter data and related entities (group, subsystem, affiliations)
  */
 export function useAlterData(id?: string) {
   const [alter, setAlter] = useState<Alter | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [groupObj, setGroupObj] = useState<Group | null>(null);
   const [affiliationGroup, setAffiliationGroup] = useState<Group | null>(null);
   const [affiliationGroupsMap, setAffiliationGroupsMap] = useState<Record<string, Group>>({});
@@ -23,18 +22,14 @@ export function useAlterData(id?: string) {
         setLoading(true);
         setError(null);
 
-        const [alterResult, userResult] = await Promise.all([
-          apiClient.alters.get(id),
-          apiClient.users.sessionIfAuthenticated(),
-        ]);
+        const alterResult = await apiClient.alters.get_alters_by_id(id);
 
         setAlter(alterResult);
-        setUser(userResult);
 
         // Handle group resolution
         if (alterResult?.group !== undefined && alterResult?.group !== null) {
           try {
-            const group = await apiClient.groups.get(alterResult.group as string | number);
+            const group = await apiClient.groups.get_groups_by_id(alterResult.group as string | number);
             setGroupObj(group);
           } catch (e) {
             setGroupObj(null);
@@ -78,7 +73,7 @@ export function useAlterData(id?: string) {
             const maybeId = Number(trimmed);
             if (!Number.isNaN(maybeId)) {
               try {
-                const group = await apiClient.groups.get(maybeId);
+                const group = await apiClient.groups.get_groups_by_id(maybeId);
                 if (group) {
                   idMap[maybeId] = group;
                   continue;
@@ -93,7 +88,7 @@ export function useAlterData(id?: string) {
         // Name-based lookup
         const name = Array.isArray(rawName) ? rawName.join(',') : String(rawName);
         try {
-          const groups = await apiClient.groups.list({ query: name || '', includeMembers: true });
+          const groups = await apiClient.groups.get_groups();
           const found = (groups as Group[]).find(
             (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
           );
@@ -118,7 +113,7 @@ export function useAlterData(id?: string) {
 
       if (!Number.isNaN(maybeId) && rawStr.trim() !== '') {
         try {
-          const subsystem = await apiClient.subsystems.get(maybeId);
+          const subsystem = await apiClient.subsystems.get_subsystems_by_id(maybeId);
           if (subsystem) {
             setSubsystemObj(subsystem);
             return;
@@ -129,7 +124,7 @@ export function useAlterData(id?: string) {
       }
 
       // Name lookup fallback
-      const subsystems = await apiClient.subsystems.list({ query: rawStr || '', includeMembers: true });
+      const subsystems = await apiClient.subsystems.get_subsystems();
       const found = subsystems.find((it) => it && it.name && String(it.name).toLowerCase() === rawStr.toLowerCase());
       if (found) setSubsystemObj(found);
     } catch (e) {
@@ -143,18 +138,13 @@ export function useAlterData(id?: string) {
       setLoading(true);
       setError(null);
 
-      const [alterResult, userResult] = await Promise.all([
-        apiClient.alters.get(id),
-        apiClient.users.sessionIfAuthenticated(),
-      ]);
-
-      setAlter(alterResult);
-      setUser(userResult);
+        const alterResult = await apiClient.alters.get_alters_by_id(id);
+        setAlter(alterResult);
 
       // Handle group resolution
       if (alterResult?.group !== undefined && alterResult?.group !== null) {
         try {
-          const group = await apiClient.groups.get(alterResult.group as string | number);
+          const group = await apiClient.groups.get_groups_by_id(alterResult.group as string | number);
           setGroupObj(group);
         } catch (e) {
           setGroupObj(null);
@@ -183,7 +173,6 @@ export function useAlterData(id?: string) {
 
   return {
     alter,
-    user,
     groupObj,
     affiliationGroup,
     affiliationGroupsMap,
