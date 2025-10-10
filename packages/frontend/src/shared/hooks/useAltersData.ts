@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiClient, type Alter } from '@didhub/api-client';
+import { apiClient, type ApiAlter } from '@didhub/api-client';
 import logger from '../lib/logger';
 
 /**
@@ -12,7 +12,7 @@ export function useAltersData(
   page: number = 0,
   pageSize: number = 20,
 ) {
-  const [items, setItems] = useState<Alter[]>([]);
+  const [items, setItems] = useState<ApiAlter[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
 
@@ -37,8 +37,10 @@ export function useAltersData(
           offset,
         });
         if (cancelled) return;
-        setItems(pageResult.data.items);
-        setTotal(pageResult.data.total);
+        const payload = pageResult.data;
+        const items = Array.isArray(payload?.items) ? (payload.items as unknown as ApiAlter[]) : [];
+        setItems(items);
+        setTotal(payload?.total ?? 0);
       } catch (e) {
         logger.warn('failed loading alters', e);
         if (!cancelled) {
@@ -68,8 +70,10 @@ export function useAltersData(
         perPage: pageSize,
         offset,
       });
-      setItems(pageResult.data.items);
-      setTotal(pageResult.data.total);
+      const payload = pageResult.data;
+      const items = Array.isArray(payload?.items) ? (payload.items as unknown as ApiAlter[]) : [];
+      setItems(items);
+      setTotal(payload?.total ?? 0);
     } catch (e) {
       logger.warn('refreshAlters failed', e);
     }

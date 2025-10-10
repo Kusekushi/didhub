@@ -19,27 +19,27 @@ vi.mock('../../shared/contexts/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }));
 
+const { createSubsystemMock, listSubsystemsMock } = vi.hoisted(() => ({
+  createSubsystemMock: vi.fn(async (payload: any) => ({ data: { id: 321, ...payload } })),
+  listSubsystemsMock: vi.fn(async () => ({ data: { items: [], total: 0 } })),
+}));
+
 vi.mock('@didhub/api-client', async () => {
-  const actual = await vi.importActual('@didhub/api-client');
-  const apiClientMock = (actual as any).apiClient as any;
+  const actual = await vi.importActual<any>('@didhub/api-client');
   return {
     ...actual,
     apiClient: {
-      ...apiClientMock,
-      subsystems: {
-        create: vi.fn(async (payload: any) => ({ id: 321, ...payload })),
-      },
-      alters: {
-        create: vi.fn(async (payload: any) => ({ id: 999, ...payload })),
-  replaceAlterRelationships: vi.fn(async () => 0),
-  replaceUserRelationships: vi.fn(async () => 0),
+      ...actual.apiClient,
+      subsystem: {
+        ...actual.apiClient.subsystem,
+        post_subsystems: createSubsystemMock,
+        get_subsystems: listSubsystemsMock,
       },
     },
   };
 });
 
 import SubsystemsTab from '../../features/system/SubsystemsTab';
-import { apiClient } from '@didhub/api-client';
 
 describe('Subsystems owner propagation', () => {
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe('Subsystems owner propagation', () => {
   });
 
   it('sends owner_user_id from uid prop when provided (create subsystem)', async () => {
-    const mockCreate = (apiClient as any).subsystems.create as any;
+  const mockCreate = createSubsystemMock;
 
     const { findByText, getByLabelText } = render(
       <SubsystemsTab
@@ -66,8 +66,8 @@ describe('Subsystems owner propagation', () => {
     const createButton = await findByText('Create');
     await fireEvent.click(createButton);
 
-    expect(mockCreate).toHaveBeenCalled();
-    const payload = mockCreate.mock.calls[0][0];
+  expect(mockCreate).toHaveBeenCalled();
+  const payload = mockCreate.mock.calls[0][0];
     expect(payload.owner_user_id).toBe(42);
   });
 });

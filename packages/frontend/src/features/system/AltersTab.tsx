@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
-import { User, apiClient, Alter, parseRoles } from '@didhub/api-client';
+import { apiClient, parseRoles, type ApiUser, type ApiAlter } from '@didhub/api-client';
 
 import AlterFormDialog from '../../components/forms/AlterFormDialog';
 import ThumbnailWithHover from '../../components/ui/ThumbnailWithHover';
@@ -30,7 +30,7 @@ interface AltersTabProps {
 
 export default function AltersTab({ routeUid }: AltersTabProps) {
   const nav = useNavigate();
-  const { user: me } = useAuth() as { user?: User };
+  const { user: me } = useAuth() as { user?: ApiUser };
   
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
@@ -44,7 +44,7 @@ export default function AltersTab({ routeUid }: AltersTabProps) {
   const [createOpen, setCreateOpen] = useState(false);
   
   // Permission checking
-  const canManage = me && (me.is_admin || (me.is_system && String(me.id) === String(routeUid)));
+  const canManage = Boolean(me && (me.is_admin || (me.is_system && String(me.id) === String(routeUid))));
   
   const filteredItems = altersData.items;
   const pageCount = Math.max(1, Math.ceil((altersData.total || 0) / 20));
@@ -53,7 +53,7 @@ export default function AltersTab({ routeUid }: AltersTabProps) {
 
   const handleDelete = async (alterId: number | string) => {
     try {
-      await apiClient.alters.remove(alterId);
+  await apiClient.alter.delete_alters_by_id(alterId);
       await altersData.refresh();
       setSnack({ open: true, message: 'Alter deleted', severity: 'success' });
     } catch (error) {
@@ -81,14 +81,14 @@ export default function AltersTab({ routeUid }: AltersTabProps) {
         </div>
       )}
       <List>
-        {filteredItems.map((it: Alter, idx: number) => (
+  {filteredItems.map((it: ApiAlter, idx: number) => (
           <React.Fragment key={it.id}>
             <ListItem
               alignItems="flex-start"
               disablePadding
               secondaryAction={
                 <ActionButtons
-                  onView={() => nav(`/detail/${it.id}`)}
+                  onView={() => nav(`/detail/alter/${it.id}`)}
                   onEdit={
                     canManage
                       ? () => {
@@ -108,7 +108,7 @@ export default function AltersTab({ routeUid }: AltersTabProps) {
                     <ThumbnailWithHover
                       image={it.images[0] as string}
                       alt={it.name || ''}
-                      onClick={() => nav(`/detail/${it.id}`)}
+                      onClick={() => nav(`/detail/alter/${it.id}`)}
                     />
                   </div>
                 </ListItemAvatar>

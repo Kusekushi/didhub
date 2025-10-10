@@ -19,25 +19,44 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/PersonAddAlt1';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import { Alter, Subsystem, User, AlterName, apiClient, SubsystemMember, parseRoles } from '@didhub/api-client';
+import {
+  Subsystem,
+  type ApiUser,
+  AlterName,
+  apiClient,
+  SubsystemMember,
+  parseRoles,
+  type ApiMembersOut,
+  type ApiAlter,
+} from '@didhub/api-client';
 
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 import { usePdf } from '../../shared/hooks/usePdf';
 import { useAuth } from '../../shared/contexts/AuthContext';
 
-type AlterMember = Alter & { roles?: string[] };
+type AlterRecord = Record<string, any>;
+type AlterMember = AlterRecord & { roles?: string[] };
 
-export default function SubsystemDetail() {
-  const { uid, sid } = useParams() as { uid?: string; sid?: string };
+// ...existing code...
+
+export interface SubsystemDetailProps {
+  subsystemId?: string;
+  systemUid?: string;
+}
+
+export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
+  const params = useParams() as { uid?: string; sid?: string };
+  const uid = props.systemUid ?? params.uid;
+  const sid = props.subsystemId ?? params.sid;
   const nav = useNavigate();
   const [subsystem, setSubsystem] = useState<Subsystem | null>(null);
   const [members, setMembers] = useState<AlterMember[]>([]);
-  const { user: me } = useAuth();
+  const { user: me } = useAuth() as { user?: ApiUser };
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [saving, setSaving] = useState(false);
-  const subsystemOwnerSource = (subsystem as Record<string, unknown> | null)?.owner_user_id;
+  const subsystemOwnerSource = subsystem ? (subsystem as any).owner_user_id : undefined;
   const subsystemOwnerId =
     typeof subsystemOwnerSource === 'number' || typeof subsystemOwnerSource === 'string'
       ? subsystemOwnerSource
@@ -71,8 +90,9 @@ export default function SubsystemDetail() {
           setMembers([]);
           return;
         }
-        // fetch user first
-        const subsystemData = await apiClient.subsystems.get(sid);
+    // fetch subsystem first
+    const subsResp = await apiClient.subsystem.get_subsystems_by_id(sid);
+    const subsystemData = (subsResp.data as Subsystem) ?? null;
         setSubsystem(subsystemData ?? null);
         if (subsystemData) {
           setEditName(subsystemData.name ?? '');
@@ -94,16 +114,13 @@ export default function SubsystemDetail() {
       setLoadingAlterNames(true);
       try {
         const ownerId = subsystemOwnerId;
-        const results = await (ownerId != null
-          ? apiClient.alters.namesByUser(ownerId, alterSearch || '')
-          : apiClient.alters.names(alterSearch || ''));
+        const nameParams: { q?: string; user_id?: string } = {};
+        if (alterSearch) nameParams.q = alterSearch;
+        if (ownerId != null) nameParams.user_id = String(ownerId);
+        const response = await apiClient.alter.get_alters_names(nameParams);
+        const results = Array.isArray(response.data) ? (response.data as AlterName[]) : [];
         if (!active) return;
-        const items = Array.isArray((results as { items?: AlterName[] }).items)
-          ? ((results as { items?: AlterName[] }).items as AlterName[])
-          : Array.isArray(results)
-            ? (results as AlterName[])
-            : [];
-        const filtered = items.filter((item): item is AlterName => Boolean(item && item.name));
+        const filtered = results.filter((item): item is AlterName => Boolean(item && item.name));
         setAlterOptions(filtered);
       } catch (e) {
         if (active) setAlterOptions([]);
@@ -119,7 +136,10 @@ export default function SubsystemDetail() {
   async function refreshMembers() {
     if (!sid) return;
     try {
-      const membershipRows = await apiClient.subsystems.listMembers(sid);
+        const membersResp = await apiClient.subsystem.get_subsystems_by_id_members(sid);
+      const membersData = (membersResp.data as ApiMembersOut | undefined) ?? { alters: [] };
+      const rawMembers = Array.isArray(membersData.alters) ? membersData.alters : [];
+      const membershipRows = rawMembers.map((value) => ({ alterId: Number(value), alter_id: value, roles: [] }));
       const byId: Record<string, { alterId: number; roles: string[] }> = {};
       membershipRows.forEach((row: SubsystemMember) => {
         const alterId = row.alterId;
@@ -131,8 +151,12 @@ export default function SubsystemDetail() {
       });
       // always also gather alters referencing this subsystem (implicit members)
       try {
-        const all = await apiClient.alters.list({ includeRelationships: true, perPage: 1000 });
-        const alters = Array.isArray(all.items) ? all.items : [];
+        const listParams: Record<string, unknown> = { limit: 1000 };
+        if (uid) listParams.user_id = String(uid);
+        const listResponse = await apiClient.alter.get_alters(listParams);
+        const alters = Array.isArray(listResponse.data?.items)
+          ? ((listResponse.data?.items as unknown) as ApiAlter[])
+          : [];
         alters
           .filter((al) => String(al.subsystem) === String(sid))
           .forEach((al) => {
@@ -148,7 +172,8 @@ export default function SubsystemDetail() {
       const detailed = await Promise.all(
         Object.values(byId).map(async ({ alterId, roles }) => {
           try {
-            const alter = await apiClient.alters.get(alterId);
+            const alterResponse = await apiClient.alter.get_alters_by_id(alterId);
+            const alter = (alterResponse.data as ApiAlter) ?? null;
             if (!alter) return null;
             return { ...alter, roles } as AlterMember;
           } catch {
@@ -169,7 +194,10 @@ export default function SubsystemDetail() {
     try {
       const alterId = Number(selectedAlter.id);
       if (!Number.isFinite(alterId)) throw new Error('Invalid alter id');
-      await apiClient.subsystems.toggleLeader(sid, alterId, true);
+      await apiClient.subsystem.post_subsystems_by_id_leaders_toggle(sid, {
+        alter_id: String(alterId),
+        add: true,
+      });
       // server side handles non-host roles via same endpoint (role param optional)
       await refreshMembers();
       setSelectedAlter(null);
@@ -186,10 +214,13 @@ export default function SubsystemDetail() {
     if (!sid || !roles || roles.length === 0) return;
     setMemberBusy(true);
     try {
-      for (const _roleName of roles) {
-        await apiClient.subsystems.toggleLeader(sid, alterId, false);
-        // role param omitted; server will remove leader/role appropriately
-      }
+          for (const _roleName of roles) {
+            await apiClient.subsystem.post_subsystems_by_id_leaders_toggle(sid, {
+              alter_id: String(alterId),
+              add: false,
+            });
+            // role param omitted; server will remove leader/role appropriately
+          }
       await refreshMembers();
     } catch {
       // ignore
@@ -202,10 +233,13 @@ export default function SubsystemDetail() {
     void _role;
     if (!sid) return;
     setMemberBusy(true);
-    try {
-      await apiClient.subsystems.toggleLeader(sid, alterId, add);
-      await refreshMembers();
-    } catch {
+      try {
+        await apiClient.subsystem.post_subsystems_by_id_leaders_toggle(sid, {
+          alter_id: String(alterId),
+          add,
+        });
+        await refreshMembers();
+      } catch {
       // ignore
     } finally {
       setMemberBusy(false);
@@ -296,11 +330,12 @@ export default function SubsystemDetail() {
                 if (!subsystem || subsystem.id == null) return;
                 setSaving(true);
                 try {
-                  await apiClient.subsystems.update(subsystem.id, {
+                  await apiClient.subsystem.put_subsystems_by_id(subsystem.id, {
                     name: editName.trim(),
                     description: editDesc || null,
-                  });
-                  const updated = await apiClient.subsystems.get(subsystem.id);
+                  } as any);
+                  const updatedResp = await apiClient.subsystem.get_subsystems_by_id(subsystem.id);
+                  const updated = (updatedResp.data as Subsystem) ?? null;
                   setSubsystem(updated ?? null);
                   setEditing(false);
                 } catch (e) {
@@ -414,7 +449,7 @@ export default function SubsystemDetail() {
             const roleKey = String(memberId);
             return (
               <ListItem key={roleKey} disablePadding>
-                <ListItemButton onClick={() => nav(`/detail/${memberId}`)}>
+                <ListItemButton onClick={() => nav(`/detail/alter/${memberId}`)}>
                   <ListItemText primary={m.name || `#${memberId}`} secondary={secondary} />
                 </ListItemButton>
                 {canEdit && (

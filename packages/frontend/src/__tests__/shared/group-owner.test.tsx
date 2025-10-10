@@ -17,22 +17,29 @@ vi.mock('../../shared/contexts/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }));
 
+const { createMock, listMock } = vi.hoisted(() => ({
+  createMock: vi.fn(async (payload: any) => ({ data: { id: 123, ...payload } })),
+  listMock: vi.fn(async () => ({ data: { items: [], total: 0 } })),
+}));
+
 vi.mock('@didhub/api-client', async () => {
-  const actual = await vi.importActual('@didhub/api-client');
+  const actual = await vi.importActual<any>('@didhub/api-client');
   return {
     ...actual,
     apiClient: {
-      groups: {
-        create: vi.fn(async (payload: any) => ({ id: 123, ...payload })),
+      ...actual.apiClient,
+      group: {
+        ...actual.apiClient.group,
+        post_groups: createMock,
+        get_groups: listMock,
       },
     },
   };
 });
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, waitFor } from '@testing-library/react';
 import GroupDialog from '../../features/system/GroupDialog';
-import { apiClient } from '@didhub/api-client';
 
 describe('GroupDialog owner propagation', () => {
   beforeEach(() => {
@@ -40,29 +47,30 @@ describe('GroupDialog owner propagation', () => {
   });
 
   it('sends owner_user_id from uid prop when provided', async () => {
-  const { findByLabelText, findByText } = render(
-        <GroupDialog
-          mode="create"
-          open={true}
-          onClose={() => {}}
-          uid={'42'}
-          uploadFiles={async () => []}
-          onCreated={async () => {}}
-        />
-    ,
+    createMock.mockClear();
+    listMock.mockClear();
+
+    const { findByLabelText, findByText } = render(
+      <GroupDialog
+        mode="create"
+        open={true}
+        onClose={() => {}}
+        uid={'42'}
+        uploadFiles={async () => []}
+        onCreated={async () => {}}
+      />,
     );
 
-  // Fill in the form
-  const nameInput = await findByLabelText('Name');
-  await fireEvent.change(nameInput, { target: { value: 'My Group' } });
+    const nameInput = await findByLabelText('Name');
+    await fireEvent.change(nameInput, { target: { value: 'My Group' } });
 
-  const createButton = await findByText('Create');
-  await fireEvent.click(createButton);
+    const createButton = await findByText('Create');
+    await fireEvent.click(createButton);
 
-    // assert groups.create got called with owner_user_id === 42
-  const groupsCreate = (apiClient as any).groups.create as any;
-  expect(groupsCreate).toHaveBeenCalled();
-  const payload = groupsCreate.mock.calls[0][0] as any;
-  expect(payload.owner_user_id).toBe(42);
+    await waitFor(() => {
+      expect(createMock).toHaveBeenCalled();
+    });
+    const payload = createMock.mock.calls[0][0] as any;
+    expect(payload.owner_user_id).toBe(42);
   });
 });

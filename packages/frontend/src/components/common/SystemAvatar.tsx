@@ -1,10 +1,9 @@
 import React from 'react';
 import { Avatar } from '@mui/material';
-
-import type { SystemSummary } from '../../shared/hooks/useSystemList';
+import { ApiSystemSummary } from '@didhub/api-client';
 
 export interface SystemAvatarProps {
-  system: SystemSummary;
+  system: ApiSystemSummary;
 }
 
 /**

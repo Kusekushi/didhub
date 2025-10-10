@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, User, type Subsystem } from '@didhub/api-client';
+import { apiClient, type ApiUser, type Subsystem } from '@didhub/api-client';
 
 import { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { useSubsystemCreationState } from '../../shared/hooks/useSubsystemCreationState';
@@ -30,7 +30,7 @@ export interface SubsystemsTabProps {
 
 export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
   const nav = useNavigate();
-  const { user: me } = useAuth() as { user?: User };
+  const { user: me } = useAuth() as { user?: ApiUser };
   
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
@@ -45,7 +45,9 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
   const [createSubsystemOpen, setCreateSubsystemOpen] = useState(false);
 
   // Permission checking
-  const canManage = me && (me.is_admin || (me.is_system && String(me.id) === String(uid)));
+  const canManage =
+    !!me &&
+    ((Number(me.is_admin) === 1) || (Number(me.is_system) === 1 && String(me.id) === String(uid)));
 
   const pageCount = Math.max(1, Math.ceil((subsystemsData.total || 0) / 20));
   const displayStart = subsystemsData.total === 0 ? 0 : 0 * 20 + 1;
@@ -53,7 +55,7 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
 
   const handleDelete = async (subsystemId: number | string) => {
     try {
-      await apiClient.subsystems.remove(subsystemId);
+  await apiClient.subsystem.delete_subsystems_by_id(subsystemId);
       await subsystemsData.refresh();
       setSnack({ open: true, message: 'Subsystem deleted', severity: 'success' });
     } catch (error) {
@@ -62,7 +64,8 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
   };
 
   const handleCreateSubsystem = async (payload: Record<string, unknown>) => {
-    return await apiClient.subsystems.create(payload);
+  const response = await apiClient.subsystem.post_subsystems(payload as any);
+  return response.data;
   };
 
   return (
@@ -170,7 +173,7 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
                   <Button
                     variant="outlined"
                     size="small"
-                    onClick={() => nav(`/did-system/${uid}/subsystems/${s.id}`)}
+                    onClick={() => nav(`/detail/subsystem/${s.id}?uid=${encodeURIComponent(String(uid))}`)}
                   >
                     View
                   </Button>

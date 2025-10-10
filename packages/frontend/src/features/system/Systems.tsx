@@ -6,7 +6,7 @@ export default function Systems() {
     <SystemList
       title="Systems"
       primary={(system) => `${system.username ?? ''} (${system.user_id ?? ''})`}
-      secondary={(system) => system.display_name ?? ''}
+      // secondary={(system) => system.display_name ?? ''}
     />
   );
 }

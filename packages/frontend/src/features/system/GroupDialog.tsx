@@ -13,7 +13,11 @@ import {
 import { apiClient } from '@didhub/api-client';
 import type { Alter, Group } from '@didhub/api-client';
 
-const { groups } = apiClient;
+const groupApi = {
+  create: async (payload: Record<string, unknown>) => (await apiClient.group.post_groups(payload)).data,
+  update: async (id: number | string, payload: Record<string, unknown>) =>
+    (await apiClient.group.put_groups_by_id(id, payload)).data,
+};
 import SigilUpload from '../../components/forms/SigilUpload';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { getEffectiveOwnerId } from '../../shared/utils/owner';
@@ -336,11 +340,11 @@ export default function GroupDialog(props: GroupDialogProps) {
           sigil: sigilUrl,
           leaders: mapLeadersToIds(creationState.newGroupLeaders || []),
         };
-        if (typeof owner === 'number') payload.owner_user_id = owner;
+  if (typeof owner === 'number' || typeof owner === 'string') payload.owner_user_id = owner;
         // Debug: log final payload being sent to API
         // eslint-disable-next-line no-console
         console.debug('[GroupDialog] create payload', payload);
-        await groups.create(payload);
+  await groupApi.create(payload);
 
         // Allow parent refresh handler to complete before closing so callers (and tests) can rely on updated data
         try {
@@ -376,7 +380,7 @@ export default function GroupDialog(props: GroupDialogProps) {
 
     try {
       const leadersPayload = mapLeadersToIds(leaderValue);
-      await groups.update(group.id!, {
+      await groupApi.update(group.id!, {
         name: group.name,
         description: group.description,
         sigil: getSigilUrlFromGroup(group),

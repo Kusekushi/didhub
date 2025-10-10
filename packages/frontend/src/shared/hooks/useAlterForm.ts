@@ -1,5 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import { apiClient, type Alter } from '@didhub/api-client';
+import {
+  apiClient,
+  type ApiReplaceAlterRelationshipsPayload,
+  type ApiReplaceRelationshipsPayload,
+  type ApiUploadResp,
+} from '@didhub/api-client';
 import { useAuth } from '../contexts/AuthContext';
 import { getEffectiveOwnerId } from '../utils/owner';
 import {
@@ -20,6 +25,24 @@ export interface AlterFormDialogProps {
   routeUid?: string | number | null;
 }
 
+interface AlterFormState {
+  name?: string;
+  images?: unknown;
+  user_relationships?: Array<Record<string, unknown>> | null;
+  affiliations?: unknown;
+  subsystem?: unknown;
+  soul_songs?: unknown;
+  interests?: unknown;
+  system_roles?: unknown;
+  partners?: unknown;
+  parents?: unknown;
+  children?: unknown;
+  user_partners?: unknown;
+  user_parents?: unknown;
+  user_children?: unknown;
+  [key: string]: unknown;
+}
+
 export interface RelationshipEntry {
   userId: number;
   type: RelationshipType;
@@ -27,7 +50,7 @@ export interface RelationshipEntry {
 
 export type RelationshipType = 'partner' | 'parent' | 'child';
 
-const emptyAlter: Alter = {
+const emptyAlter: AlterFormState = {
   name: '',
   description: '',
   age: '',
@@ -51,6 +74,51 @@ const emptyAlter: Alter = {
   is_merged: 0,
 };
 
+const alterApi = {
+  async get(id: string | number): Promise<AlterFormState | null> {
+    const response = await apiClient.alter.get_alters_by_id(id);
+    const data = response.data ?? null;
+    return data ? ({ ...data } as unknown as AlterFormState) : null;
+  },
+  async create(body: Record<string, unknown>): Promise<AlterFormState | null> {
+    const response = await apiClient.alter.post_alters(body as any);
+    const data = response.data ?? null;
+    return data ? ({ ...data } as unknown as AlterFormState) : null;
+  },
+  async update(id: string | number, body: Record<string, unknown>): Promise<void> {
+    await apiClient.alter.put_alters_by_id(id, body as any);
+  },
+  async replaceAlterRelationships(
+    id: string | number,
+    relationships: { partners: number[]; parents: number[]; children: number[] },
+    affiliations: unknown,
+  ): Promise<void> {
+    const affiliationList = Array.isArray(affiliations)
+      ? affiliations
+      : typeof affiliations === 'string'
+        ? affiliations.split(',').map((v) => v.trim()).filter(Boolean)
+        : [];
+    const payload: ApiReplaceAlterRelationshipsPayload = {
+      partners: (relationships.partners ?? []).map((value) => String(value)),
+      parents: (relationships.parents ?? []).map((value) => String(value)),
+      children: (relationships.children ?? []).map((value) => String(value)),
+      affiliations: affiliationList.map((value) => String(value)),
+    };
+    await apiClient.alter.put_alters_by_id_alter_relationships(id, payload);
+  },
+  async replaceUserRelationships(
+    id: string | number,
+    userRelationships: { partners: number[]; parents: number[]; children: number[] },
+  ): Promise<void> {
+    const payload: ApiReplaceRelationshipsPayload = {
+      partners: (userRelationships.partners ?? []).map((value) => String(value)),
+      parents: (userRelationships.parents ?? []).map((value) => String(value)),
+      children: (userRelationships.children ?? []).map((value) => String(value)),
+    };
+    await apiClient.alter.put_alters_by_id_user_relationships(id, payload);
+  },
+};
+
 function isRelationshipType(value: unknown): value is RelationshipType {
   return value === 'partner' || value === 'parent' || value === 'child';
 }
@@ -61,7 +129,7 @@ function isRelationshipType(value: unknown): value is RelationshipType {
 export function useAlterForm(props: AlterFormDialogProps) {
   const { mode, open, onClose, onCreated, onSaved, id, routeUid } = props;
 
-  const [values, setValues] = useState<Partial<Alter> & { _files?: File[] }>(emptyAlter);
+  const [values, setValues] = useState<AlterFormState & { _files?: File[] }>(emptyAlter);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<boolean>(false);
   const [progressMap, setProgressMap] = useState<Record<string, number>>({});
@@ -81,9 +149,11 @@ export function useAlterForm(props: AlterFormDialogProps) {
     if (mode !== 'edit' || !id) return;
 
     try {
-      const alter = await apiClient.alters.get(id);
+      const alter = await alterApi.get(id);
       if (alter) {
-        const userRelationships = alter.user_relationships || [];
+        const userRelationships = Array.isArray(alter.user_relationships)
+          ? (alter.user_relationships as Array<Record<string, unknown>>)
+          : [];
 
         // Transform user_relationships into form fields
         const user_partners = userRelationships
@@ -96,7 +166,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
           .filter((rel) => rel.relationship_type === 'child')
           .map((rel) => rel.user_id);
 
-        const affiliationIds = normalizeAffiliationIds(alter.affiliations) ?? [];
+  const affiliationIds = normalizeAffiliationIds(alter.affiliations) ?? [];
 
         setValues({
           ...alter,
@@ -156,12 +226,16 @@ export function useAlterForm(props: AlterFormDialogProps) {
       for (const file of files) {
         setProgressMap((prev) => ({ ...prev, [file.name]: 0 }));
 
-        const result = await apiClient.files.uploadWithProgress(file, (pct: number) => {
-          setProgressMap((prev) => ({ ...prev, [file.name]: pct }));
-        });
+        const formData = new FormData();
+        formData.append('file', file);
 
-        if (result && result.url) {
-          urls.push(result.url as string);
+        const response = await apiClient.files.post_upload(formData);
+        const data = response.data as ApiUploadResp | undefined;
+        setProgressMap((prev) => ({ ...prev, [file.name]: 100 }));
+
+        if (data && data.filename) {
+          const normalizedUrl = `/uploads/${data.filename}`;
+          urls.push(normalizedUrl);
         }
       }
 
@@ -262,20 +336,20 @@ export function useAlterForm(props: AlterFormDialogProps) {
 
       // Set owner for new alters
       const owner = getEffectiveOwnerId(routeUid == null ? undefined : String(routeUid), auth.user?.id ?? null);
-      if (typeof owner === 'number') {
+      if (typeof owner === 'number' || typeof owner === 'string') {
         payload.owner_user_id = owner;
       }
 
-      const created = await apiClient.alters.create(payload);
+      const created = await alterApi.create(payload);
 
       if (created?.id) {
         const alterId = Number(created.id);
 
         // Set relationships
-        await apiClient.alters.replaceAlterRelationships(alterId, relationships);
+        await alterApi.replaceAlterRelationships(alterId, relationships, payload.affiliations);
 
         try {
-          await apiClient.alters.replaceUserRelationships(alterId, userRelationships);
+          await alterApi.replaceUserRelationships(alterId, userRelationships);
         } catch (e) {
           console.warn('Failed to replace user relationships:', e);
         }
@@ -316,11 +390,11 @@ export function useAlterForm(props: AlterFormDialogProps) {
         payload.images = [...existingImages, ...urls];
       }
 
-      await apiClient.alters.update(id, payload);
-      await apiClient.alters.replaceAlterRelationships(Number(id), relationships);
+      await alterApi.update(id, payload);
+      await alterApi.replaceAlterRelationships(Number(id), relationships, payload.affiliations);
 
       try {
-        await apiClient.alters.replaceUserRelationships(Number(id), userRelationships);
+        await alterApi.replaceUserRelationships(Number(id), userRelationships);
       } catch (e) {
         console.warn('Failed to replace user relationships:', e);
       }
@@ -333,11 +407,12 @@ export function useAlterForm(props: AlterFormDialogProps) {
       setErrors({});
 
       // Basic validation
-      if (!values.name || !values.name.trim()) {
+      const nameValue = typeof values.name === 'string' ? values.name.trim() : '';
+      if (!nameValue) {
         setErrors({ name: 'Name required' });
         return;
       }
-      if (values.name && values.name.length > 200) {
+      if (nameValue.length > 200) {
         setErrors({ name: 'Name too long' });
         return;
       }
@@ -384,7 +459,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
   );
 
   const changeValue = useCallback((key: string, value: unknown) => {
-    setValues((prev) => ({ ...(prev as object), [key]: value }) as Partial<Alter> & { _files?: File[] });
+    setValues((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const addFiles = useCallback((files: File[]) => {
@@ -402,18 +477,20 @@ export function useAlterForm(props: AlterFormDialogProps) {
     if (mode !== 'edit' || !id) return;
 
     try {
-      const result = await apiClient.alters.removeImage(id, url);
-      const images = (result as any)?.json?.images ?? (result as any)?.images;
+      await apiClient.http.request({
+        path: `/api/alters/${id}/image`,
+        method: 'DELETE',
+        json: { url },
+      });
 
-      if (Array.isArray(images)) {
-        setValues((prev) => ({ ...prev, images }));
-      } else {
-        // Fallback local removal
-        setValues((prev) => {
-          const existing = Array.isArray(prev.images) ? prev.images : prev.images ? [String(prev.images)] : [];
-          return { ...prev, images: existing.filter((u: string) => u !== url) };
-        });
-      }
+      setValues((prev) => {
+        const existing = Array.isArray(prev.images)
+          ? prev.images
+          : prev.images
+            ? [String(prev.images)]
+            : [];
+        return { ...prev, images: existing.filter((u: string) => u !== url) };
+      });
     } catch (e) {
       // ignore for now; UI remains unchanged
     }

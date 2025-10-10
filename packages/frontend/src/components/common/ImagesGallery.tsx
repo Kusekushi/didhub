@@ -1,15 +1,15 @@
 import React from 'react';
 import { ImageList, ImageListItem, Button } from '@mui/material';
-import type { Alter } from '@didhub/api-client';
-import { useAlterData } from '../../shared/hooks/useAlterData';
+import type { ApiAlter } from '@didhub/api-client';
+import { useAuth } from '../../shared/contexts/AuthContext';
 
 export interface ImagesGalleryProps {
-  alter: Alter;
+  alter: ApiAlter;
   onRemoveImage: (url: string, alterId: number | string) => void;
 }
 
 export default function ImagesGallery(props: ImagesGalleryProps) {
-  const { user } = useAlterData(props.alter.id?.toString());
+  const { user } = useAuth();
 
   if (!props.alter.images || !Array.isArray(props.alter.images) || props.alter.images.length === 0) {
     return null;

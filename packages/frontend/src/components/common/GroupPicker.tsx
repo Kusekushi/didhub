@@ -29,7 +29,8 @@ export default function GroupPicker(props: GroupPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-    const items = (await apiClient.group.get_groups({ q: q || null })).data.items;
+  const response = await apiClient.group.get_groups({ q: q || null });
+  const items = ((response.data?.items ?? []) as unknown) as Group[];
     setOptions(items);
   }
 
@@ -135,7 +136,7 @@ export default function GroupPicker(props: GroupPickerProps) {
               // include owner_user_id when creating on-behalf-of if a route uid is present
               const owner = getEffectiveOwnerId(props.routeUid == null ? undefined : String(props.routeUid), auth.user?.id);
               const payload: any = { name: createDialog.name };
-              if (typeof owner === 'number') payload.owner_user_id = owner;
+              if (typeof owner === 'number' || typeof owner === 'string') payload.owner_user_id = owner;
               // Debug: log payload prior to API call
               // eslint-disable-next-line no-console
               console.debug('[GroupPicker] inline create payload', payload);

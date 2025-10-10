@@ -14,7 +14,16 @@ import {
 } from '@mui/material';
 import { createFilterOptions, type AutocompleteRenderGetTagProps } from '@mui/material/Autocomplete';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Alter } from '@didhub/api-client';
+import { ApiAlter } from '@didhub/api-client';
+import { useAlterRelationships } from './useAlterRelationships';
+import {
+  RelationshipOption,
+  TagValue,
+  mapSelectionsToTagValues,
+  convertLabelsToIdentifiers,
+  mapToLabels,
+  stripTrailingId,
+} from './alterFormUtils';
 
 import RichEditor from '../common/RichEditor';
 import GroupPicker from '../common/GroupPicker';
@@ -25,16 +34,18 @@ function debugLog(...args: unknown[]) {
   console.debug('[AlterForm]', ...args);
 }
 
-export interface RelationshipOption {
-  id: number | string;
-  label: string;
-  aliases?: string[];
-}
-
-type TagValue = string | RelationshipOption;
-
 export interface AlterFormFieldsProps {
-  values: Partial<Alter> & { _files?: File[] };
+  values: Partial<ApiAlter> & {
+    _files?: File[];
+    partners?: Array<number | string | { id?: number | string }>;
+    parents?: Array<number | string | { id?: number | string }>;
+    children?: Array<number | string | { id?: number | string }>;
+    user_partners?: Array<number | string> | Array<string>;
+    user_parents?: Array<number | string> | Array<string>;
+    user_children?: Array<number | string> | Array<string>;
+    affiliations?: Array<number | string>;
+    subsystem?: number | { id?: number; name?: string } | string | null;
+  };
   errors: Record<string, string>;
   partnerOptions: RelationshipOption[];
   partnerMap?: Record<string, number | string>;
@@ -63,215 +74,7 @@ export interface AlterFormFieldsProps {
   routeUid?: string | number | null;
 }
 
-function coerceIdentifier(value: number | string): number | string {
-  if (typeof value === 'number') return value;
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? value : parsed;
-}
 
-function toDisplayLabel(value: unknown, idLookup: Record<string, string>): string | null {
-  if (value == null) return null;
-  if (typeof value === 'object') {
-    const maybeNamed =
-      (value as { name?: unknown }).name ??
-      (value as { label?: unknown }).label ??
-      (value as { display_name?: unknown }).display_name ??
-      (value as { username?: unknown }).username;
-    if (maybeNamed != null && maybeNamed !== '') return String(maybeNamed);
-    if ('id' in (value as Record<string, unknown>)) {
-      const idValue = (value as { id?: unknown }).id;
-      if (idValue != null) {
-        const label = idLookup[String(idValue)];
-        if (label) return label;
-      }
-    }
-  }
-  const label = idLookup[String(value)];
-  if (label) return label;
-  const str = String(value);
-  if (!str || str === '[object Object]') return null;
-  return str;
-}
-
-function stripTrailingId(label: string): string {
-  const trimmed = label.trim();
-  if (!trimmed) return trimmed;
-  const withoutTrailingId = trimmed.replace(/\s*#\d+$/u, '').trim();
-  return withoutTrailingId || trimmed;
-}
-
-function mapToLabels(source: unknown, idLookup: Record<string, string>): string[] {
-  if (!Array.isArray(source)) return [];
-  return (source as unknown[])
-    .map((item) => {
-      const label = toDisplayLabel(item, idLookup);
-      return label ? label.trim() : '';
-    })
-    .filter((label) => Boolean(label));
-}
-
-function buildNameLookup(
-  primary?: Record<string, number | string>,
-  idLookup?: Record<string, string>,
-): Record<string, number | string> {
-  const result: Record<string, number | string> = {};
-  if (primary) {
-    Object.entries(primary).forEach(([name, id]) => {
-      if (!name) return;
-      result[name] = id;
-      result[name.toLowerCase()] = id;
-    });
-  }
-  if (idLookup) {
-    Object.entries(idLookup).forEach(([id, label]) => {
-      if (!label) return;
-      const coerced = coerceIdentifier(id);
-      result[label] = coerced;
-      result[label.toLowerCase()] = coerced;
-    });
-  }
-  return result;
-}
-
-function convertLabelsToIdentifiers(
-  selections: TagValue[],
-  primary?: Record<string, number | string>,
-  idLookup?: Record<string, string>,
-): Array<number | string> {
-  const lookup = buildNameLookup(primary, idLookup);
-  debugLog('Converting selections to identifiers', {
-    selections,
-    primaryKeys: primary ? Object.keys(primary) : [],
-    idLookupKeys: idLookup ? Object.keys(idLookup) : [],
-  });
-  return selections.map((selection) => {
-    if (selection && typeof selection === 'object') {
-      return coerceIdentifier(selection.id);
-    }
-    const trimmed = String(selection ?? '').trim();
-    if (!trimmed) return trimmed;
-    const match = lookup[trimmed] ?? lookup[trimmed.toLowerCase()];
-    if (typeof match !== 'undefined') return coerceIdentifier(match);
-    if (trimmed.startsWith('#')) {
-      const numericFromHash = Number(trimmed.slice(1));
-      if (!Number.isNaN(numericFromHash)) return numericFromHash;
-    }
-    const numeric = Number(trimmed);
-    return Number.isNaN(numeric) ? trimmed : numeric;
-  });
-}
-
-function buildOptionIndexes(options: RelationshipOption[]) {
-  const byId = new Map<string, RelationshipOption>();
-  const byAlias = new Map<string, RelationshipOption>();
-  options.forEach((option) => {
-    const idKey = String(option.id);
-    byId.set(idKey, option);
-    byAlias.set(idKey, option);
-    byAlias.set(`#${idKey}`, option);
-    const labelLower = option.label.toLowerCase();
-    byAlias.set(labelLower, option);
-    if (option.aliases) {
-      option.aliases
-        .map((alias) => alias.trim().toLowerCase())
-        .filter(Boolean)
-        .forEach((alias) => {
-          if (!byAlias.has(alias)) byAlias.set(alias, option);
-        });
-    }
-  });
-  return { byId, byAlias };
-}
-
-function mapSelectionsToTagValues(
-  source: unknown,
-  options: RelationshipOption[],
-  idLookup: Record<string, string>,
-): TagValue[] {
-  if (!Array.isArray(source)) return [];
-  if (!options.length && Object.keys(idLookup).length === 0) {
-    debugLog('No options or lookup available; falling back to raw labels', { source });
-    return mapToLabels(source, idLookup);
-  }
-  const { byId, byAlias } = buildOptionIndexes(options);
-  debugLog('Mapping selections to tag values', {
-    source,
-    optionsCount: options.length,
-    idLookupKeys: Object.keys(idLookup),
-  });
-  return (source as unknown[])
-    .map((item) => {
-      if (item == null) return null;
-
-      const potentialIds: string[] = [];
-      if (typeof item === 'number') {
-        potentialIds.push(String(item));
-      } else if (typeof item === 'string') {
-        const trimmed = item.trim();
-        if (trimmed) {
-          potentialIds.push(trimmed);
-          if (trimmed.startsWith('#')) potentialIds.push(trimmed.slice(1));
-        }
-      } else if (typeof item === 'object' && 'id' in (item as Record<string, unknown>)) {
-        const idValue = (item as { id?: unknown }).id;
-        if (idValue != null) potentialIds.push(String(idValue));
-      }
-
-      for (const candidate of potentialIds) {
-        if (!candidate) continue;
-        if (byId.has(candidate)) return byId.get(candidate)!;
-        const lower = candidate.toLowerCase();
-        if (byAlias.has(lower)) return byAlias.get(lower)!;
-      }
-
-      const label = toDisplayLabel(item, idLookup);
-      if (label) {
-        const trimmed = label.trim();
-        if (trimmed) {
-          const lower = trimmed.toLowerCase();
-          if (byAlias.has(lower)) return byAlias.get(lower)!;
-          const candidateId = potentialIds.find(Boolean);
-          if (candidateId) {
-            const normalized = candidateId.startsWith('#') ? candidateId.slice(1) : candidateId;
-            const mapped = { id: coerceIdentifier(normalized), label: trimmed, aliases: [] };
-            debugLog('Constructed synthetic option from label', mapped);
-            return mapped;
-          }
-          return trimmed;
-        }
-      }
-
-      if (typeof item === 'string') {
-        const trimmed = item.trim();
-        if (!trimmed) return null;
-        const lower = trimmed.toLowerCase();
-        if (byAlias.has(lower)) return byAlias.get(lower)!;
-        const normalized = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
-        const inferred = idLookup[normalized] ?? idLookup[trimmed];
-        if (inferred) {
-          const mapped = { id: coerceIdentifier(normalized), label: inferred, aliases: [] };
-          debugLog('Constructed synthetic option from string', mapped);
-          return mapped;
-        }
-        return trimmed;
-      }
-
-      if (typeof item === 'number') {
-        const idKey = String(item);
-        if (byId.has(idKey)) return byId.get(idKey)!;
-        const inferred = idLookup[idKey];
-        if (inferred) {
-          const mapped = { id: coerceIdentifier(idKey), label: inferred, aliases: [] };
-          debugLog('Constructed synthetic option from number', mapped);
-          return mapped;
-        }
-        return idKey;
-      }
-
-      return null;
-    })
-    .filter((value): value is TagValue => Boolean(value));
-}
 
 export default function AlterFormFields(props: AlterFormFieldsProps) {
   const {
@@ -322,23 +125,145 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   const alterIdLookup = props.alterIdNameMap ?? {};
   const userIdLookup = props.userIdNameMap ?? {};
 
+  // Local cache for alter id -> display name lookup. If the parent did not provide
+  // `alterIdNameMap` (because relationships are no longer fetched with the alter),
+  // fetch missing names on demand so tag rendering still works.
+  const [localAlterIdLookup, setLocalAlterIdLookup] = React.useState<Record<string, string>>(props.alterIdNameMap ?? {});
+  const mergedAlterIdLookup = React.useMemo(
+    () => ({ ...(props.alterIdNameMap ?? {}), ...localAlterIdLookup }),
+    [props.alterIdNameMap, localAlterIdLookup],
+  );
+
+  React.useEffect(() => {
+    let mounted = true;
+    // collect numeric ids referenced in values that are not present in merged lookup
+    const collectIdsFrom = (source: unknown): string[] => {
+      if (!Array.isArray(source)) return [];
+      return source
+        .map((v) => {
+          if (v == null) return null;
+          if (typeof v === 'number') return String(v);
+          if (typeof v === 'string') {
+            const trimmed = v.trim();
+            if (!trimmed) return null;
+            if (trimmed.startsWith('#')) return trimmed.slice(1);
+            if (/^\d+$/u.test(trimmed)) return trimmed;
+            return null;
+          }
+          if (typeof v === 'object' && 'id' in (v as Record<string, unknown>)) {
+            const idv = (v as { id?: unknown }).id;
+            return idv != null ? String(idv) : null;
+          }
+          return null;
+        })
+        .filter((x): x is string => Boolean(x));
+    };
+
+    const ids = new Set<string>([
+      ...collectIdsFrom(values.partners),
+      ...collectIdsFrom(values.parents),
+      ...collectIdsFrom(values.children),
+    ]);
+    const missing: string[] = [];
+    ids.forEach((id) => {
+      if (!mergedAlterIdLookup[id]) missing.push(id);
+    });
+    if (!missing.length) return;
+
+    (async () => {
+      try {
+        const entries: Array<[string, string]> = [];
+        await Promise.all(
+          missing.map(async (id) => {
+            try {
+              const resp = await apiClient.alter.get_alters_by_id(id);
+              const alter = (resp.data as ApiAlter) ?? null;
+              if (alter && alter.id != null) {
+                const label = (alter.name ?? (alter as any).username ?? `#${alter.id}`) as string;
+                entries.push([String(alter.id), label]);
+              }
+            } catch (e) {
+              // ignore per-id failures
+            }
+          }),
+        );
+        if (!mounted) return;
+        if (entries.length) {
+          setLocalAlterIdLookup((prev) => {
+            const next = { ...prev };
+            for (const [k, v] of entries) next[k] = v;
+            return next;
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [values.partners, values.parents, values.children, props.alterIdNameMap, mergedAlterIdLookup]);
+
+  // If we are editing an existing alter (values.id), load its relationships via
+  // the relationships endpoint and use any returned usernames to seed the local
+  // id->name lookup. This is cheaper than fetching each referenced alter
+  // individually and ensures tags render even when relationships weren't
+  // included with the alter payload.
+  React.useEffect(() => {
+    let mounted = true;
+    const thisId = values.id;
+    if (thisId == null) return;
+    (async () => {
+      try {
+        const resp = await apiClient.alter.get_alters_by_id_relationships(thisId);
+        const rels = Array.isArray(resp.data) ? resp.data : [];
+        const entries: Array<[string, string]> = [];
+        for (const r of rels) {
+          const aid = (r as any).alter_id ?? null;
+          const uname = (r as any).username ?? null;
+          if (aid != null) {
+            const key = String(aid);
+            if (!mergedAlterIdLookup[key]) {
+              const label = uname ? String(uname) : `#${key}`;
+              entries.push([key, label]);
+            }
+          }
+        }
+        if (!mounted) return;
+        if (entries.length) {
+          setLocalAlterIdLookup((prev) => {
+            const next = { ...prev };
+            for (const [k, v] of entries) next[k] = v;
+            return next;
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [values.id, mergedAlterIdLookup]);
+
   const partnerOptionList = partnerOptions ?? [];
   const parentOptionList = props.parentOptions ?? partnerOptionList;
   const childOptionList = props.childOptions ?? partnerOptionList;
 
   const partnerTagValue = React.useMemo(
-    () => mapSelectionsToTagValues(values.partners, partnerOptionList, alterIdLookup),
-    [values.partners, partnerOptionList, alterIdLookup],
+    () => mapSelectionsToTagValues(values.partners, partnerOptionList, mergedAlterIdLookup),
+    [values.partners, partnerOptionList, mergedAlterIdLookup],
   );
 
   const parentTagValue = React.useMemo(
-    () => mapSelectionsToTagValues(values.parents, parentOptionList, alterIdLookup),
-    [values.parents, parentOptionList, alterIdLookup],
+    () => mapSelectionsToTagValues(values.parents, parentOptionList, mergedAlterIdLookup),
+    [values.parents, parentOptionList, mergedAlterIdLookup],
   );
 
   const childTagValue = React.useMemo(
-    () => mapSelectionsToTagValues(values.children, childOptionList, alterIdLookup),
-    [values.children, childOptionList, alterIdLookup],
+    () => mapSelectionsToTagValues(values.children, childOptionList, mergedAlterIdLookup),
+    [values.children, childOptionList, mergedAlterIdLookup],
   );
 
   const relationshipFilter = React.useMemo(
@@ -875,7 +800,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
       <StackItem>
         <SubsystemPicker
           routeUid={props.routeUid}
-          value={values.subsystem ?? null}
+          value={(values.subsystem as any) ?? null}
           onChange={(v: number | string | null) => onChange('subsystem', v)}
         />
       </StackItem>

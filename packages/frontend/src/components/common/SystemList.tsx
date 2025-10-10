@@ -1,15 +1,16 @@
 import React from 'react';
 import { Container, Typography, List } from '@mui/material';
 
-import { useSystemList, type SystemSummary } from '../../shared/hooks/useSystemList';
+import { useSystemList } from '../../shared/hooks/useSystemList';
 import SystemSearch from './SystemSearch';
 import SystemListItem from './SystemListItem';
+import { ApiSystemSummary } from '@didhub/api-client';
 
 export interface SystemListProps {
   title?: string;
   header?: React.ReactNode;
-  primary?: (s: SystemSummary) => React.ReactNode;
-  secondary?: (s: SystemSummary) => React.ReactNode;
+  primary?: (s: ApiSystemSummary) => React.ReactNode;
+  secondary?: (s: ApiSystemSummary) => React.ReactNode;
   showContainer?: boolean;
   showSearch?: boolean;
 }

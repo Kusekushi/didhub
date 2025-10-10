@@ -4,12 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Alter } from '@didhub/api-client';
 
-vi.mock('../GroupPicker', () => ({
+vi.mock('../../components/common/GroupPicker', () => ({
   __esModule: true,
   default: () => <div data-testid="group-picker" />,
 }));
 
-vi.mock('../SubsystemPicker', () => ({
+vi.mock('../../components/common/SubsystemPicker', () => ({
   __esModule: true,
   default: () => <div data-testid="subsystem-picker" />,
 }));
@@ -22,26 +22,31 @@ describe('useAlterRelationshipOptions', () => {
     vi.clearAllMocks();
 
     const mod = await import('@didhub/api-client');
-    (mod as any).apiClient.groups.list = vi.fn().mockResolvedValue({ items: [] });
-    (mod as any).apiClient.subsystems.list = vi.fn().mockResolvedValue({ items: [] });
+    (mod as any).apiClient.group.get_groups = vi.fn().mockResolvedValue({ data: { items: [], total: 0 } });
+    (mod as any).apiClient.subsystem.get_subsystems = vi.fn().mockResolvedValue({
+      data: { items: [], total: 0 },
+    });
   });
 
   it('falls back to alters.list when names endpoint returns empty results', async () => {
     const mod = await import('@didhub/api-client');
-    const mockNames = vi.fn().mockResolvedValue([]);
+    const mockNames = vi.fn().mockResolvedValue({ data: [] });
     const mockList = vi.fn().mockResolvedValue({
-      items: [
+      data: {
+        items: [
         {
           id: 7,
           name: 'Alpha',
           username: 'alpha',
         },
       ],
+        total: 1,
+      },
     });
     const mockGet = vi.fn();
-    (mod as any).apiClient.alters.names = mockNames;
-    (mod as any).apiClient.alters.list = mockList;
-    (mod as any).apiClient.alters.get = mockGet;
+    (mod as any).apiClient.alter.get_alters_names = mockNames;
+    (mod as any).apiClient.alter.get_alters = mockList;
+    (mod as any).apiClient.alter.get_alters_by_id = mockGet;
 
     const { useAlterRelationshipOptions } = await import('../../components/forms/AlterFormDialog');
     const { result } = renderHook(() => useAlterRelationshipOptions({}));
@@ -50,8 +55,8 @@ describe('useAlterRelationshipOptions', () => {
       await result.current.refreshPartnerOptions();
     });
 
-    expect(mockNames).toHaveBeenCalledTimes(1);
-    expect(mockList).toHaveBeenCalledWith({ perPage: 1000 });
+  expect(mockNames).toHaveBeenCalledTimes(1);
+  expect(mockList).toHaveBeenCalledWith({ perPage: 1000 });
     expect(mockGet).not.toHaveBeenCalled();
 
     const option = result.current.partnerOptions[0];

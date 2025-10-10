@@ -11,8 +11,8 @@ export default function SubsystemEdit() {
   useEffect(() => {
     (async () => {
       try {
-        const s = await apiClient.subsystems.get(sid);
-        setValues(s || {});
+  const response = await apiClient.subsystem.get_subsystems_by_id(sid);
+  setValues((response.data as any) || {});
       } catch (e) {
         setValues({});
       }
@@ -48,7 +48,7 @@ export default function SubsystemEdit() {
           <Button
             variant="contained"
             onClick={async () => {
-              await apiClient.subsystems.update(sid, values);
+              await apiClient.subsystem.put_subsystems_by_id(sid, values as any);
               nav(-1);
             }}
           >

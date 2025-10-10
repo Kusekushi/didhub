@@ -20,14 +20,25 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { apiClient, type Alter, type Group, type GroupMembersResponse } from '@didhub/api-client';
+import { apiClient, type ApiAlter, type Group, type GroupMembersResponse, type ApiUploadResp } from '@didhub/api-client';
 
 import logger from '../../shared/lib/logger';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 import { usePdf } from '../../shared/hooks/usePdf';
 
-type LeaderOption = Partial<Alter> & { id: number | string; name?: string | null };
+type LeaderOption = Partial<ApiAlter> & { id: number | string; name?: string | null };
+
+// ...existing code...
+async function getAlterById(id: string | number): Promise<ApiAlter | null> {
+  try {
+    const response = await apiClient.alter.get_alters_by_id(id);
+    return (response.data as ApiAlter) ?? null;
+  } catch (error) {
+    logger.warn('failed to fetch alter', id, error);
+    return null;
+  }
+}
 
 function normalizeStringId(value: unknown): string | undefined {
   if (typeof value === 'number' || typeof value === 'string') return String(value);
@@ -70,7 +81,7 @@ function extractLeaderIds(group: Group | null): string[] {
 
 function extractOwnerId(group: Group | null): number | string | undefined {
   if (!group) return undefined;
-  const candidate = (group as Record<string, unknown>).owner_user_id;
+  const candidate = (group as unknown as { owner_user_id?: unknown }).owner_user_id;
   if (typeof candidate === 'number' || typeof candidate === 'string') return candidate;
   if (candidate != null) {
     const text = String(candidate).trim();
@@ -114,9 +125,9 @@ function deriveSigilUrl(raw: unknown): string | null {
   return null;
 }
 
-function dedupeAltersById(alters: Alter[]): Alter[] {
+function dedupeAltersById(alters: ApiAlter[]): ApiAlter[] {
   const seen = new Set<string>();
-  const result: Alter[] = [];
+  const result: ApiAlter[] = [];
   for (const alter of alters) {
     const id = normalizeStringId(alter?.id);
     if (!id || seen.has(id)) continue;
@@ -126,11 +137,16 @@ function dedupeAltersById(alters: Alter[]): Alter[] {
   return result;
 }
 
-export default function GroupDetail() {
-  const { id } = useParams() as { id?: string };
+export interface GroupDetailProps {
+  groupId?: string;
+}
+
+export default function GroupDetail(props: GroupDetailProps = {}) {
+  const params = useParams() as { id?: string };
+  const id = props.groupId ?? params.id;
   const nav = useNavigate();
   const [group, setGroup] = useState<Group | null>(null);
-  const [members, setMembers] = useState<Alter[]>([]);
+  const [members, setMembers] = useState<ApiAlter[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { user: me } = useAuth();
@@ -150,9 +166,10 @@ export default function GroupDetail() {
   const { pdfError, pdfSnackOpen, handlePdfDownload, closePdfSnack } = usePdf();
 
   const fetchMemberAlters = useCallback(
-    async (groupId: string | number, ensureAlterIds: string[] = []): Promise<Alter[]> => {
+  async (groupId: string | number, ensureAlterIds: string[] = []): Promise<ApiAlter[]> => {
       try {
-        const response: GroupMembersResponse = await apiClient.groups.listMembers(groupId);
+  const membersResp = await apiClient.group.get_groups_by_id_members(groupId);
+    const response: GroupMembersResponse = (membersResp.data as GroupMembersResponse) ?? ({} as GroupMembersResponse);
         const collectedIds = new Set<string>();
         if (Array.isArray(response.alters)) {
           response.alters.forEach((value) => {
@@ -163,18 +180,8 @@ export default function GroupDetail() {
         ensureAlterIds.forEach((value) => {
           if (value) collectedIds.add(value);
         });
-        const alters = await Promise.all(
-          Array.from(collectedIds).map(async (alterId) => {
-            try {
-              const alter = await apiClient.alters.get(alterId);
-              return alter ?? null;
-            } catch (err) {
-              logger.warn('failed to fetch alter', alterId, err);
-              return null;
-            }
-          }),
-        );
-        const valid = alters.filter((alter): alter is Alter => Boolean(alter && alter.id != null));
+        const alters = await Promise.all(Array.from(collectedIds).map(async (alterId) => getAlterById(alterId)));
+        const valid = alters.filter((alter): alter is ApiAlter => Boolean(alter && alter.id != null));
         return dedupeAltersById(valid);
       } catch (err) {
         logger.warn('error listing group members', err);
@@ -191,7 +198,8 @@ export default function GroupDetail() {
       if (!id) return;
       setLoading(true);
       try {
-        const groupData = await apiClient.groups.get(id);
+  const groupResp = await apiClient.group.get_groups_by_id(id);
+    const groupData = (groupResp.data as Group) ?? null;
         if (!mounted) return;
         if (!groupData || groupData.id == null) {
           setGroup(null);
@@ -244,7 +252,7 @@ export default function GroupDetail() {
 
   const leaderMembers = useMemo(() => {
     const leadersSet = new Set(leaderIds);
-    const leaders: Alter[] = [];
+  const leaders: ApiAlter[] = [];
     uniqueMembers.forEach((member) => {
       const id = normalizeStringId(member?.id);
       if (id && leadersSet.has(id)) leaders.push(member);
@@ -255,11 +263,11 @@ export default function GroupDetail() {
     return leaders;
   }, [leaderIds, uniqueMembers]);
 
-  const renderAlterChip = (m: Alter, extra?: { variant?: 'outlined' | 'filled'; color?: 'primary' | 'default' }) => (
+  const renderAlterChip = (m: ApiAlter, extra?: { variant?: 'outlined' | 'filled'; color?: 'primary' | 'default' }) => (
     <Chip
       key={String(m.id)}
       component="a"
-      href={`/detail/${m.id}`}
+      href={`/detail/alter/${m.id}`}
       clickable
       avatar={<Avatar alt={m.name}>{(m.name || '#').slice(0, 1)}</Avatar>}
       label={m.name || `#${m.id}`}
@@ -310,8 +318,9 @@ export default function GroupDetail() {
         leaders: leaderIdsPayload,
         sigil: editSigilUrl || null,
       };
-      await apiClient.groups.update(group.id, payload);
-      const updated = await apiClient.groups.get(group.id);
+    await apiClient.group.put_groups_by_id(group.id, payload as any);
+    const updatedResp = await apiClient.group.get_groups_by_id(group.id);
+    const updated = (updatedResp.data as Group) ?? null;
       setGroup(updated);
       setEditing(false);
     } catch (err) {
@@ -353,12 +362,11 @@ export default function GroupDetail() {
     setEditSigilUrl(localUrl); // immediate preview
     setSigilUploading(true);
     try {
-      const result = await apiClient.files.upload(file);
-      const payload = result.payload ?? null;
-      const remote =
-        result.url ??
-        (typeof payload?.url === 'string' ? payload.url : undefined) ??
-        (typeof payload?.filename === 'string' ? payload.filename : undefined);
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await apiClient.files.post_upload(formData);
+      const data = response.data as ApiUploadResp | undefined;
+      const remote = data?.filename ? `/uploads/${data.filename}` : undefined;
       if (remote) setEditSigilUrl(remote);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err));

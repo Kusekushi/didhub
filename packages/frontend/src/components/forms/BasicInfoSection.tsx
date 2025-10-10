@@ -1,11 +1,18 @@
 import React from 'react';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { parseRoles, type Alter, type UserAlterRelationship } from '@didhub/api-client';
+import { parseRoles, type ApiAlter, type UserAlterRelationship } from '@didhub/api-client';
 import { useAlterLinks } from '../../shared/hooks/useAlterLinks';
 
+type AlterWithRelationships = ApiAlter & {
+  user_relationships?: UserAlterRelationship[];
+  system_roles?: unknown;
+  is_dormant?: boolean | null;
+  is_merged?: boolean | null;
+};
+
 export interface BasicInfoSectionProps {
-  alter: Alter;
+  alter: AlterWithRelationships;
 }
 
 export default function BasicInfoSection(props: BasicInfoSectionProps) {
@@ -29,7 +36,7 @@ export default function BasicInfoSection(props: BasicInfoSectionProps) {
             <Chip
               key={`${keyPrefix}-alter-${idx}`}
               component={RouterLink}
-              to={`/detail/${p.id}`}
+              to={`/detail/alter/${p.id}`}
               label={p.name}
               clickable
               size="small"

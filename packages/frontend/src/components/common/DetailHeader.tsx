@@ -1,13 +1,13 @@
 import React from 'react';
 import { Button, Typography, Tooltip, Box, IconButton } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import type { Alter, User } from '@didhub/api-client';
+import type { ApiAlter, ApiUser } from '@didhub/api-client';
 import { useRename } from '../../shared/hooks/useRename';
 import { usePdf } from '../../shared/hooks/usePdf';
 
 export interface DetailHeaderProps {
-  alter: Alter;
-  user: User | null;
+  alter: ApiAlter;
+  user: ApiUser | null;
   onAlterUpdate: () => void;
   onBack: () => void;
 }

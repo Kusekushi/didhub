@@ -26,8 +26,9 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-    const r = await apiClient.subsystems.list({ query: q || '' });
-    setOptions(r || []);
+    const response = await apiClient.subsystem.get_subsystems({ query: q || '', limit: 25 });
+    const list = ((response.data?.items ?? []) as unknown) as Subsystem[];
+    setOptions(list);
   }
 
   useEffect(() => {
@@ -70,14 +71,15 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
     }
   }
 
-  const selected: Subsystem | { name: string } | null =
+  const selected: Subsystem | null =
     props.value &&
     (typeof props.value === 'object'
-      ? (props.value as Subsystem)
+      ? ((props.value as unknown) as Subsystem)
       : (() => {
           const numeric = parseNumericId(props.value);
           if (numeric == null) return null;
-          return options.find((x) => x.id === numeric) || { name: String(numeric) };
+          const found = options.find((x) => Number(x.id) === numeric);
+          return found ? ((found as unknown) as Subsystem) : null;
         })());
 
   return (
@@ -85,7 +87,7 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
       <Autocomplete
         options={options}
         getOptionLabel={(o: Subsystem | string) => (typeof o === 'string' ? o : o.name)}
-        value={selected || null}
+  value={selected}
         inputValue={inputValue}
         onInputChange={(e, v) => setInputValue(v)}
         onChange={handleChange}
@@ -105,8 +107,9 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
             try {
               const owner = getEffectiveOwnerId(props.routeUid == null ? undefined : String(props.routeUid), auth.user?.id);
               const payload: any = { name: createDialog.name, type };
-              if (typeof owner === 'number') payload.owner_user_id = owner;
-              const subsystem = await apiClient.subsystems.create(payload);
+              if (typeof owner === 'number' || typeof owner === 'string') payload.owner_user_id = owner;
+              const response = await apiClient.subsystem.post_subsystems(payload);
+              const subsystem = response.data as Subsystem | undefined;
               const createdId = parseNumericId(subsystem?.id);
               if (subsystem && createdId != null) {
                 setOptions((prev) => [subsystem, ...prev]);

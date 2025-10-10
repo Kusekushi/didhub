@@ -1,12 +1,18 @@
 import React from 'react';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import type { Alter, Group, Subsystem } from '@didhub/api-client';
+import { apiClient, parseRoles, type ApiAlter, type Group, type Subsystem } from '@didhub/api-client';
 import { useAffiliationResolution } from '../../shared/hooks/useAffiliationResolution';
 import { useGroupResolution, useSubsystemResolution } from '../../shared/hooks/useEntityResolution';
 
 export interface WorkAffiliationsSectionProps {
-  alter: Alter;
+  alter: ApiAlter & {
+    affiliations?: unknown;
+    subsystem?: unknown;
+    group?: unknown;
+    job?: unknown;
+    weapon?: unknown;
+  };
 }
 
 export default function WorkAffiliationsSection(props: WorkAffiliationsSectionProps) {
@@ -39,7 +45,7 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
         <Chip
           key={idx}
           component={RouterLink}
-          to={`/groups/${g.id}`}
+          to={`/detail/affiliation/${g.id}`}
           label={g.name || `#${g.id}`}
           clickable
           size="small"
@@ -52,7 +58,7 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
   ) : groupObj ? (
     <Chip
       component={RouterLink}
-      to={`/groups/${groupObj.id}`}
+        to={`/detail/affiliation/${groupObj.id}`}
       label={groupObj.name || `#${groupObj.id}`}
       clickable
       size="small"
@@ -60,7 +66,7 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
   ) : affiliationGroup ? (
     <Chip
       component={RouterLink}
-      to={`/groups/${affiliationGroup.id}`}
+        to={`/detail/affiliation/${affiliationGroup.id}`}
       label={affiliationGroup.name || `#${affiliationGroup.id}`}
       clickable
       size="small"
@@ -86,7 +92,7 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
         {subsystemObj ? (
           <Chip
             component={RouterLink}
-            to={`/subsystems/${subsystemObj.id}`}
+            to={`/detail/subsystem/${subsystemObj.id}`}
             label={subsystemObj.name || `#${subsystemObj.id}`}
             clickable
             size="small"

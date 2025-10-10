@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, List, Pagination, Typography } from '@mui/material';
-import { apiClient, User, Group } from '@didhub/api-client';
+import { apiClient, type ApiUser, type Group } from '@didhub/api-client';
 
 import GroupDialog from './GroupDialog';
 import GroupListItem from './GroupListItem';
@@ -14,7 +14,7 @@ export interface GroupsTabProps {
 }
 
 export default function GroupsTab({ uid }: GroupsTabProps) {
-  const { user: me } = useAuth() as { user?: User };
+  const { user: me } = useAuth() as { user?: ApiUser };
   
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
@@ -28,7 +28,9 @@ export default function GroupsTab({ uid }: GroupsTabProps) {
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
   // Permission checking
-  const canManage = me && (me.is_admin || (me.is_system && String(me.id) === String(uid)));
+  const canManage =
+    !!me &&
+    ((Number(me.is_admin) === 1) || (Number(me.is_system) === 1 && String(me.id) === String(uid)));
 
   const pageCount = Math.max(1, Math.ceil((groupsData.total || 0) / 20));
   const displayStart = groupsData.total === 0 ? 0 : 0 * 20 + 1;
@@ -36,7 +38,7 @@ export default function GroupsTab({ uid }: GroupsTabProps) {
 
   const handleDelete = async (groupId: number | string) => {
     try {
-      await apiClient.groups.remove(groupId);
+      await apiClient.group.delete_groups_by_id(groupId);
       await groupsData.refresh();
       setSnack({ open: true, message: 'Group deleted', severity: 'success' });
     } catch (error) {

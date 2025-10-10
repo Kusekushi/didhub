@@ -1,174 +1,198 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { apiClient, type Alter, type Group, type Subsystem } from '@didhub/api-client';
 
-/**
- * Hook to manage alter data and related entities (group, subsystem, affiliations)
- */
+type AlterDetails = Alter & {
+  group?: string | number | null;
+  affiliations?: unknown;
+};
+
+type GroupMap = Record<string, Group>;
+
+type GroupIdMap = Record<number, Group>;
+
+function coerceNumericId(value: unknown): number | null {
+  const asString = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+  if (!asString) return null;
+  const maybeId = Number(asString);
+  return Number.isNaN(maybeId) ? null : maybeId;
+}
+
+function coerceGroupArray(value: unknown): Group[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((candidate): candidate is Group => Boolean(candidate && typeof (candidate as Group).name === 'string'));
+}
+
+function coerceSubsystemArray(value: unknown): Subsystem[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (candidate): candidate is Subsystem => Boolean(candidate && typeof (candidate as Subsystem).name === 'string')
+  );
+}
+
 export function useAlterData(id?: string) {
-  const [alter, setAlter] = useState<Alter | null>(null);
+  const [alter, setAlter] = useState<AlterDetails | null>(null);
   const [groupObj, setGroupObj] = useState<Group | null>(null);
   const [affiliationGroup, setAffiliationGroup] = useState<Group | null>(null);
-  const [affiliationGroupsMap, setAffiliationGroupsMap] = useState<Record<string, Group>>({});
-  const [affiliationIdMap, setAffiliationIdMap] = useState<Record<number, Group>>({});
+  const [affiliationGroupsMap, setAffiliationGroupsMap] = useState<GroupMap>({});
+  const [affiliationIdMap, setAffiliationIdMap] = useState<GroupIdMap>({});
   const [subsystemObj, setSubsystemObj] = useState<Subsystem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const alterResult = await apiClient.alters.get_alters_by_id(id);
-
-        setAlter(alterResult);
-
-        // Handle group resolution
-        if (alterResult?.group !== undefined && alterResult?.group !== null) {
-          try {
-            const group = await apiClient.groups.get_groups_by_id(alterResult.group as string | number);
-            setGroupObj(group);
-          } catch (e) {
-            setGroupObj(null);
-          }
-          setAffiliationGroup(null);
-        } else {
-          setGroupObj(null);
-          setAffiliationGroup(null);
-          // Handle affiliations
-          const affiliationData = alterResult?.affiliations;
-          if (alterResult && affiliationData) {
-            await resolveAffiliations(affiliationData);
-          }
-        }
-
-        // Handle subsystem resolution
-        if (alterResult?.subsystem || alterResult?.subsystem === 0) {
-          await resolveSubsystem(alterResult.subsystem);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load alter data');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, [id]);
-
-  async function resolveAffiliations(affiliationData: any) {
-    try {
-      const affiliations = Array.isArray(affiliationData) ? affiliationData : [affiliationData];
-      const map: Record<string, Group> = {};
-      const idMap: Record<number, Group> = {};
-
-      for (const rawName of affiliations) {
-        // Try numeric ID first
-        if (typeof rawName === 'number' || typeof rawName === 'string') {
-          const trimmed = typeof rawName === 'string' ? rawName.trim() : String(rawName);
-          if (trimmed.length > 0) {
-            const maybeId = Number(trimmed);
-            if (!Number.isNaN(maybeId)) {
-              try {
-                const group = await apiClient.groups.get_groups_by_id(maybeId);
-                if (group) {
-                  idMap[maybeId] = group;
-                  continue;
-                }
-              } catch (e) {
-                // Fall through to name-based lookup
-              }
-            }
-          }
-        }
-
-        // Name-based lookup
-        const name = Array.isArray(rawName) ? rawName.join(',') : String(rawName);
-        try {
-          const groups = await apiClient.groups.get_groups();
-          const found = (groups as Group[]).find(
-            (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
-          );
-          if (found) map[name] = found;
-        } catch (e) {
-          // Ignore individual lookup errors
-        }
-      }
-
-      setAffiliationGroupsMap(map);
-      setAffiliationIdMap(idMap);
-    } catch (e) {
+    if (!id) {
+      setAlter(null);
+      setGroupObj(null);
+      setAffiliationGroup(null);
       setAffiliationGroupsMap({});
       setAffiliationIdMap({});
-    }
-  }
-
-  async function resolveSubsystem(rawSubsystem: any) {
-    try {
-      const rawStr = String(rawSubsystem);
-      const maybeId = typeof rawSubsystem === 'number' ? rawSubsystem : Number(rawStr);
-
-      if (!Number.isNaN(maybeId) && rawStr.trim() !== '') {
-        try {
-          const subsystem = await apiClient.subsystems.get_subsystems_by_id(maybeId);
-          if (subsystem) {
-            setSubsystemObj(subsystem);
-            return;
-          }
-        } catch (e) {
-          // Fall through to name lookup
-        }
-      }
-
-      // Name lookup fallback
-      const subsystems = await apiClient.subsystems.get_subsystems();
-      const found = subsystems.find((it) => it && it.name && String(it.name).toLowerCase() === rawStr.toLowerCase());
-      if (found) setSubsystemObj(found);
-    } catch (e) {
       setSubsystemObj(null);
+      setLoading(false);
+      return;
     }
-  }
 
-  const refetch = async () => {
-    if (!id) return;
+    void loadAlter(id);
+  }, [id]);
+
+  const loadAlter = async (targetId: string) => {
     try {
       setLoading(true);
       setError(null);
 
-        const alterResult = await apiClient.alters.get_alters_by_id(id);
-        setAlter(alterResult);
+      const response = await apiClient.alter.get_alters_by_id(targetId);
+      const alterData = (response.data ?? null) as AlterDetails | null;
+      setAlter(alterData);
 
-      // Handle group resolution
-      if (alterResult?.group !== undefined && alterResult?.group !== null) {
+      if (!alterData) {
+        setGroupObj(null);
+        setAffiliationGroup(null);
+        setAffiliationGroupsMap({});
+        setAffiliationIdMap({});
+        setSubsystemObj(null);
+        return;
+      }
+
+      const groupId = alterData.group;
+      if (groupId !== undefined && groupId !== null && String(groupId).length > 0) {
         try {
-          const group = await apiClient.groups.get_groups_by_id(alterResult.group as string | number);
-          setGroupObj(group);
-        } catch (e) {
+          const groupRes = await apiClient.group.get_groups_by_id(groupId);
+          setGroupObj(groupRes.data ?? null);
+        } catch {
           setGroupObj(null);
         }
         setAffiliationGroup(null);
+        setAffiliationGroupsMap({});
+        setAffiliationIdMap({});
       } else {
         setGroupObj(null);
         setAffiliationGroup(null);
-        // Handle affiliations
-        const affiliationData = alterResult?.affiliations;
-        if (alterResult && affiliationData) {
-          await resolveAffiliations(affiliationData);
+        const affiliations = alterData.affiliations;
+        if (affiliations !== undefined && affiliations !== null) {
+          await resolveAffiliations(affiliations);
+        } else {
+          setAffiliationGroupsMap({});
+          setAffiliationIdMap({});
         }
       }
 
-      // Handle subsystem resolution
-      if (alterResult?.subsystem || alterResult?.subsystem === 0) {
-        await resolveSubsystem(alterResult.subsystem);
+      const subsystemValue = alterData.subsystem;
+      if (subsystemValue !== undefined && subsystemValue !== null && String(subsystemValue).length > 0) {
+        await resolveSubsystem(subsystemValue);
+      } else {
+        setSubsystemObj(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load alter data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const resolveAffiliations = async (affiliationData: unknown) => {
+    try {
+      const entries = Array.isArray(affiliationData) ? affiliationData : [affiliationData];
+      const groupsByName: GroupMap = {};
+      const groupsById: GroupIdMap = {};
+      let cachedGroupList: Group[] | null = null;
+
+      const ensureGroupList = async () => {
+        if (cachedGroupList) return cachedGroupList;
+        try {
+          const res = await apiClient.group.get_groups();
+          cachedGroupList = coerceGroupArray(res.data?.items);
+        } catch {
+          cachedGroupList = [];
+        }
+        return cachedGroupList;
+      };
+
+      for (const raw of entries) {
+        if (raw === undefined || raw === null) continue;
+
+        const maybeId = coerceNumericId(raw);
+        if (maybeId !== null) {
+          try {
+            const groupRes = await apiClient.group.get_groups_by_id(maybeId);
+            if (groupRes.data) {
+              groupsById[maybeId] = groupRes.data;
+              continue;
+            }
+          } catch {
+            // fall through to name lookup
+          }
+        }
+
+        const name = Array.isArray(raw) ? raw.join(',') : String(raw);
+        const groupList = await ensureGroupList();
+        const found = groupList.find((g) => g && g.name && g.name.toLowerCase() === name.toLowerCase());
+        if (found) {
+          groupsByName[name] = found;
+        }
+      }
+
+      setAffiliationGroupsMap(groupsByName);
+      setAffiliationIdMap(groupsById);
+    } catch {
+      setAffiliationGroupsMap({});
+      setAffiliationIdMap({});
+    }
+  };
+
+  const resolveSubsystem = async (rawSubsystem: unknown) => {
+    try {
+      const rawStr = String(rawSubsystem ?? '').trim();
+      if (!rawStr.length) {
+        setSubsystemObj(null);
+        return;
+      }
+
+      const numericId = Number(rawStr);
+      if (!Number.isNaN(numericId)) {
+        try {
+          const subsystemRes = await apiClient.subsystem.get_subsystems_by_id(numericId);
+          if (subsystemRes.data) {
+            setSubsystemObj(subsystemRes.data);
+            return;
+          }
+        } catch {
+          // ignore lookup failure and fall back to name search
+        }
+      }
+
+      const listRes = await apiClient.subsystem.get_subsystems();
+      const subsystems = coerceSubsystemArray(listRes.data?.items);
+      const match = subsystems.find(
+        (item) => item && item.name && item.name.toLowerCase() === rawStr.toLowerCase(),
+      );
+      setSubsystemObj(match ?? null);
+    } catch {
+      setSubsystemObj(null);
+    }
+  };
+
+  const refetch = async () => {
+    if (!id) return;
+    await loadAlter(id);
   };
 
   return {

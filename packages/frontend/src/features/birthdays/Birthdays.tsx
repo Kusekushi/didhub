@@ -236,7 +236,7 @@ export default function Birthdays() {
               <ListItem disableGutters alignItems="flex-start">
                 <ListItemText
                   primary={
-                    <MuiLink component={RouterLink} to={`/detail/${entry.alter.id}`} underline="hover">
+                    <MuiLink component={RouterLink} to={`/detail/alter/${entry.alter.id}`} underline="hover">
                       {entry.label}
                     </MuiLink>
                   }
@@ -304,7 +304,7 @@ export default function Birthdays() {
       >
         <DialogTitle id="birthday-dialog-title">
           {selected ? (
-            <MuiLink component={RouterLink} to={`/detail/${selected.entry.alter.id}`} underline="hover">
+            <MuiLink component={RouterLink} to={`/detail/alter/${selected.entry.alter.id}`} underline="hover">
               {selected.entry.label}
             </MuiLink>
           ) : null}
@@ -318,14 +318,14 @@ export default function Birthdays() {
                   alt={selected.entry.alter.name || ''}
                   onClick={() => {
                     setSelected(null);
-                    navigate(`/detail/${selected.entry.alter.id}`);
+                    navigate(`/detail/alter/${selected.entry.alter.id}`);
                   }}
                   loading="lazy"
                 />
               ) : null}
               <Stack spacing={1} sx={{ flex: 1 }}>
                 <Typography variant="body1">
-                  <MuiLink component={RouterLink} to={`/detail/${selected.entry.alter.id}`} underline="hover">
+                  <MuiLink component={RouterLink} to={`/detail/alter/${selected.entry.alter.id}`} underline="hover">
                     {selected.entry.label}
                   </MuiLink>
                 </Typography>

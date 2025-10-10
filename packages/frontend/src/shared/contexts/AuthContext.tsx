@@ -215,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
   async function changePassword(current: string, next: string) {
-    const res = await apiClient.users.post_me_password({ current, next });
+    const res = await apiClient.users.post_me_password({ current_password: current, new_password: next });
     if (res.ok) {
       setMustChange(false);
       try {
@@ -229,10 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = res.data as any;
     return { ok: false, error: data?.error ?? data?.message ?? 'error' };
   }
-  const refetchUser = useCallback(async () => {
-    const user = await getMe();
-    setMe(user);
-  }, []);
+  const refetchUser = useCallback(() => getMe().then(setMe), []);
 
   return (
     <AuthContext.Provider

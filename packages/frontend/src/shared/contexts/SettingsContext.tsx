@@ -39,14 +39,34 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
         return;
       }
       try {
-        const s = await apiClient.admins.get_settings();
+        const res = await apiClient.admin.get_settings();
         if (!mounted) return;
+
+  const rawData = res.data as unknown;
+  const asArray = Array.isArray(rawData) ? (rawData as Array<Record<string, unknown>>) : [];
+        const rawObject: Record<string, unknown> = {};
+
+        for (const entry of asArray) {
+          const key = typeof entry.key === 'string' ? entry.key : undefined;
+          if (!key) continue;
+          const value = (entry as Record<string, unknown>).value;
+          rawObject[key] = value ?? null;
+        }
+
+        const fallbackRaw = !Array.isArray(rawData) && rawData && typeof rawData === 'object'
+          ? (rawData as Record<string, unknown>)
+          : rawObject;
+        const getValue = (key: string) => {
+          if (key in rawObject) return rawObject[key];
+          return fallbackRaw[key];
+        };
+
         setState({
           loaded: true,
-          discordDigestEnabled: parseBool(s && s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED]),
-          emailEnabled: parseBool(s && s[SETTINGS_KEYS.EMAIL_ENABLED]),
-          oidcEnabled: parseBool(s && s[SETTINGS_KEYS.OIDC_ENABLED], true),
-          raw: s || {},
+          discordDigestEnabled: parseBool(getValue(SETTINGS_KEYS.DISCORD_DIGEST_ENABLED)),
+          emailEnabled: parseBool(getValue(SETTINGS_KEYS.EMAIL_ENABLED)),
+          oidcEnabled: parseBool(getValue(SETTINGS_KEYS.OIDC_ENABLED), true),
+          raw: fallbackRaw,
         });
       } catch (e) {
         if (mounted) setState((st) => ({ ...st, loaded: true }));

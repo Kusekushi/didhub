@@ -20,14 +20,14 @@ export default function DashboardSystem(): React.ReactElement {
       const uid = me.id;
       // use API client methods to get totals
       const [aRes, gRes, sRes] = await Promise.all([
-        apiClient.alters.list({ userId: uid, perPage: 1 }),
-        apiClient.groups.listPaged({ owner_user_id: uid, limit: 1 }),
-        apiClient.subsystems.listPaged({ owner_user_id: uid, limit: 1 }),
+        apiClient.alter.get_alters({ userId: uid, perPage: 1 }),
+        apiClient.group.get_groups({ owner_user_id: uid, limit: 1 }),
+        apiClient.subsystem.get_subsystems({ owner_user_id: uid, limit: 1 }),
       ]);
       setCounts({
-        alters: aRes.total ?? null,
-        groups: gRes.total ?? null,
-        subsystems: sRes.total ?? null,
+        alters: aRes.data.total ?? null,
+        groups: gRes.data.total ?? null,
+        subsystems: sRes.data.total ?? null,
       });
     } catch (e) {}
   }

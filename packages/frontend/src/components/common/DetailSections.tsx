@@ -1,11 +1,11 @@
 import React from 'react';
 import { Paper, Typography } from '@mui/material';
-import type { Alter } from '@didhub/api-client';
+import type { ApiAlter } from '@didhub/api-client';
 import ReactMarkdown from 'react-markdown';
 import { normalizeToArray } from '../../shared/utils/detailUtils';
 
 export interface GenericSectionProps {
-  alter: Alter;
+  alter: ApiAlter;
 }
 
 export function ListsSection(props: GenericSectionProps) {

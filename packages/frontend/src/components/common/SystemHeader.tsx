@@ -1,13 +1,13 @@
 import React from 'react';
 import { Box, Tabs, Tab, Autocomplete, TextField, CircularProgress, InputAdornment, Alert } from '@mui/material';
-import type { User } from '@didhub/api-client';
+import type { ApiUser } from '@didhub/api-client';
 
 export interface SystemHeaderProps {
   tab: number;
   onTabChange: (event: React.SyntheticEvent, newValue: number) => void;
-  systems: User[];
-  currentSystem: User | null;
-  onSystemChange: (event: React.SyntheticEvent, value: User | null) => void;
+  systems: ApiUser[];
+  currentSystem: ApiUser | null;
+  onSystemChange: (event: React.SyntheticEvent, value: ApiUser | null) => void;
   search: string;
   onSearchChange: (value: string) => void;
   loading: boolean;
@@ -34,7 +34,7 @@ export default function SystemHeader(props: SystemHeaderProps) {
           size="small"
           sx={{ minWidth: 320 }}
           options={props.systems || []}
-          getOptionLabel={(s: User | string) => (s ? `${(s as User).username} (${(s as User).user_id})` : '')}
+          getOptionLabel={(s: ApiUser | string) => (s ? `${(s as ApiUser).username} (${(s as ApiUser).id})` : '')}
           value={props.currentSystem || null}
           onChange={props.onSystemChange}
           renderInput={(params: Parameters<typeof TextField>[0]) => <TextField {...params} label="System" />}

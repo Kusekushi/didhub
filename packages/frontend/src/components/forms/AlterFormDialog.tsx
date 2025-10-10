@@ -24,6 +24,8 @@ export interface AlterFormDialogProps {
   routeUid?: string | number | null;
 }
 
+export { useAlterRelationshipOptions } from '../../shared/hooks/useAlterRelationships';
+
 export default function AlterFormDialog(props: AlterFormDialogProps) {
   const { mode, open, onClose, onCreated, onSaved, id, routeUid } = props;
 

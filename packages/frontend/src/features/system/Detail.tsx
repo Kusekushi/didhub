@@ -13,16 +13,22 @@ import DetailHeader from '../../components/common/DetailHeader';
 import { renderEmbeds } from '../../shared/utils/detailUtils';
 import { useAlterData } from '../../shared/hooks/useAlterData';
 import { useAlterLinks } from '../../shared/hooks/useAlterLinks';
+import { useAuth } from '../../shared/contexts/AuthContext';
 import logger from '../../shared/lib/logger';
 
-export default function Detail(): React.ReactElement {
-  const { id } = useParams() as { id?: string };
+export interface DetailProps {
+  alterId?: string;
+}
+
+export default function Detail(props: DetailProps = {}): React.ReactElement {
+  const params = useParams() as { id?: string };
+  const id = props.alterId ?? params.id;
   const nav = useNavigate();
+  const { user } = useAuth();
 
   // Custom hooks
   const {
     alter,
-    user,
     groupObj,
     affiliationGroup,
     affiliationGroupsMap,
@@ -50,7 +56,7 @@ export default function Detail(): React.ReactElement {
     <Container sx={{ mt: 4 }}>
       <DetailHeader
         alter={alter}
-        user={user}
+  user={user ?? null}
         onAlterUpdate={refetch}
         onBack={() => nav(-1)}
       />
@@ -91,7 +97,11 @@ export default function Detail(): React.ReactElement {
         onConfirm={async () => {
           try {
             if (removeImageDialog.id == null) return;
-            await apiClient.alters.removeImage(removeImageDialog.id, removeImageDialog.url);
+              await apiClient.http.request({
+                path: `/api/alters/${removeImageDialog.id}/image`,
+                method: 'DELETE',
+                json: { url: removeImageDialog.url },
+              });
             await refetch();
           } catch (e) {
             logger.warn('delete image error', e);

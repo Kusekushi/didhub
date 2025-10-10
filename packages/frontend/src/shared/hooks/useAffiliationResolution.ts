@@ -27,9 +27,10 @@ export function useAffiliationResolution(affiliations: any) {
             const maybeId = Number(trimmed);
             if (!Number.isNaN(maybeId)) {
               try {
-                const group = await apiClient.groups.get(maybeId);
+                const response = await apiClient.group.get_groups_by_id(maybeId);
+                const group = response.data;
                 if (group) {
-                  idMap[maybeId] = group;
+                  idMap[maybeId] = group as Group;
                   continue;
                 }
               } catch (e) {
@@ -42,8 +43,11 @@ export function useAffiliationResolution(affiliations: any) {
         // Name-based lookup
         const name = Array.isArray(rawName) ? rawName.join(',') : String(rawName);
         try {
-          const groups = await apiClient.groups.list({ query: name || '', includeMembers: true });
-          const found = (groups as Group[]).find(
+          const response = await apiClient.group.get_groups({ query: name || '', includeMembers: true });
+          const items = Array.isArray(response.data?.items)
+            ? (response.data?.items as unknown[])
+            : [];
+          const found = (items as Group[]).find(
             (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
           );
           if (found) map[name] = found;
