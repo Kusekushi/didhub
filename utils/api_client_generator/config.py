@@ -46,3 +46,8 @@ MODULE_MAP = {
 
 # HTTP methods to recognize
 VALID_HTTP_METHODS = {'get', 'post', 'put', 'delete', 'patch', 'head', 'options'}
+
+# Relative Rust source files in didhub-db that should be parsed for shared models
+DIDHUB_DB_EXPORT_FILES = {
+    "models.rs",
+}

@@ -7,12 +7,12 @@ from collections import defaultdict
 import sys
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 # Add current directory to path for relative imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import MODULE_MAP, VALID_HTTP_METHODS
+from config import MODULE_MAP, VALID_HTTP_METHODS, DIDHUB_DB_EXPORT_FILES
 from models import ApiModule, Endpoint, TypeDefinition
 
 # Tree-sitter imports
@@ -38,14 +38,24 @@ class RustRouteParser:
         # Parse router files to extract routes
         self._parse_router_files(modules, referenced_types)
 
-        # Also parse struct definitions from route handler files and db models
+        # Parse struct definitions from route handler files
         all_type_definitions = []
         self._parse_struct_definitions_from_dir(self.server_root, all_type_definitions, module_prefix='crate')
-        
-        # Also parse db models
+
+        # Parse selected didhub-db models that are safe to expose via the API client
         db_root = self.server_root.parent / "didhub-db"
         if db_root.exists():
-            self._parse_struct_definitions_from_dir(db_root, all_type_definitions, module_prefix='didhub_db')
+            allowed_names = set(DIDHUB_DB_EXPORT_FILES)
+
+            def include_db_file(path: Path) -> bool:
+                return path.name in allowed_names
+
+            self._parse_struct_definitions_from_dir(
+                db_root,
+                all_type_definitions,
+                module_prefix='didhub_db',
+                include_filter=include_db_file,
+            )
 
         # Parse auth crate structures
         auth_root = self.server_root.parent / "didhub-auth"
@@ -805,7 +815,13 @@ class RustRouteParser:
             # For unknown types, keep as-is (assuming they have TS equivalents)
             return rust_type
 
-    def _parse_struct_definitions_from_dir(self, dir_root: Path, type_definitions: List[TypeDefinition], module_prefix: str):
+    def _parse_struct_definitions_from_dir(
+        self,
+        dir_root: Path,
+        type_definitions: List[TypeDefinition],
+        module_prefix: str,
+        include_filter: Optional[Callable[[Path], bool]] = None,
+    ):
         """Parse struct definitions from a specific directory"""
         src_root = dir_root / 'src'
         if not src_root.exists():
@@ -815,7 +831,11 @@ class RustRouteParser:
         for root, _dirs, files in os.walk(src_root):
             for file in files:
                 if file.endswith('.rs'):
-                    rust_files.append(Path(root) / file)
+                    file_path = Path(root) / file
+                    rel_path = file_path.relative_to(src_root)
+                    if include_filter and not include_filter(rel_path):
+                        continue
+                    rust_files.append(file_path)
         
         print(f"DEBUG: Found {len(rust_files)} Rust files in {src_root}")
         for file_path in rust_files:

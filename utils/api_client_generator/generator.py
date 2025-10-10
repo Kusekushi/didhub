@@ -395,6 +395,9 @@ class TypeScriptGenerator:
             ts_base = self._rust_type_to_typescript(base, for_types_file)
             return f'{ts_base}<{", ".join(ts_params)}>'
 
+        if rust_type in {'serde_json::Value', 'serde_json::value::Value'}:
+            return 'ApiJsonValue' if for_types_file else 'Types.ApiJsonValue'
+
         primitive_map = {
             'String': 'string',
             'str': 'string',
@@ -411,7 +414,6 @@ class TypeScriptGenerator:
             'usize': 'number',
             'f32': 'number',
             'f64': 'number',
-            'serde_json::Value': 'Types.ApiJsonValue',
             'axum::response::Response': 'unknown',
         }
 
@@ -432,7 +434,7 @@ class TypeScriptGenerator:
         if resolved:
             return resolved
 
-        return rust_type
+        return 'ApiJsonValue' if for_types_file else 'Types.ApiJsonValue'
 
     def _generate_type_definitions(self) -> List[str]:
         """Generate TypeScript interface definitions"""
