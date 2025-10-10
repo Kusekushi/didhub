@@ -7,38 +7,46 @@ use didhub_config::AppConfig;
 use didhub_db::{audit, Db, DbBackend};
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
+use std::io::Write;
 use std::path::Path;
 use tokio::fs;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 use zip::write::FileOptions;
 use zip::ZipWriter;
-use std::io::Write;
 
-async fn add_file_to_zip(zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>, file_path: &Path, zip_path: &str) -> Result<(), AppError> {
+async fn add_file_to_zip(
+    zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>,
+    file_path: &Path,
+    zip_path: &str,
+) -> Result<(), AppError> {
     let content = fs::read(file_path).await.map_err(|e| {
         error!(file_path=%file_path.display(), error=%e, "failed to read file for backup");
         AppError::Internal
     })?;
-    
+
     let options = FileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated)
         .unix_permissions(0o644);
-    
+
     zip.start_file(zip_path, options).map_err(|e| {
         error!(zip_path=%zip_path, error=%e, "failed to start zip file entry");
         AppError::Internal
     })?;
-    
+
     zip.write_all(&content).map_err(|e| {
         error!(zip_path=%zip_path, error=%e, "failed to write to zip file");
         AppError::Internal
     })?;
-    
+
     Ok(())
 }
 
-async fn add_directory_to_zip(zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>, dir_path: &Path, zip_prefix: &str) -> Result<(), AppError> {
+async fn add_directory_to_zip(
+    zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>,
+    dir_path: &Path,
+    zip_prefix: &str,
+) -> Result<(), AppError> {
     let mut entries = fs::read_dir(dir_path).await.map_err(|e| {
         error!(dir_path=%dir_path.display(), error=%e, "failed to read directory for backup");
         AppError::Internal
@@ -72,7 +80,10 @@ async fn add_directory_to_zip(zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>
     Ok(())
 }
 
-async fn backup_database(zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>, db: &Db) -> Result<(), AppError> {
+async fn backup_database(
+    zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>,
+    db: &Db,
+) -> Result<(), AppError> {
     match db.backend {
         DbBackend::Sqlite => {
             // Extract the file path from SQLite URL, handling Windows paths correctly
@@ -93,7 +104,7 @@ async fn backup_database(zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>, db:
                     }
                 }
             }
-            
+
             let db_path = Path::new(&file_path);
             if db_path.exists() {
                 add_file_to_zip(zip, db_path, "database.sqlite").await?;
@@ -112,7 +123,7 @@ async fn backup_database(zip: &mut ZipWriter<std::io::Cursor<&mut Vec<u8>>>, db:
             warn!("MySQL backup not yet implemented");
         }
     }
-    
+
     Ok(())
 }
 
@@ -129,12 +140,12 @@ pub async fn create_backup(
     info!(user_id=%user.id, "starting backup creation");
 
     let backup_id = Uuid::new_v4().to_string();
-    
+
     // Create a temporary zip file in memory
     let mut zip_buffer = Vec::new();
     {
         let mut zip = ZipWriter::new(std::io::Cursor::new(&mut zip_buffer));
-        
+
         let options = FileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated)
             .unix_permissions(0o755);
@@ -155,14 +166,19 @@ pub async fn create_backup(
             error!(user_id=%user.id, error=%e, "failed to create zip file");
             AppError::Internal
         })?;
-        
-        let info_content = format!("DIDHub Backup\nID: {}\nCreated: {}\nDatabase: {:?}\nUploads: {}\n", 
-            backup_id, chrono::Utc::now().to_rfc3339(), db.backend, config.upload_dir);
+
+        let info_content = format!(
+            "DIDHub Backup\nID: {}\nCreated: {}\nDatabase: {:?}\nUploads: {}\n",
+            backup_id,
+            chrono::Utc::now().to_rfc3339(),
+            db.backend,
+            config.upload_dir
+        );
         zip.write_all(info_content.as_bytes()).map_err(|e| {
             error!(user_id=%user.id, error=%e, "failed to write to zip file");
             AppError::Internal
         })?;
-        
+
         zip.finish().map_err(|e| {
             error!(user_id=%user.id, error=%e, "failed to finish zip file");
             AppError::Internal
@@ -188,7 +204,11 @@ pub async fn create_backup(
     );
     headers.insert(
         axum::http::header::CONTENT_DISPOSITION,
-        HeaderValue::from_str(&format!("attachment; filename=didhub-backup-{}.zip", backup_id)).unwrap(),
+        HeaderValue::from_str(&format!(
+            "attachment; filename=didhub-backup-{}.zip",
+            backup_id
+        ))
+        .unwrap(),
     );
 
     info!(user_id=%user.id, backup_id=%backup_id, "backup created successfully");

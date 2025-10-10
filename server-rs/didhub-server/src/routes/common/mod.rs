@@ -35,7 +35,11 @@ fn parse_string_ids(text: &str, acc: &mut Vec<String>, seen: &mut HashSet<String
     }
 }
 
-fn collect_leader_ids(value: &serde_json::Value, acc: &mut Vec<String>, seen: &mut HashSet<String>) {
+fn collect_leader_ids(
+    value: &serde_json::Value,
+    acc: &mut Vec<String>,
+    seen: &mut HashSet<String>,
+) {
     match value {
         serde_json::Value::Array(items) => {
             for item in items {

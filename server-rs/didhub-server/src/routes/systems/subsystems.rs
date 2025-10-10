@@ -111,13 +111,24 @@ pub async fn list_subsystems(
     let offset = q.offset.unwrap_or(0).max(0);
 
     // If no owner_user_id specified in query, default to current user unless admin
-    let effective_owner_user_id =
-        q.owner_user_id
-            .or_else(|| if user.is_admin { None } else { Some(user.id.clone()) })
-            .map(|id| id.to_string());
+    let effective_owner_user_id = q
+        .owner_user_id
+        .or_else(|| {
+            if user.is_admin {
+                None
+            } else {
+                Some(user.id.clone())
+            }
+        })
+        .map(|id| id.to_string());
 
     let rows = db
-        .list_subsystems(q.q.clone(), limit, offset, effective_owner_user_id.as_deref())
+        .list_subsystems(
+            q.q.clone(),
+            limit,
+            offset,
+            effective_owner_user_id.as_deref(),
+        )
         .await
         .map_err(|e| {
             error!(

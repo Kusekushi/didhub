@@ -62,7 +62,11 @@ impl AlterRelationships for Db {
             if *p == id {
                 continue;
             }
-            let (low, high) = if id < p.as_str() { (id, p.as_str()) } else { (p.as_str(), id) };
+            let (low, high) = if id < p.as_str() {
+                (id, p.as_str())
+            } else {
+                (p.as_str(), id)
+            };
             let q = insert_ignore_query(
                 self.backend,
                 "alter_partners",

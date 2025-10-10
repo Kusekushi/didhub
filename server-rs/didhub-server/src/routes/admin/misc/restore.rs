@@ -1,14 +1,17 @@
-use axum::{extract::{Extension, Multipart}, Json};
+use axum::{
+    extract::{Extension, Multipart},
+    Json,
+};
 use didhub_config::AppConfig;
 use didhub_db::{audit, Db, DbBackend};
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
 use serde::Serialize;
-use tracing::{error, info, warn};
-use zip::ZipArchive;
 use std::io::Cursor;
 use std::path::Path;
 use tokio::fs;
+use tracing::{error, info, warn};
+use zip::ZipArchive;
 
 #[derive(Serialize)]
 pub struct RestoreResponse {
@@ -23,7 +26,7 @@ async fn restore_from_archive(
 ) -> Result<(), AppError> {
     // First pass: collect all file data synchronously
     let mut files_to_restore = Vec::new();
-    
+
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| {
             error!(index=%i, error=%e, "failed to read zip entry");
@@ -39,7 +42,7 @@ async fn restore_from_archive(
                 error!(file=%file_name, error=%e, "failed to read file from zip");
                 AppError::Internal
             })?;
-            
+
             files_to_restore.push((file_name, content));
         }
     }
@@ -53,7 +56,8 @@ async fn restore_from_archive(
                     // Extract the file path from SQLite URL, handling Windows paths correctly
                     let path_part = db.url.strip_prefix("sqlite://").unwrap_or("");
                     // strip query params if present
-                    let mut db_path_str = path_part.split('?').next().unwrap_or(path_part).to_string();
+                    let mut db_path_str =
+                        path_part.split('?').next().unwrap_or(path_part).to_string();
                     // On Windows a rebuilt URL may look like "sqlite:///E:/..." which when
                     // stripping the "sqlite://" prefix leaves a leading '/' ("/E:/...").
                     // Convert "/E:/..." -> "E:/..." so Path/FS operations work correctly.
@@ -68,7 +72,7 @@ async fn restore_from_archive(
                             }
                         }
                     }
-                    
+
                     let db_path = Path::new(&db_path_str);
 
                     // Create backup of current database
@@ -184,6 +188,7 @@ pub async fn restore_backup(
 
     Ok(Json(RestoreResponse {
         success: true,
-        message: "Backup restore completed successfully. A server restart is recommended.".to_string(),
+        message: "Backup restore completed successfully. A server restart is recommended."
+            .to_string(),
     }))
 }

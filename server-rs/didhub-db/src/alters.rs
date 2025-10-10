@@ -34,13 +34,18 @@ pub trait AlterOperations: Send + Sync {
         user: &CurrentUser,
         filter_user_id: Option<&str>,
     ) -> Result<i64>;
-    async fn update_alter_fields(&self, id: &str, body: &serde_json::Value)
-        -> Result<Option<Alter>>;
+    async fn update_alter_fields(
+        &self,
+        id: &str,
+        body: &serde_json::Value,
+    ) -> Result<Option<Alter>>;
     async fn upcoming_birthdays(&self, days_ahead: i64) -> Result<Vec<Alter>>;
     async fn batch_load_relationships(
         &self,
         alter_ids: &[&str],
-    ) -> Result<std::collections::HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)>>;
+    ) -> Result<
+        std::collections::HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)>,
+    >;
 }
 
 #[async_trait]
@@ -429,7 +434,9 @@ impl AlterOperations for Db {
     async fn batch_load_relationships(
         &self,
         alter_ids: &[&str],
-    ) -> Result<std::collections::HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)>> {
+    ) -> Result<
+        std::collections::HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)>,
+    > {
         use std::collections::HashMap;
 
         if alter_ids.is_empty() {
@@ -487,9 +494,13 @@ impl AlterOperations for Db {
         let affiliations_rows = affiliations_query.fetch_all(&self.pool).await?;
 
         // Build the result map
-        let mut result: HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)> = HashMap::new();
+        let mut result: HashMap<String, (Vec<String>, Vec<String>, Vec<String>, Vec<String>)> =
+            HashMap::new();
         for &id in alter_ids {
-            result.insert(id.to_string(), (Vec::new(), Vec::new(), Vec::new(), Vec::new()));
+            result.insert(
+                id.to_string(),
+                (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+            );
         }
 
         // Process partners (bidirectional)

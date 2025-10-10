@@ -31,7 +31,8 @@ pub trait SubsystemOperations {
     ) -> Result<Vec<Subsystem>>;
 
     /// Count subsystems with optional search
-    async fn count_subsystems(&self, q: Option<String>, owner_user_id: Option<&str>) -> Result<i64>;
+    async fn count_subsystems(&self, q: Option<String>, owner_user_id: Option<&str>)
+        -> Result<i64>;
 
     /// Update a subsystem
     async fn update_subsystem(
@@ -175,7 +176,11 @@ impl SubsystemOperations for Db {
         Ok(rows)
     }
 
-    async fn count_subsystems(&self, q: Option<String>, owner_user_id: Option<&str>) -> Result<i64> {
+    async fn count_subsystems(
+        &self,
+        q: Option<String>,
+        owner_user_id: Option<&str>,
+    ) -> Result<i64> {
         let start = Instant::now();
         let result = match (q, owner_user_id) {
             (Some(qs), Some(owner_id)) => {
