@@ -132,7 +132,7 @@ pub async fn restore_backup(
     Extension(config): Extension<AppConfig>,
     mut multipart: Multipart,
 ) -> Result<Json<RestoreResponse>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to restore backup");
         return Err(AppError::Forbidden);
     }

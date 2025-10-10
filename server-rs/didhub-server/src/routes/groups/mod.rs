@@ -121,7 +121,7 @@ pub async fn list_groups(
             .await
             .map_err(|_| AppError::Internal)?;
         (rows, total)
-    } else if user.is_admin {
+    } else if user.is_admin == 1 {
         // Admin with no filters - show all groups
         let rows = db
             .list_groups(None, limit, offset)
@@ -232,7 +232,7 @@ pub async fn create_group(
     // Ownership rules: allow explicit owner_user_id when provided, but disallow non-admin users
     // from creating a group for another user.
     let owner: Option<&str> = if let Some(explicit) = payload.owner_user_id.as_deref() {
-        if !user.is_admin && explicit != user.id {
+        if user.is_admin == 0 && explicit != user.id {
             return Err(AppError::Forbidden);
         }
         Some(explicit)

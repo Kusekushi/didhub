@@ -25,7 +25,7 @@ pub async fn query_database(
     Extension(db): Extension<Db>,
     Json(req): Json<QueryRequest>,
 ) -> Result<Json<QueryResponse>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to query database");
         return Err(AppError::Forbidden);
     }

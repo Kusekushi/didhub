@@ -213,12 +213,12 @@ impl AlterOperations for Db {
         }
 
         // No specific user filter - show scoped results based on user permissions
-        if user.is_admin || user.is_system {
+        if user.is_admin != 0 || user.is_system != 0 {
             return self.list_alters(q, limit, offset).await;
         }
 
         // For non-admin users with no filter, show their own alters plus global alters
-        let (sql_base, _bind_like_first) = if user.is_approved {
+        let (sql_base, _bind_like_first) = if user.is_approved != 0 {
             ("(owner_user_id=?1 OR owner_user_id IS NULL)", false)
         } else {
             // unapproved: only owned
@@ -264,12 +264,12 @@ impl AlterOperations for Db {
         }
 
         // No specific user filter - count scoped results based on user permissions
-        if user.is_admin || user.is_system {
+        if user.is_admin != 0 || user.is_system != 0 {
             return self.count_alters(q).await;
         }
 
         // For non-admin users with no filter, count their own alters plus global alters
-        let sql_base = if user.is_approved {
+        let sql_base = if user.is_approved != 0 {
             "(owner_user_id=?1 OR owner_user_id IS NULL)"
         } else {
             "owner_user_id=?1"

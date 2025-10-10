@@ -41,7 +41,7 @@ pub async fn create_post(
     Extension(user): Extension<CurrentUser>,
     Json(body): Json<CreatePostBody>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if !user.is_admin && !user.is_system {
+    if user.is_admin == 0 && user.is_system == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized post creation attempt");
         return Err(AppError::Forbidden);
     }
@@ -67,7 +67,7 @@ pub async fn repost_post(
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if !user.is_admin && !user.is_system {
+    if user.is_admin == 0 && user.is_system == 0 {
         warn!(user_id=%user.id, username=%user.username, post_id=%id, "unauthorized repost attempt");
         return Err(AppError::Forbidden);
     }
@@ -99,7 +99,7 @@ pub async fn delete_post(
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if !user.is_admin && !user.is_system {
+    if user.is_admin == 0 && user.is_system == 0 {
         warn!(user_id=%user.id, username=%user.username, post_id=%id, "unauthorized post deletion attempt");
         return Err(AppError::Forbidden);
     }

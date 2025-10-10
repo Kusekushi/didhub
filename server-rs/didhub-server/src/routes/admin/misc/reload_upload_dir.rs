@@ -16,7 +16,7 @@ pub async fn reload_upload_dir(
     Extension(udc): Extension<UploadDirCache>,
     Extension(db): Extension<Db>,
 ) -> Result<Json<ReloadResp>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to reload upload directory");
         return Err(AppError::Forbidden);
     }

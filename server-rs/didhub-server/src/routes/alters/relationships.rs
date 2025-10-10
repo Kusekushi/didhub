@@ -55,7 +55,7 @@ pub async fn create_relationship(
         .map_err(|_| AppError::Internal)?
         .ok_or_else(|| AppError::BadRequest("Target user not found".to_string()))?;
 
-    if target_user.is_system != 0 {
+    if target_user.is_system == 1 {
         warn!(
             "Attempted to create relationship with system user: {}",
             payload.user_id
@@ -155,7 +155,7 @@ pub async fn replace_relationships(
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
 
-    if !user.is_admin {
+    if user.is_admin == 0 {
         let owner = alter.owner_user_id.clone().unwrap_or(user.id.clone());
         if owner != user.id {
             return Err(AppError::Forbidden);
@@ -204,9 +204,9 @@ pub async fn replace_relationships(
                 .await
                 .map_err(|_| AppError::Internal)?
                 .ok_or_else(|| AppError::BadRequest(format!("User {} not found", user_id)))?;
-            let is_system = target_user.is_system != 0;
-            user_cache.insert(user_id.clone(), is_system);
-            is_system
+            let is_system = target_user.is_system;
+            user_cache.insert(user_id.clone(), is_system == 1);
+            is_system == 1
         };
 
         if is_system {

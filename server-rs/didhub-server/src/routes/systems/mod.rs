@@ -34,7 +34,7 @@ pub async fn list_systems(
     Extension(db): Extension<Db>,
     Query(q): Query<ListQuery>,
 ) -> Result<Json<Paged<SystemSummary>>, AppError> {
-    if !(user.is_admin || user.is_system) { /* For now allow all; could restrict later */ }
+    if !(user.is_admin == 1 || user.is_system == 1) { /* For now allow all; could restrict later */ }
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
     let offset = q.offset.unwrap_or(0).max(0);
 
@@ -58,7 +58,7 @@ pub async fn get_system(
     Path(uid): Path<String>,
 ) -> Result<Json<SystemDetail>, AppError> {
     // Users can only view their own system unless they are admin
-    if !user.is_admin && user.id != uid {
+    if user.is_admin == 0 && user.id != uid {
         return Err(AppError::Forbidden);
     }
     let requested_user = db

@@ -132,7 +132,7 @@ pub async fn create_backup(
     Extension(db): Extension<Db>,
     Extension(config): Extension<AppConfig>,
 ) -> Result<impl IntoResponse, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to create backup");
         return Err(AppError::Forbidden);
     }

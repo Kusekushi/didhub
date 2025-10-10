@@ -317,10 +317,10 @@ mod handler_tests {
             id: "0199ccdc-5016-7c30-9ab1-cf9009f53fcb".to_string(), // Random v7 UUID
             username: "testuser".to_string(),
             avatar: Some("avatar.png".to_string()),
-            is_admin: true,
-            is_system: false,
-            is_approved: true,
-            must_change_password: false,
+            is_admin: 1,
+            is_system: 0,
+            is_approved: 1,
+            must_change_password: 0,
         };
 
         // Test the me_handler function

@@ -10,7 +10,7 @@ pub async fn get_secret(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
 ) -> Result<Json<ProviderAdminView>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
     if !is_valid_provider(&id) {

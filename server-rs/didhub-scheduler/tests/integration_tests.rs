@@ -8,14 +8,6 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use uuid;
 
-// Mock database for testing
-struct MockDb;
-impl MockDb {
-    fn new() -> Self {
-        Self
-    }
-}
-
 // Mock job for testing
 #[derive(Clone)]
 struct MockJob {

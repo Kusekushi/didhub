@@ -3,7 +3,6 @@ import type {
   ApiGroupOut,
   ApiGroupMembersOut,
   ApiSubsystemOut,
-  ApiUserOut,
   ApiUserAlterRelationship,
   ApiJobInfo,
   ApiSystemRequestResponse,
@@ -20,7 +19,6 @@ export interface SubsystemMember {
   roles?: unknown;
   [key: string]: unknown;
 }
-export type User = ApiUserOut;
 export type UserAlterRelationship = ApiUserAlterRelationship;
 export type HousekeepingJob = ApiJobInfo;
 export interface UpdateStatus {

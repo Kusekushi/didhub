@@ -29,7 +29,7 @@ pub async fn check_updates(
     Extension(cfg): Extension<AppConfig>,
     Query(_query): Query<UpdateCheckQuery>,
 ) -> Result<Json<UpdateStatus>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
 
@@ -117,7 +117,7 @@ pub async fn check_updates(
     Extension(_cfg): Extension<AppConfig>,
     Query(_query): Query<UpdateCheckQuery>,
 ) -> Result<Json<UpdateStatus>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to check updates (updater feature disabled)");
         return Err(AppError::Forbidden);
     }

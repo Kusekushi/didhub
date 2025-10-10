@@ -9,7 +9,7 @@ pub async fn list_providers(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<OidcProviderInfo>>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
 

@@ -65,15 +65,14 @@ pub async fn auth_middleware(
             .await
             .map_err(|_| AppError::Unauthorized)?
             .ok_or(AppError::Unauthorized)?;
-        let is_admin = db_user.is_admin != 0;
         let current = CurrentUser {
             id: db_user.id,
             username: db_user.username.clone(),
             avatar: db_user.avatar,
-            is_admin,
-            is_system: db_user.is_system != 0,
-            is_approved: db_user.is_approved != 0,
-            must_change_password: db_user.must_change_password != 0,
+            is_admin: db_user.is_admin,
+            is_system: db_user.is_system,
+            is_approved: db_user.is_approved,
+            must_change_password: db_user.must_change_password,
         };
         // Cache the user data for 5 minutes
         if let Err(e) = state
@@ -87,12 +86,12 @@ pub async fn auth_middleware(
         current
     };
 
-    if current.is_admin {
+    if current.is_admin != 0 {
         req.extensions_mut().insert(AdminFlag);
     }
     req.extensions_mut().insert(current.clone());
     // Enforce must_change_password: only allow password change and auth endpoints
-    if current.must_change_password {
+    if current.must_change_password != 0 {
         let path = req.uri().path();
         let ok = MUST_CHANGE_PASSWORD_ALLOW.contains(&path) || path.starts_with("/api/auth");
         if !ok {
@@ -123,7 +122,7 @@ pub async fn admin_middleware(req: Request<Body>, next: Next) -> Result<Response
 // New guard that depends only on CurrentUser extension (set by auth middleware) instead of AdminFlag ordering.
 pub async fn admin_guard_middleware(req: Request<Body>, next: Next) -> Result<Response, AppError> {
     if let Some(cur) = req.extensions().get::<CurrentUser>() {
-        if cur.is_admin {
+        if cur.is_admin != 0 {
             return Ok(next.run(req).await);
         }
     }

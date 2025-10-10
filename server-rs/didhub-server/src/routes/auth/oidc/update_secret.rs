@@ -16,7 +16,7 @@ pub async fn update_secret(
     Extension(user): Extension<CurrentUser>,
     Json(body): Json<UpdateSecretBody>,
 ) -> Result<Json<ProviderAdminView>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
     if !is_valid_provider(&id) {

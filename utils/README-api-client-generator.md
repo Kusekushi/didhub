@@ -68,7 +68,7 @@ The generated client is completely self-contained and does not require external 
 - POST `/alters` → `post_alters(body: CreateAlterPayload)`  
 - GET `/alters/{id}` → `get_alters_by_id(id: string | number)`  
 - PUT `/alters/{id}` → `put_alters_by_id(id: string | number, body: UpdateAlterPayload)`  
-- GET `/users` → `get_users(query: UsersQuery): Promise<UsersListResponse<UserOut>>`
+- GET `/users` → `get_users(query: UsersQuery): Promise<UsersListResponse<User>>`
 
 ## Integration
 

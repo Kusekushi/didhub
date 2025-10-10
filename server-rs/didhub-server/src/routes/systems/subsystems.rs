@@ -114,7 +114,7 @@ pub async fn list_subsystems(
     let effective_owner_user_id = q
         .owner_user_id
         .or_else(|| {
-            if user.is_admin {
+            if user.is_admin == 1 {
                 None
             } else {
                 Some(user.id.clone())
@@ -280,7 +280,7 @@ pub async fn create_subsystem(
     // Ownership rules: allow explicit owner_user_id when provided, but disallow non-admin users
     // from creating a subsystem for another user.
     let owner: Option<String> = if let Some(explicit) = payload.owner_user_id {
-        if !user.is_admin && explicit != user.id {
+        if user.is_admin == 0 && explicit != user.id {
             return Err(AppError::Forbidden);
         }
         Some(explicit)

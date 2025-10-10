@@ -24,7 +24,7 @@ pub async fn post_custom_digest(
     Extension(db): Extension<Db>,
     Query(q): Query<CustomDigestQuery>,
 ) -> Result<Json<DigestResponse>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to post custom digest");
         return Err(AppError::Forbidden);
     }

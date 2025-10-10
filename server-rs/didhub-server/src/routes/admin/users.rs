@@ -51,35 +51,17 @@ pub struct UsersListResponse<T> {
     pub items: Vec<T>,
 }
 
-#[derive(Serialize)]
-pub struct UserOut {
-    pub id: String,
-    pub username: String,
-    pub avatar: Option<String>,
-    pub is_system: bool,
-    pub is_admin: bool,
-    pub is_approved: bool,
-    pub created_at: String,
-}
-
-fn user_to_out(u: &User) -> UserOut {
-    UserOut {
-        id: u.id.clone(),
-        username: u.username.clone(),
-        avatar: u.avatar.clone(),
-        is_system: u.is_system != 0,
-        is_admin: u.is_admin != 0,
-        is_approved: u.is_approved != 0,
-        created_at: u.created_at.clone(),
-    }
+fn sanitize_user(mut user: User) -> User {
+    user.password_hash = None;
+    user
 }
 
 pub async fn list_users(
     State(db): State<Db>,
     Extension(current): Extension<CurrentUser>,
     Query(q): Query<UsersQuery>,
-) -> Result<Json<UsersListResponse<UserOut>>, AppError> {
-    if !current.is_approved {
+) -> Result<Json<UsersListResponse<User>>, AppError> {
+    if current.is_approved == 0 {
         return Err(AppError::Forbidden);
     }
     let page = q.page.unwrap_or(1).max(1);
@@ -108,11 +90,7 @@ pub async fn list_users(
         .list_users_advanced(&filters)
         .await
         .map_err(|_| AppError::Internal)?;
-    let row_count = rows.len();
-    let mut items = Vec::with_capacity(row_count);
-    for u in rows {
-        items.push(user_to_out(&u));
-    }
+    let items: Vec<User> = rows.into_iter().map(sanitize_user).collect();
     let pages = if total == 0 {
         1
     } else {
@@ -144,8 +122,8 @@ pub async fn get_user(
     State(db): State<Db>,
     Extension(current): Extension<CurrentUser>,
     Path(id): Path<String>,
-) -> Result<Json<UserOut>, AppError> {
-    if !current.is_approved {
+) -> Result<Json<User>, AppError> {
+    if current.is_approved == 0 {
         return Err(AppError::Forbidden);
     }
     let u = db
@@ -153,7 +131,7 @@ pub async fn get_user(
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
-    Ok(Json(user_to_out(&u)))
+    Ok(Json(sanitize_user(u)))
 }
 
 pub async fn update_user(
@@ -162,7 +140,7 @@ pub async fn update_user(
     Extension(actor): Extension<CurrentUser>,
     Path(id): Path<String>,
     Json(payload): Json<UpdateUserPayload>,
-) -> Result<Json<UserOut>, AppError> {
+) -> Result<Json<User>, AppError> {
     let mut fields = UpdateUserFields::default();
     fields.is_admin = payload.is_admin;
     fields.is_system = payload.is_system;
@@ -182,7 +160,7 @@ pub async fn update_user(
         &u.id.to_string(),
     )
     .await;
-    Ok(Json(user_to_out(&u)))
+    Ok(Json(sanitize_user(u)))
 }
 
 #[derive(Deserialize)]
@@ -253,7 +231,7 @@ pub async fn create_user(
     _admin: Extension<AdminFlag>,
     Extension(actor): Extension<CurrentUser>,
     Json(payload): Json<CreateUserPayload>,
-) -> Result<Json<UserOut>, AppError> {
+) -> Result<Json<User>, AppError> {
     let uname = payload.username.trim();
     if uname.is_empty() {
         return Err(AppError::BadRequest("username required".into()));
@@ -293,7 +271,7 @@ pub async fn create_user(
         &user.id.to_string(),
     )
     .await;
-    Ok(Json(user_to_out(&user)))
+    Ok(Json(sanitize_user(user)))
 }
 
 #[derive(serde::Deserialize)]
@@ -307,7 +285,7 @@ pub async fn admin_password_reset(
     Extension(actor): Extension<CurrentUser>,
     Path(id): Path<String>,
     Json(payload): Json<AdminPasswordResetPayload>,
-) -> Result<Json<UserOut>, AppError> {
+) -> Result<Json<User>, AppError> {
     if payload.password.len() < 8 {
         return Err(AppError::BadRequest("password too short".into()));
     }
@@ -333,7 +311,7 @@ pub async fn admin_password_reset(
         &id,
     )
     .await;
-    Ok(Json(user_to_out(&user)))
+    Ok(Json(sanitize_user(user)))
 }
 
 #[derive(serde::Deserialize)]
@@ -362,7 +340,7 @@ pub async fn list_user_names(
     Extension(current): Extension<CurrentUser>,
     Query(q): Query<ListQuery>,
 ) -> Result<Json<ListResponse<NamesItem>>, AppError> {
-    if !current.is_approved {
+    if current.is_approved == 0 {
         return Err(AppError::Forbidden);
     }
     let limit = q.limit.unwrap_or(500).clamp(1, 2000);

@@ -103,7 +103,7 @@ pub async fn register(
             );
             AppError::Internal
         })?;
-    info!(user_id=%created.id, username=%created.username, is_system=%created.is_system != 0, "user registered successfully");
+    info!(user_id=%created.id, username=%created.username, is_system=%created.is_system, "user registered successfully");
     tracing::debug!(target = "didhub_server", username=%payload.username, jwt_secret_len=%state.cfg.jwt_secret.len(), "about to sign jwt");
     let token = sign_jwt(&state.cfg, &payload.username)?;
     let body_str = serde_json::to_string(&AuthResponse { token }).unwrap();
@@ -274,10 +274,10 @@ pub async fn me_handler(
             "id": user.id,
             "username": user.username,
             "avatar": user.avatar,
-            "is_admin": user.is_admin,
-            "is_system": user.is_system,
-            "is_approved": user.is_approved,
-            "must_change_password": user.must_change_password
+            "is_admin": user.is_admin != 0,
+            "is_system": user.is_system != 0,
+            "is_approved": user.is_approved != 0,
+            "must_change_password": user.must_change_password != 0
         })),
     ))
 }

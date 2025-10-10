@@ -74,7 +74,7 @@ pub async fn request_system(
         "Starting system request creation"
     );
 
-    if user.is_system {
+    if user.is_system == 1 {
         warn!(
             user_id = %user.id,
             "User attempted to create system request but is already a system"
@@ -173,7 +173,7 @@ pub async fn list_system_requests(
         "Listing system requests"
     );
 
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(
             user_id = %user.id,
             "Non-admin user attempted to list system requests"
@@ -241,7 +241,7 @@ pub async fn decide_system_request(
         "Starting system request decision"
     );
 
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(
             user_id = %user.id,
             request_id = %id,

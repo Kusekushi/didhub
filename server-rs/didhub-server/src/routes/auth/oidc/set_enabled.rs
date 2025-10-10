@@ -12,7 +12,7 @@ pub async fn set_enabled(
     Path(id): Path<String>,
     Json(body): Json<EnableBody>,
 ) -> Result<Json<OidcProviderInfo>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
     if !is_valid_provider(&id) {

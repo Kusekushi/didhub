@@ -18,7 +18,7 @@ pub async fn redis_status(
     Extension(user): Extension<CurrentUser>,
     Extension(cache): Extension<AppCache>,
 ) -> Result<Json<RedisStatusResp>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to check Redis status");
         return Err(AppError::Forbidden);
     }

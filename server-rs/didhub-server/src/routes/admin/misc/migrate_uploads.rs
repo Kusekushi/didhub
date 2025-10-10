@@ -17,7 +17,7 @@ pub async fn migrate_uploads(
     Extension(udc): Extension<UploadDirCache>,
     Extension(db): Extension<Db>,
 ) -> Result<Json<MigrateResp>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to migrate uploads");
         return Err(AppError::Forbidden);
     }

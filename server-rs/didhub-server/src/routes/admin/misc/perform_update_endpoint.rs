@@ -27,7 +27,7 @@ pub async fn perform_update_endpoint(
     Extension(cfg): Extension<AppConfig>,
     Query(query): Query<UpdateCheckQuery>,
 ) -> Result<Json<UpdateResult>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
 
@@ -191,7 +191,7 @@ pub async fn perform_update_endpoint(
     Extension(_cfg): Extension<AppConfig>,
     Query(_query): Query<UpdateCheckQuery>,
 ) -> Result<Json<UpdateResult>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to perform updates (updater feature disabled)");
         return Err(AppError::Forbidden);
     }

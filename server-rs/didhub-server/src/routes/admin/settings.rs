@@ -35,7 +35,7 @@ pub async fn list_settings(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<SettingResponse>>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to list settings");
         return Err(AppError::Forbidden);
     }
@@ -71,7 +71,7 @@ pub async fn get_setting(
     Extension(user): Extension<CurrentUser>,
     Path(key): Path<String>,
 ) -> Result<Json<Option<SettingResponse>>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, setting_key=%key, "unauthorized attempt to get setting");
         return Err(AppError::Forbidden);
     }
@@ -112,7 +112,7 @@ pub async fn upsert_setting(
     Path(key): Path<String>,
     Json(body): Json<UpsertBody>,
 ) -> Result<Json<SettingResponse>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, setting_key=%key, "unauthorized attempt to update setting");
         return Err(AppError::Forbidden);
     }
@@ -166,7 +166,7 @@ pub async fn bulk_upsert_settings(
     Extension(user): Extension<CurrentUser>,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<Vec<SettingResponse>>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to bulk update settings");
         return Err(AppError::Forbidden);
     }

@@ -366,7 +366,7 @@ pub async fn create_alter(
     }
     // Ownership rules: non-admin cannot create for another owner
     if let Some(explicit) = body.get("owner_user_id").and_then(|v| v.as_str()) {
-        if !user.is_admin && explicit != user.id {
+        if user.is_admin == 0 && explicit != user.id {
             record_entity_operation("alter", "create", "failure");
             return Err(AppError::Forbidden);
         }
@@ -447,8 +447,8 @@ pub async fn get_alter(
             AppError::NotFound
         })?;
 
-    if !(user.is_admin || user.is_system) {
-        match (user.is_approved, &a.owner_user_id) {
+    if !(user.is_admin == 1 || user.is_system == 1) {
+        match (user.is_approved == 1, &a.owner_user_id) {
             (true, Some(owner)) if *owner != user.id => {
                 warn!(
                     user_id = %user.id,
@@ -510,7 +510,7 @@ pub async fn replace_alter_relationships(
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
 
-    if !user.is_admin {
+    if user.is_admin == 0 {
         let owner = existing.owner_user_id.unwrap_or(user.id.clone());
         if owner != user.id {
             return Err(AppError::Forbidden);
@@ -612,7 +612,7 @@ pub async fn update_alter(
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
-    if !user.is_admin {
+    if user.is_admin == 0 {
         let owner = existing.owner_user_id.as_ref().unwrap_or(&user.id).clone();
         if owner != user.id {
             tracing::debug!(
@@ -626,7 +626,7 @@ pub async fn update_alter(
         }
     }
     // Non-admin cannot reassign ownership
-    if !user.is_admin {
+    if user.is_admin == 0 {
         if let Some(obj) = body.as_object() {
             if obj.contains_key("owner_user_id") {
                 record_entity_operation("alter", "update", "failure");
@@ -659,7 +659,7 @@ pub async fn delete_alter(
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<String>,
 ) -> Result<impl axum::response::IntoResponse, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         let existing = db
             .fetch_alter(&id)
             .await
@@ -978,7 +978,7 @@ pub async fn delete_alter_image(
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
-    if !user.is_admin {
+    if user.is_admin == 0 {
         let owner = existing.owner_user_id.clone().unwrap_or(user.id.clone());
         if owner != user.id {
             tracing::debug!(

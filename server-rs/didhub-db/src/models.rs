@@ -14,6 +14,7 @@ pub struct User {
     pub id: String,
     pub username: String,
     pub email: Option<String>,
+    #[serde(skip_serializing)]
     pub password_hash: Option<String>,
     pub avatar: Option<String>,
     pub is_system: i64,

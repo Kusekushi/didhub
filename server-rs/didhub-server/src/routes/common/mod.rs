@@ -172,7 +172,7 @@ pub fn normalize_image_list(raw: Option<&str>) -> Vec<String> {
 }
 
 pub fn require_admin(user: &CurrentUser) -> Result<(), AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         warn!(
             user_id = %user.id,
             username = %user.username,
@@ -187,7 +187,7 @@ pub fn check_ownership_with_existing(
     user: &CurrentUser,
     owner_id: Option<String>,
 ) -> Result<(), AppError> {
-    if user.is_admin {
+    if user.is_admin == 1 {
         return Ok(());
     }
     let owner = owner_id.unwrap_or_else(|| user.id.clone());
@@ -207,7 +207,7 @@ pub async fn check_subsystem_ownership(
     user: &CurrentUser,
     id: &str,
 ) -> Result<(), AppError> {
-    if user.is_admin {
+    if user.is_admin == 1 {
         return Ok(());
     }
     if let Some(existing) = db.fetch_subsystem(id).await.map_err(|e| {
@@ -224,7 +224,7 @@ pub async fn check_subsystem_ownership(
 }
 
 pub async fn check_group_ownership(db: &Db, user: &CurrentUser, id: &str) -> Result<(), AppError> {
-    if user.is_admin {
+    if user.is_admin == 1 {
         return Ok(());
     }
     if let Some(existing) = db.fetch_group(id).await.map_err(|e| {

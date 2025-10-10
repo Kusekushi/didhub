@@ -1,21 +1,22 @@
+-- TODO: We should store boolean types as BIT/bool once there is support for BIT to bool in sqlx
+
 CREATE TABLE IF NOT EXISTS users (
-    -- Use UUID primary key stored as TEXT
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT,
-    password_hash TEXT NOT NULL,
-    avatar TEXT,
-    is_system INTEGER NOT NULL DEFAULT 0,
-    is_admin INTEGER NOT NULL DEFAULT 0,
-    is_approved INTEGER NOT NULL DEFAULT 0,
-    must_change_password INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT,
-    roles TEXT NOT NULL DEFAULT '[]',
-    settings TEXT NOT NULL DEFAULT '{}',
-    is_active INTEGER NOT NULL DEFAULT 1,
-    email_verified INTEGER NOT NULL DEFAULT 0,
-    last_login_at TEXT
+  id TEXT PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT,
+  password_hash TEXT NOT NULL,
+  avatar TEXT,
+  is_system INTEGER NOT NULL DEFAULT 0,
+  is_admin INTEGER NOT NULL DEFAULT 0,
+  is_approved INTEGER NOT NULL DEFAULT 0,
+  must_change_password INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT,
+  roles TEXT NOT NULL DEFAULT '[]',
+  settings TEXT NOT NULL DEFAULT '{}',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  email_verified INTEGER NOT NULL DEFAULT 0,
+  last_login_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS alters (

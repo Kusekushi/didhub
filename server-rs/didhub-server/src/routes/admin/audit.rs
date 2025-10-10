@@ -51,7 +51,7 @@ pub async fn list_audit(
     Extension(user): Extension<CurrentUser>,
     Query(p): Query<ListParams>,
 ) -> Result<Json<Vec<AuditLogResponse>>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
     let limit = p.limit.unwrap_or(100).clamp(1, 500);
@@ -90,7 +90,7 @@ pub async fn purge_audit(
     Extension(user): Extension<CurrentUser>,
     Json(body): Json<PurgeBody>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
     // Expect RFC3339 or sqlite comparable timestamp; we pass directly.
@@ -105,7 +105,7 @@ pub async fn clear_audit(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if !user.is_admin {
+    if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
     let deleted = db.clear_audit().await.map_err(|e| {
