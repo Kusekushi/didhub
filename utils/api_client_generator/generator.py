@@ -21,7 +21,8 @@ class TypeScriptGenerator:
 
     def __init__(self, api_modules: List[ApiModule], type_definitions: List[TypeDefinition]):
         self.api_modules = api_modules
-        self.type_definitions = type_definitions
+        self.type_definitions = self._normalize_type_names(type_definitions)
+        self.total_method_bindings = 0
         self.env = self._setup_jinja_env()
         self.rust_to_ts: Dict[str, str] = {}
         simple_name_map: Dict[str, Set[str]] = defaultdict(set)
@@ -49,6 +50,7 @@ class TypeScriptGenerator:
     def generate_client_code(self) -> str:
         """Generate the complete API client code"""
         # Prepare data for template
+        self.total_method_bindings = 0
         template_data = {
             'api_modules': [],
             'type_definitions': self._generate_type_definitions()
@@ -60,6 +62,7 @@ class TypeScriptGenerator:
                 'methods': self._generate_module_methods(module)
             }
             template_data['api_modules'].append(module_data)
+            self.total_method_bindings += len(module_data['methods'])
 
         # Render main template
         template = self.env.get_template('client.ts.jinja')
@@ -114,7 +117,7 @@ class TypeScriptGenerator:
         # Add query parameters
         if endpoint.query_type:
             ts_query_type = self._rust_type_to_typescript(endpoint.query_type)
-            params.append(f'query: {ts_query_type}')
+            params.append(f'query?: Partial<{ts_query_type}> | QueryInput')
         
         # Add body parameter for POST/PUT/PATCH
         has_body_param = endpoint.method in ['POST', 'PUT', 'PATCH']
@@ -124,7 +127,7 @@ class TypeScriptGenerator:
                 ts_body_type = self._rust_type_to_typescript(endpoint.body_type)
                 params.append(f'body: {ts_body_type}')
             else:
-                params.append('body?: any')
+                params.append('body?: unknown')
         
         param_list = ', '.join(params) if params else ''
 
@@ -141,7 +144,7 @@ class TypeScriptGenerator:
             path_expr = f"'/api{endpoint.path}'"
 
         # Determine return type
-        response_ts_type = self._rust_type_to_typescript(endpoint.response_type) if endpoint.response_type else 'any'
+        response_ts_type = self._rust_type_to_typescript(endpoint.response_type) if endpoint.response_type else 'unknown'
         return_type = f'Promise<HttpResponse<{response_ts_type}>>'
         response_type = response_ts_type
 
@@ -290,7 +293,7 @@ class TypeScriptGenerator:
     def _rust_type_to_typescript(self, rust_type: str, for_types_file: bool = False) -> str:
         """Convert Rust type to TypeScript type"""
         if not rust_type:
-            return 'any'
+            return 'unknown'
 
         rust_type = rust_type.strip()
 
@@ -408,8 +411,8 @@ class TypeScriptGenerator:
             'usize': 'number',
             'f32': 'number',
             'f64': 'number',
-            'serde_json::Value': 'any',
-            'axum::response::Response': 'any',
+            'serde_json::Value': 'Types.ApiJsonValue',
+            'axum::response::Response': 'unknown',
         }
 
         if rust_type in primitive_map:
@@ -455,9 +458,82 @@ class TypeScriptGenerator:
         # Fields
         for field_name, field_type in type_def.fields:
             ts_field_type = self._rust_type_to_typescript(field_type, for_types_file=True)
-            lines.append(f"  {field_name}: {ts_field_type};")
+            optional_marker = '?' if self._is_optional_field(type_def, field_name, field_type) else ''
+            lines.append(f"  {field_name}{optional_marker}: {ts_field_type};")
         
         lines.append("}")
         lines.append("")  # Empty line between interfaces
         
         return '\n'.join(lines)
+
+    def _is_optional_field(self, type_def: TypeDefinition, field_name: str, rust_type: str) -> bool:
+        optional_prefixes = (
+            'Option<',
+            'std::option::Option<',
+            'core::option::Option<',
+        )
+
+        if not rust_type or not rust_type.startswith(optional_prefixes):
+            return False
+
+        relax_suffixes = (
+            'Query',
+            'Params',
+            'Payload',
+            'Request',
+            'Body',
+            'Filters',
+            'Options',
+        )
+
+        return type_def.original_name.endswith(relax_suffixes)
+
+    def _normalize_type_names(self, type_definitions: List[TypeDefinition]) -> List[TypeDefinition]:
+        by_base: Dict[str, List[TypeDefinition]] = defaultdict(list)
+        for td in type_definitions:
+            base_name = self._to_pascal_case(td.original_name)
+            by_base[base_name].append(td)
+
+        used_names: Set[str] = set()
+
+        for base_name, defs in by_base.items():
+            if len(defs) == 1:
+                candidate = self._unique_name(f'Api{base_name}', used_names)
+                defs[0].name = candidate
+                used_names.add(candidate)
+                continue
+
+            for td in defs:
+                module_suffix = self._build_module_suffix(td.module_path)
+                candidate = f'Api{module_suffix}{base_name}' if module_suffix else f'Api{base_name}'
+                candidate = self._unique_name(candidate, used_names)
+                td.name = candidate
+                used_names.add(candidate)
+
+        return type_definitions
+
+    def _build_module_suffix(self, module_path: str) -> str:
+        if not module_path:
+            return ''
+
+        parts = [part for part in module_path.split('::') if part and part not in {'crate'}]
+        if not parts:
+            return ''
+
+        tail = parts[-2:] if len(parts) > 1 else parts
+        return ''.join(self._to_pascal_case(part) for part in tail)
+
+    def _unique_name(self, candidate: str, used: Set[str]) -> str:
+        if candidate not in used:
+            return candidate
+
+        index = 2
+        while True:
+            alt = f'{candidate}{index}'
+            if alt not in used:
+                return alt
+            index += 1
+
+    def _to_pascal_case(self, value: str) -> str:
+        parts = re.split(r'[_\-/]', value)
+        return ''.join(part[:1].upper() + part[1:] for part in parts if part)

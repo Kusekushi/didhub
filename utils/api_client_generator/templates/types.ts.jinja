@@ -1,3 +1,11 @@
 // Auto-generated type definitions - do not edit manually
 
+export type ApiJsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| Array<ApiJsonValue>
+	| { [key: string]: ApiJsonValue };
+
 {% for interface in type_definitions %}{{ interface }}{% endfor %}
