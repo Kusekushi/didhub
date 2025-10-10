@@ -137,7 +137,7 @@ pub struct UpdateUserPayload {
     pub is_system: Option<bool>,
     pub is_approved: Option<bool>,
     pub must_change_password: Option<bool>,
-    pub avatar: Option<Option<String>>,
+    pub avatar: Option<Option<String>>, // Some(Some(val)) set, Some(None) clear, None ignore // FIXME - this is weird
 }
 
 pub async fn get_user(
@@ -176,7 +176,7 @@ pub async fn update_user(
         .ok_or(AppError::NotFound)?;
     audit::record_entity(
         &db,
-        Some(actor.id.clone()),
+        Some(actor.id.as_str()),
         "user.update",
         "user",
         &u.id.to_string(),
@@ -233,7 +233,7 @@ pub async fn delete_user(
     if !ok {
         return Err(AppError::NotFound);
     }
-    audit::record_entity(&db, Some(actor.id.clone()), "user.delete", "user", &id).await;
+    audit::record_entity(&db, Some(actor.id.as_str()), "user.delete", "user", &id).await;
     Ok(Json(
         serde_json::json!({"deleted": true, "reassigned_to": payload.reassign_to }),
     ))
@@ -287,7 +287,7 @@ pub async fn create_user(
     }
     audit::record_entity(
         &db,
-        Some(actor.id),
+        Some(actor.id.as_str()),
         "user.create",
         "user",
         &user.id.to_string(),
@@ -327,7 +327,7 @@ pub async fn admin_password_reset(
         .ok_or(AppError::NotFound)?;
     audit::record_entity(
         &db,
-        Some(actor.id.clone()),
+        Some(actor.id.as_str()),
         "user.admin_password_reset",
         "user",
         &id,

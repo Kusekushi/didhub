@@ -43,7 +43,7 @@ pub async fn perform_update_endpoint(
         warn!(user_id=%user.id, "update perform attempted but auto-updates are disabled");
         audit::record_with_metadata(
             &db,
-            Some(user.id),
+            Some(user.id.as_str()),
             "admin.update.disabled",
             Some("update"),
             None,
@@ -94,7 +94,7 @@ pub async fn perform_update_endpoint(
 
             audit::record_with_metadata(
                 &db,
-                Some(user.id),
+                Some(user.id.as_str()),
                 if result.success {
                     "admin.update.success"
                 } else {
@@ -127,7 +127,7 @@ pub async fn perform_update_endpoint(
             tracing::error!(error = %e, "Failed to perform update");
             audit::record_with_metadata(
                 &db,
-                Some(user.id),
+                Some(user.id.as_str()),
                 "admin.update.failed",
                 Some("update"),
                 None,
@@ -199,7 +199,7 @@ pub async fn perform_update_endpoint(
     tracing::debug!(user_id=%user.id, "update perform attempted but updater feature not compiled in");
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "admin.update.feature_disabled",
         Some("update"),
         None,

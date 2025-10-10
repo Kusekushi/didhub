@@ -134,7 +134,7 @@ pub async fn callback(
         let token = issue_jwt(&cfg, &existing.username)?;
         audit::record_with_metadata(
             &db,
-            Some(existing.id),
+            Some(existing.id.as_str()),
             "oidc.login",
             Some("oidc_provider"),
             Some(&id),
@@ -165,7 +165,7 @@ pub async fn callback(
             let token = issue_jwt(&cfg, &existing_by_username.username)?;
             audit::record_with_metadata(
                 &db,
-                Some(existing_by_username.id.clone()),
+                Some(existing_by_username.id.as_str()),
                 "oidc.login.link",
                 Some("oidc_provider"),
                 Some(&id),
@@ -215,7 +215,7 @@ pub async fn callback(
     let token = issue_jwt(&cfg, &new_user.username)?;
     audit::record_with_metadata(
         &db,
-        Some(new_user.id.clone()),
+        Some(new_user.id.as_str()),
         "oidc.provision",
         Some("oidc_provider"),
         Some(&id),

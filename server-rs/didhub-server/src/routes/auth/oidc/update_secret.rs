@@ -51,7 +51,7 @@ pub async fn update_secret(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "oidc.secret.update",
         Some("oidc_provider"),
         Some(&id),

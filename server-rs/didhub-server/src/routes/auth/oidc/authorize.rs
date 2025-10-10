@@ -92,7 +92,7 @@ pub async fn authorize(
 
     audit::record_with_metadata(
         &db,
-        user.as_ref().map(|u| u.id.clone()),
+        user.as_ref().map(|u| u.id.as_str()),
         "oidc.authorize",
         Some("oidc_provider"),
         Some(&prov.id),

@@ -32,7 +32,7 @@ pub async fn migrate_uploads(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "admin.upload_dir.migrate",
         Some("upload_dir"),
         None,

@@ -8,7 +8,7 @@ use axum::{
 use didhub_db::relationships::AlterRelationships;
 use didhub_db::{
     alters::AlterOperations, audit, models::UserAlterRelationship,
-    user_alter_relationships::UserAlterRelationshipOperations, users::UserOperations, Alter, Db,
+    user_alter_relationships::UserAlterRelationshipOperations, users::UserOperations, Alter as DbAlter, Db,
 };
 use didhub_error::AppError;
 use didhub_metrics::record_entity_operation;
@@ -65,7 +65,7 @@ pub struct RowsAffectedResponse {
 }
 
 #[derive(serde::Serialize)]
-pub struct AlterOut {
+pub struct Alter {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
@@ -102,7 +102,7 @@ pub struct AlterOut {
     pub user_relationships: Vec<UserAlterRelationship>,
 }
 
-async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
+async fn project_with_rel(db: &Db, a: DbAlter, include_rels: bool) -> Alter {
     let (partners, parents, children, affiliations, user_relationships) = if include_rels {
         tokio::join!(
             db.partners_of(&a.id),
@@ -122,7 +122,7 @@ async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
     let system_roles = normalize_string_list(a.system_roles.as_deref());
     let subsystem = a.subsystem;
 
-    AlterOut {
+    Alter {
         id: a.id,
         name: a.name,
         description: a.description,
@@ -157,17 +157,6 @@ async fn project_with_rel(db: &Db, a: Alter, include_rels: bool) -> AlterOut {
 }
 
 static EMPTY_RELS: (Vec<String>, Vec<String>, Vec<String>, Vec<String>) = (vec![], vec![], vec![], vec![]);
-
-fn parse_optional_string(raw: Option<&str>) -> Option<String> {
-    raw.and_then(|value| {
-        let trimmed = value.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        }
-    })
-}
 
 fn normalize_subsystem_field(body: &mut serde_json::Value) {
     use serde_json::Value;
@@ -204,7 +193,7 @@ fn normalize_subsystem_field(body: &mut serde_json::Value) {
     }
 }
 
-fn project_with_rel_batch(a: Alter, rels: &(Vec<String>, Vec<String>, Vec<String>, Vec<String>)) -> AlterOut {
+fn project_with_rel_batch(a: DbAlter, rels: &(Vec<String>, Vec<String>, Vec<String>, Vec<String>)) -> Alter {
     let (partners, parents, children, affiliations) = rels;
     let soul_songs = normalize_string_list(a.soul_songs.as_deref());
     let interests = normalize_string_list(a.interests.as_deref());
@@ -212,7 +201,7 @@ fn project_with_rel_batch(a: Alter, rels: &(Vec<String>, Vec<String>, Vec<String
     let system_roles = normalize_string_list(a.system_roles.as_deref());
     let subsystem = a.subsystem;
 
-    AlterOut {
+    Alter {
         id: a.id,
         name: a.name,
         description: a.description,
@@ -250,7 +239,7 @@ pub async fn list_alters(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     Query(q): Query<ListQuery>,
-) -> Result<Json<ListResponse<AlterOut>>, AppError> {
+) -> Result<Json<ListResponse<Alter>>, AppError> {
     debug!(
         user_id = %user.id,
         username = %user.username,
@@ -574,7 +563,7 @@ pub async fn create_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     Json(mut body): Json<serde_json::Value>,
-) -> Result<Json<AlterOut>, AppError> {
+) -> Result<Json<Alter>, AppError> {
     if body
         .get("name")
         .and_then(|v| v.as_str())
@@ -661,7 +650,7 @@ pub async fn create_alter(
     }
     audit::record_entity(
         &db,
-        Some(user.id.to_string()),
+        Some(user.id.as_str()),
         "alter.create",
         "alter",
         &created.id.to_string(),
@@ -684,7 +673,7 @@ pub async fn get_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<String>,
-) -> Result<Json<AlterOut>, AppError> {
+) -> Result<Json<Alter>, AppError> {
     debug!(
         user_id = %user.id,
         username = %user.username,
@@ -837,10 +826,10 @@ pub async fn replace_alter_relationships(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id.to_string()),
+        Some(user.id.as_str()),
         "alter.relationships.replace",
         Some("alter"),
-        Some(&id.to_string()),
+        Some(id.as_str()),
         serde_json::json!({
             "partners": partners,
             "parents": parents,
@@ -869,7 +858,7 @@ pub async fn update_alter(
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<String>,
     Json(payload): Json<UpdateAlterPayload>,
-) -> Result<Json<AlterOut>, AppError> {
+) -> Result<Json<Alter>, AppError> {
     let UpdateAlterPayload { rest } = payload;
     let mut body = rest;
 
@@ -950,7 +939,7 @@ pub async fn update_alter(
             .await
             .map_err(|_| AppError::Internal)?;
     }
-    audit::record_entity(&db, Some(user.id), "alter.update", "alter", &id.to_string()).await;
+    audit::record_entity(&db, Some(user.id.as_str()), "alter.update", "alter", &id.to_string()).await;
     record_entity_operation("alter", "update", "success");
     let out = project_with_rel(&db, updated, true).await;
     Ok(Json(out))
@@ -977,7 +966,7 @@ pub async fn delete_alter(
         record_entity_operation("alter", "delete", "failure");
         return Err(AppError::NotFound);
     }
-    audit::record_entity(&db, Some(user.id), "alter.delete", "alter", &id.to_string()).await;
+    audit::record_entity(&db, Some(user.id.as_str()), "alter.delete", "alter", &id.to_string()).await;
     record_entity_operation("alter", "delete", "success");
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
@@ -1312,7 +1301,7 @@ pub async fn delete_alter_image(
     // Log the deletion
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "alter.delete_image",
         Some("alter"),
         Some(&id.to_string()),

@@ -100,7 +100,7 @@ pub async fn request_system(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "system_request.create",
         Some("system_request"),
         Some(&rec.id.to_string()),
@@ -282,7 +282,7 @@ pub async fn decide_system_request(
 
         audit::record_with_metadata(
             &db,
-            Some(user.id.clone()),
+            Some(user.id.as_str()),
             action,
             Some("system_request"),
             Some(&v.id.to_string()),

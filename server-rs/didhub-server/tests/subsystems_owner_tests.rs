@@ -12,7 +12,7 @@ async fn admin_can_create_subsystem_for_other_user() {
     let mut f = didhub_server::db::UpdateUserFields::default();
     f.is_admin = Some(true);
     f.is_approved = Some(true);
-    db.update_user(au.id, f).await.unwrap();
+    db.update_user(&au.id, f).await.unwrap();
     let token_admin = login(&app, "admin_s", "SecurePass123").await;
     let target = db
         .fetch_user_by_username("target_s")
@@ -35,7 +35,7 @@ async fn admin_can_create_subsystem_for_other_user() {
         st,
         body
     );
-    assert_eq!(body["owner_user_id"].as_i64().unwrap(), target.id);
+    assert_eq!(body["owner_user_id"].as_str().unwrap(), target.id);
 }
 
 #[tokio::test]
@@ -65,7 +65,7 @@ async fn nonadmin_cannot_create_subsystem_for_other_but_can_create_for_self() {
     )
     .await;
     assert_eq!(st_ok, axum::http::StatusCode::CREATED);
-    assert_eq!(body_ok["owner_user_id"].as_i64().unwrap(), user_a.id);
+    assert_eq!(body_ok["owner_user_id"].as_str().unwrap(), user_a.id);
 
     let (st_ok2, body_ok2) = auth_req(
         &app,
@@ -76,5 +76,5 @@ async fn nonadmin_cannot_create_subsystem_for_other_but_can_create_for_self() {
     )
     .await;
     assert_eq!(st_ok2, axum::http::StatusCode::CREATED);
-    assert_eq!(body_ok2["owner_user_id"].as_i64().unwrap(), user_a.id);
+    assert_eq!(body_ok2["owner_user_id"].as_str().unwrap(), user_a.id);
 }

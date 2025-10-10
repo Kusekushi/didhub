@@ -56,7 +56,7 @@ pub async fn verify_reset(
 
     audit::record_with_metadata(
         &db,
-        Some(rec.user_id),
+        Some(rec.user_id.as_str()),
         "password_reset.verify",
         None,
         None,

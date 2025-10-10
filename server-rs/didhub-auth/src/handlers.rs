@@ -118,10 +118,10 @@ pub async fn register(
     record_auth_operation("register", "success");
     audit::record_entity(
         &state.db,
-        Some(created.id.to_string()),
+        Some(created.id.as_str()),
         "user.create",
         "user",
-        &created.id.to_string(),
+        &created.id,
     )
     .await;
     Ok(resp)
@@ -168,7 +168,7 @@ pub async fn login(
         record_auth_operation("login", "failure");
         audit::record_with_metadata(
             &state.db,
-            Some(user.id.to_string()),
+            Some(user.id.as_str()),
             "auth.login.fail",
             Some("user"),
             Some(&user.id.to_string()),
@@ -183,7 +183,7 @@ pub async fn login(
         record_auth_operation("login", "failure");
         audit::record_with_metadata(
             &state.db,
-            Some(user.id.to_string()),
+            Some(user.id.as_str()),
             "auth.login.not_approved",
             Some("user"),
             Some(&user.id.to_string()),
@@ -206,7 +206,7 @@ pub async fn login(
     record_auth_operation("login", "success");
     audit::record_entity(
         &state.db,
-        Some(user.id.to_string()),
+        Some(user.id.as_str()),
         "auth.login.success",
         "user",
         &user.id.to_string(),
@@ -328,7 +328,7 @@ pub async fn change_password(
         tracing::warn!(username=%user.username, error=?e, "failed to invalidate user cache after password change");
     }
 
-    audit::record_simple(&state.db, Some(user.id.to_string()), "user.password.change").await;
+    audit::record_simple(&state.db, Some(user.id.as_str()), "user.password.change").await;
     record_auth_operation("change_password", "success");
     Ok((
         StatusCode::OK,

@@ -82,7 +82,7 @@ pub async fn consume_reset(
 
     audit::record_with_metadata(
         &db,
-        Some(rec.user_id.clone()),
+        Some(rec.user_id.as_str()),
         "password_reset.consume",
         None,
         None,

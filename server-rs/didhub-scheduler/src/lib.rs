@@ -239,7 +239,7 @@ impl CronScheduler {
                 if let Some(run_id) = run_id {
                     if let Err(err) = db
                         .finish_housekeeping_run(
-                            run_id,
+                            &run_id,
                             true,
                             outcome.message.as_deref(),
                             Some(outcome.rows_affected),
@@ -271,7 +271,7 @@ impl CronScheduler {
                 if let Some(run_id) = run_id {
                     let err_message = e.to_string();
                     if let Err(err) = db
-                        .finish_housekeeping_run(run_id, false, Some(err_message.as_str()), None)
+                        .finish_housekeeping_run(&run_id, false, Some(err_message.as_str()), None)
                         .await
                     {
                         error!(job_name = %name, error = %err, "failed to finalize failed housekeeping run");

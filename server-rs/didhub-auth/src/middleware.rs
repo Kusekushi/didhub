@@ -99,7 +99,7 @@ pub async fn auth_middleware(
             // audit event for enforcement denial
             audit::record_with_metadata(
                 &state.db,
-                Some(current.id.to_string()),
+                Some(current.id.as_str()),
                 "must_change_password.denied",
                 Some("route"),
                 Some(path),

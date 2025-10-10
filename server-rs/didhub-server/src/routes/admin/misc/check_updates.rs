@@ -45,7 +45,7 @@ pub async fn check_updates(
         warn!(user_id=%user.id, "update check attempted but auto-updates are disabled");
         audit::record_with_metadata(
             &db,
-            Some(user.id),
+            Some(user.id.as_str()),
             "admin.update.check_disabled",
             Some("update"),
             None,
@@ -71,7 +71,7 @@ pub async fn check_updates(
             info!(user_id=%user.id, update_available=%status.available, current_version=%status.current_version, latest_version=?status.latest_version, "update check completed");
             audit::record_with_metadata(
                 &db,
-                Some(user.id),
+                Some(user.id.as_str()),
                 "admin.update.check",
                 Some("update"),
                 None,
@@ -90,7 +90,7 @@ pub async fn check_updates(
             tracing::error!(error = %e, "Failed to check for updates");
             audit::record_with_metadata(
                 &db,
-                Some(user.id),
+                Some(user.id.as_str()),
                 "admin.update.check_failed",
                 Some("update"),
                 None,
@@ -125,7 +125,7 @@ pub async fn check_updates(
     debug!(user_id=%user.id, "update check attempted but updater feature not compiled in");
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "admin.update.feature_disabled",
         Some("update"),
         None,

@@ -58,7 +58,7 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route(
             "/upload",
-            axum::routing::post(crate::routes::files::uploads::upload_file)
+            post(crate::routes::files::uploads::upload_file)
                 .layer(DefaultBodyLimit::max(20 * 1024 * 1024)),
         )
         .route(

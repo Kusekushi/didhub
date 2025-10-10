@@ -53,7 +53,7 @@ pub async fn create_post(
     info!(user_id=%user.id, username=%user.username, post_id=%post.id, "post created successfully");
     audit::record_entity(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "post.create",
         "post",
         &post.id.to_string(),
@@ -83,7 +83,7 @@ pub async fn repost_post(
     info!(user_id=%user.id, username=%user.username, original_post_id=%id, new_post_id=%post.id, "post reposted successfully");
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "post.repost",
         Some("post"),
         Some(&post.id.to_string()),
@@ -110,6 +110,6 @@ pub async fn delete_post(
         return Err(AppError::NotFound);
     }
     info!(user_id=%user.id, username=%user.username, post_id=%id, "post deleted successfully");
-    audit::record_entity(&db, Some(user.id.clone()), "post.delete", "post", &id).await;
+    audit::record_entity(&db, Some(user.id.as_str()), "post.delete", "post", &id).await;
     Ok(Json(serde_json::json!({"ok": true, "id": id})))
 }

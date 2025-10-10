@@ -67,7 +67,7 @@ pub async fn request_reset(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "password_reset.request",
         None,
         None,

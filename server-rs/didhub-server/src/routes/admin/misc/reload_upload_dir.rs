@@ -28,7 +28,7 @@ pub async fn reload_upload_dir(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "admin.upload_dir.reload",
         Some("upload_dir"),
         Some(&dir),

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
 pub struct AuditLogResponse {
-    pub id: i64,
+    pub id: String,
     pub created_at: Option<String>,
     pub user_id: Option<String>,
     pub action: String,
@@ -39,7 +39,7 @@ impl From<AuditLog> for AuditLogResponse {
 #[derive(Deserialize)]
 pub struct ListParams {
     pub action: Option<String>,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
     pub from: Option<String>,
     pub to: Option<String>,
     pub limit: Option<i64>,
@@ -59,7 +59,7 @@ pub async fn list_audit(
     let rows = db
         .list_audit(
             p.action.as_deref(),
-            p.user_id,
+            p.user_id.as_deref(),
             p.from.as_deref(),
             p.to.as_deref(),
             limit,

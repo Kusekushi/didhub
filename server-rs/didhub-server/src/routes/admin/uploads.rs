@@ -20,7 +20,7 @@ pub struct ListParams {
     pub offset: Option<i64>,
     pub mime: Option<String>,
     pub hash: Option<String>,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
     pub include_deleted: Option<bool>,
 }
 
@@ -38,7 +38,7 @@ pub async fn list_uploads_admin(
         .list_uploads_filtered(
             p.mime.as_deref(),
             p.hash.as_deref(),
-            p.user_id,
+            p.user_id.as_deref(),
             p.include_deleted.unwrap_or(false),
             limit,
             offset,
@@ -50,7 +50,7 @@ pub async fn list_uploads_admin(
             &cache,
             p.mime.as_deref(),
             p.hash.as_deref(),
-            p.user_id,
+            p.user_id.as_deref(),
             p.include_deleted.unwrap_or(false),
         )
         .await
@@ -114,7 +114,7 @@ pub async fn delete_upload_admin(
     }
     audit::record_with_metadata(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         if p.force.unwrap_or(false) {
             "upload.delete.force"
         } else {
@@ -196,7 +196,7 @@ pub async fn purge_uploads_admin(
             }
         }
     }
-    audit::record_with_metadata(&db, Some(user.id.clone()), "uploads.purge.manual", Some("upload"), None, serde_json::json!({"purged": purged, "cutoff": cutoff, "files_removed": files_removed, "force": p.force.unwrap_or(false)})).await;
+    audit::record_with_metadata(&db, Some(user.id.as_str()), "uploads.purge.manual", Some("upload"), None, serde_json::json!({"purged": purged, "cutoff": cutoff, "files_removed": files_removed, "force": p.force.unwrap_or(false)})).await;
     db.invalidate_upload_counts(&cache).await;
     info!(user_id=%user.id, purged=%purged, files_removed=%files_removed, cutoff=%cutoff, "admin upload purge completed");
     Ok(Json(

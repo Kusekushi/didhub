@@ -3,7 +3,6 @@ use crate::models::{NewUser, PasswordResetToken, UpdateUserFields, User, UserLis
 use crate::{Db, DbBackend};
 use anyhow::Result;
 use async_trait::async_trait;
-use sqlx::Row;
 use tracing::{debug, info, warn};
 
 #[async_trait]
@@ -219,7 +218,6 @@ impl UserOperations for Db {
         }
         sql.push_str(&sets.join(","));
         sql.push_str(&format!(" WHERE id=?{}", idx));
-        let id_pos = idx;
         // Build query with dynamic positional binds
         let mut q = sqlx::query(&sql);
         // sort by position

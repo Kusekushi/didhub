@@ -15,7 +15,7 @@ pub trait UploadOperations: Send + Sync {
         cache: &AppCache,
         mime: Option<&str>,
         hash: Option<&str>,
-        user_id: Option<i64>,
+        user_id: Option<&str>,
         include_deleted: bool,
     ) -> Result<i64>;
 
@@ -33,7 +33,7 @@ pub trait UploadOperations: Send + Sync {
         &self,
         mime: Option<&str>,
         hash: Option<&str>,
-        user_id: Option<i64>,
+        user_id: Option<&str>,
         include_deleted: bool,
         limit: i64,
         offset: i64,
@@ -43,7 +43,7 @@ pub trait UploadOperations: Send + Sync {
         &self,
         mime: Option<&str>,
         hash: Option<&str>,
-        user_id: Option<i64>,
+        user_id: Option<&str>,
         include_deleted: bool,
     ) -> Result<i64>;
 
@@ -83,7 +83,7 @@ impl UploadOperations for Db {
         cache: &AppCache,
         mime: Option<&str>,
         hash: Option<&str>,
-        user_id: Option<i64>,
+        user_id: Option<&str>,
         include_deleted: bool,
     ) -> Result<i64> {
         let key = Self::count_cache_key(mime, hash, user_id, include_deleted);
@@ -159,7 +159,7 @@ impl UploadOperations for Db {
         &self,
         mime: Option<&str>,
         hash: Option<&str>,
-        user_id: Option<i64>,
+        user_id: Option<&str>,
         include_deleted: bool,
         limit: i64,
         offset: i64,
@@ -202,7 +202,7 @@ impl UploadOperations for Db {
         &self,
         mime: Option<&str>,
         hash: Option<&str>,
-        user_id: Option<i64>,
+        user_id: Option<&str>,
         include_deleted: bool,
     ) -> Result<i64> {
         let mut where_parts: Vec<String> = Vec::new();
@@ -251,7 +251,7 @@ impl Db {
     fn count_cache_key(
         mime: Option<&str>,
         hash: Option<&str>,
-        user_id: Option<i64>,
+        user_id: Option<&str>,
         include_deleted: bool,
     ) -> String {
         format!(

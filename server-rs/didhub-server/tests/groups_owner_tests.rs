@@ -1,11 +1,7 @@
 mod test_utils;
 use axum::http::StatusCode;
 use didhub_db::users::UserOperations;
-use didhub_db::Db;
 use didhub_db::UpdateUserFields;
-use didhub_migrations::sqlite_migrator;
-use didhub_server::build_router;
-use didhub_server::logging;
 use serde_json::json;
 use test_utils::*;
 
@@ -22,7 +18,7 @@ async fn admin_can_create_group_for_other_user() {
     let mut f = UpdateUserFields::default();
     f.is_admin = Some(true);
     f.is_approved = Some(true);
-    db.update_user(au.id, f).await.unwrap();
+    db.update_user(&au.id, f).await.unwrap();
 
     // re-login to obtain admin token (reuse login helper)
     let token_admin = login(&app, "admin_u", "SecurePass123").await;
@@ -49,7 +45,7 @@ async fn admin_can_create_group_for_other_user() {
         st,
         body
     );
-    assert_eq!(body["owner_user_id"].as_i64().unwrap(), target.id);
+    assert_eq!(body["owner_user_id"].as_str().unwrap(), target.id);
 }
 
 #[tokio::test]
@@ -93,7 +89,7 @@ async fn nonadmin_cannot_create_for_other_but_can_create_for_self() {
         st_ok,
         body_ok
     );
-    assert_eq!(body_ok["owner_user_id"].as_i64().unwrap(), user_a.id);
+    assert_eq!(body_ok["owner_user_id"].as_str().unwrap(), user_a.id);
 
     // create group with explicit owner = self
     let (st_ok2, body_ok2) = auth_req(
@@ -111,5 +107,5 @@ async fn nonadmin_cannot_create_for_other_but_can_create_for_self() {
         st_ok2,
         body_ok2
     );
-    assert_eq!(body_ok2["owner_user_id"].as_i64().unwrap(), user_a.id);
+    assert_eq!(body_ok2["owner_user_id"].as_str().unwrap(), user_a.id);
 }

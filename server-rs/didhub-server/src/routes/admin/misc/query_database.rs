@@ -96,7 +96,7 @@ pub async fn query_database(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id),
+        Some(user.id.as_str()),
         "admin.db.query",
         Some("database"),
         None,

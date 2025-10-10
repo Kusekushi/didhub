@@ -56,7 +56,8 @@ impl UserAlterRelationshipOperations for Db {
             || async {
                 // SQLite/Postgres: Generate UUID and insert
                 let id = Uuid::new_v4().to_string();
-                let insert_result = sqlx::query("INSERT INTO user_alter_relationships (id, user_id, alter_id, relationship_type) VALUES (?1, ?2, ?3, ?4)")
+                // TODO: Act upon failure
+                let _insert_result = sqlx::query("INSERT INTO user_alter_relationships (id, user_id, alter_id, relationship_type) VALUES (?1, ?2, ?3, ?4)")
                     .bind(&id)
                     .bind(user_id)
                     .bind(alter_id)

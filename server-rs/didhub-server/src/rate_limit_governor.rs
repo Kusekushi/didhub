@@ -128,7 +128,7 @@ where
                 tokio::spawn(async move {
                     audit::record_with_metadata(
                         &db,
-                        user_id,
+                        user_id.as_deref(),
                         "rate_limit.denied",
                         Some("route"),
                         Some(&path),
@@ -235,7 +235,7 @@ where
                     let audit_user = if ext_user_id == "guest" {
                         None
                     } else {
-                        ext_user_id.parse::<i64>().ok()
+                        Some(ext_user_id)
                     };
                     let ip_clone = ip.clone();
                     let path_clone = rule.path.to_string();
@@ -244,7 +244,7 @@ where
                     tokio::spawn(async move {
                         audit::record_with_metadata(
                             &db_for_audit,
-                            audit_user.map(|id| id.to_string()),
+                            audit_user.as_deref(),
                             "rate_limit.denied",
                             Some("route"),
                             Some(path_clone.as_str()),

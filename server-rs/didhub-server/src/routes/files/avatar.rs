@@ -261,7 +261,7 @@ pub async fn upload_avatar(
     // Simple mime inference already validated; assume png output
     audit::record_with_metadata(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "avatar.upload",
         Some("avatar"),
         Some(&saved_name),
@@ -347,7 +347,7 @@ pub async fn delete_avatar(
 
     audit::record_entity(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "avatar.delete",
         "avatar",
         &user.id.to_string(),

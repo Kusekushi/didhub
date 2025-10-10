@@ -305,7 +305,7 @@ pub async fn create_subsystem(
 
     audit::record_entity(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "subsystem.create",
         "subsystem",
         &created.id.to_string(),
@@ -451,7 +451,7 @@ pub async fn update_subsystem(
 
     audit::record_entity(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "subsystem.update",
         "subsystem",
         &id.to_string(),
@@ -512,7 +512,7 @@ pub async fn delete_subsystem(
 
     audit::record_entity(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "subsystem.delete",
         "subsystem",
         &id.to_string(),
@@ -646,7 +646,7 @@ pub async fn toggle_leader(
 
     audit::record_entity(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "subsystem.leaders.toggle",
         "subsystem",
         &id.to_string(),
@@ -745,7 +745,7 @@ pub async fn change_member(
 
         audit::record_with_metadata(
             &db,
-            Some(user.id.clone()),
+            Some(user.id.as_str()),
             "subsystem.member.add",
             Some("subsystem"),
             Some(&id.to_string()),
@@ -775,7 +775,7 @@ pub async fn change_member(
 
         audit::record_with_metadata(
             &db,
-            Some(user.id.clone()),
+            Some(user.id.as_str()),
             "subsystem.member.remove",
             Some("subsystem"),
             Some(&id.to_string()),

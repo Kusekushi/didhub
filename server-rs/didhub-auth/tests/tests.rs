@@ -307,7 +307,6 @@ fn test_must_change_password_allow_list_comprehensive() {
 
 #[cfg(test)]
 mod handler_tests {
-    use super::*;
     use didhub_auth::me_handler;
     use didhub_middleware::types::CurrentUser;
 
@@ -315,7 +314,7 @@ mod handler_tests {
     async fn test_me_handler() {
         // Create a mock CurrentUser
         let user = CurrentUser {
-            id: 1,
+            id: "0199ccdc-5016-7c30-9ab1-cf9009f53fcb".to_string(), // Random v7 UUID
             username: "testuser".to_string(),
             avatar: Some("avatar.png".to_string()),
             is_admin: true,
@@ -339,7 +338,6 @@ mod handler_tests {
 
 #[cfg(test)]
 mod middleware_tests {
-    use super::*;
     use didhub_auth::MUST_CHANGE_PASSWORD_ALLOW;
 
     #[test]

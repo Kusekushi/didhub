@@ -346,14 +346,7 @@ impl AlterOperations for Db {
 
             q = match key.as_str() {
                 "owner_user_id" => match value {
-                    Value::Number(n) => {
-                        if let Some(i) = n.as_i64() {
-                            q.bind(i)
-                        } else {
-                            q.bind(n.to_string())
-                        }
-                    }
-                    Value::Null => q.bind::<Option<i64>>(None),
+                    Value::Null => q.bind::<Option<&str>>(None),
                     Value::String(s) => {
                         if let Ok(parsed) = s.trim().parse::<i64>() {
                             q.bind(parsed)
@@ -363,7 +356,6 @@ impl AlterOperations for Db {
                             q.bind(s)
                         }
                     }
-                    Value::Bool(b) => q.bind(if b { 1 } else { 0 }),
                     other => q.bind(other.to_string()),
                 },
                 "is_system_host" | "is_dormant" | "is_merged" => match value {

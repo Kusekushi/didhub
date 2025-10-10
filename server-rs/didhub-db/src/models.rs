@@ -125,7 +125,7 @@ pub struct Setting {
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct AuditLog {
-    pub id: i64,
+    pub id: String,
     pub created_at: Option<String>,
     pub user_id: Option<String>,
     pub action: String,
@@ -224,7 +224,7 @@ pub struct NewAlter {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
 pub struct UploadRow {
-    pub id: i64,
+    pub id: String,
     pub stored_name: String,
     pub original_name: Option<String>,
     pub user_id: Option<String>,
@@ -247,7 +247,7 @@ pub struct NewUpload<'a> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct UserAlterRelationship {
-    pub id: i64,
+    pub id: String,
     pub user_id: String,
     pub alter_id: String,
     pub relationship_type: String,

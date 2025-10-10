@@ -80,7 +80,7 @@ pub async fn create_relationship(
 
     audit::record_entity(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "user_alter_relationship.create",
         "user_alter_relationship",
         &relationship.id.to_string(),
@@ -115,7 +115,7 @@ pub async fn delete_relationship(
     if deleted {
         audit::record_entity(
             &db,
-            Some(user.id.clone()),
+            Some(user.id.as_str()),
             "user_alter_relationship.delete",
             "user_alter_relationship",
             &format!("{}_{}_{}", user_id, alter_id, relationship_type),
@@ -229,7 +229,7 @@ pub async fn replace_relationships(
 
     audit::record_with_metadata(
         &db,
-        Some(user.id.clone()),
+        Some(user.id.as_str()),
         "user_alter_relationship.replace",
         Some("alter"),
         Some(&alter_id.to_string()),

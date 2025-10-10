@@ -155,7 +155,7 @@ pub async fn upload_file(
                     );
                     audit::record_with_metadata(
                         &db,
-                        Some(user.id),
+                        Some(user.id.as_str()),
                         "upload.create",
                         Some("upload"),
                         Some(&final_name),
@@ -217,7 +217,7 @@ pub async fn upload_file(
         record_upload_operation("upload", "success", Some(raw.len() as i64));
         audit::record_with_metadata(
             &db,
-            Some(user.id.clone()),
+            Some(user.id.as_str()),
             "upload.create",
             Some("upload"),
             Some(&safe_name),
