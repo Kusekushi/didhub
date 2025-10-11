@@ -8,7 +8,10 @@ test.describe('Groups UI flows', () => {
     // Use real backend: require E2E_USER and E2E_PASS environment variables to be set
     const E2E_USER = process.env.E2E_USER || process.env.PLAYWRIGHT_E2E_USER;
     const E2E_PASS = process.env.E2E_PASS || process.env.PLAYWRIGHT_E2E_PASS;
-    if (!E2E_USER || !E2E_PASS) throw new Error('E2E_USER and E2E_PASS environment variables must be set to run full e2e tests against a real backend');
+    if (!E2E_USER || !E2E_PASS)
+      throw new Error(
+        'E2E_USER and E2E_PASS environment variables must be set to run full e2e tests against a real backend',
+      );
 
     // Login via the real login page
     await page.goto('/login');
@@ -24,10 +27,10 @@ test.describe('Groups UI flows', () => {
       await username.waitFor({ timeout: 20000 });
     }
     await username.fill(E2E_USER);
-  const password = page.locator('input[name="password"]');
-  await password.fill(E2E_PASS);
-  // Submit the sign-in form by clicking the form's submit button
-  await page.locator('form button[type="submit"]').first().click();
+    const password = page.locator('input[name="password"]');
+    await password.fill(E2E_PASS);
+    // Submit the sign-in form by clicking the form's submit button
+    await page.locator('form button[type="submit"]').first().click();
     // Wait briefly for any client-side redirect
     try {
       await page.waitForNavigation({ timeout: 5000 });
@@ -45,13 +48,13 @@ test.describe('Groups UI flows', () => {
 
     // If an owner selector exists (admin flow), pick the first other user
     const ownerSelect = page.locator('select[name="owner_user_id"]');
-    if (await ownerSelect.count() > 0) {
+    if ((await ownerSelect.count()) > 0) {
       await ownerSelect.selectOption({ index: 1 }).catch(() => {});
     }
 
     await page.getByRole('button', { name: /create/i }).click();
 
-  // After create, the group's name should appear in the listing
-  await expect(page.locator('text=Playwright E2E Group')).toBeVisible({ timeout: 15000 });
+    // After create, the group's name should appear in the listing
+    await expect(page.locator('text=Playwright E2E Group')).toBeVisible({ timeout: 15000 });
   });
 });

@@ -14,8 +14,9 @@ export function useSystemList() {
     (async () => {
       try {
         const res = await apiClient.subsystem.get_systems();
-        const data = res && Array.isArray((res as any).data) ? (res as any).data : [];
-        setSystems(data);
+        const payload = res.data;
+        const items = Array.isArray(payload?.items) ? (payload.items as unknown as ApiSystemSummary[]) : [];
+        setSystems(items);
       } catch (e) {
         setSystems([]);
       }

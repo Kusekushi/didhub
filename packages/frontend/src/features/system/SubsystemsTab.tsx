@@ -23,6 +23,7 @@ import { useSubsystemCreationState } from '../../shared/hooks/useSubsystemCreati
 import { useSubsystemsData } from '../../shared/hooks/useSubsystemsData';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
 export interface SubsystemsTabProps {
   uid: string;
@@ -31,13 +32,13 @@ export interface SubsystemsTabProps {
 export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
   const nav = useNavigate();
   const { user: me } = useAuth() as { user?: ApiUser };
-  
+
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
-  
+
   // Data fetching
   const subsystemsData = useSubsystemsData(uid, '', 2, 0, 20);
-  
+
   // Subsystem creation state
   const subsystemCreationState = useSubsystemCreationState();
 
@@ -46,16 +47,15 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
 
   // Permission checking
   const canManage =
-    !!me &&
-    ((Number(me.is_admin) === 1) || (Number(me.is_system) === 1 && String(me.id) === String(uid)));
+    !!me && (Boolean(me.is_admin) || (Boolean(me.is_system) && normalizeEntityId(me.id) === normalizeEntityId(uid)));
 
   const pageCount = Math.max(1, Math.ceil((subsystemsData.total || 0) / 20));
   const displayStart = subsystemsData.total === 0 ? 0 : 0 * 20 + 1;
   const displayEnd = subsystemsData.total === 0 ? 0 : Math.min(subsystemsData.total, (0 + 1) * 20);
 
-  const handleDelete = async (subsystemId: number | string) => {
+  const handleDelete = async (subsystemId: string) => {
     try {
-  await apiClient.subsystem.delete_subsystems_by_id(subsystemId);
+      await apiClient.subsystem.delete_subsystems_by_id(subsystemId);
       await subsystemsData.refresh();
       setSnack({ open: true, message: 'Subsystem deleted', severity: 'success' });
     } catch (error) {
@@ -64,8 +64,8 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
   };
 
   const handleCreateSubsystem = async (payload: Record<string, unknown>) => {
-  const response = await apiClient.subsystem.post_subsystems(payload as any);
-  return response.data;
+    const response = await apiClient.subsystem.post_subsystems(payload as any);
+    return response.data;
   };
 
   return (
@@ -75,12 +75,7 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
           <Button variant="contained" onClick={() => setCreateSubsystemOpen(true)}>
             Create Subsystem
           </Button>
-          <Dialog
-            open={createSubsystemOpen}
-            onClose={() => setCreateSubsystemOpen(false)}
-            fullWidth
-            maxWidth="sm"
-          >
+          <Dialog open={createSubsystemOpen} onClose={() => setCreateSubsystemOpen(false)} fullWidth maxWidth="sm">
             <DialogTitle>Create subsystem</DialogTitle>
             <DialogContent>
               <Box
@@ -95,7 +90,10 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
                       description: subsystemCreationState.newSubsystemDesc || null,
                       type: subsystemCreationState.newSubsystemType || 'normal',
                     };
-                    if (uid) payload.owner_user_id = Number(uid);
+                    if (uid) {
+                      const normalizedUid = normalizeEntityId(uid);
+                      if (normalizedUid) payload.owner_user_id = normalizedUid;
+                    }
                     await handleCreateSubsystem(payload);
                     try {
                       await subsystemsData.refresh();
@@ -125,14 +123,18 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
                     size="small"
                     label="Name"
                     value={subsystemCreationState.newSubsystemName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => subsystemCreationState.setNewSubsystemName(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      subsystemCreationState.setNewSubsystemName(e.target.value)
+                    }
                     sx={{ minWidth: 240 }}
                   />
                   <TextField
                     size="small"
                     label="Description"
                     value={subsystemCreationState.newSubsystemDesc}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => subsystemCreationState.setNewSubsystemDesc(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      subsystemCreationState.setNewSubsystemDesc(e.target.value)
+                    }
                     sx={{ minWidth: 320 }}
                   />
                   <Autocomplete
@@ -143,7 +145,12 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
                     ]}
                     getOptionLabel={(o: { id: string; label: string } | null) => (o ? o.label : '')}
                     value={
-                      subsystemCreationState.newSubsystemType ? { id: subsystemCreationState.newSubsystemType, label: subsystemCreationState.newSubsystemType } : null
+                      subsystemCreationState.newSubsystemType
+                        ? {
+                            id: subsystemCreationState.newSubsystemType,
+                            label: subsystemCreationState.newSubsystemType,
+                          }
+                        : null
                     }
                     onChange={(_e: React.SyntheticEvent, v: { id: string; label: string } | null) =>
                       subsystemCreationState.setNewSubsystemType(v ? v.id : 'normal')
@@ -173,17 +180,40 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
                   <Button
                     variant="outlined"
                     size="small"
-                    onClick={() => nav(`/detail/subsystem/${s.id}?uid=${encodeURIComponent(String(uid))}`)}
+                    onClick={() => {
+                      const sid2 = normalizeEntityId(s.id);
+                      const qUid = normalizeEntityId(uid);
+                      if (!sid2) return;
+                      const route = qUid
+                        ? `/detail/subsystem/${sid2}?uid=${encodeURIComponent(qUid)}`
+                        : `/detail/subsystem/${sid2}`;
+                      nav(route);
+                    }}
                   >
                     View
                   </Button>
                   {canManage && (
-                    <Button variant="outlined" size="small" onClick={() => nav(`/subsystems/${s.id}/edit`)}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => {
+                        const sid2 = normalizeEntityId(s.id);
+                        if (sid2) nav(`/subsystems/${sid2}/edit`);
+                      }}
+                    >
                       Edit
                     </Button>
                   )}
                   {canManage && (
-                    <Button variant="outlined" color="error" size="small" onClick={() => handleDelete(Number(s.id))}>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => {
+                        const sid2 = normalizeEntityId(s.id);
+                        if (sid2) handleDelete(sid2);
+                      }}
+                    >
                       Delete
                     </Button>
                   )}

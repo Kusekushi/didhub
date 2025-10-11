@@ -32,7 +32,7 @@ export default function Housekeeping() {
 
       // Initialize dry run state for each job
       const initialDryRun: Record<string, boolean> = {};
-      jobsResult.jobs.forEach(job => {
+      jobsResult.jobs.forEach((job) => {
         initialDryRun[job.name] = true;
       });
       setDryRun(initialDryRun);
@@ -59,7 +59,11 @@ export default function Housekeeping() {
       // if dry run returned candidates and dry=true, open confirm dialog
       const candidates =
         res && typeof res === 'object'
-          ? ((res as Record<string, unknown>).metadata as { result?: { result?: { candidates?: unknown[] } } } | undefined)?.result?.result?.candidates ?? null
+          ? ((
+              (res as Record<string, unknown>).metadata as
+                | { result?: { result?: { candidates?: unknown[] } } }
+                | undefined
+            )?.result?.result?.candidates ?? null)
           : null;
       if (opts && opts.dry && Array.isArray(candidates)) {
         setConfirmJob(name);
@@ -151,7 +155,12 @@ export default function Housekeeping() {
                   />
                   <Stack direction="row" spacing={1} alignItems="center">
                     <FormControlLabel
-                      control={<Switch checked={dryRun[job.name] ?? true} onChange={(e) => setDryRun(prev => ({ ...prev, [job.name]: Boolean(e.target.checked) }))} />}
+                      control={
+                        <Switch
+                          checked={dryRun[job.name] ?? true}
+                          onChange={(e) => setDryRun((prev) => ({ ...prev, [job.name]: Boolean(e.target.checked) }))}
+                        />
+                      }
                       label="Dry run"
                       sx={{ mr: 2 }}
                     />

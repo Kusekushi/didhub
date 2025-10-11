@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await apiClient.users.post_auth_login({ username, password });
       if (result.ok) {
         const session = await apiClient.users.get_me();
-        const user = session.ok ? session.data as ApiUser : null;
+        const user = session.ok ? (session.data as ApiUser) : null;
         setMe(user);
         if (user && user.must_change_password) setMustChange(true);
         initTokenState();
@@ -220,7 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMustChange(false);
       try {
         const m = await apiClient.users.get_me();
-        setMe(m.ok ? m.data as ApiUser : null);
+        setMe(m.ok ? (m.data as ApiUser) : null);
       } catch {
         // Ignore fetch errors
       }

@@ -5,7 +5,7 @@ import { useAuth } from '../../shared/contexts/AuthContext';
 
 export interface ImagesGalleryProps {
   alter: ApiAlter;
-  onRemoveImage: (url: string, alterId: number | string) => void;
+  onRemoveImage: (url: string, alterId: string) => void;
 }
 
 export default function ImagesGallery(props: ImagesGalleryProps) {

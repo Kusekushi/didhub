@@ -20,16 +20,14 @@ export function useAlterOptions(uid?: string, leaderQuery: string = '', enabled 
         const q = leaderQuery ? leaderQuery : '';
         const key = `${uid}:${q}`;
 
-  const options = await altersRequestCache.fetch<ApiRoutesAltersNamesItem[]>(key, async () => {
+        const options = await altersRequestCache.fetch<ApiRoutesAltersNamesItem[]>(key, async () => {
           const response = await apiClient.alter.get_alters_search({
             userId: uid,
             query: q,
             includeRelationships: true,
           });
           const payload = response.data;
-          return Array.isArray(payload?.items)
-            ? (payload.items as unknown as ApiRoutesAltersNamesItem[])
-            : [];
+          return Array.isArray(payload?.items) ? (payload.items as unknown as ApiRoutesAltersNamesItem[]) : [];
         });
 
         if (!mounted) return;

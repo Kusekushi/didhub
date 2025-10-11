@@ -1,5 +1,20 @@
 import { useNavigate, Navigate, useLocation } from 'react-router-dom';
-import { CssBaseline, AppBar, Toolbar, IconButton, Typography, Drawer, List, ListItem, ListItemButton, ListItemText, ListItemIcon, Box, useTheme, useMediaQuery } from '@mui/material';
+import {
+  CssBaseline,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Typography,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  ListItemIcon,
+  Box,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useContext, useState } from 'react';
 import Menu from '@mui/material/Menu';
@@ -79,13 +94,13 @@ export default function App() {
   return (
     <Box>
       <CssBaseline />
-      
+
       {/* App Bar */}
       <AppBar
         position="fixed"
         sx={{
-          width: { md: isAuthRoute ? '100%' : (drawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%') },
-          ml: { md: isAuthRoute ? 0 : (drawerOpen ? `${drawerWidth}px` : 0) },
+          width: { md: isAuthRoute ? '100%' : drawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
+          ml: { md: isAuthRoute ? 0 : drawerOpen ? `${drawerWidth}px` : 0 },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
@@ -105,21 +120,21 @@ export default function App() {
             </IconButton>
           )}
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            <img src="/favicon-32x32.png" alt="DIDHub" style={{ height: 28, verticalAlign: 'middle', marginRight: 8 }} />
+            <img
+              src="/favicon-32x32.png"
+              alt="DIDHub"
+              style={{ height: 28, verticalAlign: 'middle', marginRight: 8 }}
+            />
             DIDHub
           </Typography>
           {!isAuthRoute && (
             <>
               <ToolbarActions mode={mode} toggle={toggle} />
-              <IconButton
-                color="inherit"
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-                sx={{ ml: 1 }}
-              >
-                <img 
-                  src={me?.avatar ? `/uploads/${me.avatar}` : '/favicon-32x32.png'} 
-                  alt="Account" 
-                  style={{ width: 32, height: 32, borderRadius: '50%' }} 
+              <IconButton color="inherit" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ ml: 1 }}>
+                <img
+                  src={me?.avatar ? `/uploads/${me.avatar}` : '/favicon-32x32.png'}
+                  alt="Account"
+                  style={{ width: 32, height: 32, borderRadius: '50%' }}
                 />
               </IconButton>
             </>
@@ -159,9 +174,7 @@ export default function App() {
               {navigation.main.map((item) => (
                 <ListItem key={item.segment} disablePadding>
                   <ListItemButton onClick={() => handleNavigation(item.segment)}>
-                    <ListItemIcon>
-                      {item.icon}
-                    </ListItemIcon>
+                    <ListItemIcon>{item.icon}</ListItemIcon>
                     <ListItemText primary={item.title} />
                   </ListItemButton>
                 </ListItem>
@@ -174,9 +187,7 @@ export default function App() {
                 {navigation.footer.map((item) => (
                   <ListItem key={item.segment} disablePadding>
                     <ListItemButton onClick={() => handleNavigation(item.segment)}>
-                      <ListItemIcon>
-                        {item.icon}
-                      </ListItemIcon>
+                      <ListItemIcon>{item.icon}</ListItemIcon>
                       <ListItemText primary={item.title} />
                     </ListItemButton>
                   </ListItem>
@@ -193,8 +204,8 @@ export default function App() {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { md: isAuthRoute ? '100%' : (drawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%') },
-          ml: { md: isAuthRoute ? 0 : (drawerOpen ? `${drawerWidth}px` : 0) },
+          width: { md: isAuthRoute ? '100%' : drawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
+          ml: { md: isAuthRoute ? 0 : drawerOpen ? `${drawerWidth}px` : 0 },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
@@ -211,11 +222,7 @@ export default function App() {
 
           <AppRoutes user={me} />
 
-          {!isAuthRoute && (
-            <PasswordChangeDialog
-              open={!!mustChange}
-            />
-          )}
+          {!isAuthRoute && <PasswordChangeDialog open={!!mustChange} />}
         </ErrorBoundary>
       </Box>
     </Box>

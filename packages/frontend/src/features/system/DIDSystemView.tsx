@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, apiClient } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
 import { useAuth } from '../../shared/contexts/AuthContext';
 import SystemHeader from '../../components/common/SystemHeader';
@@ -46,8 +47,8 @@ export default function DIDSystemView(): React.ReactElement {
   }, [uid, me, nav]);
 
   // Computed values
-  const currentSystem = systems.find((s) => String(s.user_id) === String(uid));
-  const canManage = me && (me.is_admin || (me.is_system && String(me.id) === String(uid)));
+  const currentSystem = systems.find((s) => normalizeEntityId(s.user_id) === normalizeEntityId(uid));
+  const canManage = me && (me.is_admin || (me.is_system && normalizeEntityId(me.id) === normalizeEntityId(uid)));
   const readOnly = !!uid && !canManage;
 
   return (
@@ -71,23 +72,11 @@ export default function DIDSystemView(): React.ReactElement {
         onHideMergedChange={setHideMerged}
         readOnly={readOnly}
       />
-      {tab === 0 && (
-        <AltersTab
-          routeUid={uid}
-        />
-      )}
+      {tab === 0 && <AltersTab routeUid={uid} />}
 
-      {tab === 1 && (
-        <GroupsTab
-          uid={uid}
-        />
-      )}
+      {tab === 1 && <GroupsTab uid={uid} />}
 
-      {tab === 2 && (
-        <SubsystemsTab
-          uid={uid}
-        />
-      )}
+      {tab === 2 && <SubsystemsTab uid={uid} />}
 
       <NotificationSnackbar
         open={snack.open}

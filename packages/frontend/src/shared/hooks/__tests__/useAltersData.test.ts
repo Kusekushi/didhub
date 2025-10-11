@@ -18,14 +18,18 @@ type MockPage<T> = {
   offset: number;
 };
 
+type MockResponse<T> = {
+  data: T;
+};
+
 const { listMock } = vi.hoisted(() => ({
-  listMock: vi.fn<(params: ListParams) => Promise<MockPage<Alter>>>(),
+  listMock: vi.fn<(params: ListParams) => Promise<MockResponse<MockPage<Alter>>>>(),
 }));
 
 vi.mock('@didhub/api-client', () => ({
   apiClient: {
-    alters: {
-      list: listMock,
+    alter: {
+      get_alters: listMock,
     },
   },
 }));
@@ -50,7 +54,7 @@ describe('useAltersData', () => {
 
   it('loads alters when uid provided', async () => {
     const alters = [{ id: 1, name: 'Alpha' }];
-    listMock.mockResolvedValue({ items: alters, total: 3, limit: 20, offset: 0 });
+    listMock.mockResolvedValue({ data: { items: alters, total: 3, limit: 20, offset: 0 } });
 
     const { result } = renderHook(() => useAltersData('uid-1'));
 
@@ -81,7 +85,7 @@ describe('useAltersData', () => {
 
   it('includes search query when fetching', async () => {
     const alters = [{ id: 2, name: 'Beta' }];
-    listMock.mockResolvedValue({ items: alters, total: 1, limit: 20, offset: 0 });
+    listMock.mockResolvedValue({ data: { items: alters, total: 1, limit: 20, offset: 0 } });
 
     const { result } = renderHook(() => useAltersData('uid-1', 'bet'));
 
@@ -101,7 +105,7 @@ describe('useAltersData', () => {
   it('refreshes using current pagination parameters', async () => {
     const first: MockPage<Alter> = { items: [{ id: 5, name: 'Gamma' }], total: 5, limit: 20, offset: 0 };
     const second: MockPage<Alter> = { items: [{ id: 6, name: 'Delta' }], total: 5, limit: 20, offset: 0 };
-    listMock.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    listMock.mockResolvedValueOnce({ data: first }).mockResolvedValueOnce({ data: second });
 
     const { result } = renderHook(() => useAltersData('uid-1', 'gamma'));
 
@@ -124,7 +128,7 @@ describe('useAltersData', () => {
   });
 
   it('requests subsequent pages with computed offset', async () => {
-    listMock.mockResolvedValue({ items: [{ id: 9 }], total: 25, limit: 10, offset: 20 });
+    listMock.mockResolvedValue({ data: { items: [{ id: 9 }], total: 25, limit: 10, offset: 20 } });
 
     renderHook(() => useAltersData('uid-9', '', 0, 2, 10));
 

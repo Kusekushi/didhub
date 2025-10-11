@@ -1,13 +1,16 @@
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
+
 export interface RelationshipOption {
-  id: number | string;
+  id: string;
   label: string;
   aliases?: string[];
 }
 
-export function coerceIdentifier(value: number | string): number | string {
-  if (typeof value === 'number') return value;
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? value : parsed;
+export function coerceIdentifier(value: string): string {
+  // IDs are UUID strings; ensure we return a trimmed string.
+  return String(value ?? '')
+    .trim()
+    .replace(/^#/u, '');
 }
 
 export function toDisplayLabel(value: unknown, idLookup: Record<string, string>): string | null {
@@ -22,8 +25,11 @@ export function toDisplayLabel(value: unknown, idLookup: Record<string, string>)
     if ('id' in (value as Record<string, unknown>)) {
       const idValue = (value as { id?: unknown }).id;
       if (idValue != null) {
-        const label = idLookup[String(idValue)];
-        if (label) return label;
+        const n = normalizeEntityId(idValue);
+        if (n) {
+          const label = idLookup[n];
+          if (label) return label;
+        }
       }
     }
   }
@@ -52,15 +58,17 @@ export function mapToLabels(source: unknown, idLookup: Record<string, string>): 
 }
 
 export function buildNameLookup(
-  primary?: Record<string, number | string>,
+  primary?: Record<string, string>,
   idLookup?: Record<string, string>,
-): Record<string, number | string> {
-  const result: Record<string, number | string> = {};
+): Record<string, string> {
+  const result: Record<string, string> = {};
   if (primary) {
     Object.entries(primary).forEach(([name, id]) => {
       if (!name) return;
-      result[name] = id;
-      result[name.toLowerCase()] = id;
+      const n = normalizeEntityId(id);
+      if (!n) return;
+      result[name] = n;
+      result[name.toLowerCase()] = n;
     });
   }
   if (idLookup) {
@@ -78,41 +86,52 @@ export function convertLabelsToIdentifiers(
   selections: Array<string | RelationshipOption>,
   primary?: Record<string, number | string>,
   idLookup?: Record<string, string>,
-): Array<number | string> {
-  const lookup = buildNameLookup(primary, idLookup);
-  return selections.map((selection) => {
-    if (selection && typeof selection === 'object') {
-      return coerceIdentifier((selection as RelationshipOption).id);
-    }
-    const trimmed = String(selection ?? '').trim();
-    if (!trimmed) return trimmed;
-    const match = lookup[trimmed] ?? lookup[trimmed.toLowerCase()];
-    if (typeof match !== 'undefined') return coerceIdentifier(match);
-    if (trimmed.startsWith('#')) {
-      const numericFromHash = Number(trimmed.slice(1));
-      if (!Number.isNaN(numericFromHash)) return numericFromHash;
-    }
-    const numeric = Number(trimmed);
-    return Number.isNaN(numeric) ? trimmed : numeric;
-  });
+): string[] {
+  // Ensure primary map values are strings
+  const primaryStr: Record<string, string> | undefined = primary
+    ? Object.fromEntries(Object.entries(primary).map(([k, v]) => [k, String(v)]))
+    : undefined;
+  const lookup = buildNameLookup(primaryStr, idLookup);
+  return selections
+    .map((selection) => {
+      if (selection && typeof selection === 'object') {
+        return coerceIdentifier((selection as RelationshipOption).id);
+      }
+      const trimmed = String(selection ?? '').trim();
+      if (!trimmed) return null;
+      const match = lookup[trimmed] ?? lookup[trimmed.toLowerCase()];
+      if (typeof match !== 'undefined') return coerceIdentifier(match);
+      if (trimmed.startsWith('#')) {
+        return trimmed.slice(1);
+      }
+      return trimmed;
+    })
+    .filter((v): v is string => v != null && v !== '');
 }
 
 export function buildOptionIndexes(options: RelationshipOption[]) {
   const byId = new Map<string, RelationshipOption>();
   const byAlias = new Map<string, RelationshipOption>();
   options.forEach((option) => {
-    const idKey = String(option.id);
-    byId.set(idKey, option);
-    byAlias.set(idKey, option);
-    byAlias.set(`#${idKey}`, option);
-    const labelLower = option.label.toLowerCase();
-    byAlias.set(labelLower, option);
-    if (option.aliases) {
-      option.aliases
+    // Normalize the option id and store a normalized copy so callers always
+    // receive string ids (entity ids are strings/UUIDs in this codebase).
+    const rawId = (option as any).id;
+    const idKey = normalizeEntityId(rawId);
+    if (!idKey) return; // skip options without normalized ids
+    const coercedId = coerceIdentifier(idKey);
+    const normalizedOption: RelationshipOption = { ...option, id: coercedId } as RelationshipOption;
+
+    byId.set(coercedId, normalizedOption);
+    byAlias.set(coercedId, normalizedOption);
+    byAlias.set(`#${coercedId}`, normalizedOption);
+    const labelLower = normalizedOption.label.toLowerCase();
+    byAlias.set(labelLower, normalizedOption);
+    if (normalizedOption.aliases) {
+      normalizedOption.aliases
         .map((alias) => alias.trim().toLowerCase())
         .filter(Boolean)
         .forEach((alias) => {
-          if (!byAlias.has(alias)) byAlias.set(alias, option);
+          if (!byAlias.has(alias)) byAlias.set(alias, normalizedOption);
         });
     }
   });
@@ -136,9 +155,7 @@ export function mapSelectionsToTagValues(
       if (item == null) return null;
 
       const potentialIds: string[] = [];
-      if (typeof item === 'number') {
-        potentialIds.push(String(item));
-      } else if (typeof item === 'string') {
+      if (typeof item === 'string') {
         const trimmed = item.trim();
         if (trimmed) {
           potentialIds.push(trimmed);
@@ -146,7 +163,10 @@ export function mapSelectionsToTagValues(
         }
       } else if (typeof item === 'object' && 'id' in (item as Record<string, unknown>)) {
         const idValue = (item as { id?: unknown }).id;
-        if (idValue != null) potentialIds.push(String(idValue));
+        if (idValue != null) {
+          const n = normalizeEntityId(idValue);
+          if (n) potentialIds.push(n);
+        }
       }
 
       for (const candidate of potentialIds) {
@@ -165,10 +185,10 @@ export function mapSelectionsToTagValues(
           const candidateId = potentialIds.find(Boolean);
           if (candidateId) {
             const normalized = candidateId.startsWith('#') ? candidateId.slice(1) : candidateId;
-            // Only synthesize an option when the candidate looks like an id (numeric)
-            // or was explicitly provided with a leading '#'. Otherwise return the
-            // plain trimmed label so free-text remains a string.
-            if (candidateId.startsWith('#') || /^[0-9]+$/u.test(normalized)) {
+            // Synthesize an option for anything that looks like an identifier
+            // (either prefixed with '#' or non-empty after normalization). This
+            // supports UUID/string identifiers as well as numeric ids.
+            if (candidateId.startsWith('#') || normalized) {
               const mapped = { id: coerceIdentifier(normalized), label: trimmed, aliases: [] };
               return mapped;
             }
@@ -191,16 +211,7 @@ export function mapSelectionsToTagValues(
         return trimmed;
       }
 
-      if (typeof item === 'number') {
-        const idKey = String(item);
-        if (byId.has(idKey)) return byId.get(idKey)!;
-        const inferred = idLookup[idKey];
-        if (inferred) {
-          const mapped = { id: coerceIdentifier(idKey), label: inferred, aliases: [] };
-          return mapped;
-        }
-        return idKey;
-      }
+      // numeric primitives should not be treated as entity ids; skip
 
       return null;
     })

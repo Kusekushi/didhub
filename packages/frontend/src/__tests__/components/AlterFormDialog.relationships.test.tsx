@@ -34,12 +34,12 @@ describe('useAlterRelationshipOptions', () => {
     const mockList = vi.fn().mockResolvedValue({
       data: {
         items: [
-        {
-          id: 7,
-          name: 'Alpha',
-          username: 'alpha',
-        },
-      ],
+          {
+            id: '7',
+            name: 'Alpha',
+            username: 'alpha',
+          },
+        ],
         total: 1,
       },
     });
@@ -55,34 +55,34 @@ describe('useAlterRelationshipOptions', () => {
       await result.current.refreshPartnerOptions();
     });
 
-  expect(mockNames).toHaveBeenCalledTimes(1);
-  expect(mockList).toHaveBeenCalledWith({ perPage: 1000 });
+    expect(mockNames).toHaveBeenCalledTimes(1);
+    expect(mockList).toHaveBeenCalledWith({ perPage: 1000 });
     expect(mockGet).not.toHaveBeenCalled();
 
     const option = result.current.partnerOptions[0];
     expect(result.current.partnerOptions).toHaveLength(1);
-    expect(option.id).toBe(7);
+    expect(option.id).toBe('7');
     expect(option.label).toBe('Alpha (@alpha) #7');
 
-    expect(result.current.partnerMap['Alpha (@alpha) #7']).toBe(7);
-    expect(result.current.partnerMap['alpha']).toBe(7);
+    expect(result.current.partnerMap['Alpha (@alpha) #7']).toBe('7');
+    expect(result.current.partnerMap['alpha']).toBe('7');
     expect(result.current.alterIdNameMap['7']).toBe('Alpha (@alpha) #7');
   });
 
   it('updates chips when selecting and removing relationships', async () => {
     const partnerOptions = [
       {
-        id: 7,
+        id: '7',
         label: 'Alpha (@alpha) #7',
         aliases: ['alpha (@alpha) #7', 'alpha', '#7'],
       },
     ];
     const partnerMap = {
-      'Alpha (@alpha) #7': 7,
-      'alpha (@alpha) #7': 7,
-      alpha: 7,
-      '#7': 7,
-      '7': 7,
+      'Alpha (@alpha) #7': '7',
+      'alpha (@alpha) #7': '7',
+      alpha: '7',
+      '#7': '7',
+      '7': '7',
     } as Record<string, number | string>;
     const alterIdNameMap = { '7': 'Alpha (@alpha) #7' };
 

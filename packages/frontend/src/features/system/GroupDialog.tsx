@@ -12,10 +12,11 @@ import {
 } from '@mui/material';
 import { apiClient } from '@didhub/api-client';
 import type { Alter, Group } from '@didhub/api-client';
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
 const groupApi = {
   create: async (payload: Record<string, unknown>) => (await apiClient.group.post_groups(payload)).data,
-  update: async (id: number | string, payload: Record<string, unknown>) =>
+  update: async (id: string, payload: Record<string, unknown>) =>
     (await apiClient.group.put_groups_by_id(id, payload)).data,
 };
 import SigilUpload from '../../components/forms/SigilUpload';
@@ -50,29 +51,19 @@ const leaderOptionLabel = (option: Alter | string | null): string => {
   return String(option);
 };
 
-const parseLeaderIds = (leaders: Group['leaders'] | string | null | undefined): number[] => {
-  const attemptParse = (value: unknown): number | undefined => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value === 'string') {
-      const trimmed = value.trim().replace(/^#/u, '');
-      if (!trimmed) return undefined;
-      const numeric = Number(trimmed);
-      return Number.isFinite(numeric) ? numeric : undefined;
-    }
-    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
-      return attemptParse((value as { id?: unknown }).id);
-    }
-    return undefined;
-  };
-
-  const fromArray = (arr: unknown[]): number[] => {
-    const seen = new Set<number>();
-    const result: number[] = [];
+const parseLeaderIds = (leaders: Group['leaders'] | string | null | undefined): string[] => {
+  const fromArray = (arr: unknown[]): string[] => {
+    const seen = new Set<string>();
+    const result: string[] = [];
     arr.forEach((entry) => {
-      const numeric = attemptParse(entry);
-      if (typeof numeric === 'number' && !seen.has(numeric)) {
-        seen.add(numeric);
-        result.push(numeric);
+      const candidate =
+        typeof entry === 'object' && entry != null && 'id' in (entry as Record<string, unknown>)
+          ? (normalizeEntityId((entry as { id?: unknown }).id) ?? String((entry as { id?: unknown }).id))
+          : String(entry);
+      const normalized = candidate.trim().replace(/^#/u, '');
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        result.push(normalized);
       }
     });
     return result;
@@ -96,10 +87,11 @@ const parseLeaderIds = (leaders: Group['leaders'] | string | null | undefined): 
   return [];
 };
 
-const toAlterOption = (id: number, options: Alter[]): Alter => {
-  const match = options.find((option) => Number(option.id) === Number(id));
+const toAlterOption = (id: string, options: Alter[]): Alter => {
+  const match = options.find((option) => normalizeEntityId(option.id) === normalizeEntityId(id));
   if (match) return match;
-  return { id, name: `#${id}` } as Alter;
+  // create a synthetic Alter with a string id cast -- callers expect an object with an id and name
+  return { id: id as unknown as number, name: `#${id}` } as Alter;
 };
 
 const getLeadersFromGroup = (group: Group | null, options: Alter[]): Alter[] => {
@@ -107,22 +99,17 @@ const getLeadersFromGroup = (group: Group | null, options: Alter[]): Alter[] => 
   return parseLeaderIds(group.leaders).map((id) => toAlterOption(id, options));
 };
 
-const mapLeadersToIds = (leaders: Array<Alter | string | number>): number[] => {
-  const seen = new Set<number>();
-  const result: number[] = [];
+const mapLeadersToIds = (leaders: Array<Alter | string | number>): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
   leaders.forEach((leader) => {
     const raw = typeof leader === 'object' ? (leader as Alter).id : leader;
-    let numeric: number | null = null;
-    if (typeof raw === 'number' && Number.isFinite(raw)) {
-      numeric = raw;
-    } else if (typeof raw === 'string') {
-      const trimmed = raw.trim().replace(/^#/u, '');
-      const parsed = Number(trimmed);
-      if (Number.isFinite(parsed)) numeric = parsed;
-    }
-    if (numeric != null && !seen.has(numeric)) {
-      seen.add(numeric);
-      result.push(numeric);
+    const s = String(raw ?? '')
+      .trim()
+      .replace(/^#/u, '');
+    if (s && !seen.has(s)) {
+      seen.add(s);
+      result.push(s);
     }
   });
   return result;
@@ -333,18 +320,22 @@ export default function GroupDialog(props: GroupDialogProps) {
         // Debug: log owner resolution to help trace why owner_user_id may fall back to auth user
         // Remove this in a follow-up when root cause is verified.
         // eslint-disable-next-line no-console
-        console.debug('[GroupDialog] create owner resolution', { propUid: props.uid, authUserId: auth.user?.id, owner });
+        console.debug('[GroupDialog] create owner resolution', {
+          propUid: props.uid,
+          authUserId: auth.user?.id,
+          owner,
+        });
         const payload: Record<string, unknown> = {
           name: trimmedName,
           description: creationState.newGroupDesc || null,
           sigil: sigilUrl,
           leaders: mapLeadersToIds(creationState.newGroupLeaders || []),
         };
-  if (typeof owner === 'number' || typeof owner === 'string') payload.owner_user_id = owner;
+        if (owner) payload.owner_user_id = String(owner);
         // Debug: log final payload being sent to API
         // eslint-disable-next-line no-console
         console.debug('[GroupDialog] create payload', payload);
-  await groupApi.create(payload);
+        await groupApi.create(payload);
 
         // Allow parent refresh handler to complete before closing so callers (and tests) can rely on updated data
         try {
@@ -403,71 +394,71 @@ export default function GroupDialog(props: GroupDialogProps) {
       <Dialog open={props.open} onClose={handleClose} fullWidth maxWidth={isCreate ? 'md' : 'sm'}>
         <DialogTitle>{isCreate ? 'Create group' : 'Edit group'}</DialogTitle>
         <DialogContent>
-        {shouldRenderForm && (
-          <Box
-            component={isCreate ? 'form' : 'div'}
-            onSubmit={isCreate ? handleSubmit : undefined}
-            sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mt: 1 }}
-          >
-            <TextField
-              size="small"
-              label="Name"
-              value={isCreate ? creationState.newGroupName : editingGroup?.name || ''}
-              onChange={handleNameChange}
-              sx={{ minWidth: 240 }}
-            />
-            <TextField
-              size="small"
-              label="Description"
-              value={isCreate ? creationState.newGroupDesc : editingGroup?.description || ''}
-              onChange={handleDescriptionChange}
-              sx={{ minWidth: 320 }}
-              multiline={!isCreate}
-            />
-            <Autocomplete
-              multiple
-              options={altersOptions}
-              getOptionLabel={leaderOptionLabel}
-              value={leaderValue}
-              onChange={handleLeaderChange}
-              onInputChange={handleLeaderInputChange}
-              sx={{ minWidth: 240 }}
-              renderInput={(params: Parameters<typeof TextField>[0]) => (
-                <TextField {...params} label="Leaders" size="small" />
+          {shouldRenderForm && (
+            <Box
+              component={isCreate ? 'form' : 'div'}
+              onSubmit={isCreate ? handleSubmit : undefined}
+              sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mt: 1 }}
+            >
+              <TextField
+                size="small"
+                label="Name"
+                value={isCreate ? creationState.newGroupName : editingGroup?.name || ''}
+                onChange={handleNameChange}
+                sx={{ minWidth: 240 }}
+              />
+              <TextField
+                size="small"
+                label="Description"
+                value={isCreate ? creationState.newGroupDesc : editingGroup?.description || ''}
+                onChange={handleDescriptionChange}
+                sx={{ minWidth: 320 }}
+                multiline={!isCreate}
+              />
+              <Autocomplete
+                multiple
+                options={altersOptions}
+                getOptionLabel={leaderOptionLabel}
+                value={leaderValue}
+                onChange={handleLeaderChange}
+                onInputChange={handleLeaderInputChange}
+                sx={{ minWidth: 240 }}
+                renderInput={(params: Parameters<typeof TextField>[0]) => (
+                  <TextField {...params} label="Leaders" size="small" />
+                )}
+              />
+              <SigilUpload
+                sigilUrl={sigilUrl}
+                uploading={Boolean(sigilUploading)}
+                drag={Boolean(sigilDrag)}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onFileSelect={handleFileSelect}
+                onRemove={handleSigilRemove}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                Maximum file size: 20MB
+              </Typography>
+              {isCreate && (
+                <Button variant="contained" type="submit">
+                  Create
+                </Button>
               )}
-            />
-            <SigilUpload
-              sigilUrl={sigilUrl}
-              uploading={Boolean(sigilUploading)}
-              drag={Boolean(sigilDrag)}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onFileSelect={handleFileSelect}
-              onRemove={handleSigilRemove}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-              Maximum file size: 20MB
-            </Typography>
-            {isCreate && (
-              <Button variant="contained" type="submit">
-                Create
-              </Button>
-            )}
-          </Box>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
-        {!isCreate && <Button onClick={() => handleSubmit()}>Save</Button>}
-      </DialogActions>
-    </Dialog>
-    <NotificationSnackbar
-      open={snack.open}
-      message={snack.message}
-      severity={snack.severity}
-      onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
-    />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          {!isCreate && <Button onClick={() => handleSubmit()}>Save</Button>}
+        </DialogActions>
+      </Dialog>
+      <NotificationSnackbar
+        open={snack.open}
+        message={snack.message}
+        severity={snack.severity}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+      />
     </>
   );
 }

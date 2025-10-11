@@ -15,12 +15,18 @@ export function useGroupResolution(groupIdOrName: string | number | null | undef
 
     async function resolveGroup() {
       try {
-        // Try numeric ID first
-        if (typeof groupIdOrName === 'number' || (typeof groupIdOrName === 'string' && !isNaN(Number(groupIdOrName)))) {
-          const id = typeof groupIdOrName === 'number' ? groupIdOrName : Number(groupIdOrName);
-          const groupData = await apiClient.group.get_groups_by_id(id);
-          setGroup(groupData.data);
-          return;
+        // Try direct id lookup (treat as string id)
+        if (typeof groupIdOrName === 'string') {
+          const id = groupIdOrName.trim().replace(/^#/u, '');
+          if (id) {
+            try {
+              const groupData = await apiClient.group.get_groups_by_id(id as any);
+              setGroup(groupData.data);
+              return;
+            } catch {
+              // fall through to name lookup
+            }
+          }
         }
 
         // Name-based lookup
@@ -55,12 +61,18 @@ export function useSubsystemResolution(subsystemIdOrName: string | number | null
 
     async function resolveSubsystem() {
       try {
-        // Try numeric ID first
-        if (typeof subsystemIdOrName === 'number' || (typeof subsystemIdOrName === 'string' && !isNaN(Number(subsystemIdOrName)))) {
-          const id = typeof subsystemIdOrName === 'number' ? subsystemIdOrName : Number(subsystemIdOrName);
-          const subsystemData = await apiClient.subsystem.get_subsystems_by_id(id);
-          setSubsystem(subsystemData.data);
-          return;
+        // Try direct id lookup (treat as string id)
+        if (typeof subsystemIdOrName === 'string') {
+          const id = subsystemIdOrName.trim().replace(/^#/u, '');
+          if (id) {
+            try {
+              const subsystemData = await apiClient.subsystem.get_subsystems_by_id(id as any);
+              setSubsystem(subsystemData.data);
+              return;
+            } catch {
+              // fall through to name lookup
+            }
+          }
         }
 
         // Name-based lookup

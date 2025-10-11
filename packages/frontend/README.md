@@ -66,8 +66,8 @@ Document new variables in [`README.md`](../../README.md) and
 
 - Unit tests live alongside components (`*.test.tsx`) and use Vitest + Testing
   Library.
-- E2E specs live in `e2e/` and expect the backend to be running with seeded
-  data (`./seed -c config.example.json`). Use `pnpm -F @didhub/frontend e2e -- --ui`
+- E2E specs live in `e2e/` and expect the backend to be running with seeded data
+  (`./seed -c config.example.json`). Use `pnpm -F @didhub/frontend e2e -- --ui`
   for interactive mode.
 
 ## Deployment

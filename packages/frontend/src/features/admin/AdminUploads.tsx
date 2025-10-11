@@ -25,7 +25,18 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import { apiClient } from '@didhub/api-client';
-import type { UploadRecord } from '../../shared/types/api';
+
+type UploadRecord = {
+  id: number;
+  stored_name: string;
+  hash: string | null;
+  user_id: number | null;
+  mime: string | null;
+  bytes: number | null;
+  created_at: string | null;
+  deleted_at: string | null;
+  original_name: string | null;
+};
 
 interface UploadListPayload {
   items?: unknown;
@@ -50,7 +61,7 @@ const parseUploadRecord = (value: unknown): UploadRecord | null => {
   const record = value as Record<string, unknown>;
   const id = toNumberOrNull(record.id);
   const storedName = record.stored_name;
-  if (!Number.isFinite(id) || !isNonEmptyString(storedName)) return null;
+  if (typeof id !== 'number' || !Number.isFinite(id) || !isNonEmptyString(storedName)) return null;
   return {
     id,
     stored_name: storedName,
@@ -77,13 +88,19 @@ const parseUploadList = (
     return { items: [], total: 0, limit: 0, offset: 0 };
   }
 
-  const source = Array.isArray(payload) ? payload : Array.isArray(payload.items) ? payload.items : [];
-  const items = source.map(parseUploadRecord).filter((item): item is UploadRecord => Boolean(item));
-  const total =
-    typeof (payload as UploadListPayload).total === 'number' ? (payload as UploadListPayload).total : items.length;
-  const limit =
-    typeof (payload as UploadListPayload).limit === 'number' ? (payload as UploadListPayload).limit : items.length;
-  const offset = typeof (payload as UploadListPayload).offset === 'number' ? (payload as UploadListPayload).offset : 0;
+  const source = Array.isArray(payload)
+    ? payload
+    : payload && Array.isArray((payload as UploadListPayload).items)
+      ? (payload as UploadListPayload).items
+      : [];
+  const srcArray = source as any[];
+  const items = srcArray.map(parseUploadRecord).filter((item): item is UploadRecord => Boolean(item));
+  const totalRaw = (payload as UploadListPayload)?.total;
+  const limitRaw = (payload as UploadListPayload)?.limit;
+  const offsetRaw = (payload as UploadListPayload)?.offset;
+  const total = toNumberOrNull(totalRaw) ?? items.length;
+  const limit = toNumberOrNull(limitRaw) ?? items.length;
+  const offset = toNumberOrNull(offsetRaw) ?? 0;
   return { items, total, limit, offset };
 };
 
@@ -131,7 +148,7 @@ export default function AdminUploads() {
     if (includeDeleted) params.include_deleted = true;
 
     try {
-      const response = await apiClient.files.list(params).catch(() => null);
+      const response = await apiClient.admin.get_uploads(params).catch(() => null);
       const { items: fetchedItems, total: fetchedTotal } = parseUploadList(
         response as UploadListPayload | UploadRecord[] | null,
       );
@@ -151,10 +168,11 @@ export default function AdminUploads() {
         await Promise.all(
           missing.map(async (id) => {
             try {
-              const user = await apiClient.users.get(id);
-              if (user && user.username) {
-                fetchedUsernames[id] = user.username;
-              }
+              const resp = await apiClient.admin.get_users_by_id(id);
+              const user = resp ? resp : null;
+              // resp may be an HttpResponse wrapper in some usages; try to access username safely
+              const username = (user as any)?.username ?? (user as any)?.body?.username ?? null;
+              if (username) fetchedUsernames[id] = username;
             } catch {
               /* ignore */
             }
@@ -167,8 +185,9 @@ export default function AdminUploads() {
 
       if (retentionDays === null) {
         try {
-          const setting = await apiClient.admin.settings_by_key('uploads.delete.retention.days');
-          const parsed = parseSettingValue(setting);
+          const settingResp = await apiClient.admin.get_settings_by_key('uploads.delete.retention.days');
+          const rawSetting = (settingResp as any)?.body ?? (settingResp as any) ?? null;
+          const parsed = parseSettingValue(rawSetting);
           setRetentionDays(parsed ?? 0);
         } catch {
           setRetentionDays(0);
@@ -194,7 +213,7 @@ export default function AdminUploads() {
     async (name: string, force: boolean) => {
       setDeleting(`${name}${force ? ':force' : ':soft'}`);
       try {
-        await apiClient.files.delete(name, force);
+        await apiClient.admin.delete_uploads_by_name(name, { force });
         await load();
       } catch {
         /* ignore */
@@ -217,7 +236,7 @@ export default function AdminUploads() {
           while (idx < names.length) {
             const current = names[idx++];
             try {
-              await apiClient.files.delete(current, force);
+              await apiClient.admin.delete_uploads_by_name(current, { force });
             } catch {
               /* ignore */
             }
@@ -236,7 +255,7 @@ export default function AdminUploads() {
     setPurging(true);
     try {
       const purgeBefore = purgeCutoff ? new Date(purgeCutoff).toISOString() : undefined;
-      await apiClient.files.purge({ purgeBefore, force: purgeForce });
+      await apiClient.admin.post_uploads_purge({ purge_before: purgeBefore, force: purgeForce }, {});
       await load();
     } finally {
       setPurging(false);

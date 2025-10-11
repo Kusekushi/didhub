@@ -11,12 +11,14 @@ describe('useAltersData tab-aware refresh', () => {
     const mod = await import('@didhub/api-client');
 
     const listMock = vi.fn().mockResolvedValue({
-      items: [{ id: 'initial' }],
-      total: 1,
-      limit: 20,
-      offset: 0,
+      data: {
+        items: [{ id: 'initial' }],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      },
     });
-    (mod as any).apiClient.alters.list = listMock;
+    (mod as any).apiClient.alter.get_alters = listMock;
 
     const { useAltersData } = await import('../useAltersData');
 

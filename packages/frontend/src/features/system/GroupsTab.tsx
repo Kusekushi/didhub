@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, List, Pagination, Typography } from '@mui/material';
 import { apiClient, type ApiUser, type Group } from '@didhub/api-client';
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
 import GroupDialog from './GroupDialog';
 import GroupListItem from './GroupListItem';
@@ -15,10 +16,10 @@ export interface GroupsTabProps {
 
 export default function GroupsTab({ uid }: GroupsTabProps) {
   const { user: me } = useAuth() as { user?: ApiUser };
-  
+
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
-  
+
   // Data fetching
   const groupsData = useGroupsData(uid, '', 1, 0, 20);
 
@@ -30,13 +31,14 @@ export default function GroupsTab({ uid }: GroupsTabProps) {
   // Permission checking
   const canManage =
     !!me &&
-    ((Number(me.is_admin) === 1) || (Number(me.is_system) === 1 && String(me.id) === String(uid)));
+    (String(me.is_admin) === '1' ||
+      (String(me.is_system) === '1' && normalizeEntityId(me.id) === normalizeEntityId(uid)));
 
   const pageCount = Math.max(1, Math.ceil((groupsData.total || 0) / 20));
   const displayStart = groupsData.total === 0 ? 0 : 0 * 20 + 1;
   const displayEnd = groupsData.total === 0 ? 0 : Math.min(groupsData.total, (0 + 1) * 20);
 
-  const handleDelete = async (groupId: number | string) => {
+  const handleDelete = async (groupId: string) => {
     try {
       await apiClient.group.delete_groups_by_id(groupId);
       await groupsData.refresh();

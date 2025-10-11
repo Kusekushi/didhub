@@ -15,6 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
 import { apiClient, parseRoles, type ApiUser, type ApiAlter } from '@didhub/api-client';
+import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUtils';
 
 import AlterFormDialog from '../../components/forms/AlterFormDialog';
 import ThumbnailWithHover from '../../components/ui/ThumbnailWithHover';
@@ -25,35 +26,37 @@ import { useAltersData } from '../../shared/hooks/useAltersData';
 import { useAuth } from '../../shared/contexts/AuthContext';
 
 interface AltersTabProps {
-  routeUid?: string | number | null;
+  routeUid?: EntityId | null;
 }
 
 export default function AltersTab({ routeUid }: AltersTabProps) {
   const nav = useNavigate();
   const { user: me } = useAuth() as { user?: ApiUser };
-  
+
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
-  
+
   // Data fetching - let the hook handle filtering
   const altersData = useAltersData(routeUid as string | undefined, '', 0, 0, 20);
-  
+
   // Dialog state management
-  const [editingAlter, setEditingAlter] = useState<number | string | null>(null);
+  const [editingAlter, setEditingAlter] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  
+
   // Permission checking
-  const canManage = Boolean(me && (me.is_admin || (me.is_system && String(me.id) === String(routeUid))));
-  
+  const canManage = Boolean(
+    me && (me.is_admin || (me.is_system && normalizeEntityId(me.id) === normalizeEntityId(routeUid))),
+  );
+
   const filteredItems = altersData.items;
   const pageCount = Math.max(1, Math.ceil((altersData.total || 0) / 20));
   const displayStart = altersData.total === 0 ? 0 : 0 * 20 + 1;
   const displayEnd = altersData.total === 0 ? 0 : Math.min(altersData.total, (0 + 1) * 20);
 
-  const handleDelete = async (alterId: number | string) => {
+  const handleDelete = async (alterId: string) => {
     try {
-  await apiClient.alter.delete_alters_by_id(alterId);
+      await apiClient.alter.delete_alters_by_id(alterId);
       await altersData.refresh();
       setSnack({ open: true, message: 'Alter deleted', severity: 'success' });
     } catch (error) {
@@ -81,7 +84,7 @@ export default function AltersTab({ routeUid }: AltersTabProps) {
         </div>
       )}
       <List>
-  {filteredItems.map((it: ApiAlter, idx: number) => (
+        {filteredItems.map((it: ApiAlter, idx: number) => (
           <React.Fragment key={it.id}>
             <ListItem
               alignItems="flex-start"

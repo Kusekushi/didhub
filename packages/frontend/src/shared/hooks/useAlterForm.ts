@@ -13,6 +13,8 @@ import {
   normalizeAffiliationIds,
   processArrayField,
   extractFieldErrors,
+  normalizeEntityId,
+  type EntityId,
 } from '../utils/alterFormUtils';
 
 export interface AlterFormDialogProps {
@@ -21,8 +23,8 @@ export interface AlterFormDialogProps {
   onClose: () => void;
   onCreated?: () => Promise<void> | void;
   onSaved?: () => Promise<void> | void;
-  id?: string | number;
-  routeUid?: string | number | null;
+  id?: EntityId;
+  routeUid?: EntityId | null;
 }
 
 interface AlterFormState {
@@ -44,7 +46,7 @@ interface AlterFormState {
 }
 
 export interface RelationshipEntry {
-  userId: number;
+  userId: string;
   type: RelationshipType;
 }
 
@@ -89,31 +91,34 @@ const alterApi = {
     await apiClient.alter.put_alters_by_id(id, body as any);
   },
   async replaceAlterRelationships(
-    id: string | number,
-    relationships: { partners: number[]; parents: number[]; children: number[] },
+    id: EntityId,
+    relationships: { partners: string[]; parents: string[]; children: string[] },
     affiliations: unknown,
   ): Promise<void> {
     const affiliationList = Array.isArray(affiliations)
       ? affiliations
       : typeof affiliations === 'string'
-        ? affiliations.split(',').map((v) => v.trim()).filter(Boolean)
+        ? affiliations
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean)
         : [];
     const payload: ApiReplaceAlterRelationshipsPayload = {
-      partners: (relationships.partners ?? []).map((value) => String(value)),
-      parents: (relationships.parents ?? []).map((value) => String(value)),
-      children: (relationships.children ?? []).map((value) => String(value)),
-      affiliations: affiliationList.map((value) => String(value)),
+      partners: (relationships.partners ?? []).map((value) => (value ?? '').toString()),
+      parents: (relationships.parents ?? []).map((value) => (value ?? '').toString()),
+      children: (relationships.children ?? []).map((value) => (value ?? '').toString()),
+      affiliations: affiliationList.map((value) => (value ?? '').toString()),
     };
     await apiClient.alter.put_alters_by_id_alter_relationships(id, payload);
   },
   async replaceUserRelationships(
-    id: string | number,
-    userRelationships: { partners: number[]; parents: number[]; children: number[] },
+    id: EntityId,
+    userRelationships: { partners: string[]; parents: string[]; children: string[] },
   ): Promise<void> {
     const payload: ApiReplaceRelationshipsPayload = {
-      partners: (userRelationships.partners ?? []).map((value) => String(value)),
-      parents: (userRelationships.parents ?? []).map((value) => String(value)),
-      children: (userRelationships.children ?? []).map((value) => String(value)),
+      partners: (userRelationships.partners ?? []).map((value) => (value ?? '').toString()),
+      parents: (userRelationships.parents ?? []).map((value) => (value ?? '').toString()),
+      children: (userRelationships.children ?? []).map((value) => (value ?? '').toString()),
     };
     await apiClient.alter.put_alters_by_id_user_relationships(id, payload);
   },
@@ -166,7 +171,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
           .filter((rel) => rel.relationship_type === 'child')
           .map((rel) => rel.user_id);
 
-  const affiliationIds = normalizeAffiliationIds(alter.affiliations) ?? [];
+        const affiliationIds = normalizeAffiliationIds(alter.affiliations) ?? [];
 
         setValues({
           ...alter,
@@ -194,13 +199,17 @@ export function useAlterForm(props: AlterFormDialogProps) {
     }
   }, [mode, open, id, loadAlter]);
 
-  const resolveUserId = useCallback((value: unknown): number | undefined => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const resolveUserId = useCallback((value: unknown): string | undefined => {
     if (typeof value === 'string') {
       const trimmed = value.trim();
       if (!trimmed) return undefined;
-      const numeric = Number(trimmed);
-      return Number.isNaN(numeric) ? undefined : numeric;
+      return trimmed.replace(/^#/u, '');
+    }
+    // Only accept string IDs or objects with string 'id' fields. Numeric IDs are
+    // not supported for entity IDs (they should be UUID strings).
+    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
+      const idv = (value as { id?: unknown }).id;
+      if (typeof idv === 'string') return idv.trim().replace(/^#/u, '') || undefined;
     }
     return undefined;
   }, []);
@@ -210,7 +219,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
       if (!Array.isArray(source)) return [];
       return source
         .map((value) => resolveUserId(value))
-        .filter((id): id is number => typeof id === 'number')
+        .filter((id): id is string => typeof id === 'string')
         .map((userId) => ({ userId, type }));
     },
     [resolveUserId],
@@ -250,7 +259,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
   }, []);
 
   const preparePayload = useCallback(
-    (partnerMap: Record<string, number | string>) => {
+    (partnerMap: Record<string, string>) => {
       const payload: Record<string, unknown> = { ...values };
 
       // Process array fields
@@ -287,8 +296,8 @@ export function useAlterForm(props: AlterFormDialogProps) {
         ...buildRelationshipEntries(values.user_children, 'child'),
       ];
 
-      const dedupeByType = (type: RelationshipType): number[] => {
-        const seen = new Set<number>();
+      const dedupeByType = (type: RelationshipType): string[] => {
+        const seen = new Set<string>();
         return desiredUserRelationships
           .filter((entry) => entry.type === type)
           .map((entry) => entry.userId)
@@ -325,7 +334,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
   );
 
   const createAlter = useCallback(
-    async (partnerMap: Record<string, number | string>) => {
+    async (partnerMap: Record<string, string>) => {
       const { payload, relationships, userRelationships } = preparePayload(partnerMap);
 
       // Handle file uploads
@@ -334,24 +343,43 @@ export function useAlterForm(props: AlterFormDialogProps) {
         payload.images = urls;
       }
 
-      // Set owner for new alters
-      const owner = getEffectiveOwnerId(routeUid == null ? undefined : String(routeUid), auth.user?.id ?? null);
-      if (typeof owner === 'number' || typeof owner === 'string') {
+      // Set owner for new alters (string IDs only)
+      const owner = getEffectiveOwnerId(
+        routeUid == null ? undefined : normalizeEntityId(routeUid),
+        auth.user?.id ?? null,
+      );
+      if (typeof owner === 'string') {
         payload.owner_user_id = owner;
       }
 
       const created = await alterApi.create(payload);
 
       if (created?.id) {
-        const alterId = Number(created.id);
+        const alterId = normalizeEntityId((created as any).id);
+        // Only set relationships when we have a normalized UUID id
+        if (alterId) {
+          await alterApi.replaceAlterRelationships(
+            alterId,
+            {
+              partners: relationships.partners.map(String),
+              parents: relationships.parents.map(String),
+              children: relationships.children.map(String),
+            },
+            payload.affiliations,
+          );
 
-        // Set relationships
-        await alterApi.replaceAlterRelationships(alterId, relationships, payload.affiliations);
-
-        try {
-          await alterApi.replaceUserRelationships(alterId, userRelationships);
-        } catch (e) {
-          console.warn('Failed to replace user relationships:', e);
+          try {
+            await alterApi.replaceUserRelationships(alterId, {
+              partners: userRelationships.partners.map(String),
+              parents: userRelationships.parents.map(String),
+              children: userRelationships.children.map(String),
+            });
+          } catch (e) {
+            console.warn('Failed to replace user relationships:', e);
+          }
+        } else {
+          // Created alter ID was not a normalized UUID - skip relationship calls
+          console.warn('Created alter id is not a normalized UUID, skipping relationship updates', (created as any).id);
         }
       }
 
@@ -361,7 +389,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
   );
 
   const updateAlter = useCallback(
-    async (partnerMap: Record<string, number | string>) => {
+    async (partnerMap: Record<string, string>) => {
       if (!id) throw new Error('Alter ID required for update');
 
       const { payload, relationships, userRelationships } = preparePayload(partnerMap);
@@ -391,10 +419,22 @@ export function useAlterForm(props: AlterFormDialogProps) {
       }
 
       await alterApi.update(id, payload);
-      await alterApi.replaceAlterRelationships(Number(id), relationships, payload.affiliations);
+      await alterApi.replaceAlterRelationships(
+        id as string,
+        {
+          partners: relationships.partners.map(String),
+          parents: relationships.parents.map(String),
+          children: relationships.children.map(String),
+        },
+        payload.affiliations,
+      );
 
       try {
-        await alterApi.replaceUserRelationships(Number(id), userRelationships);
+        await alterApi.replaceUserRelationships(id as string, {
+          partners: userRelationships.partners.map(String),
+          parents: userRelationships.parents.map(String),
+          children: userRelationships.children.map(String),
+        });
       } catch (e) {
         console.warn('Failed to replace user relationships:', e);
       }
@@ -403,7 +443,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
   );
 
   const submit = useCallback(
-    async (partnerMap: Record<string, number | string>) => {
+    async (partnerMap: Record<string, string>) => {
       setErrors({});
 
       // Basic validation
@@ -473,28 +513,27 @@ export function useAlterForm(props: AlterFormDialogProps) {
     }));
   }, []);
 
-  const deleteImage = useCallback(async (url: string) => {
-    if (mode !== 'edit' || !id) return;
+  const deleteImage = useCallback(
+    async (url: string) => {
+      if (mode !== 'edit' || !id) return;
 
-    try {
-      await apiClient.http.request({
-        path: `/api/alters/${id}/image`,
-        method: 'DELETE',
-        json: { url },
-      });
+      try {
+        await apiClient.http.request({
+          path: `/api/alters/${id}/image`,
+          method: 'DELETE',
+          json: { url },
+        });
 
-      setValues((prev) => {
-        const existing = Array.isArray(prev.images)
-          ? prev.images
-          : prev.images
-            ? [String(prev.images)]
-            : [];
-        return { ...prev, images: existing.filter((u: string) => u !== url) };
-      });
-    } catch (e) {
-      // ignore for now; UI remains unchanged
-    }
-  }, [mode, id]);
+        setValues((prev) => {
+          const existing = Array.isArray(prev.images) ? prev.images : prev.images ? [String(prev.images)] : [];
+          return { ...prev, images: existing.filter((u: string) => u !== url) };
+        });
+      } catch (e) {
+        // ignore for now; UI remains unchanged
+      }
+    },
+    [mode, id],
+  );
 
   const reorderImages = useCallback((from: number, to: number) => {
     setValues((prev) => {

@@ -7,7 +7,10 @@ test.describe('Subsystems UI flows', () => {
 
     const E2E_USER = process.env.E2E_USER || process.env.PLAYWRIGHT_E2E_USER;
     const E2E_PASS = process.env.E2E_PASS || process.env.PLAYWRIGHT_E2E_PASS;
-    if (!E2E_USER || !E2E_PASS) throw new Error('E2E_USER and E2E_PASS environment variables must be set to run full e2e tests against a real backend');
+    if (!E2E_USER || !E2E_PASS)
+      throw new Error(
+        'E2E_USER and E2E_PASS environment variables must be set to run full e2e tests against a real backend',
+      );
 
     await page.goto('/login');
     const username = page.getByLabel('Username');
@@ -21,10 +24,12 @@ test.describe('Subsystems UI flows', () => {
       await username.waitFor({ timeout: 20000 });
     }
     await username.fill(E2E_USER);
-  const password = page.locator('input[name="password"]');
-  await password.fill(E2E_PASS);
-  await page.locator('form button[type="submit"]').first().click();
-  try { await page.waitForNavigation({ timeout: 5000 }); } catch {}
+    const password = page.locator('input[name="password"]');
+    await password.fill(E2E_PASS);
+    await page.locator('form button[type="submit"]').first().click();
+    try {
+      await page.waitForNavigation({ timeout: 5000 });
+    } catch {}
 
     await page.goto('/did-system/1');
     await page.waitForSelector('text=Alters', { timeout: 15000 });
@@ -34,11 +39,11 @@ test.describe('Subsystems UI flows', () => {
     await page.getByLabel('Name').fill('Playwright E2E Subsystem');
 
     const ownerSelect = page.locator('select[name="owner_user_id"]');
-    if (await ownerSelect.count() > 0) {
+    if ((await ownerSelect.count()) > 0) {
       await ownerSelect.selectOption({ index: 1 }).catch(() => {});
     }
 
     await page.getByRole('button', { name: /create/i }).click();
-  await expect(page.locator('text=Playwright E2E Subsystem')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('text=Playwright E2E Subsystem')).toBeVisible({ timeout: 15000 });
   });
 });

@@ -37,10 +37,17 @@ export default function DatabaseTab() {
 
     try {
       setLoading(true);
-      const response = await apiClient.admin.queryDatabase({ sql: sql.trim(), limit });
-      setResults(response);
-      if (!response.success && response.message) {
-        setSnack({ open: true, message: response.message, severity: 'error' });
+      const response = await apiClient.admin.post_admin_db_query({ sql: sql.trim(), limit });
+      const data = response.data as {
+        success: boolean;
+        columns: string[];
+        rows: Record<string, unknown>[];
+        row_count: number;
+        message?: string;
+      };
+      setResults(data);
+      if (!data.success && data.message) {
+        setSnack({ open: true, message: data.message, severity: 'error' });
       }
     } catch (e) {
       setSnack({ open: true, message: `Query failed: ${String(e)}`, severity: 'error' });

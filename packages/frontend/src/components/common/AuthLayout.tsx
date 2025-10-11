@@ -15,7 +15,16 @@ export default function AuthLayout(props: AuthLayoutProps) {
 
   return (
     <ThemeProvider theme={theme}>
-      <Container sx={{ mt: 6, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', ...(props.containerSx || {}) }}>
+      <Container
+        sx={{
+          mt: 6,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '80vh',
+          ...(props.containerSx || {}),
+        }}
+      >
         <Box sx={{ width: '100%', maxWidth, px: 2, display: 'flex', justifyContent: 'center' }}>
           <Box sx={{ width: '100%', maxWidth: 400 }}>
             {props.title ? (

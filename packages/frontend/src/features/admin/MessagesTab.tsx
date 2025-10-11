@@ -41,9 +41,10 @@ export default function MessagesTab() {
     const loadPosts = async () => {
       try {
         const p = await apiClient.admin.posts(page, 20);
-        const postItems = p && typeof p === 'object' && !Array.isArray(p) && Array.isArray((p as { items?: unknown[] }).items)
-          ? ((p as { items?: unknown[] }).items as unknown[])
-          : [];
+        const postItems =
+          p && typeof p === 'object' && !Array.isArray(p) && Array.isArray((p as { items?: unknown[] }).items)
+            ? ((p as { items?: unknown[] }).items as unknown[])
+            : [];
         setPosts(postItems as Post[]);
       } catch (error) {
         console.error('Failed to load posts:', error);

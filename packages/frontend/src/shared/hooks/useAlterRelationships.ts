@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { apiClient, type Alter, type AlterName } from '@didhub/api-client';
+import { apiClient } from '@didhub/api-client';
 import {
   formatAlterDisplayName,
   collectRelationshipIds,
   type RelationshipOption,
   type RelationshipSources,
+  normalizeEntityId,
 } from '../utils/alterFormUtils';
 
 function debugLog(...args: unknown[]) {
@@ -16,7 +17,7 @@ function debugLog(...args: unknown[]) {
  */
 export function useAlterRelationshipOptions(relationships: RelationshipSources) {
   const [partnerOptions, setPartnerOptions] = useState<RelationshipOption[]>([]);
-  const [partnerMap, setPartnerMap] = useState<Record<string, number | string>>({});
+  const [partnerMap, setPartnerMap] = useState<Record<string, string>>({});
   const [alterIdNameMap, setAlterIdNameMap] = useState<Record<string, string>>({});
 
   const relationshipsRef = useRef<RelationshipSources>({
@@ -25,8 +26,8 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
     children: relationships.children,
   });
 
-  const namesCacheRef = useRef<AlterName[] | null>(null);
-  const namesFetchRef = useRef<Promise<AlterName[]> | null>(null);
+  const namesCacheRef = useRef<any[] | null>(null);
+  const namesFetchRef = useRef<Promise<any[]> | null>(null);
   const lastNamesFetchRef = useRef<number>(0);
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
     };
   }, [relationships.partners, relationships.parents, relationships.children]);
 
-  const loadAlterNameCandidates = useCallback(async (forceReload = false): Promise<AlterName[]> => {
+  const loadAlterNameCandidates = useCallback(async (forceReload = false): Promise<any[]> => {
     const now = Date.now();
     const cacheAge = now - lastNamesFetchRef.current;
 
@@ -61,20 +62,19 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
         try {
           const listPage = await apiClient.alter.get_alters({ perPage: 1000 });
           items = listPage.data.items
-            .filter((alter): alter is Alter => Boolean(alter) && typeof alter.id !== 'undefined')
+            .filter((alter) => Boolean(alter) && typeof (alter as any).id !== 'undefined')
             .map((alter) => ({
-              id: typeof alter.id === 'number' ? alter.id : Number(alter.id),
-              name: alter.name ?? '',
-              username: (alter as { username?: string }).username ?? undefined,
-              user_id: (alter as { user_id?: string }).user_id ?? null,
+              id: (alter as any).id,
+              name: (alter as any).name ?? '',
+              username: (alter as any).username ?? undefined,
+              user_id: (alter as any).user_id ?? null,
             }));
           debugLog('Fallback alters.list loaded', { count: items.length, sample: items.slice(0, 5) });
         } catch (fallbackError) {
           debugLog('Fallback alters.list failed', fallbackError);
         }
       }
-
-      const filtered = items.filter((it): it is AlterName => Boolean(it) && typeof it.id !== 'undefined');
+      const filtered = items.filter((it) => Boolean(it) && typeof (it as any).id !== 'undefined');
       lastNamesFetchRef.current = Date.now();
       namesCacheRef.current = filtered;
       return filtered;
@@ -92,37 +92,37 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
   }, []);
 
   const refreshPartnerOptions = useCallback(
-    async (existingAlter?: Alter | null, opts?: { forceReload?: boolean }) => {
+    async (existingAlter?: any | null, opts?: { forceReload?: boolean }) => {
       try {
         const baseItems = await loadAlterNameCandidates(opts?.forceReload ?? false);
         debugLog('Fetched alter names', { count: baseItems.length, sample: baseItems.slice(0, 5) });
 
         const optionsList: RelationshipOption[] = [];
-        const aliasMap: Record<string, number | string> = {};
+        const aliasMap: Record<string, string> = {};
         const idName: Record<string, string> = {};
         const optionById = new Map<string, RelationshipOption>();
 
-        const register = (
-          alias: string | number | null | undefined,
-          idValue: string,
-          collector: Set<string>,
-        ) => {
+        const register = (alias: string | null | undefined, idValue: string, collector: Set<string>) => {
           if (alias == null) return;
           const text = String(alias).trim();
           if (!text) return;
-          aliasMap[text] = idValue;
-          aliasMap[text.toLowerCase()] = idValue;
+          const n = normalizeEntityId(idValue);
+          if (!n) return;
+          aliasMap[text] = n;
+          aliasMap[text.toLowerCase()] = n;
           collector.add(text.toLowerCase());
         };
 
         const addOption = (option: RelationshipOption) => {
           optionsList.push(option);
-          optionById.set(String(option.id), option);
+          const optId = normalizeEntityId(option.id);
+          if (optId) optionById.set(optId, option);
         };
 
-        const ensureOptionForId = async (identifier: number | string) => {
-          const idValue = identifier as string;
-          if (aliasMap[String(idValue)] || aliasMap[String(idValue).toLowerCase()]) return;
+        const ensureOptionForId = async (identifier: string) => {
+          const idValue = (normalizeEntityId(identifier) ?? '').trim().replace(/^#/u, '');
+          if (!idValue) return;
+          if (aliasMap[idValue] || aliasMap[idValue.toLowerCase()]) return;
 
           try {
             const fetched = (await apiClient.alter.get_alters_by_id(idValue)).data;
@@ -133,12 +133,13 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
                 username: (fetched as { username?: string }).username,
               });
               const aliases = new Set<string>();
-              register(display, fetched.id, aliases);
-              register(fetched.name, fetched.id, aliases);
-              register((fetched as { username?: string }).username, fetched.id, aliases);
-              const option = { id: fetched.id, label: display, aliases: Array.from(aliases) };
+              const fetchedId = normalizeEntityId(fetched.id);
+              register(display, fetchedId, aliases);
+              register(fetched.name, fetchedId, aliases);
+              register((fetched as { username?: string }).username, fetchedId, aliases);
+              const option = { id: fetchedId, label: display, aliases: Array.from(aliases) };
               addOption(option);
-              idName[String(fetched.id)] = display;
+              idName[fetchedId] = display;
               return;
             }
           } catch (fetchErr) {
@@ -150,14 +151,17 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
           register(fallbackLabel, idValue, aliases);
           const option = { id: idValue, label: fallbackLabel, aliases: Array.from(aliases) };
           addOption(option);
-          idName[String(idValue)] = fallbackLabel;
+          idName[idValue] = fallbackLabel;
         };
 
         // Process base items
         for (const it of baseItems) {
-          const idValue = it.id;
-          const display = formatAlterDisplayName(it);
-          idName[String(idValue)] = display;
+          const idValue = normalizeEntityId(it.id) ?? undefined;
+          const display = formatAlterDisplayName({
+            id: it.id,
+            name: it.name ?? undefined,
+            username: (it as { username?: string }).username,
+          });
           const aliases = new Set<string>();
           register(display, idValue, aliases);
           register(it.name, idValue, aliases);
@@ -166,9 +170,9 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
           register(idValue, idValue, aliases);
           register(`#${idValue}`, idValue, aliases);
           addOption({ id: idValue, label: display, aliases: Array.from(aliases) });
+          idName[idValue] = display;
         }
 
-        // Ensure options for existing relationships
         const {
           partners: currentPartners,
           parents: currentParents,
@@ -177,17 +181,14 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
 
         const relationshipSources = [currentPartners, currentParents, currentChildren];
         if (existingAlter) {
-          relationshipSources.push(
-            existingAlter.partners,
-            existingAlter.parents,
-            existingAlter.children,
-          );
+          relationshipSources.push(existingAlter.partners, existingAlter.parents, existingAlter.children);
         }
 
         const ensureIds = new Set<string>();
         relationshipSources.forEach((source) => {
           collectRelationshipIds(source).forEach((identifier) => {
-            ensureIds.add(String(identifier));
+            const ensured = normalizeEntityId(identifier);
+            if (ensured) ensureIds.add(ensured);
           });
         });
 

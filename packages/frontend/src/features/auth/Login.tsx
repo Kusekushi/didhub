@@ -1,6 +1,19 @@
 import React, { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Checkbox, FormControlLabel, IconButton, InputAdornment, Link, TextField, Button, Box, Typography, Alert, Paper, Stack } from '@mui/material';
+import {
+  Checkbox,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  Link,
+  TextField,
+  Button,
+  Box,
+  Typography,
+  Alert,
+  Paper,
+  Stack,
+} from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { apiClient } from '@didhub/api-client';
@@ -173,31 +186,34 @@ export default function Login(): React.ReactElement {
             }}
           />
           <FormControlLabel
-            control={<Checkbox checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} color="primary" name="rememberMe" />}
+            control={
+              <Checkbox
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                color="primary"
+                name="rememberMe"
+              />
+            }
             label="Remember me?"
           />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={loading}
-          >
+          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }} disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </Box>
 
-        {providers.filter(p => p.id !== 'credentials').map((provider) => (
-          <Button
-            key={provider.id}
-            fullWidth
-            variant="outlined"
-            sx={{ mt: 1 }}
-            onClick={() => handleProviderSignIn(provider)}
-          >
-            Sign in with {provider.name}
-          </Button>
-        ))}
+        {providers
+          .filter((p) => p.id !== 'credentials')
+          .map((provider) => (
+            <Button
+              key={provider.id}
+              fullWidth
+              variant="outlined"
+              sx={{ mt: 1 }}
+              onClick={() => handleProviderSignIn(provider)}
+            >
+              Sign in with {provider.name}
+            </Button>
+          ))}
 
         <Box sx={{ mt: 2, textAlign: 'center' }}>
           <Link href="/register" variant="body2">

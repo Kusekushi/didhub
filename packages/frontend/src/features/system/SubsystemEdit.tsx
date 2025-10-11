@@ -11,8 +11,8 @@ export default function SubsystemEdit() {
   useEffect(() => {
     (async () => {
       try {
-  const response = await apiClient.subsystem.get_subsystems_by_id(sid);
-  setValues((response.data as any) || {});
+        const response = await apiClient.subsystem.get_subsystems_by_id(sid);
+        setValues((response.data as any) || {});
       } catch (e) {
         setValues({});
       }

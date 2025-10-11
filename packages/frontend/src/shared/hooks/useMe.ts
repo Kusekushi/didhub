@@ -15,7 +15,9 @@ export function useMe() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getMe().then(setMe).finally(() => setLoading(false));
+    getMe()
+      .then(setMe)
+      .finally(() => setLoading(false));
   }, []);
 
   return { me, loading, refetch: () => getMe().then(setMe) };

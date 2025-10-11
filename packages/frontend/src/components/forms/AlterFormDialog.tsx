@@ -10,24 +10,15 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { useAlterForm } from '../../shared/hooks/useAlterForm';
+import type { AlterFormDialogProps } from '../../shared/hooks/useAlterForm';
 import { useAlterRelationshipOptions } from '../../shared/hooks/useAlterRelationships';
 import { useUserRelationshipOptions } from '../../shared/hooks/useUserRelationships';
 import AlterFormFields from './AlterForm';
 
-export interface AlterFormDialogProps {
-  mode: 'create' | 'edit';
-  open: boolean;
-  onClose: () => void;
-  onCreated?: () => Promise<void> | void;
-  onSaved?: () => Promise<void> | void;
-  id?: string | number;
-  routeUid?: string | number | null;
-}
-
 export { useAlterRelationshipOptions } from '../../shared/hooks/useAlterRelationships';
 
 export default function AlterFormDialog(props: AlterFormDialogProps) {
-  const { mode, open, onClose, onCreated, onSaved, id, routeUid } = props;
+  const { mode, open, onClose } = props;
 
   const alterForm = useAlterForm(props);
   const alterRelationships = useAlterRelationshipOptions({

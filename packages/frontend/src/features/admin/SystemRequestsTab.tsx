@@ -14,7 +14,11 @@ export interface SystemRequest {
 
 export default function SystemRequestsTab() {
   const [sysRequests, setSysRequests] = useState<SystemRequest[]>([]);
-  const [snack, setSnack] = useState<{ open: boolean; text: string; severity: AlertColor }>({ open: false, text: '', severity: 'info' });
+  const [snack, setSnack] = useState<{ open: boolean; text: string; severity: AlertColor }>({
+    open: false,
+    text: '',
+    severity: 'info',
+  });
 
   // Load system requests on mount
   useEffect(() => {

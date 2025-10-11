@@ -16,10 +16,7 @@ export default function AccountPopoverContent() {
   return (
     <Stack spacing={1} sx={{ p: 1 }}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1 }}>
-        <Avatar
-          src={user?.avatar ? `/uploads/${user.avatar}` : undefined}
-          sx={{ width: 32, height: 32 }}
-        >
+        <Avatar src={user?.avatar ? `/uploads/${user.avatar}` : undefined} sx={{ width: 32, height: 32 }}>
           {user?.username?.charAt(0).toUpperCase()}
         </Avatar>
         <Stack>
@@ -31,9 +28,7 @@ export default function AccountPopoverContent() {
       <MenuItem component={RouterLink} to="/user-settings">
         User settings
       </MenuItem>
-      <MenuItem onClick={handleSignOut}>
-        Sign out
-      </MenuItem>
+      <MenuItem onClick={handleSignOut}>Sign out</MenuItem>
     </Stack>
   );
 }

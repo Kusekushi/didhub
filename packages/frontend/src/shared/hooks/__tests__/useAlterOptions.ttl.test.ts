@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('useAlterOptions cache TTL', () => {
   beforeEach(() => {
@@ -11,8 +11,10 @@ describe('useAlterOptions cache TTL', () => {
     const mod = await import('@didhub/api-client');
 
     // First call returns v1
-    const mockSearch = vi.fn().mockResolvedValue([{ id: 'v1' }]);
-    (mod as any).apiClient.alters.search = mockSearch;
+    const mockSearch = vi.fn().mockResolvedValue({
+      data: { items: [{ id: 'v1' }], total: 1, limit: 20, offset: 0 },
+    });
+    (mod as any).apiClient.alter.get_alters_search = mockSearch;
 
     const { useAlterOptions } = await import('../useAlterOptions');
 
@@ -27,7 +29,7 @@ describe('useAlterOptions cache TTL', () => {
     });
 
     // Change the underlying mock to return v2 if called again
-    mockSearch.mockResolvedValue([{ id: 'v2' }]);
+    mockSearch.mockResolvedValue({ data: { items: [{ id: 'v2' }], total: 1, limit: 20, offset: 0 } });
 
     // Create a second hook instance with the same key. Because cache TTL hasn't expired, it should use the cached v1 and not call the mock again.
     const r2 = renderHook(() => useAlterOptions('system-ttl', 'same'));

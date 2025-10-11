@@ -1,4 +1,5 @@
 import React from 'react';
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 import {
   TextField,
   Autocomplete,
@@ -14,8 +15,7 @@ import {
 } from '@mui/material';
 import { createFilterOptions, type AutocompleteRenderGetTagProps } from '@mui/material/Autocomplete';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { ApiAlter } from '@didhub/api-client';
-import { useAlterRelationships } from './useAlterRelationships';
+import { ApiAlter, apiClient } from '@didhub/api-client';
 import {
   RelationshipOption,
   TagValue,
@@ -37,28 +37,28 @@ function debugLog(...args: unknown[]) {
 export interface AlterFormFieldsProps {
   values: Partial<ApiAlter> & {
     _files?: File[];
-    partners?: Array<number | string | { id?: number | string }>;
-    parents?: Array<number | string | { id?: number | string }>;
-    children?: Array<number | string | { id?: number | string }>;
-    user_partners?: Array<number | string> | Array<string>;
-    user_parents?: Array<number | string> | Array<string>;
-    user_children?: Array<number | string> | Array<string>;
-    affiliations?: Array<number | string>;
-    subsystem?: number | { id?: number; name?: string } | string | null;
+    partners?: Array<string | { id?: string }>;
+    parents?: Array<string | { id?: string }>;
+    children?: Array<string | { id?: string }>;
+    user_partners?: Array<string>;
+    user_parents?: Array<string>;
+    user_children?: Array<string>;
+    affiliations?: Array<string>;
+    subsystem?: string | { id?: string; name?: string } | null;
   };
   errors: Record<string, string>;
   partnerOptions: RelationshipOption[];
-  partnerMap?: Record<string, number | string>;
+  partnerMap?: Record<string, string>;
   parentOptions?: RelationshipOption[];
-  parentMap?: Record<string, number | string>;
+  parentMap?: Record<string, string>;
   childOptions?: RelationshipOption[];
-  childMap?: Record<string, number | string>;
+  childMap?: Record<string, string>;
   userPartnerOptions?: string[];
-  userPartnerMap?: Record<string, number | string>;
+  userPartnerMap?: Record<string, string>;
   userParentOptions?: string[];
-  userParentMap?: Record<string, number | string>;
+  userParentMap?: Record<string, string>;
   userChildOptions?: string[];
-  userChildMap?: Record<string, number | string>;
+  userChildMap?: Record<string, string>;
   alterIdNameMap?: Record<string, string>;
   userIdNameMap?: Record<string, string>;
   onChange: (k: string, v: unknown) => void;
@@ -71,10 +71,8 @@ export interface AlterFormFieldsProps {
   partnerLabel?: string;
   useSwitchForHost?: boolean;
   progressMap?: Record<string, number>; // filename -> percent
-  routeUid?: string | number | null;
+  routeUid?: string | null;
 }
-
-
 
 export default function AlterFormFields(props: AlterFormFieldsProps) {
   const {
@@ -92,6 +90,9 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
     onReorderImages,
     progressMap,
   } = props;
+
+  // normalize routeUid to string | undefined for child components
+  const normalizedRouteUid = normalizeEntityId(props.routeUid ?? undefined) ?? undefined;
 
   const [soulSongsInput, setSoulSongsInput] = React.useState('');
   const [interestsInput, setInterestsInput] = React.useState('');
@@ -128,7 +129,9 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   // Local cache for alter id -> display name lookup. If the parent did not provide
   // `alterIdNameMap` (because relationships are no longer fetched with the alter),
   // fetch missing names on demand so tag rendering still works.
-  const [localAlterIdLookup, setLocalAlterIdLookup] = React.useState<Record<string, string>>(props.alterIdNameMap ?? {});
+  const [localAlterIdLookup, setLocalAlterIdLookup] = React.useState<Record<string, string>>(
+    props.alterIdNameMap ?? {},
+  );
   const mergedAlterIdLookup = React.useMemo(
     () => ({ ...(props.alterIdNameMap ?? {}), ...localAlterIdLookup }),
     [props.alterIdNameMap, localAlterIdLookup],
@@ -142,18 +145,17 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
       return source
         .map((v) => {
           if (v == null) return null;
-          if (typeof v === 'number') return String(v);
           if (typeof v === 'string') {
             const trimmed = v.trim();
             if (!trimmed) return null;
             if (trimmed.startsWith('#')) return trimmed.slice(1);
-            if (/^\d+$/u.test(trimmed)) return trimmed;
-            return null;
+            return trimmed;
           }
           if (typeof v === 'object' && 'id' in (v as Record<string, unknown>)) {
-            const idv = (v as { id?: unknown }).id;
-            return idv != null ? String(idv) : null;
+            const idv = normalizeEntityId((v as { id?: unknown }).id);
+            return idv != null ? idv : null;
           }
+          // ignore numeric primitives — entity IDs are UUID strings
           return null;
         })
         .filter((x): x is string => Boolean(x));
@@ -176,11 +178,15 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
         await Promise.all(
           missing.map(async (id) => {
             try {
-              const resp = await apiClient.alter.get_alters_by_id(id);
+              const normalizedId = normalizeEntityId(id);
+              if (!normalizedId) return;
+              const resp = await apiClient.alter.get_alters_by_id(normalizedId);
               const alter = (resp.data as ApiAlter) ?? null;
               if (alter && alter.id != null) {
-                const label = (alter.name ?? (alter as any).username ?? `#${alter.id}`) as string;
-                entries.push([String(alter.id), label]);
+                const key = normalizeEntityId(alter.id);
+                if (!key) return null;
+                const label = (alter.name ?? (alter as any).username ?? `#${key}`) as string;
+                entries.push([key, label]);
               }
             } catch (e) {
               // ignore per-id failures
@@ -269,11 +275,17 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   const relationshipFilter = React.useMemo(
     () =>
       createFilterOptions<RelationshipOption>({
-        stringify: (option) =>
-          [option.label, String(option.id), `#${option.id}`, ...(option.aliases ?? [])]
-            .map((segment) => segment.trim().toLowerCase())
+        stringify: (option) => {
+          const idStr = normalizeEntityId(option.id);
+          const segments = [option.label, ...(option.aliases ?? [])];
+          if (idStr) {
+            segments.push(idStr, `#${idStr}`);
+          }
+          return segments
+            .map((segment) => String(segment).trim().toLowerCase())
             .filter(Boolean)
-            .join(' '),
+            .join(' ');
+        },
         matchFrom: 'any',
         trim: true,
       }),
@@ -298,9 +310,12 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   const resolveAlterTagLabel = React.useCallback(
     (item: TagValue): string => {
       if (item && typeof item === 'object') {
-        const idKey = String((item as RelationshipOption).id);
-        const label = alterIdLookup[idKey] ?? (item as RelationshipOption).label;
-        return stripTrailingId(label);
+        const idKey = normalizeEntityId((item as RelationshipOption).id);
+        if (idKey) {
+          const label = alterIdLookup[idKey] ?? (item as RelationshipOption).label;
+          return stripTrailingId(label);
+        }
+        return stripTrailingId((item as RelationshipOption).label ?? '');
       }
       const raw = String(item ?? '').trim();
       if (!raw) return '';
@@ -346,8 +361,9 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   const resolveUserTagLabel = React.useCallback(
     (item: TagValue): string => {
       if (item && typeof item === 'object') {
-        const idKey = String((item as RelationshipOption).id);
-        return userIdLookup[idKey] ?? (item as RelationshipOption).label;
+        const idKey = normalizeEntityId((item as RelationshipOption).id);
+        if (idKey) return userIdLookup[idKey] ?? (item as RelationshipOption).label;
+        return (item as RelationshipOption).label ?? '';
       }
       const raw = String(item ?? '').trim();
       if (!raw) return '';
@@ -383,8 +399,10 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   }
   function drop(e: React.DragEvent<HTMLDivElement>, idx: number) {
     e.preventDefault();
-    const from = Number(e.dataTransfer.getData('text/plain'));
-    if (!Number.isNaN(from) && from !== idx && onReorderImages) onReorderImages(from, idx);
+    const raw = e.dataTransfer.getData('text/plain');
+    const parsed = parseInt(String(raw), 10);
+    const from = Number.isNaN(parsed) ? null : parsed;
+    if (from !== null && from !== idx && onReorderImages) onReorderImages(from, idx);
   }
   const dndAreaStyle: React.CSSProperties = {
     border: '2px dashed #999',
@@ -534,7 +552,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           getOptionLabel={(option: RelationshipOption | string) => (typeof option === 'string' ? option : option.label)}
           isOptionEqualToValue={(option, value) => {
             if (value && typeof value === 'object') {
-              return String(option.id) === String((value as RelationshipOption).id);
+              return normalizeEntityId(option.id) === normalizeEntityId((value as RelationshipOption).id);
             }
             return option.label.toLowerCase() === String(value ?? '').toLowerCase();
           }}
@@ -568,7 +586,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           getOptionLabel={(option: RelationshipOption | string) => (typeof option === 'string' ? option : option.label)}
           isOptionEqualToValue={(option, value) => {
             if (value && typeof value === 'object') {
-              return String(option.id) === String((value as RelationshipOption).id);
+              return normalizeEntityId(option.id) === normalizeEntityId((value as RelationshipOption).id);
             }
             return option.label.toLowerCase() === String(value ?? '').toLowerCase();
           }}
@@ -600,7 +618,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           getOptionLabel={(option: RelationshipOption | string) => (typeof option === 'string' ? option : option.label)}
           isOptionEqualToValue={(option, value) => {
             if (value && typeof value === 'object') {
-              return String(option.id) === String((value as RelationshipOption).id);
+              return normalizeEntityId(option.id) === normalizeEntityId((value as RelationshipOption).id);
             }
             return option.label.toLowerCase() === String(value ?? '').toLowerCase();
           }}
@@ -708,19 +726,17 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           multiple={true}
           value={
             Array.isArray(values.affiliations)
-              ? values.affiliations.filter((value): value is number => typeof value === 'number')
+              ? values.affiliations.map((value) => String(value)).filter((s) => s.length > 0)
               : []
           }
-          routeUid={props.routeUid}
-          onChange={async (v: number | number[] | null) => {
+          routeUid={normalizedRouteUid}
+          onChange={async (v: string | string[] | null) => {
             try {
               if (!v || (Array.isArray(v) && v.length === 0)) {
                 onChange('group', null);
                 onChange('affiliations', []);
               } else {
-                const ids = (Array.isArray(v) ? v : [v]).filter(
-                  (value): value is number => typeof value === 'number' && Number.isFinite(value),
-                );
+                const ids = (Array.isArray(v) ? v : [v]).map((value) => String(value)).filter(Boolean);
                 if (!ids.length) {
                   onChange('group', null);
                   onChange('affiliations', []);
@@ -799,7 +815,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
 
       <StackItem>
         <SubsystemPicker
-          routeUid={props.routeUid}
+          routeUid={normalizedRouteUid}
           value={(values.subsystem as any) ?? null}
           onChange={(v: number | string | null) => onChange('subsystem', v)}
         />

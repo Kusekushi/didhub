@@ -7,7 +7,10 @@ test.describe('Alters UI flows', () => {
 
     const E2E_USER = process.env.E2E_USER || process.env.PLAYWRIGHT_E2E_USER;
     const E2E_PASS = process.env.E2E_PASS || process.env.PLAYWRIGHT_E2E_PASS;
-    if (!E2E_USER || !E2E_PASS) throw new Error('E2E_USER and E2E_PASS environment variables must be set to run full e2e tests against a real backend');
+    if (!E2E_USER || !E2E_PASS)
+      throw new Error(
+        'E2E_USER and E2E_PASS environment variables must be set to run full e2e tests against a real backend',
+      );
 
     await page.goto('/login');
     const username = page.getByLabel('Username');
@@ -21,10 +24,12 @@ test.describe('Alters UI flows', () => {
       await username.waitFor({ timeout: 20000 });
     }
     await username.fill(E2E_USER);
-  const password = page.locator('input[name="password"]');
-  await password.fill(E2E_PASS);
-  await page.locator('form button[type="submit"]').first().click();
-  try { await page.waitForNavigation({ timeout: 5000 }); } catch {}
+    const password = page.locator('input[name="password"]');
+    await password.fill(E2E_PASS);
+    await page.locator('form button[type="submit"]').first().click();
+    try {
+      await page.waitForNavigation({ timeout: 5000 });
+    } catch {}
 
     await page.goto('/did-system/1');
     await page.waitForSelector('text=Alters', { timeout: 15000 });
@@ -34,7 +39,7 @@ test.describe('Alters UI flows', () => {
     await page.getByLabel('Name').fill('Playwright E2E Alter');
 
     const ownerSelect = page.locator('select[name="owner_user_id"]');
-    if (await ownerSelect.count() > 0) {
+    if ((await ownerSelect.count()) > 0) {
       await ownerSelect.selectOption({ index: 1 }).catch(() => {});
     }
 
@@ -43,8 +48,11 @@ test.describe('Alters UI flows', () => {
     await dialogCreateButton.waitFor({ timeout: 10000 });
 
     // Try to wait for the POST; if it doesn't happen promptly, we'll fall back to reloading the page
-    const waitForCreate = page.waitForResponse((res) =>
-      res.url().includes('/api/alters') && res.request().method() === 'POST' && (res.status() === 201 || res.status() === 200),
+    const waitForCreate = page.waitForResponse(
+      (res) =>
+        res.url().includes('/api/alters') &&
+        res.request().method() === 'POST' &&
+        (res.status() === 201 || res.status() === 200),
     );
 
     await Promise.all([waitForCreate, dialogCreateButton.click()]);
@@ -52,9 +60,12 @@ test.describe('Alters UI flows', () => {
     // Optionally wait for a list GET to happen (client may refresh). If not observed, the parent's onCreated
     // handler is awaited by the dialog so the UI should already be updated.
     try {
-      await page.waitForResponse((res) => res.url().includes('/api/alters') && res.request().method() === 'GET' && res.status() === 200, {
-        timeout: 20000,
-      });
+      await page.waitForResponse(
+        (res) => res.url().includes('/api/alters') && res.request().method() === 'GET' && res.status() === 200,
+        {
+          timeout: 20000,
+        },
+      );
     } catch (e) {
       // ignore — rely on the parent refresh guarantee implemented in the frontend
     }

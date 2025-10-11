@@ -5,7 +5,7 @@ import { type Group } from '@didhub/api-client';
  * Hook to manage dialog states for DIDSystemView
  */
 export function useDialogStates() {
-  const [editingAlter, setEditingAlter] = useState<number | string | null>(null);
+  const [editingAlter, setEditingAlter] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [editGroupOpen, setEditGroupOpen] = useState(false);
@@ -15,7 +15,7 @@ export function useDialogStates() {
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     type?: 'alter' | 'group' | 'subsystem' | null;
-    id?: number | string | null;
+    id?: string | null;
     label?: string;
   }>({ open: false, type: null, id: null, label: '' });
 

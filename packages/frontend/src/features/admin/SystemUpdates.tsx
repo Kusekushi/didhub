@@ -33,7 +33,11 @@ export default function SystemUpdates() {
   const [updating, setUpdating] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
-  const [snack, setSnack] = useState<{ open: boolean; text: string; severity: AlertColor }>({ open: false, text: '', severity: 'info' });
+  const [snack, setSnack] = useState<{ open: boolean; text: string; severity: AlertColor }>({
+    open: false,
+    text: '',
+    severity: 'info',
+  });
 
   const checkUpdates = async () => {
     setLoading(true);
@@ -43,7 +47,11 @@ export default function SystemUpdates() {
       setLastChecked(new Date());
 
       if (status.available) {
-        setSnack({ open: true, text: `Update available: ${status.current_version} → ${status.latest_version}`, severity: 'info' });
+        setSnack({
+          open: true,
+          text: `Update available: ${status.current_version} → ${status.latest_version}`,
+          severity: 'info',
+        });
       } else {
         setSnack({ open: true, text: 'System is up to date', severity: 'success' });
       }

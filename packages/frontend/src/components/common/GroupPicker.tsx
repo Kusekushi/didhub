@@ -6,14 +6,15 @@ import { apiClient, Group } from '@didhub/api-client';
 import InputPromptDialog from '../forms/InputPromptDialog';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { getEffectiveOwnerId } from '../../shared/utils/owner';
+import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUtils';
 
 type Option = Group | { name: string };
 
 export interface GroupPickerProps {
-  value?: number | number[] | { id?: number; name?: string } | null;
-  onChange?: (v: number | number[] | null) => void;
+  value?: string | string[] | { id?: string; name?: string } | null;
+  onChange?: (v: string | string[] | null) => void;
   multiple?: boolean;
-  routeUid?: string | number | null;
+  routeUid?: EntityId | null;
 }
 
 export default function GroupPicker(props: GroupPickerProps) {
@@ -29,8 +30,8 @@ export default function GroupPicker(props: GroupPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-  const response = await apiClient.group.get_groups({ q: q || null });
-  const items = ((response.data?.items ?? []) as unknown) as Group[];
+    const response = await apiClient.group.get_groups({ q: q || null });
+    const items = (response.data?.items ?? []) as unknown as Group[];
     setOptions(items);
   }
 
@@ -44,37 +45,21 @@ export default function GroupPicker(props: GroupPickerProps) {
     };
   }, [inputValue]);
 
-  const parseNumericId = (value: unknown): number | undefined => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) return undefined;
-      const numeric = Number(trimmed.replace(/^#/u, ''));
-      return Number.isFinite(numeric) ? numeric : undefined;
-    }
-    if (value && typeof value === 'object' && 'id' in (value as Record<string, unknown>)) {
-      return parseNumericId((value as { id?: unknown }).id);
-    }
-    return undefined;
-  };
-
   async function handleChange(e: React.SyntheticEvent, v: Option | Option[] | string | number | null) {
     if (multiple) {
       const arr = Array.isArray(v) ? v : [];
-      const result = arr.map((item) => parseNumericId(item)).filter((id): id is number => typeof id === 'number');
+      const result = arr
+        .map((item) => normalizeEntityId(item) ?? undefined)
+        .filter((id): id is string => typeof id === 'string');
       props.onChange?.(result);
       return;
     }
     if (typeof v === 'string') {
       setCreateDialog({ open: true, name: v });
       return;
-    } else if (typeof v === 'number') {
-      const numeric = parseNumericId(v);
-      props.onChange?.(numeric ?? null);
-      return;
     } else if (v && typeof v === 'object' && 'id' in v) {
-      const numeric = parseNumericId((v as Group).id);
-      props.onChange?.(numeric ?? null);
+      const id = normalizeEntityId(v) ?? undefined;
+      props.onChange?.(id ?? null);
     } else {
       props.onChange?.(null);
     }
@@ -84,26 +69,28 @@ export default function GroupPicker(props: GroupPickerProps) {
     if (multiple) {
       if (!props.value) return [];
       const arr = Array.isArray(props.value) ? props.value : [props.value];
-      return arr.map((v) => {
-      if (v && typeof v === 'object') {
-        // prefer existing option by id if available
-        const id = (v as any).id;
-        if (id != null) return options.find((x) => String(x.id) === String(id)) || (v as Option);
-        return v as Option;
-      }
-      // treat primitive values (UUID string or number) as id strings
-      const idStr = String(v ?? '');
-      return options.find((x) => String(x.id) === idStr) || { name: idStr };
-      });
+      return arr
+        .map((v) => {
+          if (v && typeof v === 'object') {
+            const id = normalizeEntityId((v as { id?: unknown }).id);
+            if (id != null) return options.find((x) => x.id === id) || (v as Option);
+            return v as Option;
+          }
+          const idStr = normalizeEntityId(v);
+          if (idStr) return options.find((x) => x.id === idStr) || { name: idStr };
+          return null;
+        })
+        .filter((x): x is Option => x != null);
     }
     if (!props.value) return null;
     if (typeof props.value === 'object') {
       const id = (props.value as any).id;
-      if (id != null) return options.find((x) => String(x.id) === String(id)) || (props.value as Option);
+      if (id != null)
+        return options.find((x) => normalizeEntityId(x.id) === normalizeEntityId(id)) || (props.value as Option);
       return props.value as Option;
     }
     const idStr = String(props.value);
-    return options.find((x) => String(x.id) === idStr) || { name: idStr };
+    return options.find((x) => normalizeEntityId(x.id) === idStr) || { name: idStr };
   })();
 
   const label = multiple ? 'Affiliations' : 'Affiliation';
@@ -134,14 +121,17 @@ export default function GroupPicker(props: GroupPickerProps) {
           onSubmit={async () => {
             try {
               // include owner_user_id when creating on-behalf-of if a route uid is present
-              const owner = getEffectiveOwnerId(props.routeUid == null ? undefined : String(props.routeUid), auth.user?.id);
+              const owner = getEffectiveOwnerId(
+                props.routeUid == null ? undefined : normalizeEntityId(props.routeUid),
+                auth.user?.id,
+              );
               const payload: any = { name: createDialog.name };
-              if (typeof owner === 'number' || typeof owner === 'string') payload.owner_user_id = owner;
+              if (typeof owner === 'string') payload.owner_user_id = owner;
               // Debug: log payload prior to API call
               // eslint-disable-next-line no-console
               console.debug('[GroupPicker] inline create payload', payload);
               const group = (await apiClient.group.post_groups(payload)).data;
-              const createdId = parseNumericId(group?.id);
+              const createdId = normalizeEntityId(group?.id) ?? undefined;
               if (group && createdId != null) {
                 setOptions((prev) => [group, ...prev]);
                 props.onChange?.(createdId);

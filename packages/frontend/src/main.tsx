@@ -42,7 +42,11 @@ function InnerApp(): React.ReactElement {
       // insert admin before licenses for visibility
       const licensesIdx = nav.findIndex((i) => i.segment === 'licenses');
       if (licensesIdx >= 0) {
-        nav = [...nav.slice(0, licensesIdx), { segment: 'admin', title: 'Admin', icon: <AdminPanelSettingsIcon /> }, ...nav.slice(licensesIdx)];
+        nav = [
+          ...nav.slice(0, licensesIdx),
+          { segment: 'admin', title: 'Admin', icon: <AdminPanelSettingsIcon /> },
+          ...nav.slice(licensesIdx),
+        ];
       }
     }
     // For DID-system users, expose a quick link to their system which redirects
@@ -50,15 +54,19 @@ function InnerApp(): React.ReactElement {
       // insert 'My system' after home
       const idx = nav.findIndex((i) => i.segment === 'home');
       const insertAt = idx >= 0 ? idx + 1 : 0;
-      nav = [...nav.slice(0, insertAt), { segment: 'redirect-to-system', title: 'My system', icon: <PeopleIcon /> }, ...nav.slice(insertAt)];
+      nav = [
+        ...nav.slice(0, insertAt),
+        { segment: 'redirect-to-system', title: 'My system', icon: <PeopleIcon /> },
+        ...nav.slice(insertAt),
+      ];
     }
     // hide login when user is signed in
     nav = nav.filter((item) => item.segment !== 'login');
-    
+
     // Separate main navigation from footer items
     const footerItems = nav.filter((item) => item.segment === 'licenses' || item.segment === 'user-settings');
     const mainItems = nav.filter((item) => item.segment !== 'licenses' && item.segment !== 'user-settings');
-    
+
     return { main: mainItems, footer: footerItems };
   }, [user]);
 

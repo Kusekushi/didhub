@@ -15,8 +15,14 @@ export function useSubsystemsData(
   pageSize: number = 20,
 ) {
   const fetchSubsystems = useCallback(
-    ({ owner_user_id, query, includeMembers, limit, offset }: EntityFetchFilters) =>
-      subsystem.get_subsystems({ owner_user_id, query, includeMembers, limit, offset }),
+    async ({ owner_user_id, query, includeMembers, limit, offset }: EntityFetchFilters) => {
+      const response = await subsystem.get_subsystems({ owner_user_id, query, includeMembers, limit, offset });
+      const payload = response.data as unknown;
+      if (payload && typeof payload === 'object' && 'items' in (payload as Record<string, unknown>)) {
+        return payload as { items: Subsystem[]; total?: number; limit?: number; offset?: number };
+      }
+      return { items: [], total: 0, limit, offset };
+    },
     [subsystem],
   );
 

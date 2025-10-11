@@ -1,6 +1,7 @@
 import React from 'react';
 import { apiClient } from '@didhub/api-client';
 import type { RelationshipOption } from './alterFormUtils';
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
 export interface UseAlterRelationshipsResult {
   loading: boolean;
@@ -18,11 +19,14 @@ export function useAlterRelationships(alterId: number | string | null | undefine
   React.useEffect(() => {
     let mounted = true;
     if (alterId == null) return;
+    // Normalize the alter id; do not call API with numeric ids
+    const normalized = normalizeEntityId(alterId);
+    if (!normalized) return;
     setLoading(true);
     setError(undefined);
     (async () => {
       try {
-        const resp = await apiClient.alter.get_alters_by_id_relationships(String(alterId));
+        const resp = await apiClient.alter.get_alters_by_id_relationships(normalized);
         const rels = Array.isArray(resp.data) ? resp.data : [];
         const opts: RelationshipOption[] = [];
         const lookup: Record<string, string> = {};
@@ -30,7 +34,8 @@ export function useAlterRelationships(alterId: number | string | null | undefine
           const aid = (r as any).alter_id ?? null;
           const uname = (r as any).username ?? null;
           if (aid != null) {
-            const key = String(aid);
+            const key = normalizeEntityId(aid);
+            if (!key) return;
             const label = uname ? String(uname) : `#${key}`;
             opts.push({ id: key, label });
             lookup[key] = label;

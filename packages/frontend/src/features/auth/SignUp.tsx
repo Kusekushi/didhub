@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { Checkbox, FormControlLabel, IconButton, InputAdornment, Link, TextField, Button, Box, Typography, Alert, Paper } from '@mui/material';
+import {
+  Checkbox,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  Link,
+  TextField,
+  Button,
+  Box,
+  Typography,
+  Alert,
+  Paper,
+} from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate } from 'react-router-dom';
@@ -115,7 +127,9 @@ export default function SignUp(): React.ReactElement {
             helperText={confirmPassword !== '' && password !== confirmPassword ? 'Passwords do not match' : ''}
           />
           <FormControlLabel
-            control={<Checkbox checked={requestSystem} onChange={(e) => setRequestSystem(e.target.checked)} color="primary" />}
+            control={
+              <Checkbox checked={requestSystem} onChange={(e) => setRequestSystem(e.target.checked)} color="primary" />
+            }
             label="Request system user account"
             sx={{ mt: 1 }}
           />

@@ -95,20 +95,21 @@ describe('AlterFormDialog owner propagation', () => {
   });
 
   it('sends owner_user_id from routeUid prop when provided', async () => {
+    const ownerUuid = '11111111-1111-1111-1111-111111111111';
     const { findByLabelText, findByText } = render(
-      <AlterFormDialog mode="create" open={true} onClose={() => {}} routeUid={'42'} />,
+      <AlterFormDialog mode="create" open={true} onClose={() => {}} routeUid={ownerUuid} />,
     );
 
     const nameInput = await findByLabelText('Name');
     await fireEvent.change(nameInput, { target: { value: 'Alice' } });
 
-  const createButton = await findByText('Create');
-  await fireEvent.click(createButton);
+    const createButton = await findByText('Create');
+    await fireEvent.click(createButton);
 
     await waitFor(() => {
       expect(createAlterMock).toHaveBeenCalled();
     });
     const payload = createAlterMock.mock.calls[0][0];
-    expect(payload.owner_user_id).toBe(42);
+    expect(payload.owner_user_id).toBe(ownerUuid);
   });
 });

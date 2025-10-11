@@ -1,31 +1,33 @@
 import { useEffect, useState } from 'react';
 import { apiClient, type Alter, type Group, type Subsystem } from '@didhub/api-client';
+import { normalizeEntityId } from '../utils/alterFormUtils';
 
 type AlterDetails = Alter & {
-  group?: string | number | null;
+  // entity IDs are UUID strings only (no numeric ids)
+  group?: string | null;
   affiliations?: unknown;
 };
 
 type GroupMap = Record<string, Group>;
 
-type GroupIdMap = Record<number, Group>;
+type GroupIdMap = Record<string, Group>;
 
-function coerceNumericId(value: unknown): number | null {
-  const asString = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
-  if (!asString) return null;
-  const maybeId = Number(asString);
-  return Number.isNaN(maybeId) ? null : maybeId;
+function coerceStringId(value: unknown): string | null {
+  // Accept strings or objects with `id` and normalize to UUID-like id strings
+  return normalizeEntityId(value);
 }
 
 function coerceGroupArray(value: unknown): Group[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((candidate): candidate is Group => Boolean(candidate && typeof (candidate as Group).name === 'string'));
+  return value.filter((candidate): candidate is Group =>
+    Boolean(candidate && typeof (candidate as Group).name === 'string'),
+  );
 }
 
 function coerceSubsystemArray(value: unknown): Subsystem[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (candidate): candidate is Subsystem => Boolean(candidate && typeof (candidate as Subsystem).name === 'string')
+  return value.filter((candidate): candidate is Subsystem =>
+    Boolean(candidate && typeof (candidate as Subsystem).name === 'string'),
   );
 }
 
@@ -73,9 +75,10 @@ export function useAlterData(id?: string) {
       }
 
       const groupId = alterData.group;
-      if (groupId !== undefined && groupId !== null && String(groupId).length > 0) {
+      const normalizedGroupId = normalizeEntityId(groupId);
+      if (normalizedGroupId) {
         try {
-          const groupRes = await apiClient.group.get_groups_by_id(groupId);
+          const groupRes = await apiClient.group.get_groups_by_id(normalizedGroupId);
           setGroupObj(groupRes.data ?? null);
         } catch {
           setGroupObj(null);
@@ -96,8 +99,9 @@ export function useAlterData(id?: string) {
       }
 
       const subsystemValue = alterData.subsystem;
-      if (subsystemValue !== undefined && subsystemValue !== null && String(subsystemValue).length > 0) {
-        await resolveSubsystem(subsystemValue);
+      const normalizedSubsystem = normalizeEntityId(subsystemValue);
+      if (normalizedSubsystem) {
+        await resolveSubsystem(normalizedSubsystem);
       } else {
         setSubsystemObj(null);
       }
@@ -129,10 +133,10 @@ export function useAlterData(id?: string) {
       for (const raw of entries) {
         if (raw === undefined || raw === null) continue;
 
-        const maybeId = coerceNumericId(raw);
+        const maybeId = coerceStringId(raw);
         if (maybeId !== null) {
           try {
-            const groupRes = await apiClient.group.get_groups_by_id(maybeId);
+            const groupRes = await apiClient.group.get_groups_by_id(maybeId as any);
             if (groupRes.data) {
               groupsById[maybeId] = groupRes.data;
               continue;
@@ -142,11 +146,19 @@ export function useAlterData(id?: string) {
           }
         }
 
-        const name = Array.isArray(raw) ? raw.join(',') : String(raw);
-        const groupList = await ensureGroupList();
-        const found = groupList.find((g) => g && g.name && g.name.toLowerCase() === name.toLowerCase());
-        if (found) {
-          groupsByName[name] = found;
+        // If we didn't resolve an ID, try name lookup only when we actually have a string name.
+        let name: string | null = null;
+        if (Array.isArray(raw)) {
+          name = raw.join(',');
+        } else if (typeof raw === 'string') {
+          name = raw.trim();
+        }
+        if (name) {
+          const groupList = await ensureGroupList();
+          const found = groupList.find((g) => g && g.name && g.name.toLowerCase() === name!.toLowerCase());
+          if (found) {
+            groupsByName[name] = found;
+          }
         }
       }
 
@@ -160,16 +172,10 @@ export function useAlterData(id?: string) {
 
   const resolveSubsystem = async (rawSubsystem: unknown) => {
     try {
-      const rawStr = String(rawSubsystem ?? '').trim();
-      if (!rawStr.length) {
-        setSubsystemObj(null);
-        return;
-      }
-
-      const numericId = Number(rawStr);
-      if (!Number.isNaN(numericId)) {
+      const normalized = normalizeEntityId(rawSubsystem);
+      if (normalized) {
         try {
-          const subsystemRes = await apiClient.subsystem.get_subsystems_by_id(numericId);
+          const subsystemRes = await apiClient.subsystem.get_subsystems_by_id(normalized as any);
           if (subsystemRes.data) {
             setSubsystemObj(subsystemRes.data);
             return;
@@ -179,11 +185,15 @@ export function useAlterData(id?: string) {
         }
       }
 
+      const rawStr = String(rawSubsystem ?? '').trim();
+      if (!rawStr.length) {
+        setSubsystemObj(null);
+        return;
+      }
+
       const listRes = await apiClient.subsystem.get_subsystems();
       const subsystems = coerceSubsystemArray(listRes.data?.items);
-      const match = subsystems.find(
-        (item) => item && item.name && item.name.toLowerCase() === rawStr.toLowerCase(),
-      );
+      const match = subsystems.find((item) => item && item.name && item.name.toLowerCase() === rawStr.toLowerCase());
       setSubsystemObj(match ?? null);
     } catch {
       setSubsystemObj(null);

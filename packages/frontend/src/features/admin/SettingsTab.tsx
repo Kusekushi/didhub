@@ -18,8 +18,12 @@ export default function SettingsTab() {
         const s = await apiClient.admin.get_settings();
         if (s) {
           setWebhook(String(s[SETTINGS_KEYS.DISCORD_WEBHOOK_URL] || ''));
-          setUploadDirTtlSecs(s['uploads.upload_dir_cache.ttl_secs'] ? String(s['uploads.upload_dir_cache.ttl_secs']) : '3600');
-          setDiscordDigestEnabled(s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED] === '1' || s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED] === true);
+          setUploadDirTtlSecs(
+            s['uploads.upload_dir_cache.ttl_secs'] ? String(s['uploads.upload_dir_cache.ttl_secs']) : '3600',
+          );
+          setDiscordDigestEnabled(
+            s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED] === '1' || s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED] === true,
+          );
           setEmailEnabled(s[SETTINGS_KEYS.EMAIL_ENABLED] === '1' || s[SETTINGS_KEYS.EMAIL_ENABLED] === true);
           setAutoUpdateEnabled(s['auto_update_enabled'] === '1' || s['auto_update_enabled'] === true);
         }
@@ -94,23 +98,16 @@ export default function SettingsTab() {
         <Stack direction="row" spacing={2} sx={{ mt: 2, alignItems: 'center' }}>
           <FormControlLabel
             control={
-              <Switch
-                checked={discordDigestEnabled}
-                onChange={(e) => setDiscordDigestEnabled(e.target.checked)}
-              />
+              <Switch checked={discordDigestEnabled} onChange={(e) => setDiscordDigestEnabled(e.target.checked)} />
             }
             label="Enable Discord digest"
           />
           <FormControlLabel
-            control={
-              <Switch checked={emailEnabled} onChange={(e) => setEmailEnabled(e.target.checked)} />
-            }
+            control={<Switch checked={emailEnabled} onChange={(e) => setEmailEnabled(e.target.checked)} />}
             label="Enable email features"
           />
           <FormControlLabel
-            control={
-              <Switch checked={autoUpdateEnabled} onChange={(e) => setAutoUpdateEnabled(e.target.checked)} />
-            }
+            control={<Switch checked={autoUpdateEnabled} onChange={(e) => setAutoUpdateEnabled(e.target.checked)} />}
             label="Enable auto updates"
           />
         </Stack>

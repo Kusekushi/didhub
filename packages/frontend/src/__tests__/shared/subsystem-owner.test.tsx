@@ -47,13 +47,10 @@ describe('Subsystems owner propagation', () => {
   });
 
   it('sends owner_user_id from uid prop when provided (create subsystem)', async () => {
-  const mockCreate = createSubsystemMock;
+    const mockCreate = createSubsystemMock;
 
-    const { findByText, getByLabelText } = render(
-      <SubsystemsTab
-        uid={'42'}
-      />,
-    );
+    const ownerUuid = '11111111-1111-1111-1111-111111111111';
+    const { findByText, getByLabelText } = render(<SubsystemsTab uid={ownerUuid} />);
 
     // Click the create button to open the dialog
     const createSubsystemButton = await findByText('Create Subsystem');
@@ -66,8 +63,8 @@ describe('Subsystems owner propagation', () => {
     const createButton = await findByText('Create');
     await fireEvent.click(createButton);
 
-  expect(mockCreate).toHaveBeenCalled();
-  const payload = mockCreate.mock.calls[0][0];
-    expect(payload.owner_user_id).toBe(42);
+    expect(mockCreate).toHaveBeenCalled();
+    const payload = mockCreate.mock.calls[0][0];
+    expect(payload.owner_user_id).toBe(ownerUuid);
   });
 });

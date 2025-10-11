@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { apiClient, type Alter, type User } from '@didhub/api-client';
+import { ApiAlter, apiClient, ApiSystemDetail } from '@didhub/api-client';
 
 import ThumbnailWithHover from '../../components/ui/ThumbnailWithHover';
 import {
@@ -35,8 +35,8 @@ import {
 } from './utils';
 
 interface BirthdayEntry extends BirthdayLike {
-  alter: Alter;
-  owner: User | null;
+  alter: ApiAlter;
+  owner: ApiSystemDetail | null;
   label: string;
 }
 
@@ -56,15 +56,15 @@ export default function Birthdays() {
     async function load() {
       setLoading(true);
       try {
-        const res = await apiClient.alters.list({ perPage: 1000 });
-        const list = (res.items || []) as Alter[];
+        const res = (await apiClient.alter.get_alters({ perPage: 1000 })).data;
+        const list = (res.items || []) as unknown as ApiAlter[];
         const ownerIds = Array.from(new Set(list.map((a) => a?.owner_user_id).filter(Boolean)));
-        const owners = new Map<string | number, User>();
+        const owners = new Map<string, ApiSystemDetail>();
         await Promise.all(
           ownerIds.map(async (id) => {
             try {
-              const owner = await apiClient.users.get(id as number | string);
-              if (owner) owners.set(id as string | number, owner as User);
+              const owner = (await apiClient.subsystem.get_systems_by_id(id as string)).data;
+              if (owner) owners.set(id as string, owner);
             } catch (e) {
               // ignore missing owners
             }
@@ -335,8 +335,8 @@ export default function Birthdays() {
                 <Typography variant="body2" color="text.secondary">
                   System:{' '}
                   {selected.entry.owner ? (
-                    <MuiLink component={RouterLink} to={`/did-system/${selected.entry.owner.id}`} underline="hover">
-                      {selected.entry.owner.username || `#${selected.entry.owner.id}`}
+                    <MuiLink component={RouterLink} to={`/did-system/${selected.entry.owner.user_id}`} underline="hover">
+                      {selected.entry.owner.username || `#${selected.entry.owner.user_id}`}
                     </MuiLink>
                   ) : selected.entry.alter.owner_user_id ? (
                     <MuiLink

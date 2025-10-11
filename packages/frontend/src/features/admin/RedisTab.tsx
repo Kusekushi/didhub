@@ -48,7 +48,11 @@ export default function RedisTab() {
   const [redisSessionsEnabled, setRedisSessionsEnabled] = useState(false);
   const [redisCacheEnabled, setRedisCacheEnabled] = useState(false);
   const [redisStatus, setRedisStatusState] = useState<any | null>(null);
-  const [snack, setSnack] = useState<{ open: boolean; text: string; severity: AlertColor }>({ open: false, text: '', severity: 'info' });
+  const [snack, setSnack] = useState<{ open: boolean; text: string; severity: AlertColor }>({
+    open: false,
+    text: '',
+    severity: 'info',
+  });
 
   // Load Redis settings and status on mount
   useEffect(() => {
@@ -59,8 +63,12 @@ export default function RedisTab() {
         setRedisPrefixSetting(String(settings?.data.redis_prefix || ''));
         setRedisTtlSecondsSetting(String(settings?.data.redis_ttl_seconds || ''));
         setRedisClientOptions(String(settings?.data.redis_client_options || ''));
-        setRedisSessionsEnabled(settings?.data.redis_sessions_enabled === '1' || settings?.data.redis_sessions_enabled === 'true');
-        setRedisCacheEnabled(settings?.data.redis_cache_enabled === '1' || settings?.data.redis_cache_enabled === 'true');
+        setRedisSessionsEnabled(
+          settings?.data.redis_sessions_enabled === '1' || settings?.data.redis_sessions_enabled === 'true',
+        );
+        setRedisCacheEnabled(
+          settings?.data.redis_cache_enabled === '1' || settings?.data.redis_cache_enabled === 'true',
+        );
       } catch (e) {
         setSnack({ open: true, text: `Failed to load Redis settings: ${e}`, severity: 'error' });
       }
@@ -117,18 +125,13 @@ export default function RedisTab() {
         </Stack>
         <FormControlLabel
           control={
-            <Switch
-              checked={redisSessionsEnabled}
-              onChange={(e) => setRedisSessionsEnabled(e.target.checked)}
-            />
+            <Switch checked={redisSessionsEnabled} onChange={(e) => setRedisSessionsEnabled(e.target.checked)} />
           }
           label="Store sessions in Redis"
           sx={{ mb: 2 }}
         />
         <FormControlLabel
-          control={
-            <Switch checked={redisCacheEnabled} onChange={(e) => setRedisCacheEnabled(e.target.checked)} />
-          }
+          control={<Switch checked={redisCacheEnabled} onChange={(e) => setRedisCacheEnabled(e.target.checked)} />}
           label="Enable Redis caching for server data"
           sx={{ mb: 2 }}
         />

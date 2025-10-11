@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Typography,
-  Paper,
-  Stack,
-  Button,
-  Alert,
-  Box,
-  LinearProgress,
-} from '@mui/material';
+import { Typography, Paper, Stack, Button, Alert, Box, LinearProgress } from '@mui/material';
 import { apiClient } from '@didhub/api-client';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { downloadBlob } from '../../shared/utils/downloadUtils';
@@ -21,10 +13,10 @@ export default function BackupRestoreTab() {
   const handleCreateBackup = async () => {
     try {
       setBackupLoading(true);
-      const blob = await apiClient.admin.createBackup();
+      const blob = (await apiClient.admin.post_admin_backup()).data;
 
       // Create download link
-      downloadBlob(blob, `didhub-backup-${new Date().toISOString().split('T')[0]}.zip`);
+      downloadBlob(blob as Blob, `didhub-backup-${new Date().toISOString().split('T')[0]}.zip`);
 
       setSnack({
         open: true,
@@ -54,12 +46,12 @@ export default function BackupRestoreTab() {
 
     try {
       setRestoreLoading(true);
-      const result = await apiClient.admin.restoreBackup(selectedFile);
+      const result = await apiClient.admin.post_admin_backup(selectedFile);
 
-      if (result.success) {
+      if (result.ok) {
         setSnack({
           open: true,
-          message: result.message || 'Backup restored successfully',
+          message: result.text || 'Backup restored successfully',
           severity: 'success',
         });
         setSelectedFile(null);
@@ -69,7 +61,7 @@ export default function BackupRestoreTab() {
       } else {
         setSnack({
           open: true,
-          message: result.message || 'Restore failed',
+          message: result.text || 'Restore failed',
           severity: 'error',
         });
       }
@@ -139,8 +131,8 @@ export default function BackupRestoreTab() {
             Upload and restore a DIDHub backup file. This will replace the current database and uploaded files.
           </Typography>
           <Alert severity="error" sx={{ mb: 2 }}>
-            <strong>Warning:</strong> Restoring a backup will permanently replace your current data.
-            Make sure you have a recent backup before proceeding.
+            <strong>Warning:</strong> Restoring a backup will permanently replace your current data. Make sure you have
+            a recent backup before proceeding.
           </Alert>
           <Stack spacing={2}>
             <input
@@ -150,12 +142,7 @@ export default function BackupRestoreTab() {
               onChange={handleFileChange}
               style={{ display: 'none' }}
             />
-            <Button
-              variant="outlined"
-              component="label"
-              htmlFor="backup-file-input"
-              sx={{ alignSelf: 'flex-start' }}
-            >
+            <Button variant="outlined" component="label" htmlFor="backup-file-input" sx={{ alignSelf: 'flex-start' }}>
               Select Backup File
             </Button>
             {selectedFile && (

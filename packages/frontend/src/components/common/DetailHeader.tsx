@@ -74,9 +74,7 @@ export default function DetailHeader(props: DetailHeaderProps) {
         )}
       </Box>
 
-      {renameError && (
-        <div style={{ color: 'red', marginTop: -8, marginBottom: 4, fontSize: 12 }}>{renameError}</div>
-      )}
+      {renameError && <div style={{ color: 'red', marginTop: -8, marginBottom: 4, fontSize: 12 }}>{renameError}</div>}
 
       <Typography variant="body1">{props.alter.description}</Typography>
     </>

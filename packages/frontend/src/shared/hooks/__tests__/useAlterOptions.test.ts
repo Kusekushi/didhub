@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('useAlterOptions', () => {
   beforeEach(() => {
@@ -11,7 +11,7 @@ describe('useAlterOptions', () => {
   it('does not fetch when uid is not provided', async () => {
     // stub apiClient.alters.search before importing the hook
     const mod = await import('@didhub/api-client');
-    (mod as any).apiClient.alters.search = vi.fn();
+    (mod as any).apiClient.alter.get_alters_search = vi.fn();
 
     const { useAlterOptions } = await import('../useAlterOptions');
     renderHook(() => useAlterOptions());
@@ -19,24 +19,24 @@ describe('useAlterOptions', () => {
     // wait past debounce
     await new Promise((r) => setTimeout(r, 500));
 
-    expect((mod as any).apiClient.alters.search).not.toHaveBeenCalled();
+    expect((mod as any).apiClient.alter.get_alters_search).not.toHaveBeenCalled();
   });
 
   it('does not fetch when enabled is false', async () => {
     const mod = await import('@didhub/api-client');
-    (mod as any).apiClient.alters.search = vi.fn();
+    (mod as any).apiClient.alter.get_alters_search = vi.fn();
 
     const { useAlterOptions } = await import('../useAlterOptions');
     renderHook(() => useAlterOptions('system-1', '', false));
 
     await new Promise((r) => setTimeout(r, 500));
-    expect((mod as any).apiClient.alters.search).not.toHaveBeenCalled();
+    expect((mod as any).apiClient.alter.get_alters_search).not.toHaveBeenCalled();
   });
 
   it('fetches options when uid is provided and leaderQuery set', async () => {
     const mod = await import('@didhub/api-client');
-    const mockSearch = vi.fn().mockResolvedValue([{ id: 'a' }]);
-    (mod as any).apiClient.alters.search = mockSearch;
+    const mockSearch = vi.fn().mockResolvedValue({ data: { items: [{ id: 'a' }], total: 1, limit: 20, offset: 0 } });
+    (mod as any).apiClient.alter.get_alters_search = mockSearch;
 
     const { useAlterOptions } = await import('../useAlterOptions');
     const { result } = renderHook(() => useAlterOptions('system-1', 'query'));
@@ -53,8 +53,13 @@ describe('useAlterOptions', () => {
   it('coalesces inflight identical requests across multiple hook instances', async () => {
     const mod = await import('@didhub/api-client');
     // Simulate a slow network call
-    const mockSearch = vi.fn(() => new Promise((resolve) => setTimeout(() => resolve([{ id: 'coalesced' }]), 100)));
-    (mod as any).apiClient.alters.search = mockSearch;
+    const mockSearch = vi.fn(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => resolve({ data: { items: [{ id: 'coalesced' }], total: 1, limit: 20, offset: 0 } }), 100),
+        ),
+    );
+    (mod as any).apiClient.alter.get_alters_search = mockSearch;
 
     const { useAlterOptions } = await import('../useAlterOptions');
     const r1 = renderHook(() => useAlterOptions('system-x', 'same'));

@@ -80,16 +80,16 @@ export default function DashboardTab() {
       ]);
 
       // Load system statistics (systems are users with is_system=true)
-  const systems = (await apiClient.admin.get_users({ perPage: 1, is_system: true })).data;
+      const systems = (await apiClient.admin.get_users({ perPage: 1, is_system: true })).data;
 
       // Load pending system requests
       const requests = (await apiClient.admin.get_system_requests()).data;
 
       // Load recent system requests (last 5)
-  const recentReqs = requests.slice(-5);
+      const recentReqs = requests.slice(-5);
 
       // Load recent audit logs
-  const audit = (await apiClient.admin.get_audit({ perPage: 10 })).data;
+      const audit = (await apiClient.admin.get_audit({ perPage: 10 })).data;
 
       // Load system health
       const redisStatus = (await apiClient.admin.get_admin_redis()).data;
@@ -103,13 +103,12 @@ export default function DashboardTab() {
         pendingRequests: requests.filter((r: any) => r.status === 'pending').length,
       });
 
-  setRecentRequests(recentReqs);
-  setRecentAudit(audit ?? []);
+      setRecentRequests(recentReqs);
+      setRecentAudit(audit ?? []);
       setSystemHealth({
         redis: redisStatus,
         database: true, // Assume DB is ok if we got this far
       });
-
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       setSnack({ open: true, message: 'Failed to load dashboard data', severity: 'error' });
@@ -128,10 +127,14 @@ export default function DashboardTab() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'success';
-      case 'rejected': return 'error';
-      case 'pending': return 'warning';
-      default: return 'default';
+      case 'approved':
+        return 'success';
+      case 'rejected':
+        return 'error';
+      case 'pending':
+        return 'warning';
+      default:
+        return 'default';
     }
   };
 
@@ -226,10 +229,7 @@ export default function DashboardTab() {
           </Alert>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Alert
-            icon={<CheckCircleIcon />}
-            severity="success"
-          >
+          <Alert icon={<CheckCircleIcon />} severity="success">
             Database: Connected
           </Alert>
         </Grid>
@@ -255,11 +255,7 @@ export default function DashboardTab() {
                       primary={
                         <Box display="flex" alignItems="center" gap={1}>
                           <Typography variant="body1">{request.username}</Typography>
-                          <Chip
-                            label={request.status}
-                            size="small"
-                            color={getStatusColor(request.status)}
-                          />
+                          <Chip label={request.status} size="small" color={getStatusColor(request.status)} />
                         </Box>
                       }
                       secondary={new Date(request.created_at).toLocaleDateString()}
@@ -291,11 +287,7 @@ export default function DashboardTab() {
                           {log.action} {log.entity_type && `on ${log.entity_type}`}
                         </Typography>
                       }
-                      secondary={
-                        log.created_at
-                          ? new Date(log.created_at).toLocaleString()
-                          : 'Unknown time'
-                      }
+                      secondary={log.created_at ? new Date(log.created_at).toLocaleString() : 'Unknown time'}
                     />
                   </ListItem>
                 ))

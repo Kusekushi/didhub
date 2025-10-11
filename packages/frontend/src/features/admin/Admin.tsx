@@ -49,17 +49,17 @@ export default function Admin() {
       icon: <DashboardIcon />,
       render: () => <DashboardTab />,
     },
-    { 
-      key: 'uploads', 
-      label: 'Uploads', 
+    {
+      key: 'uploads',
+      label: 'Uploads',
       icon: <UploadIcon />,
-      render: () => <AdminUploads /> 
+      render: () => <AdminUploads />,
     },
-    { 
-      key: 'users', 
-      label: 'Users', 
+    {
+      key: 'users',
+      label: 'Users',
       icon: <UsersIcon />,
-      render: () => <UsersTab /> 
+      render: () => <UsersTab />,
     },
     {
       key: 'pending',
@@ -89,9 +89,7 @@ export default function Admin() {
       key: 'redis',
       label: 'Redis',
       icon: <RedisIcon />,
-      render: () => (
-        <RedisTab />
-      ),
+      render: () => <RedisTab />,
     },
     {
       key: 'updates',
@@ -105,35 +103,35 @@ export default function Admin() {
       icon: <MessagesIcon />,
       render: () => <MessagesTab />,
     },
-    { 
-      key: 'audit', 
-      label: 'Audit Logs', 
+    {
+      key: 'audit',
+      label: 'Audit Logs',
       icon: <AuditIcon />,
-      render: () => <AuditTab /> 
+      render: () => <AuditTab />,
     },
-    { 
-      key: 'housekeeping', 
-      label: 'Housekeeping', 
+    {
+      key: 'housekeeping',
+      label: 'Housekeeping',
       icon: <HousekeepingIcon />,
-      render: () => <Housekeeping /> 
+      render: () => <Housekeeping />,
     },
-    { 
-      key: 'database', 
-      label: 'Database', 
+    {
+      key: 'database',
+      label: 'Database',
       icon: <DatabaseIcon />,
-      render: () => <DatabaseTab /> 
+      render: () => <DatabaseTab />,
     },
-    { 
-      key: 'backup-restore', 
-      label: 'Backup & Restore', 
+    {
+      key: 'backup-restore',
+      label: 'Backup & Restore',
       icon: <BackupIcon />,
-      render: () => <BackupRestoreTab /> 
+      render: () => <BackupRestoreTab />,
     },
-    { 
-      key: 'metrics', 
-      label: 'Metrics', 
+    {
+      key: 'metrics',
+      label: 'Metrics',
       icon: <MetricsIcon />,
-      render: () => <MetricsTab /> 
+      render: () => <MetricsTab />,
     },
   ];
 
@@ -173,9 +171,7 @@ export default function Admin() {
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ flex: 1, padding: 3, overflow: 'auto' }}>
-        {panels[tab] ? panels[tab]() : null}
-      </Box>
+      <Box sx={{ flex: 1, padding: 3, overflow: 'auto' }}>{panels[tab] ? panels[tab]() : null}</Box>
     </Box>
   );
 }

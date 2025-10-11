@@ -20,14 +20,21 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { apiClient, type ApiAlter, type Group, type GroupMembersResponse, type ApiUploadResp } from '@didhub/api-client';
+import {
+  apiClient,
+  type ApiAlter,
+  type Group,
+  type GroupMembersResponse,
+  type ApiUploadResp,
+} from '@didhub/api-client';
 
 import logger from '../../shared/lib/logger';
 import { useAuth } from '../../shared/contexts/AuthContext';
-import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
+import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUtils';
+import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { usePdf } from '../../shared/hooks/usePdf';
 
-type LeaderOption = Partial<ApiAlter> & { id: number | string; name?: string | null };
+type LeaderOption = Partial<ApiAlter> & { id: string; name?: string | null };
 
 // ...existing code...
 async function getAlterById(id: string | number): Promise<ApiAlter | null> {
@@ -41,12 +48,7 @@ async function getAlterById(id: string | number): Promise<ApiAlter | null> {
 }
 
 function normalizeStringId(value: unknown): string | undefined {
-  if (typeof value === 'number' || typeof value === 'string') return String(value);
-  if (value && typeof value === 'object' && 'id' in value) {
-    const candidate = (value as { id?: unknown }).id;
-    if (typeof candidate === 'number' || typeof candidate === 'string') return String(candidate);
-  }
-  return undefined;
+  return normalizeEntityId(value) ?? undefined;
 }
 
 function extractLeaderIds(group: Group | null): string[] {
@@ -79,13 +81,19 @@ function extractLeaderIds(group: Group | null): string[] {
   return [];
 }
 
-function extractOwnerId(group: Group | null): number | string | undefined {
+function extractOwnerId(group: Group | null): string | undefined {
   if (!group) return undefined;
   const candidate = (group as unknown as { owner_user_id?: unknown }).owner_user_id;
-  if (typeof candidate === 'number' || typeof candidate === 'string') return candidate;
-  if (candidate != null) {
-    const text = String(candidate).trim();
-    if (text) return text;
+  if (typeof candidate === 'string') {
+    const t = candidate.trim();
+    return t ? t : undefined;
+  }
+  if (candidate && typeof candidate === 'object' && 'id' in (candidate as Record<string, unknown>)) {
+    const idv = (candidate as { id?: unknown }).id;
+    if (typeof idv === 'string') {
+      const t = idv.trim();
+      return t ? t : undefined;
+    }
   }
   return undefined;
 }
@@ -160,16 +168,27 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
   const [sigilUploading, setSigilUploading] = useState(false);
   const [sigilDrag, setSigilDrag] = useState(false);
   const [leaderOptions, setLeaderOptions] = useState<LeaderOption[]>([]);
+  const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'error' });
+  const [invalidIdsQueue, setInvalidIdsQueue] = useState<string[]>([]);
   const [leaderQuery, setLeaderQuery] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { pdfError, pdfSnackOpen, handlePdfDownload, closePdfSnack } = usePdf();
 
+  useEffect(() => {
+    if (invalidIdsQueue.length === 0) return;
+    const id = invalidIdsQueue[0];
+    setSnack({ open: true, message: `Invalid member id: ${id}`, severity: 'warning' });
+    // clear the queue after notifying
+    setInvalidIdsQueue([]);
+  }, [invalidIdsQueue]);
+
   const fetchMemberAlters = useCallback(
-  async (groupId: string | number, ensureAlterIds: string[] = []): Promise<ApiAlter[]> => {
+    async (groupId: EntityId, ensureAlterIds: string[] = []): Promise<ApiAlter[]> => {
       try {
-  const membersResp = await apiClient.group.get_groups_by_id_members(groupId);
-    const response: GroupMembersResponse = (membersResp.data as GroupMembersResponse) ?? ({} as GroupMembersResponse);
+        const membersResp = await apiClient.group.get_groups_by_id_members(groupId);
+        const response: GroupMembersResponse =
+          (membersResp.data as GroupMembersResponse) ?? ({} as GroupMembersResponse);
         const collectedIds = new Set<string>();
         if (Array.isArray(response.alters)) {
           response.alters.forEach((value) => {
@@ -198,8 +217,8 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
       if (!id) return;
       setLoading(true);
       try {
-  const groupResp = await apiClient.group.get_groups_by_id(id);
-    const groupData = (groupResp.data as Group) ?? null;
+        const groupResp = await apiClient.group.get_groups_by_id(id);
+        const groupData = (groupResp.data as Group) ?? null;
         if (!mounted) return;
         if (!groupData || groupData.id == null) {
           setGroup(null);
@@ -242,7 +261,10 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
   const canManage = Boolean(
     me &&
       (me.is_admin ||
-        (me.is_system && groupOwnerId != null && me.id != null && String(me.id) === String(groupOwnerId))),
+        (me.is_system &&
+          groupOwnerId != null &&
+          me.id != null &&
+          normalizeEntityId(me.id) === normalizeEntityId(groupOwnerId))),
   );
 
   // Normalized leader ids (string form for comparisons) with null guard
@@ -252,9 +274,9 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
 
   const leaderMembers = useMemo(() => {
     const leadersSet = new Set(leaderIds);
-  const leaders: ApiAlter[] = [];
+    const leaders: ApiAlter[] = [];
     uniqueMembers.forEach((member) => {
-      const id = normalizeStringId(member?.id);
+      const id = getNormalizedIdFor(member);
       if (id && leadersSet.has(id)) leaders.push(member);
     });
     leaders.sort((a, b) =>
@@ -262,20 +284,32 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
     );
     return leaders;
   }, [leaderIds, uniqueMembers]);
+  function getNormalizedIdFor(alter: ApiAlter | null | undefined) {
+    if (!alter) return undefined;
+    return normalizeEntityId(alter.id) ?? undefined;
+  }
 
-  const renderAlterChip = (m: ApiAlter, extra?: { variant?: 'outlined' | 'filled'; color?: 'primary' | 'default' }) => (
-    <Chip
-      key={String(m.id)}
-      component="a"
-      href={`/detail/alter/${m.id}`}
-      clickable
-      avatar={<Avatar alt={m.name}>{(m.name || '#').slice(0, 1)}</Avatar>}
-      label={m.name || `#${m.id}`}
-      sx={{ mr: 1, mb: 1 }}
-      variant={extra?.variant || 'outlined'}
-      color={extra?.color || 'default'}
-    />
-  );
+  const renderAlterChip = (m: ApiAlter, extra?: { variant?: 'outlined' | 'filled'; color?: 'primary' | 'default' }) => {
+    const key = getNormalizedIdFor(m);
+    if (!key) {
+      // queue invalid id for later notification
+      setInvalidIdsQueue((q) => (q.includes(String(m.id)) ? q : [...q, String(m.id)]));
+      return null;
+    }
+    return (
+      <Chip
+        key={key}
+        component="a"
+        href={`/detail/alter/${key}`}
+        clickable
+        avatar={<Avatar alt={m.name}>{(m.name || '#').slice(0, 1)}</Avatar>}
+        label={m.name || `#${key}`}
+        sx={{ mr: 1, mb: 1 }}
+        variant={extra?.variant || 'outlined'}
+        color={extra?.color || 'default'}
+      />
+    );
+  };
 
   // Initialize edit form when entering edit mode
   function beginEdit() {
@@ -302,25 +336,17 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
     try {
       if (sigilUploading) throw new Error('Please wait for sigil upload to finish');
       const leaderIdsPayload = editLeaders
-        .map((leader) => {
-          const raw = leader.id;
-          if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-          if (typeof raw === 'string') {
-            const numeric = Number(raw.trim().replace(/^#/u, ''));
-            return Number.isFinite(numeric) ? numeric : null;
-          }
-          return null;
-        })
-        .filter((value): value is number => value !== null);
+        .map((leader) => normalizeStringId(leader.id))
+        .filter((value): value is string => typeof value === 'string' && value.length > 0);
       const payload: Record<string, unknown> = {
         name: editName.trim() ? editName.trim() : null,
         description: editDesc ? editDesc : null,
         leaders: leaderIdsPayload,
         sigil: editSigilUrl || null,
       };
-    await apiClient.group.put_groups_by_id(group.id, payload as any);
-    const updatedResp = await apiClient.group.get_groups_by_id(group.id);
-    const updated = (updatedResp.data as Group) ?? null;
+      await apiClient.group.put_groups_by_id(group.id, payload as any);
+      const updatedResp = await apiClient.group.get_groups_by_id(group.id);
+      const updated = (updatedResp.data as Group) ?? null;
       setGroup(updated);
       setEditing(false);
     } catch (err) {
@@ -407,7 +433,8 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
 
   const exportPdf = useCallback(() => {
     if (group?.id) {
-      handlePdfDownload(String(group.id), 'group');
+      const gid = normalizeEntityId(group.id);
+      if (gid) handlePdfDownload(gid, 'group');
     }
   }, [group?.id, handlePdfDownload]);
   return (
@@ -619,23 +646,27 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
       </Box>
       {uniqueMembers.length ? (
         <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
-          {uniqueMembers.map((m) =>
-            renderAlterChip(m, {
-              color: leaderIds.includes(String(m.id)) ? 'primary' : 'default',
-              variant: leaderIds.includes(String(m.id)) ? 'filled' : 'outlined',
-            }),
-          )}
+          {uniqueMembers.map((m) => {
+            const nid = normalizeEntityId(m.id);
+            return nid
+              ? renderAlterChip(m, {
+                  color: leaderIds.includes(nid) ? 'primary' : 'default',
+                  variant: leaderIds.includes(nid) ? 'filled' : 'outlined',
+                })
+              : null;
+          })}
         </Box>
       ) : (
         <Typography variant="body2" color="text.disabled" sx={{ mb: 4 }}>
           No members in this group yet
         </Typography>
       )}
+      <NotificationSnackbar open={pdfSnackOpen} onClose={closePdfSnack} message={pdfError} severity={'error'} />
       <NotificationSnackbar
-        open={pdfSnackOpen}
-        onClose={closePdfSnack}
-        message={pdfError}
-        severity={'error'}
+        open={snack.open}
+        onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        message={snack.message}
+        severity={snack.severity}
       />
     </Container>
   );

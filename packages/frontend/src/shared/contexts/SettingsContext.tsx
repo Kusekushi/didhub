@@ -42,8 +42,8 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
         const res = await apiClient.admin.get_settings();
         if (!mounted) return;
 
-  const rawData = res.data as unknown;
-  const asArray = Array.isArray(rawData) ? (rawData as Array<Record<string, unknown>>) : [];
+        const rawData = res.data as unknown;
+        const asArray = Array.isArray(rawData) ? (rawData as Array<Record<string, unknown>>) : [];
         const rawObject: Record<string, unknown> = {};
 
         for (const entry of asArray) {
@@ -53,9 +53,10 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
           rawObject[key] = value ?? null;
         }
 
-        const fallbackRaw = !Array.isArray(rawData) && rawData && typeof rawData === 'object'
-          ? (rawData as Record<string, unknown>)
-          : rawObject;
+        const fallbackRaw =
+          !Array.isArray(rawData) && rawData && typeof rawData === 'object'
+            ? (rawData as Record<string, unknown>)
+            : rawObject;
         const getValue = (key: string) => {
           if (key in rawObject) return rawObject[key];
           return fallbackRaw[key];

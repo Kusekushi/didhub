@@ -223,10 +223,14 @@ export default function UserListPanel() {
           </form>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setCreateDialog({ open: false });
-            setCreateFormErrors({});
-          }}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setCreateDialog({ open: false });
+              setCreateFormErrors({});
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={async () => {

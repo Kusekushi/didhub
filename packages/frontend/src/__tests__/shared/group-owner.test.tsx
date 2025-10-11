@@ -50,12 +50,13 @@ describe('GroupDialog owner propagation', () => {
     createMock.mockClear();
     listMock.mockClear();
 
+    const ownerUuid = '11111111-1111-1111-1111-111111111111';
     const { findByLabelText, findByText } = render(
       <GroupDialog
         mode="create"
         open={true}
         onClose={() => {}}
-        uid={'42'}
+        uid={ownerUuid}
         uploadFiles={async () => []}
         onCreated={async () => {}}
       />,
@@ -71,6 +72,6 @@ describe('GroupDialog owner propagation', () => {
       expect(createMock).toHaveBeenCalled();
     });
     const payload = createMock.mock.calls[0][0] as any;
-    expect(payload.owner_user_id).toBe(42);
+    expect(payload.owner_user_id).toBe(ownerUuid);
   });
 });
