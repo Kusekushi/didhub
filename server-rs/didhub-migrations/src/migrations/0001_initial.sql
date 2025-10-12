@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS alters (
   is_system_host INTEGER DEFAULT 0,
   is_dormant INTEGER DEFAULT 0,
   is_merged INTEGER DEFAULT 0,
-  owner_user_id TEXT,
+  owner_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS posts (
     -- Use UUID primary key stored as TEXT
     id TEXT PRIMARY KEY,
     body TEXT NOT NULL,
-    created_by_user_id TEXT,
+    created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     repost_of_post_id TEXT REFERENCES posts(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
