@@ -1,7 +1,4 @@
-use axum::{
-    extract::Query,
-    Extension, Json,
-};
+use axum::{extract::Query, Extension, Json};
 use didhub_db::audit;
 use didhub_db::system_requests::SystemRequestOperations;
 use didhub_db::Db;

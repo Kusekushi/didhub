@@ -41,7 +41,8 @@ fn test_provider_settings_from_env_no_env_vars() {
     }
 
     // Accept either the default or the environment-provided redirect URI
-    let expected_redirect = std::env::var("OIDC_REDIRECT_URI").unwrap_or_else(|_| "http://localhost:5173/oidc/callback".into());
+    let expected_redirect = std::env::var("OIDC_REDIRECT_URI")
+        .unwrap_or_else(|_| "http://localhost:5173/oidc/callback".into());
     assert_eq!(settings.redirect_uri, expected_redirect);
 }
 
@@ -286,7 +287,8 @@ async fn test_provider_settings_with_env_vars() {
     let did = discord.client_id.clone();
     assert!(did == "test_discord_client_id" || did == "CHANGE_ME_DISCORD_CLIENT_ID");
 
-    let expected_redirect = std::env::var("OIDC_REDIRECT_URI").unwrap_or_else(|_| "https://example.com/callback".into());
+    let expected_redirect = std::env::var("OIDC_REDIRECT_URI")
+        .unwrap_or_else(|_| "https://example.com/callback".into());
     assert_eq!(settings.redirect_uri, expected_redirect);
 
     // Clean up

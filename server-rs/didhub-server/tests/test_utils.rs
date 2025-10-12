@@ -214,9 +214,11 @@ pub async fn auth_req(
             .nth(1)
             .unwrap_or("")
             .to_string();
+        // Always include a content-type header for mutating requests to satisfy middleware validation even if the body is empty.
         builder = builder
             .header("cookie", cookie)
-            .header("x-csrf-token", csrf_token);
+            .header("x-csrf-token", csrf_token)
+            .header("content-type", "application/json");
     }
     let req = if let Some(b) = body {
         builder = builder.header("content-type", "application/json");

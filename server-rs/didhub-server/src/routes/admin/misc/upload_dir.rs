@@ -1,5 +1,8 @@
 use crate::upload_dir::UploadDirCache;
-use axum::{extract::{Extension, Query}, Json};
+use axum::{
+    extract::{Extension, Query},
+    Json,
+};
 use didhub_db::{audit, Db};
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
@@ -78,7 +81,13 @@ pub async fn upload_dir(
 
                     let dir = udc.current().await;
 
-                    Ok(Json(UploadDirResp { ok: true, dir, moved, skipped, total }))
+                    Ok(Json(UploadDirResp {
+                        ok: true,
+                        dir,
+                        moved,
+                        skipped,
+                        total,
+                    }))
                 }
                 Err(_) => Err(AppError::Internal),
             }

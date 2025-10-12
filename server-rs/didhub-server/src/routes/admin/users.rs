@@ -151,7 +151,9 @@ pub async fn list_users(
         next,
         prev,
     };
-    Ok(Json(serde_json::to_value(UsersListResponse { meta, items }).map_err(|_| AppError::Internal)?))
+    Ok(Json(
+        serde_json::to_value(UsersListResponse { meta, items }).map_err(|_| AppError::Internal)?,
+    ))
 }
 
 #[derive(serde::Deserialize)]

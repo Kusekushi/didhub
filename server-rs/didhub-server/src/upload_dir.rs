@@ -245,7 +245,9 @@ impl UploadDirCache {
     }
 
     /// Like `migrate_previous_to_current` but return moved and skipped filenames.
-    pub async fn migrate_previous_to_current_with_names(&self) -> Result<(Vec<String>, Vec<String>), std::io::Error> {
+    pub async fn migrate_previous_to_current_with_names(
+        &self,
+    ) -> Result<(Vec<String>, Vec<String>), std::io::Error> {
         let (from, to) = {
             let w = self.inner.read().await;
             (w.last_value.clone(), w.value.clone())
@@ -373,7 +375,8 @@ mod tests {
         fs::create_dir_all(&sub).unwrap();
 
         let udc = UploadDirCache::new_no_db(to_path.clone(), 60);
-        udc.set_internal_state(Some(from_path.clone()), to_path.clone()).await;
+        udc.set_internal_state(Some(from_path.clone()), to_path.clone())
+            .await;
 
         let (moved, skipped) = udc
             .migrate_previous_to_current_with_names()

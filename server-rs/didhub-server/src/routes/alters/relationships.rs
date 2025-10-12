@@ -251,5 +251,7 @@ pub async fn replace_relationships(
     );
 
     // FIXME: Return type
-    Ok(Json(super::RowsAffectedResponse { rows_affected: rows_affected.try_into().unwrap() }))
+    Ok(Json(super::RowsAffectedResponse {
+        rows_affected: rows_affected.try_into().unwrap(),
+    }))
 }
