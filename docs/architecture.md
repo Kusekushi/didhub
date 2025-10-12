@@ -123,7 +123,7 @@ users (authentication, profiles)
 ├── systems (user's DID systems)
 │   ├── alters (system members)
 │   ├── groups (alter groupings)
-│   └── subsystems (alter sub-groups)
+│   └── subsystems (alter subsystems)
 ├── uploads (file storage metadata)
 ├── audit_logs (security events)
 ├── settings (application configuration)
@@ -134,7 +134,7 @@ users (authentication, profiles)
 
 - **Users** can have multiple **systems**
 - **Systems** contain multiple **alters**
-- **Alters** can belong to multiple **groups** and **subsystems**
+- **Alters** can belong to multiple **groups** but only one **subsystem**
 - **Uploads** are associated with users and can be linked to alters
 - **Audit logs** track all significant actions
 

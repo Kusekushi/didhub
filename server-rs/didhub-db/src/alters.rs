@@ -64,12 +64,14 @@ impl AlterOperations for Db {
         let owner_user_id = na.get("owner_user_id").and_then(|v| v.as_str());
         let nm = name.clone();
         let owner = owner_user_id;
-        let rec = self
+        let id = uuid::Uuid::new_v4().to_string();
+        let mut rec = self
             .insert_and_return(
                 || async {
                     let r = sqlx::query_as::<_, Alter>(
-                        "INSERT INTO alters (name, owner_user_id) VALUES (?1, ?2) RETURNING *",
+                        "INSERT INTO alters (id, name, owner_user_id) VALUES (?1, ?2, ?3) RETURNING *",
                     )
+                    .bind(&id)
                     .bind(&nm)
                     .bind(owner)
                     .fetch_one(&self.pool)
@@ -77,14 +79,16 @@ impl AlterOperations for Db {
                     Ok(r)
                 },
                 || async {
-                    sqlx::query("INSERT INTO alters (name, owner_user_id) VALUES (?1, ?2)")
+                    sqlx::query("INSERT INTO alters (id, name, owner_user_id) VALUES (?1, ?2, ?3)")
+                        .bind(&id)
                         .bind(&nm)
                         .bind(owner)
                         .execute(&self.pool)
                         .await?;
                     let r = sqlx::query_as::<_, Alter>(
-                        "SELECT * FROM alters WHERE id = LAST_INSERT_ID()",
+                        "SELECT * FROM alters WHERE id = ?1",
                     )
+                    .bind(&id)
                     .fetch_one(&self.pool)
                     .await?;
                     Ok(r)
@@ -329,7 +333,6 @@ impl AlterOperations for Db {
             "interests",
             "notes",
             "images",
-            "subsystem",
             "system_roles",
             "is_system_host",
             "is_dormant",

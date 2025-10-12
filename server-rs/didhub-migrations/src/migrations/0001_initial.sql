@@ -38,7 +38,6 @@ CREATE TABLE IF NOT EXISTS alters (
   interests TEXT,
   notes TEXT,
   images TEXT,
-  subsystem TEXT,
   system_roles TEXT,
   is_system_host INTEGER DEFAULT 0,
   is_dormant INTEGER DEFAULT 0,

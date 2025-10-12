@@ -177,7 +177,7 @@ pub async fn export_alter(
     if let Some(weapon) = &alter.weapon {
         lines.push(format!("Weapon: {}", weapon));
     }
-    if let Some(subsystem) = &alter.subsystem {
+    if let Some(subsystem) = db.get_subsystem_for_alter(&alter.id).await? {
         lines.push(format!("Subsystem: {}", subsystem));
     }
 

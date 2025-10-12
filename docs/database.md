@@ -162,6 +162,44 @@ When modifying the schema:
 3. Update any affected queries
 4. Run tests to ensure compatibility
 
+### Alter ↔ Subsystem membership
+
+In a recent update the canonical source of truth for an alter's subsystem membership was moved to a join table named `alter_subsystems`.
+
+Key points:
+
+- The denormalized `subsystem` column was removed from the `alters` table for new installs. The membership is now represented by the `alter_subsystems` table which links `alter_id` to `subsystem_id`.
+- Invariants enforced by the backend code and API:
+    - An alter can belong to at most one subsystem. The server enforces this by deleting existing rows for an alter before inserting a new membership (or by removing rows when clearing membership).
+    - Alter owner equality: when assigning an alter to a subsystem the subsystem's `owner_user_id` must match the alter's `owner_user_id`, unless the caller has admin privileges. This prevents cross-owner assignments.
+
+API endpoints (examples):
+
+- GET /api/alters/{id}/subsystems — returns the single subsystem id for the given alter or null
+- PUT /api/alters/{id}/subsystems — replace the alter's subsystem membership (payload: { "subsystem_id": "<id>" } or null to clear)
+- DELETE /api/alters/{id}/subsystems — remove the alter's subsystem membership (equivalent to setting `subsystem_id` to null)
+
+Migration guidance for existing installs:
+
+- New installations (fresh DB) will not have the old `alters.subsystem` column; the `alter_subsystems` join table is created in the initial migrations and is canonical.
+- Existing installations that still have a `subsystem` column should migrate data carefully. Recommended safe approach:
+    1. Backup your database (required). For SQLite, copy the file; for Postgres/MySQL, use pg_dump/mysqldump.
+    2. Create migration scripts (or a one-off maintenance script) that, for each row in `alters` with a non-null `subsystem` value, inserts a row into `alter_subsystems` if one doesn't already exist. Example (pseudo-SQL):
+
+```sql
+-- copy existing denormalized membership into the join table (Postgres/MySQL example)
+INSERT INTO alter_subsystems (alter_id, subsystem_id)
+SELECT id AS alter_id, subsystem AS subsystem_id
+FROM alters
+WHERE subsystem IS NOT NULL
+ON CONFLICT DO NOTHING; -- or use INSERT IGNORE for MySQL
+```
+
+3. Verify application behavior with a staging environment and tests.
+4. Once the join table is populated and verified, you may remove the `subsystem` column from `alters` using a safe, dialect-appropriate ALTER TABLE operation. Note that SQLite has limited ALTER support; for SQLite you may need to recreate the table or provide an offline migration path.
+
+If you need help generating safe per-dialect migrations, see the project's migration guidance or open an issue/PR describing your target DB platform and version.
+
 ## Troubleshooting
 
 ### Common Issues

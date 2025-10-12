@@ -32,6 +32,12 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
                 .delete(crate::routes::alters::delete_alter),
         )
         .route(
+            "/alters/{id}/subsystems",
+            get(crate::routes::alters::get_alter_subsystem)
+                .put(crate::routes::alters::set_alter_subsystem)
+                .delete(crate::routes::alters::delete_alter_subsystem),
+        )
+        .route(
             "/alters/{id}/relationships",
             get(crate::routes::alters::relationships::list_relationships)
                 .post(crate::routes::alters::relationships::create_relationship),

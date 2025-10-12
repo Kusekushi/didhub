@@ -53,6 +53,18 @@ pub trait SubsystemOperations {
     /// List all alters in a subsystem
     async fn list_alters_in_subsystem(&self, subsystem_id: &str) -> Result<Vec<String>>;
 
+    /// Get the single subsystem id for a given alter (or None)
+    async fn get_subsystem_for_alter(&self, alter_id: &str) -> Result<Option<String>>;
+
+    /// Set the single subsystem membership for an alter. Passing None will remove
+    /// any existing membership. This enforces the invariant that an alter can
+    /// belong to at most one subsystem.
+    async fn set_subsystem_for_alter(
+        &self,
+        alter_id: &str,
+        subsystem_id: Option<&str>,
+    ) -> Result<()>;
+
     /// Batch load members for multiple subsystems
     async fn batch_load_subsystem_members(
         &self,
@@ -132,7 +144,12 @@ impl SubsystemOperations for Db {
         let start = Instant::now();
         let result = match self.backend {
             DbBackend::Sqlite => {
-                sqlx::query_as::<_, Subsystem>("SELECT id, name, description, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM subsystems WHERE id=?1").bind(id).fetch_optional(&self.pool).await?
+                sqlx::query_as::<_, Subsystem>(
+                    "SELECT id, name, description, NULL as avatar_url, NULL as banner_url, NULL as color, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at, CAST(created_at AS TEXT) as updated_at FROM subsystems WHERE id=?1"
+                )
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?
             }
             _ => sqlx::query_as::<_, Subsystem>("SELECT * FROM subsystems WHERE id=?1").bind(id).fetch_optional(&self.pool).await?,
         };
@@ -161,26 +178,26 @@ impl SubsystemOperations for Db {
             (Some(qs), Some(owner_id)) => {
                 let like = format!("%{}%", qs);
                 match self.backend {
-                    DbBackend::Sqlite => sqlx::query_as::<_, Subsystem>("SELECT id, name, description, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM subsystems WHERE name LIKE ?1 AND owner_user_id = ?2 ORDER BY id DESC LIMIT ?3 OFFSET ?4").bind(like).bind(owner_id).bind(limit).bind(offset).fetch_all(&self.pool).await?,
+                    DbBackend::Sqlite => sqlx::query_as::<_, Subsystem>("SELECT id, name, description, NULL as avatar_url, NULL as banner_url, NULL as color, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at, CAST(created_at AS TEXT) as updated_at FROM subsystems WHERE name LIKE ?1 AND owner_user_id = ?2 ORDER BY id DESC LIMIT ?3 OFFSET ?4").bind(like).bind(owner_id).bind(limit).bind(offset).fetch_all(&self.pool).await?,
                     _ => sqlx::query_as::<_, Subsystem>("SELECT * FROM subsystems WHERE name LIKE ?1 AND owner_user_id = ?2 ORDER BY id DESC LIMIT ?3 OFFSET ?4").bind(like).bind(owner_id).bind(limit).bind(offset).fetch_all(&self.pool).await?,
                 }
             },
             (Some(qs), None) => {
                 let like = format!("%{}%", qs);
                 match self.backend {
-                    DbBackend::Sqlite => sqlx::query_as::<_, Subsystem>("SELECT id, name, description, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM subsystems WHERE name LIKE ?1 ORDER BY id DESC LIMIT ?2 OFFSET ?3").bind(like).bind(limit).bind(offset).fetch_all(&self.pool).await?,
+                    DbBackend::Sqlite => sqlx::query_as::<_, Subsystem>("SELECT id, name, description, NULL as avatar_url, NULL as banner_url, NULL as color, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at, CAST(created_at AS TEXT) as updated_at FROM subsystems WHERE name LIKE ?1 ORDER BY id DESC LIMIT ?2 OFFSET ?3").bind(like).bind(limit).bind(offset).fetch_all(&self.pool).await?,
                     _ => sqlx::query_as::<_, Subsystem>("SELECT * FROM subsystems WHERE name LIKE ?1 ORDER BY id DESC LIMIT ?2 OFFSET ?3").bind(like).bind(limit).bind(offset).fetch_all(&self.pool).await?,
                 }
             },
             (None, Some(owner_id)) => {
                 match self.backend {
-                    DbBackend::Sqlite => sqlx::query_as::<_, Subsystem>("SELECT id, name, description, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM subsystems WHERE owner_user_id = ?1 ORDER BY id DESC LIMIT ?2 OFFSET ?3").bind(owner_id).bind(limit).bind(offset).fetch_all(&self.pool).await?,
+                    DbBackend::Sqlite => sqlx::query_as::<_, Subsystem>("SELECT id, name, description, NULL as avatar_url, NULL as banner_url, NULL as color, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at, CAST(created_at AS TEXT) as updated_at FROM subsystems WHERE owner_user_id = ?1 ORDER BY id DESC LIMIT ?2 OFFSET ?3").bind(owner_id).bind(limit).bind(offset).fetch_all(&self.pool).await?,
                     _ => sqlx::query_as::<_, Subsystem>("SELECT * FROM subsystems WHERE owner_user_id = ?1 ORDER BY id DESC LIMIT ?2 OFFSET ?3").bind(owner_id).bind(limit).bind(offset).fetch_all(&self.pool).await?,
                 }
             },
             (None, None) => {
                 match self.backend {
-                    DbBackend::Sqlite => sqlx::query_as::<_, Subsystem>("SELECT id, name, description, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at FROM subsystems ORDER BY id DESC LIMIT ?1 OFFSET ?2").bind(limit).bind(offset).fetch_all(&self.pool).await?,
+                    DbBackend::Sqlite => sqlx::query_as::<_, Subsystem>("SELECT id, name, description, NULL as avatar_url, NULL as banner_url, NULL as color, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at, CAST(created_at AS TEXT) as updated_at FROM subsystems ORDER BY id DESC LIMIT ?1 OFFSET ?2").bind(limit).bind(offset).fetch_all(&self.pool).await?,
                     _ => sqlx::query_as::<_, Subsystem>("SELECT * FROM subsystems ORDER BY id DESC LIMIT ?1 OFFSET ?2").bind(limit).bind(offset).fetch_all(&self.pool).await?,
                 }
             },
@@ -381,5 +398,45 @@ impl SubsystemOperations for Db {
             start.elapsed(),
         );
         Ok(result)
+    }
+    async fn get_subsystem_for_alter(&self, alter_id: &str) -> Result<Option<String>> {
+        let start = Instant::now();
+        let row = sqlx::query_as::<_, (String,)>(
+            "SELECT subsystem_id FROM alter_subsystems WHERE alter_id=?1 ORDER BY subsystem_id ASC LIMIT 1",
+        )
+        .bind(alter_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        record_db_operation("get_membership", "subsystems", "success", start.elapsed());
+        Ok(row.map(|r| r.0))
+    }
+
+    async fn set_subsystem_for_alter(
+        &self,
+        alter_id: &str,
+        subsystem_id: Option<&str>,
+    ) -> Result<()> {
+        let start = Instant::now();
+        let mut tx = self.pool.begin().await?;
+        // Remove existing memberships
+        sqlx::query("DELETE FROM alter_subsystems WHERE alter_id=?1")
+            .bind(alter_id)
+            .execute(&mut *tx)
+            .await?;
+
+        // If a new subsystem is provided, insert it (ignore duplicates)
+        if let Some(sid) = subsystem_id {
+            sqlx::query(
+                "INSERT OR IGNORE INTO alter_subsystems (alter_id, subsystem_id) VALUES (?1, ?2)",
+            )
+            .bind(alter_id)
+            .bind(sid)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        record_db_operation("set_membership", "subsystems", "success", start.elapsed());
+        Ok(())
     }
 }

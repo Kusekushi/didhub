@@ -206,7 +206,6 @@ pub struct Alter {
     pub interests: Option<String>,
     pub notes: Option<String>,
     pub images: Option<String>,
-    pub subsystem: Option<String>,
     pub system_roles: Option<String>,
     pub is_system_host: i64,
     pub is_dormant: i64,

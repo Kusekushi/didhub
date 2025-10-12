@@ -1,14 +1,16 @@
 pub mod relationships;
 
 use crate::routes::common::{normalize_image_list, normalize_string_list};
+use axum::response::IntoResponse;
 use axum::{
     extract::{Extension, Path, Query, State},
     Json,
 };
-use axum::response::IntoResponse;
 pub use didhub_db::Alter;
 use didhub_db::{
-    alters::AlterOperations, audit, relationships::AlterRelationships, user_alter_relationships::UserAlterRelationshipOperations, users::UserOperations, Db
+    alters::AlterOperations, audit, relationships::AlterRelationships,
+    subsystems::SubsystemOperations, user_alter_relationships::UserAlterRelationshipOperations,
+    users::UserOperations, Db,
 };
 use didhub_error::AppError;
 use didhub_metrics::record_entity_operation;
@@ -112,8 +114,7 @@ pub async fn list_alters(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     Query(q): Query<ListQuery>,
-)
--> Result<axum::response::Response, AppError> {
+) -> Result<axum::response::Response, AppError> {
     debug!(
         user_id = %user.id,
         username = %user.username,
@@ -158,7 +159,8 @@ pub async fn list_alters(
 
             let mut username_lookup: HashMap<String, String> = HashMap::new();
             if !owner_ids.is_empty() {
-                let mut qb = QueryBuilder::<sqlx::Any>::new("SELECT id, username FROM users WHERE id IN (");
+                let mut qb =
+                    QueryBuilder::<sqlx::Any>::new("SELECT id, username FROM users WHERE id IN (");
                 {
                     let mut separated = qb.separated(", ");
                     for owner_id in &owner_ids {
@@ -271,6 +273,148 @@ pub async fn list_alters(
         offset,
     })
     .into_response())
+}
+
+/// Return the single subsystem id for an alter (or null)
+pub async fn get_alter_subsystem(
+    Extension(_user): Extension<CurrentUser>,
+    Extension(db): Extension<Db>,
+    Path(id): Path<String>,
+) -> Result<Json<Option<String>>, AppError> {
+    debug!(alter_id = %id, "Fetching subsystem for alter");
+    let subs = db.get_subsystem_for_alter(&id).await.map_err(|e| {
+        error!(alter_id = %id, error = %e, "DB error getting subsystem for alter");
+        AppError::Internal
+    })?;
+    Ok(Json(subs))
+}
+
+#[derive(serde::Deserialize)]
+pub struct SetAlterSubsystemPayload {
+    /// New subsystem id, or null to remove membership
+    pub subsystem_id: Option<String>,
+}
+
+/// Replace subsystem membership for an alter
+pub async fn set_alter_subsystem(
+    Extension(user): Extension<CurrentUser>,
+    Extension(db): Extension<Db>,
+    Path(id): Path<String>,
+    Json(payload): Json<SetAlterSubsystemPayload>,
+) -> Result<Json<Option<String>>, AppError> {
+    debug!(alter_id = %id, user_id = %user.id, "Setting subsystem for alter");
+
+    // fetch alter to check ownership
+    let alt = db
+        .fetch_alter(&id)
+        .await
+        .map_err(|e| {
+            error!(alter_id = %id, error = %e, "Failed to fetch alter for permission check");
+            AppError::Internal
+        })?
+        .ok_or(AppError::NotFound)?;
+
+    // Permission: owner or admin
+    if user.is_admin == 0 {
+        if let Some(owner) = alt.owner_user_id.as_deref() {
+            if owner != user.id {
+                return Err(AppError::Forbidden);
+            }
+        } else {
+            return Err(AppError::Forbidden);
+        }
+    }
+
+    // If a subsystem id is provided, ensure the subsystem exists and the
+    // subsystem owner matches the alter owner (owner equality requirement)
+    if let Some(ref sid) = payload.subsystem_id {
+        let subsystem = db.fetch_subsystem(sid).await.map_err(|e| {
+            error!(subsystem_id = %sid, error = %e, "Failed to fetch subsystem for ownership check");
+            AppError::Internal
+        })?.ok_or(AppError::NotFound)?;
+
+        // Enforce: alter owner must be the same as subsystem owner (both Option<String>)
+        let alt_owner = alt.owner_user_id.as_deref();
+        let subsystem_owner = subsystem.owner_user_id.as_deref();
+        if alt_owner != subsystem_owner {
+            error!(alter_id = %id, subsystem_id = %sid, "Alter owner does not match subsystem owner");
+            return Err(AppError::Forbidden);
+        }
+    }
+
+    // Perform set (None removes membership)
+    db.set_subsystem_for_alter(&id, payload.subsystem_id.as_deref())
+        .await
+        .map_err(|e| {
+            error!(alter_id = %id, error = %e, "Failed to set subsystem for alter");
+            AppError::Internal
+        })?;
+
+    // Return the new membership
+    let subs = db.get_subsystem_for_alter(&id).await.map_err(|e| {
+        error!(alter_id = %id, error = %e, "DB error getting subsystem for alter after set");
+        AppError::Internal
+    })?;
+
+    audit::record_with_metadata(
+        &db,
+        Some(user.id.as_str()),
+        "alter.subsystem.set",
+        Some("alter"),
+        Some(&id.to_string()),
+        serde_json::json!({"subsystem_id": subs}),
+    )
+    .await;
+
+    Ok(Json(subs))
+}
+
+/// Remove subsystem membership for an alter (equivalent to setting subsystem_id to null)
+pub async fn delete_alter_subsystem(
+    Extension(user): Extension<CurrentUser>,
+    Extension(db): Extension<Db>,
+    Path(id): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    debug!(alter_id = %id, user_id = %user.id, "Deleting subsystem for alter");
+
+    // fetch alter to check ownership
+    let alt = db
+        .fetch_alter(&id)
+        .await
+        .map_err(|e| {
+            error!(alter_id = %id, error = %e, "Failed to fetch alter for permission check");
+            AppError::Internal
+        })?
+        .ok_or(AppError::NotFound)?;
+
+    // Permission: owner or admin
+    if user.is_admin == 0 {
+        if let Some(owner) = alt.owner_user_id.as_deref() {
+            if owner != user.id {
+                return Err(AppError::Forbidden);
+            }
+        } else {
+            return Err(AppError::Forbidden);
+        }
+    }
+
+    // Perform removal
+    db.set_subsystem_for_alter(&id, None).await.map_err(|e| {
+        error!(alter_id = %id, error = %e, "Failed to remove subsystem for alter");
+        AppError::Internal
+    })?;
+
+    audit::record_with_metadata(
+        &db,
+        Some(user.id.as_str()),
+        "alter.subsystem.set",
+        Some("alter"),
+        Some(&id.to_string()),
+        serde_json::json!({"subsystem_id": serde_json::Value::Null}),
+    )
+    .await;
+
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 #[derive(serde::Serialize)]
@@ -598,7 +742,9 @@ pub async fn replace_alter_relationships(
     );
 
     // FIXME: Return type
-    Ok(Json(RowsAffectedResponse { rows_affected: rows_affected.try_into().unwrap() }))
+    Ok(Json(RowsAffectedResponse {
+        rows_affected: rows_affected.try_into().unwrap(),
+    }))
 }
 
 pub async fn update_alter(
@@ -654,7 +800,9 @@ pub async fn update_alter(
                 .trim()
                 .to_string();
             if url.is_empty() {
-                return Err(AppError::BadRequest("delete_image_url cannot be empty".into()));
+                return Err(AppError::BadRequest(
+                    "delete_image_url cannot be empty".into(),
+                ));
             }
 
             // Get current images as normalized upload URLs
@@ -662,17 +810,18 @@ pub async fn update_alter(
             if !current_images.contains(&url) {
                 return Err(AppError::NotFound);
             }
-            let updated_images: Vec<String> = current_images
-                .into_iter()
-                .filter(|u| u != &url)
-                .collect();
+            let updated_images: Vec<String> =
+                current_images.into_iter().filter(|u| u != &url).collect();
 
             // Build minimal update payload to set the new images list
             let mut update_payload = serde_json::Map::new();
             update_payload.insert(
                 "images".to_string(),
                 serde_json::Value::Array(
-                    updated_images.into_iter().map(serde_json::Value::String).collect(),
+                    updated_images
+                        .into_iter()
+                        .map(serde_json::Value::String)
+                        .collect(),
                 ),
             );
 

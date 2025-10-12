@@ -2,7 +2,6 @@
 -- All entity IDs are stored as TEXT (UUID strings)
 
 CREATE TABLE IF NOT EXISTS users (
-    -- Use UUID primary key stored as TEXT
     id TEXT PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     email TEXT,
@@ -22,7 +21,6 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS alters (
-  -- Use UUID primary key stored as TEXT
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -41,7 +39,6 @@ CREATE TABLE IF NOT EXISTS alters (
   interests TEXT,
   notes TEXT,
   images TEXT,
-  subsystem TEXT,
   system_roles TEXT,
   is_system_host INTEGER DEFAULT 0,
   is_dormant INTEGER DEFAULT 0,
@@ -51,7 +48,6 @@ CREATE TABLE IF NOT EXISTS alters (
 );
 
 CREATE TABLE IF NOT EXISTS groups (
-  -- Use UUID primary key stored as TEXT
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT NULL,
@@ -63,7 +59,6 @@ CREATE TABLE IF NOT EXISTS groups (
 );
 
 CREATE TABLE IF NOT EXISTS subsystems (
-  -- Use UUID primary key stored as TEXT
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT NULL,
@@ -79,21 +74,18 @@ CREATE TABLE IF NOT EXISTS alter_subsystems (
   PRIMARY KEY (alter_id, subsystem_id)
 );
 
--- Partner relationships (undirected stored once with (low, high) ordering)
 CREATE TABLE IF NOT EXISTS alter_partners (
   alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,
   partner_alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,
   PRIMARY KEY (alter_id, partner_alter_id)
 );
 
--- Parent relationships (directed parent -> child)
 CREATE TABLE IF NOT EXISTS alter_parents (
   alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,           -- child id
   parent_alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,    -- parent id
   PRIMARY KEY (alter_id, parent_alter_id)
 );
 
--- Affiliations (group membership)
 CREATE TABLE IF NOT EXISTS alter_affiliations (
   affiliation_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,
@@ -101,7 +93,6 @@ CREATE TABLE IF NOT EXISTS alter_affiliations (
 );
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
-  -- Use UUID primary key stored as TEXT
   id TEXT PRIMARY KEY,
   selector TEXT NOT NULL UNIQUE,
   verifier_hash TEXT NOT NULL,
@@ -112,7 +103,6 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 );
 
 CREATE TABLE IF NOT EXISTS system_requests (
-  -- Use UUID primary key stored as TEXT
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'pending', -- pending|approved|denied
@@ -128,7 +118,6 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
-  -- Use UUID primary key stored as TEXT
   id TEXT PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
@@ -140,7 +129,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 CREATE TABLE IF NOT EXISTS housekeeping_runs (
-    -- Use UUID primary key stored as TEXT
     id TEXT PRIMARY KEY,
     job_name TEXT NOT NULL,
     started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -151,7 +139,6 @@ CREATE TABLE IF NOT EXISTS housekeeping_runs (
 );
 
 CREATE TABLE IF NOT EXISTS posts (
-    -- Use UUID primary key stored as TEXT
     id TEXT PRIMARY KEY,
     body TEXT NOT NULL,
     created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -160,7 +147,6 @@ CREATE TABLE IF NOT EXISTS posts (
 );
 
 CREATE TABLE IF NOT EXISTS oidc_identities (
-    -- Use dialect-neutral primary key; backend-specific autoincrement handled separately
     id INTEGER PRIMARY KEY,
     provider TEXT NOT NULL,
     subject TEXT NOT NULL,
