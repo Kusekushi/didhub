@@ -86,10 +86,7 @@ async fn test_job_categories() {
 #[tokio::test]
 async fn test_job_schedules() {
     // Test that jobs have appropriate default schedules
-    assert_eq!(
-        AuditRetentionJob.default_schedule(),
-        Some("0 0,6,12,18 * * *")
-    );
+    assert_eq!(AuditRetentionJob.default_schedule(), Some("@hourly"));
     assert_eq!(MetricsUpdateJob.default_schedule(), Some("@hourly"));
     assert_eq!(ExpiredTokensCleanupJob.default_schedule(), Some("@daily"));
     assert_eq!(UploadsGcJob.default_schedule(), Some("@daily"));
@@ -97,7 +94,7 @@ async fn test_job_schedules() {
     assert_eq!(UploadsIntegrityJob.default_schedule(), Some("@daily"));
     assert_eq!(BirthdaysDigestJob.default_schedule(), Some("@daily"));
     assert_eq!(OrphansPruneJob.default_schedule(), Some("@daily"));
-    assert_eq!(VacuumDbJob.default_schedule(), Some("0 4 1 * *"));
+    assert_eq!(VacuumDbJob.default_schedule(), Some("@monthly"));
 }
 
 #[tokio::test]
