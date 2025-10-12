@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query},
+    extract::Query,
     Extension, Json,
 };
 use didhub_db::audit;
@@ -221,6 +221,7 @@ pub async fn list_system_requests(
 
 #[derive(Deserialize)]
 pub struct DecisionBody {
+    pub id: Option<String>,
     pub approve: bool,
     pub note: Option<String>,
 }
@@ -228,9 +229,14 @@ pub struct DecisionBody {
 pub async fn decide_system_request(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
-    Path(id): Path<String>,
     Json(body): Json<DecisionBody>,
 ) -> Result<Json<SystemRequestResponse>, AppError> {
+    let id = if let Some(ref i) = body.id {
+        i.clone()
+    } else {
+        return Err(AppError::BadRequest("missing id".into()));
+    };
+
     debug!(
         user_id = %user.id,
         username = %user.username,

@@ -30,11 +30,8 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route(
             "/system-requests",
-            get(crate::routes::systems::requests::list_system_requests),
-        )
-        .route(
-            "/system-requests/{id}/decide",
-            post(crate::routes::systems::requests::decide_system_request),
+            get(crate::routes::systems::requests::list_system_requests)
+                .post(crate::routes::systems::requests::decide_system_request),
         )
         .route(
             "/settings",

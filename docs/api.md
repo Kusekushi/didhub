@@ -86,7 +86,7 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | GET | `/subsystems/{id}/members` | crate::routes::systems::subsystems::list_members | id |
 | POST | `/subsystems/{id}/members` | crate::routes::systems::subsystems::change_member | id |
 | GET | `/system-requests` | crate::routes::systems::requests::list_system_requests | status, limit, offset |
-| POST | `/system-requests/{id}/decide` | crate::routes::systems::requests::decide_system_request | id |
+| POST | `/system-requests` | crate::routes::systems::requests::decide_system_request |  |
 | GET | `/systems` | crate::routes::systems::list_systems | q, limit, offset |
 | GET | `/systems/{id}` | crate::routes::systems::get_system | id |
 | POST | `/upload` | crate::routes::files::uploads::upload_file |  |
@@ -782,6 +782,7 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | Method | Summary |
 | --- | --- |
 | **GET** | crate::routes::systems::requests::list_system_requests |
+| **POST** | crate::routes::systems::requests::decide_system_request |
 
 ### GET /system-requests parameters
 
@@ -790,18 +791,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | status | query | False | string |
 | limit | query | False | number |
 | offset | query | False | number |
-
-## /system-requests/{id}/decide
-
-| Method | Summary |
-| --- | --- |
-| **POST** | crate::routes::systems::requests::decide_system_request |
-
-### POST /system-requests/{id}/decide parameters
-
-| name | in | required | type |
-| --- | --- | --- | --- |
-| id | path | True | string |
 
 ## /systems
 

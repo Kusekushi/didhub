@@ -72,8 +72,7 @@ add a short-lived access + refresh token pair.
 Updated mappings:
 
 - Audit: `/api/audit`, purge `/api/audit/purge`, clear `/api/audit/clear`.
-- System Requests: list `/api/system-requests`, decide
-  `/api/system-requests/:id/decide`.
+- System Requests: list `/api/system-requests`, decide `/api/system-requests` (POST with body { id, approve, note? }).
 - Settings: `/api/settings` / `/api/settings/:key`.
 - Housekeeping jobs: `/api/housekeeping/jobs`, trigger
   `/api/housekeeping/trigger/:name`.
