@@ -199,6 +199,12 @@ class TypeScriptGenerator:
             is_body_optional = bool(getattr(endpoint, 'body_optional', False))
             req_fields.append(('body', ts_body_type, is_body_optional))
 
+        # If endpoint requires auth, include an 'auth' boolean on the request interface so
+        # callers can explicitly opt-in or override authentication behavior.
+        if getattr(endpoint, 'auth_required', False):
+            # Make it optional so callers may omit it and default server/client behavior applies
+            req_fields.append(('auth', 'boolean', True))
+
         # Build destructure list for the method body: include path params, then query/body
         destructure_items = []
         destructure_items.extend(path_params)
@@ -209,6 +215,8 @@ class TypeScriptGenerator:
                 destructure_items.append('query')
         if has_body_param:
             destructure_items.append('body')
+        if getattr(endpoint, 'auth_required', False):
+            destructure_items.append('auth')
         destructure = ', '.join(destructure_items)
 
         # Register interfaces if not already present
@@ -231,6 +239,7 @@ class TypeScriptGenerator:
             response_type_full=response_ts_type_full,
             destructure=destructure,
             has_query=endpoint.query_type is not None,
+            has_auth=getattr(endpoint, 'auth_required', False),
             use_json_body=use_json_body,
             use_body_payload=use_body_payload,
             query_expanded=query_expanded,

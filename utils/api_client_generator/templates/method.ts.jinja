@@ -22,6 +22,9 @@ public async {{ method_name }}(request: Types.{{ request_interface }}): {{ retur
 {% elif use_body_payload %}
       body,
 {% endif %}
+{% if has_auth %}
+      auth: auth,
+{% endif %}
     });
     return response;
   }
