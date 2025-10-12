@@ -82,9 +82,13 @@ pub async fn list_audit(
 
 #[derive(Deserialize)]
 pub struct PurgeBody {
-    pub before: String,
+    // optional; when omitted the endpoint will clear all audit rows
+    pub before: Option<String>,
 }
 
+/// POST /audit/purge
+/// If body.before is provided, purge entries before that timestamp.
+/// If omitted, clear all audit entries (previously /audit/clear).
 pub async fn purge_audit(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
@@ -93,24 +97,41 @@ pub async fn purge_audit(
     if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
-    // Expect RFC3339 or sqlite comparable timestamp; we pass directly.
-    let deleted = db.purge_audit_before(&body.before).await.map_err(|e| {
-        tracing::error!(target = "didhub_server", ?e, "db.purge_audit_before failed");
-        AppError::Internal
-    })?;
+    let deleted = if let Some(before) = body.before {
+        // Expect RFC3339 or sqlite comparable timestamp; we pass directly.
+        db.purge_audit_before(&before).await.map_err(|e| {
+            tracing::error!(target = "didhub_server", ?e, "db.purge_audit_before failed");
+            AppError::Internal
+        })?
+    } else {
+        db.clear_audit().await.map_err(|e| {
+            tracing::error!(target = "didhub_server", ?e, "db.clear_audit failed");
+            AppError::Internal
+        })?
+    };
     Ok(Json(serde_json::json!({"deleted": deleted})))
 }
 
-pub async fn clear_audit(
-    Extension(db): Extension<Db>,
-    Extension(user): Extension<CurrentUser>,
-) -> Result<Json<serde_json::Value>, AppError> {
+/// Internal helper which operates on a CommonOperations trait object. This
+/// makes it testable with a mock DB implementation.
+pub async fn purge_audit_inner<DB: CommonOperations + Sync>(
+    db: &DB,
+    user: &CurrentUser,
+    body: &PurgeBody,
+) -> Result<serde_json::Value, AppError> {
     if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
-    let deleted = db.clear_audit().await.map_err(|e| {
-        tracing::error!(target = "didhub_server", ?e, "db.clear_audit failed");
-        AppError::Internal
-    })?;
-    Ok(Json(serde_json::json!({"deleted": deleted})))
+    let deleted = if let Some(ref before) = body.before {
+        db.purge_audit_before(before).await.map_err(|e| {
+            tracing::error!(target = "didhub_server", ?e, "db.purge_audit_before failed");
+            AppError::Internal
+        })?
+    } else {
+        db.clear_audit().await.map_err(|e| {
+            tracing::error!(target = "didhub_server", ?e, "db.clear_audit failed");
+            AppError::Internal
+        })?
+    };
+    Ok(serde_json::json!({"deleted": deleted}))
 }

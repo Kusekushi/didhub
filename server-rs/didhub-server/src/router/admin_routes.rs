@@ -89,10 +89,6 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
             post(crate::routes::admin::audit::purge_audit),
         )
         .route(
-            "/audit/clear",
-            post(crate::routes::admin::audit::clear_audit),
-        )
-        .route(
             "/housekeeping/jobs",
             get(crate::routes::admin::housekeeping::list_jobs),
         )

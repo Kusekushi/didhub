@@ -70,8 +70,16 @@ async fn audit_flow() {
     let resp = app.clone().oneshot(range).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    // clear all
-    let clear = Request::builder().method("POST").uri("/api/audit/clear").header("authorization", format!("Bearer {}", admin_token)).header("cookie", &cookie_m).header("x-csrf-token", &csrf_m).body(Body::empty()).unwrap();
+    // clear all (merged into purge endpoint with no body.before)
+    let clear = Request::builder()
+        .method("POST")
+        .uri("/api/audit/purge")
+        .header("authorization", format!("Bearer {}", admin_token))
+        .header("cookie", &cookie_m)
+        .header("x-csrf-token", &csrf_m)
+        .header("content-type","application/json")
+        .body(Body::from(json!({}).to_string()))
+        .unwrap();
     let resp = app.clone().oneshot(clear).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 

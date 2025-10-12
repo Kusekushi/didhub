@@ -33,7 +33,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | PUT | `/alters/{id}/user-relationships` | crate::routes::alters::relationships::replace_relationships | id |
 | GET | `/assets/{path}` | crate::routes::static_assets::serve_asset | path |
 | GET | `/audit` | crate::routes::admin::audit::list_audit | action, user_id, from, to, limit, offset |
-| POST | `/audit/clear` | crate::routes::admin::audit::clear_audit |  |
 | POST | `/audit/purge` | crate::routes::admin::audit::purge_audit |  |
 | POST | `/auth/login` | auth::login |  |
 | POST | `/auth/refresh` | auth::refresh |  |
@@ -357,12 +356,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | to | query | False | string |
 | limit | query | False | number |
 | offset | query | False | number |
-
-## /audit/clear
-
-| Method | Summary |
-| --- | --- |
-| **POST** | crate::routes::admin::audit::clear_audit |
 
 ## /audit/purge
 
