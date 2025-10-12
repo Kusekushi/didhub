@@ -28,6 +28,9 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | PUT | `/alters/{id}/alter-relationships` | crate::routes::alters::replace_alter_relationships | id |
 | GET | `/alters/{id}/relationships` | crate::routes::alters::relationships::list_relationships | id |
 | POST | `/alters/{id}/relationships` | crate::routes::alters::relationships::create_relationship | id |
+| DELETE | `/alters/{id}/subsystems` | crate::routes::alters::delete_alter_subsystem | id |
+| GET | `/alters/{id}/subsystems` | crate::routes::alters::get_alter_subsystem | id |
+| PUT | `/alters/{id}/subsystems` | crate::routes::alters::set_alter_subsystem | id |
 | PUT | `/alters/{id}/user-relationships` | crate::routes::alters::relationships::replace_relationships | id |
 | GET | `/assets/{path}` | crate::routes::static_assets::serve_asset | path |
 | GET | `/audit` | crate::routes::admin::audit::list_audit | action, user_id, from, to, limit, offset |
@@ -281,6 +284,32 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | id | path | True | string |
 
 ### POST /alters/{id}/relationships parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /alters/{id}/subsystems
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::alters::delete_alter_subsystem |
+| **GET** | crate::routes::alters::get_alter_subsystem |
+| **PUT** | crate::routes::alters::set_alter_subsystem |
+
+### DELETE /alters/{id}/subsystems parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### GET /alters/{id}/subsystems parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### PUT /alters/{id}/subsystems parameters
 
 | name | in | required | type |
 | --- | --- | --- | --- |
