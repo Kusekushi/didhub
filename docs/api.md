@@ -26,7 +26,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | GET | `/alters/{id}` | crate::routes::alters::get_alter | id |
 | PUT | `/alters/{id}` | crate::routes::alters::update_alter | id |
 | PUT | `/alters/{id}/alter-relationships` | crate::routes::alters::replace_alter_relationships | id |
-| DELETE | `/alters/{id}/image` | crate::routes::alters::delete_alter_image | id |
 | GET | `/alters/{id}/relationships` | crate::routes::alters::relationships::list_relationships | id |
 | POST | `/alters/{id}/relationships` | crate::routes::alters::relationships::create_relationship | id |
 | PUT | `/alters/{id}/user-relationships` | crate::routes::alters::relationships::replace_relationships | id |
@@ -263,18 +262,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | **PUT** | crate::routes::alters::replace_alter_relationships |
 
 ### PUT /alters/{id}/alter-relationships parameters
-
-| name | in | required | type |
-| --- | --- | --- | --- |
-| id | path | True | string |
-
-## /alters/{id}/image
-
-| Method | Summary |
-| --- | --- |
-| **DELETE** | crate::routes::alters::delete_alter_image |
-
-### DELETE /alters/{id}/image parameters
 
 | name | in | required | type |
 | --- | --- | --- | --- |

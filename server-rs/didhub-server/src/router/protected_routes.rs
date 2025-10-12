@@ -32,10 +32,6 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
                 .delete(crate::routes::alters::delete_alter),
         )
         .route(
-            "/alters/{id}/image",
-            delete(crate::routes::alters::delete_alter_image),
-        )
-        .route(
             "/alters/{id}/relationships",
             get(crate::routes::alters::relationships::list_relationships)
                 .post(crate::routes::alters::relationships::create_relationship),

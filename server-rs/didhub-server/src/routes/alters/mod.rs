@@ -644,6 +644,58 @@ pub async fn update_alter(
 
     normalize_subsystem_field(&mut body);
     strip_relationship_fields(&mut body);
+    // Support deleting a single image via the alter update endpoint by including
+    // a `delete_image_url` string field in the JSON payload.
+    if let Some(obj) = body.as_object_mut() {
+        if let Some(del_val) = obj.remove("delete_image_url") {
+            let url = del_val
+                .as_str()
+                .ok_or_else(|| AppError::BadRequest("delete_image_url must be a string".into()))?
+                .trim()
+                .to_string();
+            if url.is_empty() {
+                return Err(AppError::BadRequest("delete_image_url cannot be empty".into()));
+            }
+
+            // Get current images as normalized upload URLs
+            let current_images: Vec<String> = normalize_image_list(existing.images.as_deref());
+            if !current_images.contains(&url) {
+                return Err(AppError::NotFound);
+            }
+            let updated_images: Vec<String> = current_images
+                .into_iter()
+                .filter(|u| u != &url)
+                .collect();
+
+            // Build minimal update payload to set the new images list
+            let mut update_payload = serde_json::Map::new();
+            update_payload.insert(
+                "images".to_string(),
+                serde_json::Value::Array(
+                    updated_images.into_iter().map(serde_json::Value::String).collect(),
+                ),
+            );
+
+            let updated = db
+                .update_alter_fields(&id, &serde_json::Value::Object(update_payload))
+                .await
+                .map_err(|_| AppError::Internal)?
+                .ok_or(AppError::NotFound)?;
+
+            // Log the deletion under the same audit event used previously
+            audit::record_with_metadata(
+                &db,
+                Some(user.id.as_str()),
+                "alter.delete_image",
+                Some("alter"),
+                Some(&id.to_string()),
+                serde_json::json!({ "url": url }),
+            )
+            .await;
+
+            return Ok(Json(updated));
+        }
+    }
     let updated = db
         .update_alter_fields(&id, &body)
         .await
@@ -964,75 +1016,4 @@ pub async fn family_tree(
         roots: tree_roots,
         owners: owners_map,
     }))
-}
-
-#[derive(serde::Deserialize)]
-pub struct DeleteImagePayload {
-    pub url: String,
-}
-
-pub async fn delete_alter_image(
-    State(db): State<Db>,
-    Extension(user): Extension<CurrentUser>,
-    Path(id): Path<String>,
-    Json(payload): Json<DeleteImagePayload>,
-) -> Result<Json<serde_json::Value>, AppError> {
-    if payload.url.trim().is_empty() {
-        return Err(AppError::BadRequest("URL is required".to_string()));
-    }
-    let existing = db
-        .fetch_alter(&id)
-        .await
-        .map_err(|_| AppError::Internal)?
-        .ok_or(AppError::NotFound)?;
-    if user.is_admin == 0 {
-        let owner = existing.owner_user_id.clone().unwrap_or(user.id.clone());
-        if owner != user.id {
-            tracing::debug!(
-                target = "didhub_server",
-                user_id = %user.id,
-                owner_user_id = ?existing.owner_user_id,
-                msg = "delete_alter_image forbidden: user is not owner nor admin"
-            );
-            return Err(AppError::Forbidden);
-        }
-    }
-    // Get current images as normalized upload URLs
-    let current_images: Vec<String> = normalize_image_list(existing.images.as_deref());
-    // Check if the URL exists
-    if !current_images.contains(&payload.url) {
-        return Err(AppError::NotFound);
-    }
-    // Remove the specified URL
-    let updated_images: Vec<String> = current_images
-        .into_iter()
-        .filter(|u| u != &payload.url)
-        .collect();
-    // Update the alter
-    let mut update_payload = serde_json::Map::new();
-    update_payload.insert(
-        "images".to_string(),
-        serde_json::Value::Array(
-            updated_images
-                .into_iter()
-                .map(serde_json::Value::String)
-                .collect(),
-        ),
-    );
-    let _updated = db
-        .update_alter_fields(&id, &serde_json::Value::Object(update_payload))
-        .await
-        .map_err(|_| AppError::Internal)?
-        .ok_or(AppError::NotFound)?;
-    // Log the deletion
-    audit::record_with_metadata(
-        &db,
-        Some(user.id.as_str()),
-        "alter.delete_image",
-        Some("alter"),
-        Some(&id.to_string()),
-        serde_json::json!({ "url": payload.url }),
-    )
-    .await;
-    Ok(Json(serde_json::json!({ "success": true })))
 }
