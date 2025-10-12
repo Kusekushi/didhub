@@ -58,14 +58,8 @@ async fn update_user_avatar_set_and_clear() {
     let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
     let app = app_components.router;
 
-    // create a user directly
-    let res = sqlx::query("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 0);")
-        .bind("u_avatar")
-        .bind("hash")
-        .execute(&db.pool)
-        .await
-        .unwrap();
-    let uid = res.last_insert_id().expect("insert id");
+    // create a user directly (use db helper to obtain string id)
+    let uid = db.create_user(didhub_server::db::NewUser { username: "u_avatar".into(), password_hash: "hash".into(), is_system: false, is_approved: false }).await.unwrap().id;
 
     // attempt to update as anonymous -> expect 401 or 204 depending on middleware
     let body_set = json!({"avatar_url":"https://example.com/a.png"});
@@ -111,30 +105,19 @@ async fn replace_relationships_self_and_duplicates() {
     let app = app_components.router;
 
     // create two alters
-    let res1 = sqlx::query("INSERT INTO alters (name, owner_user_id) VALUES (?, ?)")
-        .bind("A1")
-        .bind(1_i64)
-        .execute(&db.pool)
-        .await
-        .unwrap();
-    let a1 = res1.last_insert_id();
-    let res2 = sqlx::query("INSERT INTO alters (name, owner_user_id) VALUES (?, ?)")
-        .bind("A2")
-        .bind(1_i64)
-        .execute(&db.pool)
-        .await
-        .unwrap();
-    let a2 = res2.last_insert_id();
+    // create alters via DB helper to obtain string IDs
+    let a1 = db.create_alter(&serde_json::json!({"name":"A1", "owner_user_id": uid})).await.unwrap().id;
+    let a2 = db.create_alter(&serde_json::json!({"name":"A2", "owner_user_id": uid})).await.unwrap().id;
 
     // call update handler with self reference and duplicates
     let body = json!({"partners": [a1, a1, a2]});
-    let (st, _b) = auth_req(&app, axum::http::Method::PUT, &format!("/api/alters/{:?}", a1), "", Some(body)).await;
+    let (st, _b) = auth_req(&app, axum::http::Method::PUT, &format!("/api/alters/{}", a1), "", Some(body)).await;
     assert!(st == 401 || st == 204 || st == 404);
 
     // ensure DB hasn't created multiple self links
     let row = sqlx::query("SELECT COUNT(*) as cnt FROM alter_partners WHERE alter_id = ? AND partner_alter_id = ?")
-        .bind(a1)
-        .bind(a1)
+        .bind(&a1)
+        .bind(&a1)
         .fetch_one(&db.pool)
         .await
         .unwrap();

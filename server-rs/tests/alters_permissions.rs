@@ -155,10 +155,10 @@ async fn alters_visibility_matrix() {
     // user1 creates an alter
     let (st, body) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_u1, Some(json!({"name":"Alpha"}))).await;
     assert_eq!(st, StatusCode::OK);
-    let alter_id = body["id"].as_i64().unwrap();
+    let alter_id = body["id"].as_str().unwrap().to_string();
 
     // Add relationships (none exist yet) by updating with empty arrays first then another alter to relate to
-    let (st2, body2) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_u1, Some(json!({"name":"Beta"}))).await; assert_eq!(st2, StatusCode::OK); let beta_id = body2["id"].as_i64().unwrap();
+    let (st2, body2) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_u1, Some(json!({"name":"Beta"}))).await; assert_eq!(st2, StatusCode::OK); let beta_id = body2["id"].as_str().unwrap().to_string();
     // Set partners and parents
     let (st_up_rel, _) = auth_req(&app, axum::http::Method::PUT, &format!("/api/alters/{}", alter_id), &token_u1, Some(json!({"partners":[beta_id], "children":[], "parents":[], "affiliations":[]}))).await; assert_eq!(st_up_rel, StatusCode::OK);
     let (st_get_alpha, alpha_full) = auth_req(&app, axum::http::Method::GET, &format!("/api/alters/{}", alter_id), &token_u1, None).await; assert_eq!(st_get_alpha, StatusCode::OK); assert_eq!(alpha_full["partners"].as_array().unwrap().contains(&json!(beta_id)), true);
@@ -177,7 +177,7 @@ async fn alters_visibility_matrix() {
     assert_eq!(st_mod_forbidden, StatusCode::FORBIDDEN);
 
     // Add parent/child relationships (create Gamma as child of Alpha via update on Gamma)
-    let (st_gamma, body_gamma) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_u1, Some(json!({"name":"Gamma"}))).await; assert_eq!(st_gamma, StatusCode::OK); let gamma_id = body_gamma["id"].as_i64().unwrap();
+    let (st_gamma, body_gamma) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_u1, Some(json!({"name":"Gamma"}))).await; assert_eq!(st_gamma, StatusCode::OK); let gamma_id = body_gamma["id"].as_str().unwrap().to_string();
     // Set parents of Gamma to Alpha
     let (st_set_parent, _) = auth_req(&app, axum::http::Method::PUT, &format!("/api/alters/{}", gamma_id), &token_u1, Some(json!({"parents":[alter_id]}))).await; assert_eq!(st_set_parent, StatusCode::OK);
     // Verify parent/child linkage

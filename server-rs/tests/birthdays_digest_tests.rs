@@ -65,7 +65,7 @@ async fn birthdays_digest_job_records_audit() {
     let resp = app.clone().oneshot(create1).await.unwrap(); assert_eq!(resp.status(), StatusCode::OK);
     let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let a1: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-    let a1_id = a1["id"].as_i64().unwrap();
+    let a1_id = a1["id"].as_str().unwrap().to_string();
     let health4 = app.clone().oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
     let cookie4 = health4.headers().get("set-cookie").map(|h| h.to_str().unwrap().to_string()).unwrap_or_default();
     let csrf4 = cookie4.split(';').next().unwrap_or("").split('=').nth(1).unwrap_or("").to_string();
@@ -89,7 +89,7 @@ async fn birthdays_digest_job_records_audit() {
     let resp = app.clone().oneshot(create2).await.unwrap(); assert_eq!(resp.status(), StatusCode::OK);
     let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let a2: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-    let a2_id = a2["id"].as_i64().unwrap();
+    let a2_id = a2["id"].as_str().unwrap().to_string();
     let health6 = app.clone().oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
     let cookie6 = health6.headers().get("set-cookie").map(|h| h.to_str().unwrap().to_string()).unwrap_or_default();
     let csrf6 = cookie6.split(';').next().unwrap_or("").split('=').nth(1).unwrap_or("").to_string();

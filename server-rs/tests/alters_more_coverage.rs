@@ -98,12 +98,12 @@ async fn alters_admin_can_get_owner_alter() {
     // owner creates an alter
     let (st, body) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_owner, Some(json!({"name":"OwnerAlpha"}))).await;
     assert_eq!(st, StatusCode::OK);
-    let id = body["id"].as_i64().unwrap();
+    let id = body["id"].as_str().unwrap().to_string();
 
     // admin should be able to GET it
     let (stg, got) = auth_req(&app, axum::http::Method::GET, &format!("/api/alters/{}", id), &token_admin, None).await;
     assert_eq!(stg, StatusCode::OK);
-    assert_eq!(got["id"].as_i64().unwrap(), id);
+    assert_eq!(got["id"].as_str().unwrap(), id);
 }
 
 #[tokio::test]
@@ -125,13 +125,13 @@ async fn alters_update_relationships_changes_db() {
     // owner creates an alter
     let (st, body) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_owner, Some(json!({"name":"RelAlpha"}))).await;
     assert_eq!(st, StatusCode::OK);
-    let id = body["id"].as_i64().unwrap();
+    let id = body["id"].as_str().unwrap().to_string();
 
     // create two more alters to reference
     let (st2, b2) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_owner, Some(json!({"name":"RelBeta"}))).await; assert_eq!(st2, StatusCode::OK);
-    let beta = b2["id"].as_i64().unwrap();
+    let beta = b2["id"].as_str().unwrap().to_string();
     let (st3, b3) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_owner, Some(json!({"name":"RelGamma"}))).await; assert_eq!(st3, StatusCode::OK);
-    let gamma = b3["id"].as_i64().unwrap();
+    let gamma = b3["id"].as_str().unwrap().to_string();
 
     // Update relationships on RelAlpha: set partners=[beta,gamma], parents=[beta], children=[gamma], affiliations=[beta]
     let body_up = json!({"partners":[beta,gamma], "parents":[beta], "children":[gamma], "affiliations":[beta]});
@@ -172,7 +172,7 @@ async fn alters_admin_delete_other_users_alter() {
     // owner creates an alter
     let (st, body) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_owner, Some(json!({"name":"ToBeDeleted"}))).await;
     assert_eq!(st, StatusCode::OK);
-    let id = body["id"].as_i64().unwrap();
+    let id = body["id"].as_str().unwrap().to_string();
 
     // admin deletes it
     let (sd, _) = auth_req(&app, axum::http::Method::DELETE, &format!("/api/alters/{}", id), &token_admin, None).await;
@@ -270,7 +270,7 @@ async fn alters_get_visibility_and_projection_false_branch() {
 
     // user B creates an alter (owned by B)
     let (st_b, body_b) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_b, Some(json!({"name":"OwnerOnly"}))).await; assert_eq!(st_b, StatusCode::OK);
-    let owner_alter_id = body_b["id"].as_i64().unwrap();
+    let owner_alter_id = body_b["id"].as_str().unwrap().to_string();
 
     // user A (approved) tries to GET B's alter -> should be Forbidden (true, Some(owner!=user.id))
     let (st_a_get, _) = auth_req(&app, axum::http::Method::GET, &format!("/api/alters/{}", owner_alter_id), &token_a, None).await;
@@ -281,7 +281,7 @@ async fn alters_get_visibility_and_projection_false_branch() {
 
     // user A (approved) can GET unowned
     let (st_a_unowned, body_unowned) = auth_req(&app, axum::http::Method::GET, &format!("/api/alters/{}", unowned.id), &token_a, None).await; assert_eq!(st_a_unowned, StatusCode::OK);
-    assert_eq!(body_unowned["id"].as_i64().unwrap(), unowned.id);
+    assert_eq!(body_unowned["id"].as_str().unwrap(), unowned.id);
 
     // user C (unapproved) cannot GET unowned
     let (st_c_unowned, _) = auth_req(&app, axum::http::Method::GET, &format!("/api/alters/{}", unowned.id), &token_c, None).await; assert_eq!(st_c_unowned, StatusCode::FORBIDDEN);

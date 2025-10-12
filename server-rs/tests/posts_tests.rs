@@ -81,7 +81,7 @@ async fn test_create_and_repost() {
     assert_eq!(resp.status(), StatusCode::OK);
     let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let v: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-    let post_id = v["item"]["id"].as_i64().unwrap();
+    let post_id = v["item"]["id"].as_str().unwrap().to_string();
 
     // repost
     let (csrf_cookie4, csrf_token4) = get_csrf(&app).await;
@@ -95,7 +95,7 @@ async fn test_create_and_repost() {
     assert_eq!(resp2.status(), StatusCode::OK);
     let body_bytes2 = resp2.into_body().collect().await.unwrap().to_bytes();
     let v2: serde_json::Value = serde_json::from_slice(&body_bytes2).unwrap();
-    assert_eq!(v2["item"]["repost_of_post_id"].as_i64(), Some(post_id));
+    assert_eq!(v2["item"]["repost_of_post_id"].as_str(), Some(&post_id));
 
     // list posts
     let list_req = Request::builder().method("GET").uri("/api/posts?limit=10")

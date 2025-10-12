@@ -27,10 +27,10 @@ async fn replace_parents_children_affiliations_self_and_duplicates() {
     let app_components = didhub_server::build_app(db.clone(), cfg.clone()).await;
     let _app = app_components.router;
 
-    // Insert three alters
-    let a1 = sqlx::query("INSERT INTO alters (name) VALUES (?)").bind("P1").execute(&db.pool).await.unwrap().last_insert_id().expect("insert id");
-    let a2 = sqlx::query("INSERT INTO alters (name) VALUES (?)").bind("P2").execute(&db.pool).await.unwrap().last_insert_id().expect("insert id");
-    let a3 = sqlx::query("INSERT INTO alters (name) VALUES (?)").bind("P3").execute(&db.pool).await.unwrap().last_insert_id().expect("insert id");
+    // Insert three alters and get their string IDs via DB helper
+    let a1 = db.create_alter(&serde_json::json!({"name":"P1"})).await.unwrap().id;
+    let a2 = db.create_alter(&serde_json::json!({"name":"P2"})).await.unwrap().id;
+    let a3 = db.create_alter(&serde_json::json!({"name":"P3"})).await.unwrap().id;
 
     // Call DB helpers directly to simulate replace_* behavior (they should ignore self refs and dedupe)
     db.replace_parents(a1, &[a1, a2, a2]).await.unwrap();
@@ -42,8 +42,10 @@ async fn replace_parents_children_affiliations_self_and_duplicates() {
     // children should contain a1 and a3 only
     assert!(children.contains(&a1) && children.contains(&a3));
 
-    db.replace_affiliations(a3, &[a3, 100, 100]).await.unwrap();
-    let affs = db.affiliations_of(a3).await.unwrap();
-    // should include a3 and 100, duplicates deduped
-    assert!(affs.contains(&a3) && affs.contains(&100) && affs.len() == 2);
+    // Use string affiliation ids; include a3 and a synthetic affiliation id
+    let synthetic = uuid::Uuid::new_v4().to_string();
+    db.replace_affiliations(&a3, &[a3.clone(), synthetic.clone(), synthetic.clone()]).await.unwrap();
+    let affs = db.affiliations_of(&a3).await.unwrap();
+    // should include a3 and synthetic, duplicates deduped
+    assert!(affs.contains(&a3) && affs.contains(&synthetic) && affs.len() == 2);
 }

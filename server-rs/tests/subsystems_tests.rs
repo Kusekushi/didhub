@@ -44,7 +44,7 @@ async fn subsystem_lifecycle_and_members() {
     assert_eq!(res.status(), 201);
     let body_bytes = body::to_bytes(res.into_body(), 1024*1024).await.unwrap();
     let created: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-    let sid = created.get("id").and_then(|v| v.as_i64()).unwrap();
+    let sid = created.get("id").and_then(|v| v.as_str()).unwrap().to_string();
 
     // list subsystems
     let res = app.clone().oneshot(http::Request::get("/api/subsystems").header("authorization", format!("Bearer {}", token)).body(Body::empty()).unwrap()).await.unwrap();
@@ -59,7 +59,7 @@ async fn subsystem_lifecycle_and_members() {
     assert_eq!(res.status(), 200);
     let bytes = body::to_bytes(res.into_body(), 1024*1024).await.unwrap();
     let alter_val: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    let aid = alter_val.get("id").and_then(|v| v.as_i64()).unwrap();
+    let aid = alter_val.get("id").and_then(|v| v.as_str()).unwrap().to_string();
 
     // add member
     let res = app.clone().oneshot(http::Request::post(format!("/api/subsystems/{}/members", sid)).header("authorization", format!("Bearer {}", token)).header("content-type","application/json").body(Body::from(json!({"alter_id": aid}).to_string())).unwrap()).await.unwrap();

@@ -70,7 +70,7 @@ async fn system_request_flow() {
     assert_eq!(resp.status(), StatusCode::OK);
     let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let arr: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-    let first_id = arr.as_array().unwrap()[0].get("id").unwrap().as_i64().unwrap();
+    let first_id = arr.as_array().unwrap()[0].get("id").unwrap().as_str().unwrap().to_string();
 
     // approve
     let approve = Request::builder().method("POST").uri("/api/system-requests").header("authorization", format!("Bearer {}", admin_token)).header("content-type","application/json").body(Body::from(json!({"id": first_id, "approve":true,"note":"ok"}).to_string())).unwrap();

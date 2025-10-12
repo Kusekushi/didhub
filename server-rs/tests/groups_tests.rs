@@ -33,7 +33,7 @@ async fn group_lifecycle() {
     let (router, token, cookie) = setup().await;
     let csrf = cookie.split(';').next().unwrap_or("").split('=').nth(1).unwrap_or("").to_string();
     // create group
-    let create = serde_json::json!({"name":"Group A","description":"desc","leaders":[1,2]});
+    let create = serde_json::json!({"name":"Group A","description":"desc","leaders":["1","2"]});
     let res = router.clone().oneshot(Request::builder().method("POST").uri("/api/groups")
         .header("content-type","application/json")
         .header("authorization", format!("Bearer {}", token))
@@ -43,7 +43,7 @@ async fn group_lifecycle() {
     assert_eq!(res.status(), StatusCode::CREATED);
     let body = body::to_bytes(res.into_body(), 1024*1024).await.unwrap();
     let v: Value = serde_json::from_slice(&body).unwrap();
-    let gid = v.get("id").unwrap().as_i64().unwrap();
+    let gid = v.get("id").unwrap().as_str().unwrap().to_string();
     assert_eq!(v.get("name").unwrap().as_str().unwrap(), "Group A");
 
     // list groups
@@ -75,7 +75,7 @@ async fn group_lifecycle() {
     assert_eq!(v.get("description").unwrap().as_str().unwrap(), "updated");
 
     // toggle leader add new
-    let toggle = serde_json::json!({"alter_id": 5, "add": true});
+    let toggle = serde_json::json!({"alter_id": "5", "add": true});
     let res = router.clone().oneshot(Request::builder().method("POST").uri(format!("/api/groups/{}/leaders/toggle", gid))
         .header("content-type","application/json")
         .header("authorization", format!("Bearer {}", token))

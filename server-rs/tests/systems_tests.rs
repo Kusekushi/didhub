@@ -60,7 +60,7 @@ async fn systems_list_and_detail() {
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert!(v.get("items").unwrap().as_array().unwrap().len() >= 1);
     // detail
-    let user_id = v.get("items").unwrap().as_array().unwrap()[0].get("user_id").unwrap().as_i64().unwrap();
+    let user_id = v.get("items").unwrap().as_array().unwrap()[0].get("user_id").unwrap().as_str().unwrap().to_string();
     let res = app.clone().oneshot(http::Request::get(format!("/api/systems/{}", user_id)).header("authorization", format!("Bearer {}", token)).body(Body::empty()).unwrap()).await.unwrap();
     assert_eq!(res.status(), 200);
     let bytes = body::to_bytes(res.into_body(), 1024*1024).await.unwrap();

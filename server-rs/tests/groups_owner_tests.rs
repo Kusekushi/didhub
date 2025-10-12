@@ -91,7 +91,7 @@ async fn admin_can_create_group_for_other_user() {
     // admin creates group for target
     let (st, body) = auth_req(&app, axum::http::Method::POST, "/api/groups", &token_admin, Some(json!({"name":"AdminGroup","owner_user_id": target.id}))).await;
     assert_eq!(st, StatusCode::CREATED, "unexpected status: {:?} - body: {:?}", st, body);
-    assert_eq!(body["owner_user_id"].as_i64().unwrap(), target.id);
+    assert_eq!(body["owner_user_id"].as_str().unwrap(), target.id);
 }
 
 #[tokio::test]

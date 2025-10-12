@@ -44,7 +44,7 @@ async fn pdf_endpoints_basic() {
     assert_eq!(res.status(), StatusCode::CREATED);
     let body_bytes = body::to_bytes(res.into_body(), 1024*1024).await.unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
-    let gid = v.get("id").unwrap().as_i64().unwrap();
+    let gid = v.get("id").unwrap().as_str().unwrap().to_string();
 
     // Export group PDF
     let res = router.clone().oneshot(Request::builder().method("GET").uri(format!("/api/pdf/group/{}", gid))

@@ -14,10 +14,14 @@ async fn test_prune_orphan_members() {
     let _ = std::fs::OpenOptions::new().create(true).write(true).open(&path).expect("create sqlite file");
     sqlx::any::install_default_drivers();
     let db = Db::connect_with_file(&path).await.expect("db connect");
-    // Insert orphan affiliation referencing non-existent group and alter
-    sqlx::query("INSERT INTO alter_affiliations (affiliation_id, alter_id) VALUES (9999, 8888)").execute(&db.pool).await.unwrap();
+    // Insert orphan affiliation referencing non-existent group and alter (use UUID strings)
+    let orphan_aff = uuid::Uuid::new_v4().to_string();
+    let orphan_alt = uuid::Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO alter_affiliations (affiliation_id, alter_id) VALUES (?1, ?2)").bind(&orphan_aff).bind(&orphan_alt).execute(&db.pool).await.unwrap();
     // Insert orphan subsystem membership referencing missing subsystem/alter
-    sqlx::query("INSERT INTO alter_subsystems (alter_id, subsystem_id) VALUES (7777, 6666)").execute(&db.pool).await.unwrap();
+    let orphan_sub = uuid::Uuid::new_v4().to_string();
+    let orphan_alt2 = uuid::Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO alter_subsystems (alter_id, subsystem_id) VALUES (?1, ?2)").bind(&orphan_alt2).bind(&orphan_sub).execute(&db.pool).await.unwrap();
     let removed_aff = db.prune_orphan_group_members().await.unwrap();
     let removed_sub = db.prune_orphan_subsystem_members().await.unwrap();
     assert!(removed_aff >= 1, "should remove orphan group affiliation");
