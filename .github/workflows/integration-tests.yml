@@ -159,6 +159,10 @@ jobs:
             ${{ runner.os }}-pnpm-
       - name: Install dependencies
         run: pnpm install
+      - name: Generate API client (includes OpenAPI)
+        run: |
+          python3 -m pip install -r utils/requirements.txt
+          python3 utils/api_client_generator/main.py --server-root server-rs/didhub-server --output-dir packages/api-client/src --emit-openapi
       - name: Build api-client
         run: pnpm -F @didhub/api-client build
       - name: Upload api-client build outputs

@@ -83,6 +83,355 @@ class TypeScriptGenerator:
         template = self.env.get_template('types.ts.jinja')
         return template.render(**template_data)
 
+    def generate_openapi(self) -> dict:
+        """Emit a minimal OpenAPI 3.0 document (as a dict) from parsed API modules and types.
+
+        This produces a concise JSON structure suitable for downstream tooling. It focuses on
+        paths (method, parameters, requestBody) and basic component schemas generated from
+        TypeDefinition entries. Schemas are shallow and aim to preserve field names and
+        optionality (as nullable) — not a full JSON Schema translation.
+        """
+        openapi = {
+            'openapi': '3.0.3',
+            'info': {
+                'title': 'DIDHub API',
+                'version': 'generated',
+            },
+            'paths': {},
+            'components': {'schemas': {}},
+        }
+        # Collect generation-time warnings to help consumers detect lossy conversions
+        generation_warnings: List[str] = []
+
+        # Helper to produce schema for a given rust type
+        def make_schema_for(rust_type: str):
+            return self._rust_schema_for_type(rust_type)
+
+        def apply_rename_all(name: str, rule: str) -> str:
+            if not rule or not name:
+                return name
+            if rule == 'snake_case':
+                # simple conversion: camel/Pascal to snake
+                s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+                return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+            if rule == 'camelCase':
+                parts = name.split('_')
+                return parts[0].lower() + ''.join(p.capitalize() for p in parts[1:])
+            if rule == 'kebab-case':
+                s1 = re.sub('(.)([A-Z][a-z]+)', r'\1-\2', name)
+                return re.sub('([a-z0-9])([A-Z])', r'\1-\2', s1).lower()
+            # default fallback
+            return name
+
+        # Emit schemas for types
+        for td in self.type_definitions:
+            schema_props = {}
+            required = []
+            for entry in td.fields:
+                # entry: (field_name, rust_type, serialized_name, is_optional, is_flatten)
+                if len(entry) >= 5:
+                    _, rust_type, serialized_name, is_opt, is_flatten = entry[:5]
+                else:
+                    _, rust_type, serialized_name, is_opt = entry
+                    is_flatten = False
+
+                if is_flatten:
+                    nested = self._find_type_def_for_rust(rust_type)
+                    if nested:
+                        for n_entry in nested.fields:
+                            n_serialized = n_entry[2] if len(n_entry) >= 3 else n_entry[0]
+                            if nested.rename_all:
+                                n_serialized = apply_rename_all(n_serialized, nested.rename_all)
+                            n_rust = n_entry[1]
+                            n_is_opt = n_entry[3] if len(n_entry) >= 4 else False
+                            schema_props[n_serialized] = make_schema_for(n_rust)
+                            if not n_is_opt:
+                                required.append(n_serialized)
+                        continue
+
+                # honor rename_all on the parent TypeDefinition when no explicit serialized name
+                if td.rename_all and serialized_name == entry[0]:
+                    serialized_name = apply_rename_all(serialized_name, td.rename_all)
+                schema_props[serialized_name] = make_schema_for(rust_type)
+                if not is_opt:
+                    required.append(serialized_name)
+
+            schema = {'type': 'object', 'properties': schema_props}
+            if required:
+                schema['required'] = sorted(set(required))
+            openapi['components']['schemas'][td.name] = schema
+
+        # Emit enum component schemas
+        for td in self.type_definitions:
+            if td.is_enum and td.variants:
+                # If all variants are unit-like (no payload), emit a simple string enum
+                unit_variants = [v for v in td.variants if not v[2]]
+                if len(unit_variants) == len(td.variants):
+                    vals = []
+                    for vn, ser, _has_payload, _payload_type in unit_variants:
+                        val = ser if ser else vn
+                        if td.rename_all:
+                            val = apply_rename_all(val, td.rename_all)
+                        vals.append(val)
+                    openapi['components']['schemas'][td.name] = {'type': 'string', 'enum': vals}
+                else:
+                    # Mixed or payload variants -> choose strategy based on serde enum style
+                    style = getattr(td, 'enum_style', None) or 'adjacent'
+                    oneof_refs = []
+                    discriminator_mapping = {}
+
+                    if style == 'untagged':
+                        # Untagged enums are modeled as a oneOf of variant payloads (or enum strings)
+                        for vn, ser, has_payload, payload_type in td.variants:
+                            if has_payload:
+                                if payload_type:
+                                    p_td = self._find_type_def_for_rust(payload_type)
+                                    if p_td:
+                                        oneof_refs.append({'$ref': f"#/components/schemas/{p_td.name}"})
+                                    else:
+                                        oneof_refs.append(self._rust_schema_for_type(payload_type))
+                                else:
+                                    oneof_refs.append({'type': 'object'})
+                            else:
+                                val = ser if ser else vn
+                                if td.rename_all:
+                                    val = apply_rename_all(val, td.rename_all)
+                                oneof_refs.append({'type': 'string', 'enum': [val]})
+
+                        openapi['components']['schemas'][td.name] = {'oneOf': oneof_refs}
+
+                    elif style == 'internally_tagged':
+                        # Internally tagged: discriminator is a property on the same object
+                        # e.g., { tag: "X", ...payload fields... }
+                        tag_field = td.enum_tag or 'type'
+                        for vn, ser, has_payload, payload_type in td.variants:
+                            disc_val = ser if ser else vn
+                            if td.rename_all:
+                                disc_val = apply_rename_all(disc_val, td.rename_all)
+
+                            variant_schema_name = f"{td.name}{vn}"
+                            variant_schema = {'type': 'object', 'properties': {}, 'required': [tag_field]}
+                            variant_schema['properties'][tag_field] = {'type': 'string', 'enum': [disc_val]}
+
+                            if has_payload:
+                                if payload_type:
+                                    p_td = self._find_type_def_for_rust(payload_type)
+                                    if p_td:
+                                            # Prefer composing with allOf to preserve $ref while allowing extension
+                                            ref_name = p_td.name
+                                            comp = openapi['components']['schemas'].get(ref_name)
+                                            # If referenced component defines the tag field, warn about collision
+                                            if comp and isinstance(comp, dict):
+                                                comp_props = comp.get('properties', {})
+                                                if tag_field in comp_props:
+                                                    generation_warnings.append(
+                                                        f"Referenced component '{ref_name}' contains field '{tag_field}' which collides with enum tag; using allOf but collision may affect clients"
+                                                    )
+
+                                            # Build variant schema as allOf: [ $ref, { type: object with tag } ]
+                                            variant_schema = {
+                                                'allOf': [
+                                                    {'$ref': f"#/components/schemas/{ref_name}"},
+                                                    {'type': 'object', 'properties': {tag_field: {'type': 'string', 'enum': [disc_val]}}, 'required': [tag_field]}
+                                                ]
+                                            }
+                                    else:
+                                        # fallback: try to expand a referenced component schema if rust_schema is a $ref
+                                        rust_sch = self._rust_schema_for_type(payload_type)
+                                        if '$ref' in rust_sch:
+                                            ref = rust_sch['$ref']
+                                            # ref format: #/components/schemas/Name
+                                            ref_name = ref.split('/')[-1]
+                                            comp = openapi['components']['schemas'].get(ref_name)
+                                            if comp and isinstance(comp, dict):
+                                                # merge properties and required from referenced component
+                                                props = comp.get('properties', {})
+                                                for pk, pv in props.items():
+                                                    if pk == tag_field:
+                                                                # collision with tag field; do not inline
+                                                                generation_warnings.append(
+                                                                    f"Skipped inlining field '{pk}' into variant {variant_schema_name} because it conflicts with tag '{tag_field}'"
+                                                                )
+                                                                continue
+                                                    variant_schema['properties'][pk] = pv
+                                                comp_required = comp.get('required', [])
+                                                if comp_required:
+                                                    if 'required' not in variant_schema:
+                                                        variant_schema['required'] = [tag_field]
+                                                    for rk in comp_required:
+                                                        if rk == tag_field:
+                                                            continue
+                                                        if rk not in variant_schema['required']:
+                                                            variant_schema['required'].append(rk)
+                                            else:
+                                                variant_schema['properties']['payload'] = rust_sch
+                                                generation_warnings.append(
+                                                    f"Fell back to nesting payload under 'payload' for variant {variant_schema_name} because referenced component {ref_name} was not available for inlining"
+                                                )
+                                        else:
+                                            variant_schema['properties']['payload'] = rust_sch
+                                            generation_warnings.append(
+                                                f"Fell back to nesting payload under 'payload' for variant {variant_schema_name} (unknown payload shape)"
+                                            )
+                                else:
+                                    variant_schema['properties']['payload'] = {'type': 'object'}
+
+                            openapi['components']['schemas'][variant_schema_name] = variant_schema
+                            oneof_refs.append({'$ref': f"#/components/schemas/{variant_schema_name}"})
+                            discriminator_mapping[disc_val] = f"#/components/schemas/{variant_schema_name}"
+
+                        openapi['components']['schemas'][td.name] = {
+                            'oneOf': oneof_refs,
+                            'discriminator': {'propertyName': tag_field, 'mapping': discriminator_mapping}
+                        }
+
+                    elif style == 'adjacent':
+                        # Adjacent tagging: { tag: "X", content: {...} } -> represent as { type, payload }
+                        tag_field = td.enum_tag or 'type'
+                        content_field = td.enum_content or 'payload'
+
+                        for vn, ser, has_payload, payload_type in td.variants:
+                            disc_val = ser if ser else vn
+                            if td.rename_all:
+                                disc_val = apply_rename_all(disc_val, td.rename_all)
+
+                            variant_schema_name = f"{td.name}{vn}"
+                            variant_schema = {
+                                'type': 'object',
+                                'properties': {tag_field: {'type': 'string', 'enum': [disc_val]}},
+                                'required': [tag_field]
+                            }
+
+                            if has_payload:
+                                if payload_type:
+                                    p_td = self._find_type_def_for_rust(payload_type)
+                                    if p_td:
+                                        variant_schema['properties'][content_field] = {'$ref': f"#/components/schemas/{p_td.name}"}
+                                    else:
+                                        variant_schema['properties'][content_field] = self._rust_schema_for_type(payload_type)
+                                else:
+                                    variant_schema['properties'][content_field] = {'type': 'object'}
+
+                            openapi['components']['schemas'][variant_schema_name] = variant_schema
+                            oneof_refs.append({'$ref': f"#/components/schemas/{variant_schema_name}"})
+                            discriminator_mapping[disc_val] = f"#/components/schemas/{variant_schema_name}"
+
+                        openapi['components']['schemas'][td.name] = {
+                            'oneOf': oneof_refs,
+                            'discriminator': {'propertyName': tag_field, 'mapping': discriminator_mapping}
+                        }
+
+                    else:
+                        # Fallback to externally-tagged: { VariantName: payload }
+                        for vn, ser, has_payload, payload_type in td.variants:
+                            key = ser if ser else vn
+                            if td.rename_all:
+                                key = apply_rename_all(key, td.rename_all)
+                            variant_schema_name = f"{td.name}{vn}"
+                            if has_payload:
+                                if payload_type:
+                                    p_td = self._find_type_def_for_rust(payload_type)
+                                    if p_td:
+                                        sch = {'type': 'object', 'properties': {key: {'$ref': f"#/components/schemas/{p_td.name}"}}, 'required': [key]}
+                                    else:
+                                        sch = {'type': 'object', 'properties': {key: self._rust_schema_for_type(payload_type)}, 'required': [key]}
+                                else:
+                                    sch = {'type': 'object', 'properties': {key: {'type': 'object'}}, 'required': [key]}
+                            else:
+                                sch = {'type': 'object', 'properties': {key: {'type': 'string', 'enum': [key]}}, 'required': [key]}
+
+                            openapi['components']['schemas'][variant_schema_name] = sch
+                            oneof_refs.append({'$ref': f"#/components/schemas/{variant_schema_name}"})
+
+                        openapi['components']['schemas'][td.name] = {'oneOf': oneof_refs}
+
+        # Emit paths and operations
+        for module in self.api_modules:
+            for ep in module.endpoints:
+                p = ep.path
+                if p not in openapi['paths']:
+                    openapi['paths'][p] = {}
+
+                method = ep.method.lower()
+                operation = {
+                    'summary': ep.handler,
+                    'responses': {
+                        '200': {
+                            'description': 'OK',
+                            'content': {
+                                'application/json': {
+                                    'schema': {'type': 'object'}
+                                }
+                            }
+                        }
+                    }
+                }
+
+                # Parameters from path
+                params = []
+                for name in re.findall(r"\{([^}]+)\}", ep.path):
+                    params.append({'name': name, 'in': 'path', 'required': True, 'schema': {'type': 'string'}})
+
+                # Query type expansion
+                if ep.query_type:
+                    q_td = self._find_type_def_for_rust(ep.query_type)
+                    if q_td:
+                        for entry in self._collect_inlined_fields(q_td):
+                            # entry: (field_name, rust_type, serialized_name, is_opt)
+                            field_name, rust_field_type, s_name, is_opt = entry[:4]
+                            # respect rename_all on the query struct
+                            if q_td.rename_all and s_name == field_name:
+                                s_name = apply_rename_all(s_name, q_td.rename_all)
+                            schema = make_schema_for(rust_field_type)
+                            params.append({'name': s_name, 'in': 'query', 'required': not is_opt, 'schema': schema})
+                    else:
+                        params.append({'name': 'query', 'in': 'query', 'required': False, 'schema': {'type': 'object'}})
+
+                if params:
+                    operation['parameters'] = params
+
+                # Request body (skip for DELETE per OpenAPI semantics)
+                if ep.body_type and ep.method.upper() != 'DELETE':
+                    schema_ref = None
+                    b_td = self._find_type_def_for_rust(ep.body_type)
+                    if b_td:
+                        schema_ref = {'$ref': f"#/components/schemas/{b_td.name}"}
+                    else:
+                        schema_ref = {'type': 'object'}
+
+                    operation['requestBody'] = {
+                        'content': {
+                            'application/json': {
+                                'schema': schema_ref
+                            }
+                        },
+                        'required': not getattr(ep, 'body_optional', False)
+                    }
+
+                # Response type reference where available
+                if ep.response_type:
+                    r_td = self._find_type_def_for_rust(ep.response_type)
+                    if r_td:
+                        operation['responses']['200']['content']['application/json']['schema'] = {'$ref': f"#/components/schemas/{r_td.name}"}
+
+                # Security requirement (if auth required)
+                if getattr(ep, 'auth_required', False):
+                    operation['security'] = [{'bearerAuth': []}]
+
+                openapi['paths'][p][method] = operation
+
+        # Add a simple security scheme if any endpoint required auth
+        if any(ep.auth_required for m in self.api_modules for ep in m.endpoints):
+            openapi['components']['securitySchemes'] = {
+                'bearerAuth': {'type': 'http', 'scheme': 'bearer', 'bearerFormat': 'JWT'}
+            }
+
+        # Attach generation warnings for consumer visibility
+        if generation_warnings:
+            openapi['x-generation-warnings'] = generation_warnings
+
+        return openapi
+
     def _generate_module_methods(self, module: ApiModule) -> List[str]:
         """Generate methods for a module"""
         methods = []
@@ -576,6 +925,83 @@ class TypeScriptGenerator:
             return resolved
 
         return 'ApiJsonValue' if for_types_file else 'Types.ApiJsonValue'
+
+    def _rust_schema_for_type(self, rust_type: str) -> dict:
+        """Best-effort conversion from a Rust type string to a JSON Schema fragment for OpenAPI.
+
+        - Option<T> -> underlying schema with nullable=true
+        - Vec<T> or T[] -> array with items schema
+        - HashMap<K, V> -> object with additionalProperties = V schema
+        - Primitive mapping: String -> string, i32/i64/u32 -> number, bool -> boolean
+        - Custom types -> $ref to components.schemas if resolvable
+        """
+        if not rust_type:
+            return {'type': 'string'}
+
+        s = rust_type.strip()
+
+        # Option<T>
+        m = re.match(r'^(?:Option|std::option::Option|core::option::Option)\s*<(.+)>$', s)
+        if m:
+            inner = m.group(1).strip()
+            sch = self._rust_schema_for_type(inner)
+            sch['nullable'] = True
+            return sch
+
+        # Vec<T>
+        m = re.match(r'^(?:Vec|std::vec::Vec|alloc::vec::Vec)\s*<(.+)>$', s)
+        if m:
+            inner = m.group(1).strip()
+            return {'type': 'array', 'items': self._rust_schema_for_type(inner)}
+
+        # Slice notation T[]
+        if s.endswith('[]'):
+            inner = s[:-2].strip()
+            return {'type': 'array', 'items': self._rust_schema_for_type(inner)}
+
+        # HashMap<K, V>
+        m = re.match(r'^(?:.+::)?HashMap\s*<\s*(.+),\s*(.+)\s*>$', s)
+        if m:
+            val = m.group(2).strip()
+            return {'type': 'object', 'additionalProperties': self._rust_schema_for_type(val)}
+
+        # Tuple -> map to array of items if we can
+        if s.startswith('(') and s.endswith(')'):
+            inner = s[1:-1].strip()
+            if inner:
+                parts = self._split_tuple_elements(inner)
+                return {'type': 'array', 'items': {'oneOf': [self._rust_schema_for_type(p) for p in parts]}}
+
+        # Primitive mapping
+        primitives = {
+            'String': {'type': 'string'},
+            'str': {'type': 'string'},
+            'bool': {'type': 'boolean'},
+            'i8': {'type': 'number'},
+            'i16': {'type': 'number'},
+            'i32': {'type': 'number'},
+            'i64': {'type': 'number'},
+            'u8': {'type': 'number'},
+            'u16': {'type': 'number'},
+            'u32': {'type': 'number'},
+            'u64': {'type': 'number'},
+            'f32': {'type': 'number'},
+            'f64': {'type': 'number'},
+        }
+        if s in primitives:
+            return primitives[s]
+
+        # serde_json::Value -> any object
+        if s in ('serde_json::Value', 'serde_json::value::Value'):
+            return {'type': 'object'}
+
+        # Custom types - try to resolve to schema name
+        resolved = self._resolve_custom_type(s, True)
+        if resolved:
+            return {'$ref': f"#/components/schemas/{resolved}"}
+
+        # Fallback: treat as string
+        return {'type': 'string'}
 
     def _generate_type_definitions(self) -> List[str]:
         """Generate TypeScript interface definitions"""

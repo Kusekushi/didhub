@@ -1173,6 +1173,20 @@ class RustRouteParser:
                         if field_info:
                             fields.append(field_info)
 
+        # Detect struct-level attributes (e.g., #[serde(rename_all = "camelCase")])
+        struct_attr_text = ''
+        for child in struct_node.children:
+            if child.type in ('attribute_item', 'attribute'):
+                try:
+                    struct_attr_text += child.text.decode('utf-8') + '\n'
+                except Exception:
+                    pass
+        rename_all = None
+        if struct_attr_text:
+            meta = self._parse_serde_meta_from_text(struct_attr_text)
+            if 'rename_all' in meta:
+                rename_all = meta['rename_all']
+
         resolved_module = module_path if module_path else module_prefix
         qualified_fields = []
         for entry in fields:
@@ -1196,6 +1210,116 @@ class RustRouteParser:
             fields=fields,
             is_generic=len(type_params) > 0,
             type_params=type_params
+            ,
+            is_enum=False,
+            variants=None,
+            rename_all=rename_all,
+        )
+
+    def _parse_enum_definition(self, enum_node, file_path: Path, module_prefix: str, src_root: Path) -> Optional[TypeDefinition]:
+        # Parse enum name
+        name_node = None
+        for child in enum_node.children:
+            if child.type == 'type_identifier':
+                name_node = child
+                break
+        if not name_node:
+            return None
+        enum_name = name_node.text.decode('utf-8')
+
+        module_parts = self._compute_module_parts(file_path, src_root)
+        module_path = self._build_module_path(module_prefix, module_parts)
+        full_path = f"{module_path}::{enum_name}" if module_path else f"{module_prefix}::{enum_name}"
+        ts_name = self._build_ts_name(module_prefix, module_parts, enum_name)
+
+        # Collect enum variants
+        variants = []
+        for child in enum_node.children:
+            if child.type == 'enum_variant_list':
+                for var in child.children:
+                    if var.type == 'enum_variant':
+                        # variant could have attributes and identifier
+                        var_name = None
+                        var_attr_text = ''
+                        for vchild in var.children:
+                            if vchild.type in ('attribute_item', 'attribute'):
+                                try:
+                                    var_attr_text += vchild.text.decode('utf-8') + '\n'
+                                except Exception:
+                                    pass
+                            if vchild.type == 'identifier' or vchild.type == 'type_identifier':
+                                var_name = vchild.text.decode('utf-8')
+
+                        serialized = var_name
+                        if var_attr_text:
+                            meta = self._parse_serde_meta_from_text(var_attr_text)
+                            if 'rename' in meta:
+                                serialized = meta['rename']
+
+                        # Determine if variant has payload (tuple or struct variant) and capture payload type
+                        has_payload = False
+                        payload_type = None
+                        for c in var.children:
+                            if c.type == 'tuple_struct' or c.type == 'tuple_expression':
+                                # naive capture of inner type text
+                                try:
+                                    payload_type = c.text.decode('utf-8')
+                                except Exception:
+                                    payload_type = None
+                                has_payload = True
+                                break
+                            if c.type == 'call_expression' or c.type == 'field_declaration_list':
+                                try:
+                                    payload_type = c.text.decode('utf-8')
+                                except Exception:
+                                    payload_type = None
+                                has_payload = True
+                                break
+
+                        variants.append((var_name, serialized, has_payload, payload_type))
+
+        # Struct-level serde attributes on enum (rename_all, tag/content, untagged)
+        struct_attr_text = ''
+        for child in enum_node.children:
+            if child.type in ('attribute_item', 'attribute'):
+                try:
+                    struct_attr_text += child.text.decode('utf-8') + '\n'
+                except Exception:
+                    pass
+        rename_all = None
+        enum_style = None
+        enum_tag = None
+        enum_content = None
+        if struct_attr_text:
+            meta = self._parse_serde_meta_from_text(struct_attr_text)
+            if 'rename_all' in meta:
+                rename_all = meta['rename_all']
+            # Detect tagging: tag = "..." and content = "..." implies adjacent-style if both present
+            if 'tag' in meta and 'content' in meta:
+                enum_style = 'adjacent'
+                enum_tag = meta.get('tag')
+                enum_content = meta.get('content')
+            elif 'tag' in meta:
+                # single tag implies internally tagged
+                enum_style = 'internally_tagged'
+                enum_tag = meta.get('tag')
+            elif meta.get('untagged'):
+                enum_style = 'untagged'
+
+        return TypeDefinition(
+            name=ts_name,
+            rust_path=full_path,
+            module_path=module_path if module_path else module_prefix,
+            original_name=enum_name,
+            fields=[],
+            is_generic=False,
+            type_params=[],
+            is_enum=True,
+            variants=variants,
+            rename_all=rename_all,
+            enum_style=enum_style,
+            enum_tag=enum_tag,
+            enum_content=enum_content,
         )
 
     def _parse_struct_field(self, field_node) -> Optional[Tuple[str, str]]:
