@@ -32,6 +32,7 @@ def main():
         return 1
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / 'generated').mkdir(parents=True, exist_ok=True)
 
     # Parse routes
     route_parser = RustRouteParser(server_root)

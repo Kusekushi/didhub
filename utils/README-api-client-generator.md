@@ -86,6 +86,7 @@ pnpm run build  # Automatically generates API client before building
 
 ## Future Improvements
 
-- Generate request/response interfaces
 - Handle authentication requirements in method signatures
 - Support for OpenAPI spec generation
+
+Note: The generator now emits per-endpoint request and response interfaces into the generated `Types.ts` file. Each endpoint gets a `<Module><MethodName>Request` interface and a `<Module><MethodName>Response` type alias which the generated client methods reference.

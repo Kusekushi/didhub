@@ -1,5 +1,7 @@
 // Auto-generated type definitions - do not edit manually
 
+import { QueryInput } from '../core/HttpClient';
+
 export type ApiJsonValue =
 	| string
 	| number
@@ -9,3 +11,14 @@ export type ApiJsonValue =
 	| { [key: string]: ApiJsonValue };
 
 {% for interface in type_definitions %}{{ interface }}{% endfor %}
+
+// Per-endpoint request/response interfaces
+{% for req_iface, req_fields, res_iface, res_type in endpoint_interfaces %}
+export interface {{ req_iface }} {
+{% for fname, ftype, fopt in req_fields %}  {{ fname }}{{ '?' if fopt else '' }}: {{ ftype }};
+{% endfor %}
+}
+
+export type {{ res_iface }} = {{ res_type }};
+
+{% endfor %}

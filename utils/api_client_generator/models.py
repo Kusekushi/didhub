@@ -16,6 +16,7 @@ class Endpoint:
     is_admin: bool = False
     query_type: Optional[str] = None  # Type name for query parameters (e.g., "UsersQuery")
     body_type: Optional[str] = None   # Type name for request body (e.g., "CreateUserPayload")
+    body_optional: bool = False  # True if the request body is an Option<...> in Rust
     response_type: Optional[str] = None  # Type name for response (e.g., "UsersListResponse<UserOut>")
 
 

@@ -1,5 +1,6 @@
-public async {{ method_name }}({{ param_list }}): {{ return_type }} {
-    const response = await this.http.request<{{ response_type }}>({
+public async {{ method_name }}(request: Types.{{ request_interface }}): {{ return_type }} {
+      const { {{ destructure }} } = request || {} as any;
+      const response = await this.http.request<{{ response_type_full }} & Types.{{ response_interface }}>({
       path: {{ path_expr }},
       method: '{{ method }}',
 {% if has_query %}

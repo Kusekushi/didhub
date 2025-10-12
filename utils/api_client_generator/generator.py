@@ -51,9 +51,12 @@ class TypeScriptGenerator:
         """Generate the complete API client code"""
         # Prepare data for template
         self.total_method_bindings = 0
+        # Reset per-run endpoint interface accumulator
+        self.endpoint_interfaces = []
         template_data = {
             'api_modules': [],
-            'type_definitions': self._generate_type_definitions()
+            'type_definitions': self._generate_type_definitions(),
+            'endpoint_interfaces': self.endpoint_interfaces,
         }
 
         for module in self.api_modules:
@@ -72,7 +75,8 @@ class TypeScriptGenerator:
         """Generate the TypeScript type definitions only"""
         # Prepare data for template
         template_data = {
-            'type_definitions': self._generate_type_definitions()
+            'type_definitions': self._generate_type_definitions(),
+            'endpoint_interfaces': getattr(self, 'endpoint_interfaces', [])
         }
 
         # Render types template
@@ -92,22 +96,22 @@ class TypeScriptGenerator:
             if len(endpoints) == 1:
                 # Single endpoint for this path
                 endpoint = endpoints[0]
-                method_code = self._generate_endpoint_method(endpoint)
+                method_code = self._generate_endpoint_method(endpoint, module.name)
                 methods.append(method_code)
             else:
                 # Multiple endpoints for same path - include method in name
                 for endpoint in endpoints:
-                    method_code = self._generate_endpoint_method(endpoint, include_method_in_name=True)
+                    method_code = self._generate_endpoint_method(endpoint, module.name, include_method_in_name=True)
                     methods.append(method_code)
 
         return methods
 
-    def _generate_endpoint_method(self, endpoint: Endpoint, include_method_in_name: bool = False) -> str:
+    def _generate_endpoint_method(self, endpoint: Endpoint, module_name: str, include_method_in_name: bool = False) -> str:
         """Generate a method for a single endpoint"""
         # Convert path parameters to method parameters
         path_params = re.findall(r'\{([^}]+)\}', endpoint.path)
         
-        # Build parameter list
+    # Build parameter list
         params = []
         
         # Add path parameters
@@ -144,9 +148,56 @@ class TypeScriptGenerator:
             path_expr = f"'/api{endpoint.path}'"
 
         # Determine return type
-        response_ts_type = self._rust_type_to_typescript(endpoint.response_type) if endpoint.response_type else 'unknown'
-        return_type = f'Promise<HttpResponse<{response_ts_type}>>'
-        response_type = response_ts_type
+        # Full form used in client method generics (may include 'Types.' prefixes)
+        response_ts_type_full = self._rust_type_to_typescript(endpoint.response_type, for_types_file=False) if endpoint.response_type else 'unknown'
+        # Short form used in the generated types file (no 'Types.' prefix)
+        response_type_short = self._rust_type_to_typescript(endpoint.response_type, for_types_file=True) if endpoint.response_type else 'unknown'
+        return_type = f'Promise<HttpResponse<{response_ts_type_full}>>'
+        response_type = response_type_short
+
+        # Build endpoint-specific interface names and register them for types file
+        # Interface names: <Module><MethodName>Request / <Module><MethodName>Response
+        safe_module = module_name if module_name else 'Api'
+        method_base = self._path_to_method_name(endpoint.path, endpoint.method, include_method_in_name)
+        iface_base = ''.join([p.capitalize() for p in re.split(r'[_\-/]', method_base) if p])
+        request_iface = f'{safe_module}{iface_base}Request'
+        response_iface = f'{safe_module}{iface_base}Response'
+
+        # Compose request interface fields from path params, query, and body
+        # Each field is (name, ts_type, optional_flag)
+        req_fields = []
+        for param in path_params:
+            # Path params are required
+            req_fields.append((param, 'string | number', False))
+        if endpoint.query_type:
+            ts_query_type = self._rust_type_to_typescript(endpoint.query_type, for_types_file=True)
+            # Query is optional at the request level
+            req_fields.append(('query', f'Partial<{ts_query_type}> | QueryInput', True))
+        if has_body_param:
+            # If parser provided a body type use it, otherwise fall back to unknown so the
+            # generated request interface still contains a 'body' field and matches the
+            # destructuring in the generated client method.
+            if endpoint.body_type:
+                ts_body_type = self._rust_type_to_typescript(endpoint.body_type, for_types_file=True)
+            else:
+                ts_body_type = 'unknown'
+            # Use parser-provided flag for body optionality when available
+            is_body_optional = bool(getattr(endpoint, 'body_optional', False))
+            req_fields.append(('body', ts_body_type, is_body_optional))
+
+        # Build destructure list for the method body: include path params, then query/body
+        destructure_items = []
+        destructure_items.extend(path_params)
+        if endpoint.query_type:
+            destructure_items.append('query')
+        if has_body_param:
+            destructure_items.append('body')
+        destructure = ', '.join(destructure_items)
+
+        # Register interfaces if not already present
+        iface_sig = (request_iface, tuple(req_fields), response_iface, response_type)
+        if not any(e[0] == request_iface for e in self.endpoint_interfaces):
+            self.endpoint_interfaces.append(iface_sig)
 
         use_json_body = has_body_param and endpoint.body_type is not None
         use_body_payload = has_body_param and not use_json_body
@@ -160,9 +211,13 @@ class TypeScriptGenerator:
             method=endpoint.method,
             return_type=return_type,
             response_type=response_type,
+            response_type_full=response_ts_type_full,
+            destructure=destructure,
             has_query=endpoint.query_type is not None,
             use_json_body=use_json_body,
-            use_body_payload=use_body_payload
+            use_body_payload=use_body_payload,
+            request_interface=request_iface,
+            response_interface=response_iface
         )
 
     def _path_to_method_name(self, path: str, method: str, include_method_in_name: bool = False) -> str:

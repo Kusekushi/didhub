@@ -331,6 +331,59 @@ class RustRouteParser:
             # Simple type name
             referenced_types.add(rust_type)
 
+    def _is_option_type(self, rust_type: str) -> bool:
+        """Return True if rust_type is wrapped in Option<...> (including std/core variants)."""
+        if not rust_type:
+            return False
+        # Deprecated: use _contains_option for deep detection
+        return bool(re.match(r"^(?:Option|std::option::Option|core::option::Option)\s*<", rust_type))
+
+    def _contains_option(self, rust_type: str) -> bool:
+        """Recursively check whether the provided Rust type contains Option<...> anywhere in its structure.
+
+        Handles nested generics, qualified names, arrays, and unions like `T | null`.
+        """
+        if not rust_type:
+            return False
+
+        s = rust_type.strip()
+
+        # Direct Option variants
+        if re.match(r"^(?:Option|std::option::Option|core::option::Option)\s*<", s):
+            return True
+
+        # Handle arrays like T[]
+        if s.endswith('[]'):
+            return self._contains_option(s[:-2])
+
+        # Handle union types like T | null
+        if '|' in s:
+            for part in s.split('|'):
+                if self._contains_option(part.strip()):
+                    return True
+            return False
+
+        # Handle generic types Foo<Bar,Baz>
+        if '<' in s and s.endswith('>'):
+            base = s[:s.find('<')].strip()
+            params_str = s[s.find('<') + 1:-1]
+            # If base is itself an Option variant
+            if re.match(r"^(?:Option|std::option::Option|core::option::Option)$", base) or base.endswith('::Option'):
+                return True
+
+            # Otherwise, split params and recurse
+            params = self._split_generic_params(params_str)
+            for p in params:
+                if self._contains_option(p):
+                    return True
+            return False
+
+        # For qualified names without generics, check if Option appears as segment
+        if '::' in s and s.split('::')[-1].startswith('Option'):
+            return True
+
+        return False
+
     def _traverse_tree(self, node):
         """Traverse the AST tree"""
         yield node
@@ -765,21 +818,38 @@ class RustRouteParser:
         if final_param:
             params.append(final_param)
 
+        # Keep a small list of seen non-extractor params for heuristics
+        non_extractor_params: List[str] = []
+
         for param in params:
             if ':' not in param:
                 continue
 
             _, type_part = param.split(':', 1)
             type_text = type_part.strip()
+            # Try a list of common extractor generics (Json, Query, Path, Form)
+            extractor = self._extract_any_generic_inner(type_text, ['Json', 'Query', 'Path', 'Form', 'Multipart'])
+            if extractor:
+                kind, inner = extractor
+                if kind.endswith('Query') or kind == 'Query':
+                    endpoint.query_type = self._qualify_type(inner, current_module)
+                    continue
+                # Path params are treated as part of the path (handled earlier via path template)
+                if kind.endswith('Path') or kind == 'Path':
+                    # If Path<T> holds a single primitive or struct, we don't set body but may consider
+                    # individual path parameters elsewhere. Skip.
+                    continue
+                # Json/Form/Multipart -> body
+                if kind in ('Json', 'Form', 'Multipart') or kind.endswith('Json'):
+                    endpoint.body_type = self._qualify_type(inner, current_module)
+                    endpoint.body_optional = self._contains_option(type_text) or self._contains_option(inner)
+                    continue
 
-            query_inner = self._extract_generic_inner(type_text, 'Query')
-            if query_inner:
-                endpoint.query_type = self._qualify_type(query_inner, current_module)
-                continue
-
-            json_inner = self._extract_generic_inner(type_text, 'Json')
-            if json_inner:
-                endpoint.body_type = self._qualify_type(json_inner, current_module)
+            # Heuristic: if this is not an extractor type, keep it for potential body inference
+            # (e.g., `payload: CreateUserPayload` without Json<> wrapper)
+            simple_type = type_text.split('<')[0].strip()
+            if simple_type and simple_type not in ('&HttpRequest', 'HttpRequest', 'Request'):
+                non_extractor_params.append(type_text)
 
         return_type_text = return_block.strip()
         if return_type_text:
@@ -800,6 +870,20 @@ class RustRouteParser:
         return_type_node = function_node.child_by_field_name('return_type')
         if return_type_node:
             self._extract_return_type(endpoint, return_type_node, current_module)
+
+        # Heuristic: if this is a mutating endpoint and we didn't find explicit Json/Form body,
+        # but the function has a single non-extractor parameter type recorded, use that as body.
+        heur = getattr(endpoint, '_heuristic_param_types', None)
+        if not getattr(endpoint, 'body_type', None) and heur and len(heur) == 1:
+            # Only apply for likely mutating methods; method is set on endpoint earlier when routes parsed
+            if endpoint.method in ('POST', 'PUT', 'PATCH'):
+                ct = heur[0]
+                # Avoid treating HttpRequest or axum extractor aliases as body
+                if not any(x in ct for x in ['HttpRequest', 'Request', 'Extension', 'State']):
+                    # Qualify and set
+                    endpoint.body_type = self._qualify_type(ct, current_module)
+                    # If the type is Option<...> or contains Option anywhere, mark optional
+                    endpoint.body_optional = self._contains_option(ct)
 
     def _extract_generic_inner(self, type_text: str, generic: str) -> Optional[str]:
         """Extract the inner type from a generic like Generic<T> handling nested generics."""
@@ -835,6 +919,27 @@ class RustRouteParser:
             # If we reach here, we had an unmatched '<'; try the next occurrence
             idx = cursor + 1
 
+    def _extract_any_generic_inner(self, type_text: str, generics: List[str]) -> Optional[Tuple[str, str]]:
+        """Try to extract the inner type for any of the provided generic names.
+
+        Returns (generic_name_used, inner_text) or None.
+        Handles qualified generic names and multiple occurrences, and nested generics.
+        """
+        for g in generics:
+            inner = self._extract_generic_inner(type_text, g)
+            if inner:
+                return (g, inner)
+
+        # Try to match unqualified generics that might be module-qualified like axum::extract::Json
+        # by looking for the final segment name
+        final_names = [g.split('::')[-1] for g in generics]
+        for name in final_names:
+            inner = self._extract_generic_inner(type_text, name)
+            if inner:
+                return (name, inner)
+
+        return None
+
     def _extract_parameters(self, endpoint: Endpoint, parameters_node, current_module: str):
         """Extract query and body parameters from function parameters"""
         # Parameters are typically like: Query(q): Query<UsersQuery>, Json(payload): Json<CreateUserPayload>
@@ -846,14 +951,31 @@ class RustRouteParser:
 
                 type_text = type_node.text.decode('utf-8').strip()
 
-                query_inner = self._extract_generic_inner(type_text, 'Query')
-                if query_inner:
-                    endpoint.query_type = self._qualify_type(query_inner, current_module)
-                    continue
+                # Use the new helper to detect common extractor wrappers
+                extractor = self._extract_any_generic_inner(type_text, ['Json', 'Query', 'Path', 'Form', 'Multipart'])
+                if extractor:
+                    kind, inner = extractor
+                    if kind.endswith('Query') or kind == 'Query':
+                        endpoint.query_type = self._qualify_type(inner, current_module)
+                        continue
+                    if kind.endswith('Path') or kind == 'Path':
+                        # Path extractor -> path params handled separately
+                        continue
+                    if kind in ('Json', 'Form', 'Multipart') or kind.endswith('Json'):
+                        endpoint.body_type = self._qualify_type(inner, current_module)
+                        endpoint.body_optional = self._contains_option(type_text) or self._contains_option(inner)
+                        continue
 
-                json_inner = self._extract_generic_inner(type_text, 'Json')
-                if json_inner:
-                    endpoint.body_type = self._qualify_type(json_inner, current_module)
+                # If no extractor wrapper, but the function is likely to accept a payload (POST/PUT/PATCH),
+                # keep track of the bare type to use as a heuristic body type later.
+                # Record the text for potential use by heuristics in the caller.
+                # (We don't assign it immediately because we may prefer explicit Json<> wrappers.)
+                if type_text:
+                    # Attach a heuristic list on the endpoint if not present
+                    heur = getattr(endpoint, '_heuristic_param_types', None)
+                    if heur is None:
+                        setattr(endpoint, '_heuristic_param_types', [])
+                    endpoint._heuristic_param_types.append(type_text)
 
     def _extract_return_type(self, endpoint: Endpoint, return_type_node, current_module: str):
         """Extract response type from function return type"""
