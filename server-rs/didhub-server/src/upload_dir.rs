@@ -244,6 +244,75 @@ impl UploadDirCache {
         Ok((moved, skipped))
     }
 
+    /// Like `migrate_previous_to_current` but return moved and skipped filenames.
+    pub async fn migrate_previous_to_current_with_names(&self) -> Result<(Vec<String>, Vec<String>), std::io::Error> {
+        let (from, to) = {
+            let w = self.inner.read().await;
+            (w.last_value.clone(), w.value.clone())
+        };
+
+        let mut moved = Vec::new();
+        let mut skipped = Vec::new();
+
+        if let Some(from_dir) = from {
+            if from_dir == to {
+                debug!(directory=%to, "no migration needed - directories are the same");
+                return Ok((moved, skipped));
+            }
+
+            info!(from_directory=%from_dir, to_directory=%to, "starting upload directory migration");
+
+            let from_pb = PathBuf::from(&from_dir);
+            let to_pb = PathBuf::from(&to);
+
+            if !from_pb.exists() {
+                warn!(from_directory=%from_dir, "source directory does not exist - skipping migration");
+                return Ok((moved, skipped));
+            }
+
+            debug!(to_directory=%to_pb.display(), "ensuring destination directory exists");
+            tokio::fs::create_dir_all(&to_pb).await?;
+
+            let mut rd = tokio::fs::read_dir(&from_pb).await?;
+            while let Some(ent) = rd.next_entry().await? {
+                if let Ok(meta) = ent.metadata().await {
+                    if !meta.is_file() {
+                        debug!(path=%ent.path().display(), "skipping non-file entry");
+                        if let Some(name) = ent.file_name().to_str().map(|s| s.to_string()) {
+                            skipped.push(name);
+                        }
+                        continue;
+                    }
+                }
+
+                if let Some(name) = ent.file_name().to_str().map(|s| s.to_string()) {
+                    let src = from_pb.join(&name);
+                    let dst = to_pb.join(&name);
+
+                    if tokio::fs::rename(&src, &dst).await.is_ok() {
+                        debug!(filename=%name, "moved file via rename");
+                        moved.push(name);
+                    } else {
+                        if tokio::fs::copy(&src, &dst).await.is_ok() {
+                            let _ = tokio::fs::remove_file(&src).await;
+                            debug!(filename=%name, "moved file via copy+delete");
+                            moved.push(name);
+                        } else {
+                            warn!(filename=%name, "failed to move file");
+                            skipped.push(name);
+                        }
+                    }
+                }
+            }
+
+            info!(moved_files=%moved.len(), skipped_files=%skipped.len(), from=%from_dir, to=%to, "upload directory migration completed");
+        } else {
+            debug!("no previous directory to migrate from");
+        }
+
+        Ok((moved, skipped))
+    }
+
     /// Refresh the TTL from the database setting `uploads.upload_dir_cache.ttl_secs`.
     pub async fn refresh_ttl_from_db(&self) {
         if let Some(db) = &self.db {
@@ -279,6 +348,42 @@ impl UploadDirCache {
     pub async fn set_ttl_secs(&self, secs: u64) {
         let mut ttl_w = self.ttl.write().await;
         *ttl_w = Duration::from_secs(secs);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UploadDirCache;
+    use std::fs;
+
+    #[tokio::test]
+    async fn migrate_with_names_moves_files_and_skips_dirs() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+
+        let from_path = from_dir.path().to_string_lossy().to_string();
+        let to_path = to_dir.path().to_string_lossy().to_string();
+
+        // create files and a subdir in from_dir
+        let f1 = from_dir.path().join("one.txt");
+        let f2 = from_dir.path().join("two.bin");
+        let sub = from_dir.path().join("sub");
+        fs::write(&f1, b"1").unwrap();
+        fs::write(&f2, b"2").unwrap();
+        fs::create_dir_all(&sub).unwrap();
+
+        let udc = UploadDirCache::new_no_db(to_path.clone(), 60);
+        udc.set_internal_state(Some(from_path.clone()), to_path.clone()).await;
+
+        let (moved, skipped) = udc
+            .migrate_previous_to_current_with_names()
+            .await
+            .expect("migrate failed");
+
+        assert!(moved.contains(&"one.txt".to_string()));
+        assert!(moved.contains(&"two.bin".to_string()));
+        assert!(skipped.contains(&"sub".to_string()));
+        assert_eq!(moved.len() + skipped.len(), 3usize);
     }
 }
 

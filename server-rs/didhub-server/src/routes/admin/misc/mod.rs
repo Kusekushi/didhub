@@ -1,21 +1,20 @@
 mod backup;
 mod check_updates;
-mod migrate_uploads;
 mod perform_update_endpoint;
 mod post_custom_digest;
 mod query_database;
 mod redis_status;
-mod reload_upload_dir;
+mod upload_dir;
 mod restore;
 
 pub use backup::create_backup;
 pub use check_updates::check_updates;
-pub use migrate_uploads::{migrate_uploads, MigrateResp};
+// migrate and reload handlers retired; unified handler is `upload_dir`
 pub use perform_update_endpoint::perform_update_endpoint;
 pub use post_custom_digest::{post_custom_digest, CustomDigestQuery, DigestResponse};
 pub use query_database::{query_database, QueryRequest, QueryResponse};
 pub use redis_status::{redis_status, RedisStatusResp};
-pub use reload_upload_dir::{reload_upload_dir, ReloadResp};
+pub use upload_dir::{upload_dir, UploadDirQuery, UploadDirResp};
 pub use restore::restore_backup;
 
 #[cfg(feature = "updater")]

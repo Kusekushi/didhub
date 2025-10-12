@@ -11,13 +11,12 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | POST | `/admin/backup` | crate::routes::admin::misc::create_backup |  |
 | POST | `/admin/db/query` | crate::routes::admin::misc::query_database |  |
 | POST | `/admin/digest/custom` | crate::routes::admin::misc::post_custom_digest | days_ahead |
-| POST | `/admin/migrate-upload-dir` | crate::routes::admin::misc::migrate_uploads |  |
 | GET | `/admin/oidc` | crate::routes::auth::oidc::list_providers |  |
 | GET | `/admin/redis` | crate::routes::admin::misc::redis_status |  |
-| POST | `/admin/reload-upload-dir` | crate::routes::admin::misc::reload_upload_dir |  |
 | POST | `/admin/restore` | crate::routes::admin::misc::restore_backup |  |
 | POST | `/admin/update` | crate::routes::admin::misc::perform_update_endpoint | check_only |
 | GET | `/admin/update/check` | crate::routes::admin::misc::check_updates | check_only |
+| POST | `/admin/upload_dir` | crate::routes::admin::misc::upload_dir | action |
 | GET | `/alters` | crate::routes::alters::list_alters | q, limit, offset, fields, user_id |
 | POST | `/alters` | crate::routes::alters::create_alter |  |
 | GET | `/alters/family-tree` | crate::routes::alters::family_tree |  |
@@ -126,12 +125,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | --- | --- | --- | --- |
 | days_ahead | query | False | number |
 
-## /admin/migrate-upload-dir
-
-| Method | Summary |
-| --- | --- |
-| **POST** | crate::routes::admin::misc::migrate_uploads |
-
 ## /admin/oidc
 
 | Method | Summary |
@@ -143,12 +136,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | Method | Summary |
 | --- | --- |
 | **GET** | crate::routes::admin::misc::redis_status |
-
-## /admin/reload-upload-dir
-
-| Method | Summary |
-| --- | --- |
-| **POST** | crate::routes::admin::misc::reload_upload_dir |
 
 ## /admin/restore
 
@@ -179,6 +166,18 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | name | in | required | type |
 | --- | --- | --- | --- |
 | check_only | query | True | boolean |
+
+## /admin/upload_dir
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::misc::upload_dir |
+
+### POST /admin/upload_dir parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| action | query | True | string |
 
 ## /alters
 

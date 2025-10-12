@@ -44,12 +44,8 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
                 .put(crate::routes::admin::settings::upsert_setting),
         )
         .route(
-            "/admin/reload-upload-dir",
-            post(crate::routes::admin::misc::reload_upload_dir),
-        )
-        .route(
-            "/admin/migrate-upload-dir",
-            post(crate::routes::admin::misc::migrate_uploads),
+            "/admin/upload_dir",
+            post(crate::routes::admin::misc::upload_dir),
         )
         .route(
             "/admin/redis",
