@@ -16,12 +16,17 @@ pub struct UsersQuery {
     pub page: Option<i64>,
     pub per_page: Option<i64>,
     pub q: Option<String>,
+    // For names mode, support limit/offset like the old endpoint
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
     // keep as strings here and parse later to be permissive about 0/1 and true/false
     pub is_admin: Option<String>,
     pub is_system: Option<String>,
     pub is_approved: Option<String>,
     pub sort_by: Option<String>, // id|username|created_at
     pub order: Option<String>,   // asc|desc
+    // when present and truthy, return a lightweight names-only list instead of full users
+    pub names: Option<String>,
 }
 
 fn parse_flag(s: &Option<String>) -> Option<bool> {
@@ -60,10 +65,15 @@ pub async fn list_users(
     State(db): State<Db>,
     Extension(current): Extension<CurrentUser>,
     Query(q): Query<UsersQuery>,
-) -> Result<Json<UsersListResponse<User>>, AppError> {
+) -> Result<Json<serde_json::Value>, AppError> {
     if current.is_approved == 0 {
         return Err(AppError::Forbidden);
     }
+    // If names flag is present and truthy, return lightweight names response
+    let want_names = match q.names.as_deref() {
+        Some(s) if s.eq_ignore_ascii_case("true") || s == "1" => true,
+        _ => false,
+    };
     let page = q.page.unwrap_or(1).max(1);
     let per_page = q.per_page.unwrap_or(50).clamp(1, 200);
     let sort_by = match q.sort_by.as_deref() {
@@ -75,6 +85,40 @@ pub async fn list_users(
         Some("asc") => false,
         _ => true,
     };
+    if want_names {
+        // names mode: use limit/offset semantics and fixed filters (exclude system users, only approved)
+        let limit = q.limit.unwrap_or(500).clamp(1, 2000);
+        let offset = q.offset.unwrap_or(0).max(0);
+        let filters = UserListFilters {
+            q: q.q.clone(),
+            is_admin: None,
+            is_system: Some(false),
+            is_approved: Some(true),
+            sort_by: "username".to_string(),
+            order_desc: false,
+            limit,
+            offset,
+        };
+        let (rows, total) = db
+            .list_users_advanced(&filters)
+            .await
+            .map_err(|_| AppError::Internal)?;
+        let mut items = Vec::with_capacity(rows.len());
+        for u in rows {
+            items.push(NamesItem {
+                id: u.id.clone(),
+                name: u.username,
+            });
+        }
+        let resp = serde_json::json!({
+            "items": items,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        });
+        return Ok(Json(resp));
+    }
+
     let offset = (page - 1) * per_page;
     let filters = UserListFilters {
         q: q.q.clone(),
@@ -90,6 +134,7 @@ pub async fn list_users(
         .list_users_advanced(&filters)
         .await
         .map_err(|_| AppError::Internal)?;
+
     let items: Vec<User> = rows.into_iter().map(sanitize_user).collect();
     let pages = if total == 0 {
         1
@@ -106,7 +151,7 @@ pub async fn list_users(
         next,
         prev,
     };
-    Ok(Json(UsersListResponse { meta, items }))
+    Ok(Json(serde_json::to_value(UsersListResponse { meta, items }).map_err(|_| AppError::Internal)?))
 }
 
 #[derive(serde::Deserialize)]
@@ -314,67 +359,8 @@ pub async fn admin_password_reset(
     Ok(Json(sanitize_user(user)))
 }
 
-#[derive(serde::Deserialize)]
-pub struct ListQuery {
-    pub q: Option<String>,
-    pub limit: Option<i64>,
-    pub offset: Option<i64>,
-}
-
-#[derive(serde::Serialize)]
-pub struct ListResponse<T> {
-    pub items: Vec<T>,
-    pub total: i64,
-    pub limit: i64,
-    pub offset: i64,
-}
-
 #[derive(serde::Serialize)]
 pub struct NamesItem {
     pub id: String,
     pub name: String,
-}
-
-pub async fn list_user_names(
-    State(db): State<Db>,
-    Extension(current): Extension<CurrentUser>,
-    Query(q): Query<ListQuery>,
-) -> Result<Json<ListResponse<NamesItem>>, AppError> {
-    if current.is_approved == 0 {
-        return Err(AppError::Forbidden);
-    }
-    let limit = q.limit.unwrap_or(500).clamp(1, 2000);
-    let offset = q.offset.unwrap_or(0).max(0);
-
-    // Use the existing list_users_advanced with filters
-    let filters = UserListFilters {
-        q: q.q.clone(),
-        is_admin: None,
-        is_system: Some(false),  // Exclude system users
-        is_approved: Some(true), // Only approved users
-        sort_by: "username".to_string(),
-        order_desc: false,
-        limit,
-        offset,
-    };
-
-    let (rows, total) = db
-        .list_users_advanced(&filters)
-        .await
-        .map_err(|_| AppError::Internal)?;
-
-    let mut items = Vec::with_capacity(rows.len());
-    for u in rows {
-        items.push(NamesItem {
-            id: u.id.clone(),
-            name: u.username,
-        });
-    }
-
-    Ok(Json(ListResponse {
-        items,
-        total,
-        limit,
-        offset,
-    }))
 }

@@ -11,10 +11,6 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
         .route("/users", get(crate::routes::admin::users::list_users))
         .route("/users", post(crate::routes::admin::users::create_user))
         .route(
-            "/users/names",
-            get(crate::routes::admin::users::list_user_names),
-        )
-        .route(
             "/users/{id}",
             get(crate::routes::admin::users::get_user)
                 .put(crate::routes::admin::users::update_user)
