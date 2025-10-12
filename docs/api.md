@@ -1,203 +1,940 @@
-# DIDHub HTTP API Reference
+# DIDHub HTTP API Reference (auto-generated)
 
-The DIDHub server exposes a REST-style API backed by the Rust services under `server-rs/`. This document describes the routes that are currently wired in the router, who can call them, and the important parameters to expect.
+This file was generated from `packages/api-client/src/generated/openapi.yaml`.
 
-## Base URL & Authentication
+Base URL: `/api` prefix is used for JSON endpoints where applicable.
 
-- JSON endpoints live under the `/api` prefix. Responses are UTF-8 JSON unless noted otherwise.
-- Send `Authorization: Bearer <JWT>` for any endpoint marked `JWT` or `Admin` in the tables below.
-- Pagination uses either `page`/`per_page` or `limit`/`offset` depending on the route; see **Pagination & Lists**.
-- Browser clients also send the `x-csrf-token` header when a session cookie is present; API clients using bearer tokens do not need it.
+## Endpoints
 
-## Authentication & Session
-
-| Method | Path | Auth | Notes |
+| Method | Path | Summary | Parameters |
 | --- | --- | --- | --- |
-| `POST` | `/api/auth/register` | None | Create a username/password account. Body: `{ "username", "password", "is_system"? }`. Returns `{ token }` on success. |
-| `POST` | `/api/auth/login` | None | Exchange credentials for a JWT. Returns `{ token }` or `{ error }`. |
-| `POST` | `/api/auth/refresh` | JWT | Refresh an existing token. Requires the current token in the `Authorization` header. |
-| `GET` | `/api/version` | None | Returns version/build metadata. |
-| `GET` | `/api/oidc` | None | Enumerate configured OpenID Connect providers (`[{ id, name }]`). |
-| `GET` | `/api/oidc/{id}/authorize` | None | Initiate the OIDC authorization code flow for provider `id`. Redirects to the provider. |
-| `GET` | `/api/oidc/{id}/callback` | None | Callback endpoint for OIDC providers. Handles exchanging the authorization code. |
+| POST | `/admin/backup` | crate::routes::admin::misc::create_backup |  |
+| POST | `/admin/db/query` | crate::routes::admin::misc::query_database |  |
+| POST | `/admin/digest/custom` | crate::routes::admin::misc::post_custom_digest | days_ahead |
+| POST | `/admin/migrate-upload-dir` | crate::routes::admin::misc::migrate_uploads |  |
+| GET | `/admin/oidc` | crate::routes::auth::oidc::list_providers |  |
+| GET | `/admin/redis` | crate::routes::admin::misc::redis_status |  |
+| POST | `/admin/reload-upload-dir` | crate::routes::admin::misc::reload_upload_dir |  |
+| POST | `/admin/restore` | crate::routes::admin::misc::restore_backup |  |
+| POST | `/admin/update` | crate::routes::admin::misc::perform_update_endpoint | check_only |
+| GET | `/admin/update/check` | crate::routes::admin::misc::check_updates | check_only |
+| GET | `/alters` | crate::routes::alters::list_alters | q, limit, offset, fields, user_id |
+| POST | `/alters` | crate::routes::alters::create_alter |  |
+| GET | `/alters/family-tree` | crate::routes::alters::family_tree |  |
+| GET | `/alters/names` | crate::routes::alters::list_alter_names | q, limit, offset, fields, user_id |
+| GET | `/alters/search` | crate::routes::alters::search_alters | q, limit, offset, fields, user_id |
+| DELETE | `/alters/{alter_id}/relationships/{user_id}/{relationship_type}` | crate::routes::alters::relationships::delete_relationship | alter_id, user_id, relationship_type |
+| DELETE | `/alters/{id}` | crate::routes::alters::delete_alter | id |
+| GET | `/alters/{id}` | crate::routes::alters::get_alter | id |
+| PUT | `/alters/{id}` | crate::routes::alters::update_alter | id |
+| PUT | `/alters/{id}/alter-relationships` | crate::routes::alters::replace_alter_relationships | id |
+| DELETE | `/alters/{id}/image` | crate::routes::alters::delete_alter_image | id |
+| GET | `/alters/{id}/relationships` | crate::routes::alters::relationships::list_relationships | id |
+| POST | `/alters/{id}/relationships` | crate::routes::alters::relationships::create_relationship | id |
+| PUT | `/alters/{id}/user-relationships` | crate::routes::alters::relationships::replace_relationships | id |
+| GET | `/assets/{path}` | crate::routes::static_assets::serve_asset | path |
+| GET | `/audit` | crate::routes::admin::audit::list_audit | action, user_id, from, to, limit, offset |
+| POST | `/audit/clear` | crate::routes::admin::audit::clear_audit |  |
+| POST | `/audit/purge` | crate::routes::admin::audit::purge_audit |  |
+| POST | `/auth/login` | auth::login |  |
+| POST | `/auth/refresh` | auth::refresh |  |
+| POST | `/auth/register` | auth::register |  |
+| GET | `/groups` | crate::routes::groups::list_groups | q, limit, offset, fields, owner_user_id |
+| POST | `/groups` | crate::routes::groups::create_group |  |
+| DELETE | `/groups/{id}` | crate::routes::groups::delete_group | id |
+| GET | `/groups/{id}` | crate::routes::groups::get_group | id |
+| PUT | `/groups/{id}` | crate::routes::groups::update_group | id |
+| POST | `/groups/{id}/leaders/toggle` | crate::routes::groups::toggle_leader | id |
+| GET | `/groups/{id}/members` | crate::routes::groups::list_group_members | id |
+| GET | `/housekeeping/jobs` | crate::routes::admin::housekeeping::list_jobs |  |
+| GET | `/housekeeping/runs` | crate::routes::admin::housekeeping::list_runs | job, limit, offset |
+| POST | `/housekeeping/runs` | crate::routes::admin::housekeeping::clear_runs |  |
+| POST | `/housekeeping/trigger/{name}` | crate::routes::admin::housekeeping::trigger_job | name |
+| GET | `/me` | auth::me_handler |  |
+| DELETE | `/me/avatar` | crate::routes::files::avatar::delete_avatar |  |
+| POST | `/me/avatar` | crate::routes::files::avatar::upload_avatar |  |
+| POST | `/me/password` | auth::change_password |  |
+| GET | `/me/request-system` | crate::routes::systems::requests::my_system_request |  |
+| POST | `/me/request-system` | crate::routes::systems::requests::request_system |  |
+| GET | `/metrics` | metrics::metrics_handler |  |
+| GET | `/oidc` | crate::routes::auth::oidc::public_providers |  |
+| GET | `/oidc/{id}/authorize` | crate::routes::auth::oidc::authorize | id, redirect |
+| GET | `/oidc/{id}/callback` | crate::routes::auth::oidc::callback | id, query |
+| POST | `/oidc/{id}/enabled` | crate::routes::auth::oidc::set_enabled | id |
+| GET | `/oidc/{id}/secret` | crate::routes::auth::oidc::get_secret | id |
+| POST | `/oidc/{id}/secret` | crate::routes::auth::oidc::update_secret | id |
+| POST | `/password-reset/consume` | crate::routes::auth::password_reset::consume_reset |  |
+| POST | `/password-reset/request` | crate::routes::auth::password_reset::request_reset |  |
+| POST | `/password-reset/verify` | crate::routes::auth::password_reset::verify_reset |  |
+| GET | `/pdf/alter/{id}` | crate::routes::reports::pdf::export_alter | id |
+| GET | `/pdf/group/{id}` | crate::routes::reports::pdf::export_group | id |
+| GET | `/pdf/subsystem/{id}` | crate::routes::reports::pdf::export_subsystem | id |
+| GET | `/posts` | crate::routes::posts::list_posts | limit, offset |
+| POST | `/posts` | crate::routes::posts::create_post |  |
+| DELETE | `/posts/{id}` | crate::routes::posts::delete_post | id |
+| POST | `/posts/{id}/repost` | crate::routes::posts::repost_post | id |
+| GET | `/settings` | crate::routes::admin::settings::list_settings |  |
+| PUT | `/settings` | crate::routes::admin::settings::bulk_upsert_settings |  |
+| GET | `/settings/{key}` | crate::routes::admin::settings::get_setting | key |
+| PUT | `/settings/{key}` | crate::routes::admin::settings::upsert_setting | key |
+| GET | `/subsystems` | crate::routes::systems::subsystems::list_subsystems | q, limit, offset, per_page, owner_user_id, fields |
+| POST | `/subsystems` | crate::routes::systems::subsystems::create_subsystem |  |
+| DELETE | `/subsystems/{id}` | crate::routes::systems::subsystems::delete_subsystem | id |
+| GET | `/subsystems/{id}` | crate::routes::systems::subsystems::get_subsystem | id |
+| PUT | `/subsystems/{id}` | crate::routes::systems::subsystems::update_subsystem | id |
+| POST | `/subsystems/{id}/leaders/toggle` | crate::routes::systems::subsystems::toggle_leader | id |
+| GET | `/subsystems/{id}/members` | crate::routes::systems::subsystems::list_members | id |
+| POST | `/subsystems/{id}/members` | crate::routes::systems::subsystems::change_member | id |
+| GET | `/system-requests` | crate::routes::systems::requests::list_system_requests | status, limit, offset |
+| POST | `/system-requests/{id}/decide` | crate::routes::systems::requests::decide_system_request | id |
+| GET | `/systems` | crate::routes::systems::list_systems | q, limit, offset |
+| GET | `/systems/{id}` | crate::routes::systems::get_system | id |
+| POST | `/upload` | crate::routes::files::uploads::upload_file |  |
+| GET | `/uploads` | crate::routes::admin::uploads::list_uploads_admin | limit, offset, mime, hash, user_id, include_deleted |
+| POST | `/uploads/purge` | crate::routes::admin::uploads::purge_uploads_admin | purge_before, force |
+| GET | `/uploads/{filename}` | crate::routes::files::uploads::serve_file | filename |
+| DELETE | `/uploads/{name}` | crate::routes::admin::uploads::delete_upload_admin | name, force |
+| GET | `/users` | crate::routes::admin::users::list_users | page, per_page, q, limit, offset, is_admin, is_system, is_approved, sort_by, order, names |
+| POST | `/users` | crate::routes::admin::users::create_user |  |
+| DELETE | `/users/{id}` | crate::routes::admin::users::delete_user | id |
+| GET | `/users/{id}` | crate::routes::admin::users::get_user | id |
+| PUT | `/users/{id}` | crate::routes::admin::users::update_user | id |
 
-### Password reset workflow (unauthenticated)
+---
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `POST` | `/api/password-reset/request` | Body: `{ "username" }`. Creates a reset token (response includes masked token data even if the user does not exist). |
-| `POST` | `/api/password-reset/verify` | Body: `{ "selector", "token" }`. Verifies a reset token and returns `{ valid, message? }`. |
-| `POST` | `/api/password-reset/consume` | Body: `{ "selector", "token", "new_password" }`. Consumes a reset token and sets the new password. |
+## /admin/backup
 
-## Public endpoints outside `/api`
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::misc::create_backup |
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/health` | Basic liveness and database connectivity JSON (`{ status, database, version }`). |
-| `GET` | `/metrics` | Prometheus metrics scrape (enabled when the metrics feature is active). |
-| `GET` | `/uploads/{filename}` | Serve a stored upload by filename (requires the file to be public or the caller to have the right cookie). |
-| `GET` | `/s/{token}` | Shortlink redirect to the target resource (public). |
-| `GET` | `/assets/{path}` | Static asset serving for the frontend build. |
+## /admin/db/query
 
-## Authenticated Endpoints (JWT required)
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::misc::query_database |
 
-### Account & Session
+## /admin/digest/custom
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/me` | Returns the current user (`{ id, username, is_admin, is_system, is_approved, ... }`). |
-| `POST` | `/api/me/password` | Body: `{ current_password, new_password }`. Changes the caller's password; returns `{ message? , error? }`. |
-| `POST` | `/api/me/request-system` | Submit a system-account request. Returns `{ id, status, note? }` or validation errors. |
-| `GET` | `/api/me/request-system` | Retrieve the most recent system-account request for the caller (or `404` if none). |
-| `GET` | `/api/debug/whoami` | Debug helper echoing the authenticated principal. |
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::misc::post_custom_digest |
 
-### Alters
+### POST /admin/digest/custom parameters
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/alters` | List alters. Supports `q`, `fields`, `per_page`, `offset`, `user_id`. Returns `{ items, total?, per_page?, offset? }` with normalized records. |
-| `POST` | `/api/alters` | Create an alter. Accepts JSON body with alter fields. |
-| `GET` | `/api/alters/names` | Returns an array of lightweight `{ id, name, user_id?, username? }` records for autocomplete. Query params: `q`, `user_id`, supports pagination via `limit`/`offset`. |
-| `GET` | `/api/alters/search` | Search alters by user. Query: `user_id` (required), `q`, `per_page`, `fields`. |
-| `GET` | `/api/alters/family-tree` | Returns the full family tree graph structure (`{ nodes, edges, roots, owners? }`). |
-| `GET` | `/api/alters/{id}` | Fetch a single alter (404 if missing). |
-| `PUT` | `/api/alters/{id}` | Update an alter with JSON payload. |
-| `DELETE` | `/api/alters/{id}` | Remove an alter (idempotent). |
-| `DELETE` | `/api/alters/{id}/image` | Body: `{ url }`. Removes a single image reference from the alter. |
+| name | in | required | type |
+| --- | --- | --- | --- |
+| days_ahead | query | False | number |
 
-#### Alter relationships
+## /admin/migrate-upload-dir
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/alters/{id}/relationships` | Lists user<->alter relationships (partners/parents/children). |
-| `POST` | `/api/alters/{id}/relationships` | Body: `{ user_id, relationship_type }` where `relationship_type` ∈ `partner|parent|child`. |
-| `DELETE` | `/api/alters/{alter_id}/relationships/{user_id}/{relationship_type}` | Removes the relationship mapping. |
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::misc::migrate_uploads |
 
-### Groups & Subsystems
+## /admin/oidc
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/groups` | List groups. Accepts `q`, `owner_user_id`, `fields=members`, or arbitrary query string via `rawQuery`. |
-| `POST` | `/api/groups` | Create a group. |
-| `GET` | `/api/groups/{id}` | Fetch a group. |
-| `PUT` | `/api/groups/{id}` | Update group fields. |
-| `DELETE` | `/api/groups/{id}` | Delete group. |
-| `POST` | `/api/groups/{id}/leaders/toggle` | Body: `{ alter_id, add }`. Promote/demote a leader. |
-| `GET` | `/api/groups/{id}/members` | Returns `{ group_id, alters: [] }` with member identifiers. |
-| `GET` | `/api/subsystems` | List subsystems (supports `q`, `owner_user_id`, `fields=members`). |
-| `POST` | `/api/subsystems` | Create a subsystem. |
-| `GET` | `/api/subsystems/{id}` | Fetch subsystem details. |
-| `PUT` | `/api/subsystems/{id}` | Update subsystem. |
-| `DELETE` | `/api/subsystems/{id}` | Delete subsystem. |
-| `POST` | `/api/subsystems/{id}/leaders/toggle` | Body: `{ alter_id, add }`. Adjust leader membership. |
-| `GET` | `/api/subsystems/{id}/members` | Returns an array of members (`[{ alter_id, roles?, is_leader? }]`). |
-| `POST` | `/api/subsystems/{id}/members` | Body: `{ alter_id, roles }` to update member roles. |
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::auth::oidc::list_providers |
 
-### Systems & Users
+## /admin/redis
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/systems` | List system users (paginated, primarily for selectors). Supports `per_page`. |
-| `GET` | `/api/systems/{id}` | Fetch a single system record. |
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::misc::redis_status |
 
-### Files & Uploads
+## /admin/reload-upload-dir
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `POST` | `/api/upload` | Multipart upload (`file` field). 20 MiB limit enforced by middleware. Returns `{ filename/url/message/error? }`. |
-| `POST` | `/api/me/avatar` | Multipart upload for the caller's avatar (10 MiB limit). Returns `{ url, message }` or `{ error }`. |
-| `DELETE` | `/api/me/avatar` | Remove the caller's avatar. |
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::misc::reload_upload_dir |
 
-### Shortlinks & PDF exports
+## /admin/restore
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `POST` | `/api/shortlink` | Body: `{ target }` (or use helpers for alters/groups/etc.). Returns `{ id, token, target }`. |
-| `GET` | `/api/shortlink/{token}` | Resolve a shortlink token. Returns `{ id, token, target }` or `{ error }`. |
-| `DELETE` | `/api/shortlink/id/{id}` | Delete a shortlink by numeric id. |
-| `GET` | `/api/pdf/alter/{id}` | Download a PDF export for an alter. Response is `application/pdf`. |
-| `GET` | `/api/pdf/group/{id}` | Download a group PDF. |
-| `GET` | `/api/pdf/subsystem/{id}` | Download a subsystem PDF. |
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::misc::restore_backup |
 
-### Posts
+## /admin/update
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/posts` | List posts. Supports `page`, `per_page`. Returns `{ items, meta }`. |
-| `POST` | `/api/posts` | Create a post (body depends on post schema). |
-| `POST` | `/api/posts/{id}/repost` | Repost an existing entry. |
-| `DELETE` | `/api/posts/{id}` | Delete a post. |
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::misc::perform_update_endpoint |
 
-## Admin Endpoints (JWT with admin flag)
+### POST /admin/update parameters
 
-### Users & System Requests
+| name | in | required | type |
+| --- | --- | --- | --- |
+| check_only | query | True | boolean |
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/users` | Paginated list of users. Query: `page`, `per_page`, `q`, `is_admin`, `is_system`, `is_approved`, `sort_by`, `order`. Returns `{ meta, items }`. |
-| `GET` | `/api/users/names` | Lightweight list of user ids and display names. Accepts `q`, `limit`, `offset`. |
-| `GET` | `/api/users/{id}` | Fetch a specific user. |
-| `PUT` | `/api/users/{id}` | Update admin/system/approval flags or avatar. Body mirrors `UpdateUserPayload`. |
-| `DELETE` | `/api/users/{id}` | Delete a user. Accepts optional body `{ reassign_to }` to move ownership. |
-| `GET` | `/api/system-requests` | List pending system account requests. |
-| `POST` | `/api/system-requests/{id}/decide` | Body: `{ status, note? }` to approve/deny a request. |
+## /admin/update/check
 
-### Settings & Platform Maintenance
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::misc::check_updates |
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/settings` | Returns a map of all admin settings. |
-| `PUT` | `/api/settings` | Bulk update settings. Body is key/value object. |
-| `GET` | `/api/settings/{key}` | Fetch an individual setting (404 if missing). |
-| `PUT` | `/api/settings/{key}` | Upsert a specific setting. |
-| `POST` | `/api/admin/reload-upload-dir` | Re-scan the uploads directory cache. |
-| `POST` | `/api/admin/migrate-upload-dir` | Run the upload directory migration job. |
-| `GET` | `/api/admin/redis` | Returns `{ ok, error?, info? }` describing Redis status. |
-| `GET` | `/api/admin/update/check` | Check updater status (`{ available, versions, message }`). |
-| `POST` | `/api/admin/update` | Trigger an update run. Optional query `check_only=true` performs a dry-run check. |
-| `POST` | `/api/admin/digest/custom` | Post a custom digest. Optional query `days_ahead=<int>`. |
+### GET /admin/update/check parameters
 
-### Audit & Housekeeping
+| name | in | required | type |
+| --- | --- | --- | --- |
+| check_only | query | True | boolean |
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/audit` | List audit events. Query: `limit`, `offset`, `action`, `user_id`, `from`, `to`. Returns `{ items, total? }`. |
-| `POST` | `/api/audit/purge` | Remove audit entries older than the configured retention. |
-| `POST` | `/api/audit/clear` | Clear all audit entries. |
-| `GET` | `/api/housekeeping/jobs` | Returns `{ jobs: [] }` describing registered housekeeping jobs. |
-| `GET` | `/api/housekeeping/runs` | Query past job runs. Supports `limit`, `offset`. Returns `{ runs }`. |
-| `POST` | `/api/housekeeping/runs` | Clear stored housekeeping run metadata. |
-| `POST` | `/api/housekeeping/trigger/{name}` | Trigger a housekeeping job immediately. Body may include `{ dry: true }`. |
+## /alters
 
-### Upload Administration
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::alters::list_alters |
+| **POST** | crate::routes::alters::create_alter |
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `GET` | `/api/uploads` | Admin view of uploads. Accepts `limit`, `offset`, `user_id`, `purge_before`, etc. Returns paginated `{ items }`. |
-| `DELETE` | `/api/uploads/{name}` | Delete an upload by filename. Optional query `force=1` to bypass soft checks. |
-| `POST` | `/api/uploads/purge` | Bodyless request with optional query `purge_before` (ISO timestamp) and `force=1` to purge old uploads. Returns `{ deleted?, message? }`. |
+### GET /alters parameters
 
-### OIDC Administration
+| name | in | required | type |
+| --- | --- | --- | --- |
+| q | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+| fields | query | False | string |
+| user_id | query | False | string |
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| `POST` | `/api/oidc/{id}/enabled` | Body: `{ enabled: bool }`. Enable/disable a provider. |
-| `GET` | `/api/oidc/{id}/secret` | Fetch client credentials and metadata for provider `id`. |
-| `POST` | `/api/oidc/{id}/secret` | Update client credentials. Body: `{ client_id?, client_secret?, enabled? }`. |
+## /alters/family-tree
 
-## Pagination & Lists
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::alters::family_tree |
 
-- User, upload, audit, and housekeeping listings return an envelope containing `items` plus pagination metadata (`meta` or `total`/`limit`/`offset`).
-- Alter, group, and subsystem list responses normalize string arrays (for roles, interests, etc.) into arrays. Empty collections are returned as `[]`.
-- Unless otherwise documented, `limit` defaults to 50 and is capped at 200.
+## /alters/names
 
-## Error Model
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::alters::list_alter_names |
 
-- Errors follow a consistent JSON payload: `{ "error": "human_readable_code", "message"?: "details" }`.
-- Validation problems return `400 Bad Request`; missing resources return `404 Not Found`; permission issues return `403 Forbidden`.
-- All endpoints may also emit `429 Too Many Requests` if rate limiting is triggered; the response includes standard `Retry-After` headers when available.
+### GET /alters/names parameters
 
-## Content Types & Status Codes
+| name | in | required | type |
+| --- | --- | --- | --- |
+| q | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+| fields | query | False | string |
+| user_id | query | False | string |
 
-- Successful `GET` requests return `200 OK`, creation endpoints use `201 Created` where applicable, and delete operations return `204 No Content` if no body is needed.
-- File/PDF endpoints return binary content with the proper `Content-Type` header (`application/pdf` for exports, the stored MIME type for uploads).
+## /alters/search
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::alters::search_alters |
+
+### GET /alters/search parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| q | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+| fields | query | False | string |
+| user_id | query | False | string |
+
+## /alters/{alter_id}/relationships/{user_id}/{relationship_type}
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::alters::relationships::delete_relationship |
+
+### DELETE /alters/{alter_id}/relationships/{user_id}/{relationship_type} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| alter_id | path | True | string |
+| user_id | path | True | string |
+| relationship_type | path | True | string |
+
+## /alters/{id}
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::alters::delete_alter |
+| **GET** | crate::routes::alters::get_alter |
+| **PUT** | crate::routes::alters::update_alter |
+
+### DELETE /alters/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### GET /alters/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### PUT /alters/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /alters/{id}/alter-relationships
+
+| Method | Summary |
+| --- | --- |
+| **PUT** | crate::routes::alters::replace_alter_relationships |
+
+### PUT /alters/{id}/alter-relationships parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /alters/{id}/image
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::alters::delete_alter_image |
+
+### DELETE /alters/{id}/image parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /alters/{id}/relationships
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::alters::relationships::list_relationships |
+| **POST** | crate::routes::alters::relationships::create_relationship |
+
+### GET /alters/{id}/relationships parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### POST /alters/{id}/relationships parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /alters/{id}/user-relationships
+
+| Method | Summary |
+| --- | --- |
+| **PUT** | crate::routes::alters::relationships::replace_relationships |
+
+### PUT /alters/{id}/user-relationships parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /assets/{path}
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::static_assets::serve_asset |
+
+### GET /assets/{path} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| path | path | True | string |
+
+## /audit
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::audit::list_audit |
+
+### GET /audit parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| action | query | False | string |
+| user_id | query | False | string |
+| from | query | False | string |
+| to | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+
+## /audit/clear
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::audit::clear_audit |
+
+## /audit/purge
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::audit::purge_audit |
+
+## /auth/login
+
+| Method | Summary |
+| --- | --- |
+| **POST** | auth::login |
+
+## /auth/refresh
+
+| Method | Summary |
+| --- | --- |
+| **POST** | auth::refresh |
+
+## /auth/register
+
+| Method | Summary |
+| --- | --- |
+| **POST** | auth::register |
+
+## /groups
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::groups::list_groups |
+| **POST** | crate::routes::groups::create_group |
+
+### GET /groups parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| q | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+| fields | query | False | string |
+| owner_user_id | query | False | string |
+
+## /groups/{id}
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::groups::delete_group |
+| **GET** | crate::routes::groups::get_group |
+| **PUT** | crate::routes::groups::update_group |
+
+### DELETE /groups/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### GET /groups/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### PUT /groups/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /groups/{id}/leaders/toggle
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::groups::toggle_leader |
+
+### POST /groups/{id}/leaders/toggle parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /groups/{id}/members
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::groups::list_group_members |
+
+### GET /groups/{id}/members parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /housekeeping/jobs
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::housekeeping::list_jobs |
+
+## /housekeeping/runs
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::housekeeping::list_runs |
+| **POST** | crate::routes::admin::housekeeping::clear_runs |
+
+### GET /housekeeping/runs parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| job | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+
+## /housekeeping/trigger/{name}
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::housekeeping::trigger_job |
+
+### POST /housekeeping/trigger/{name} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| name | path | True | string |
+
+## /me
+
+| Method | Summary |
+| --- | --- |
+| **GET** | auth::me_handler |
+
+## /me/avatar
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::files::avatar::delete_avatar |
+| **POST** | crate::routes::files::avatar::upload_avatar |
+
+## /me/password
+
+| Method | Summary |
+| --- | --- |
+| **POST** | auth::change_password |
+
+## /me/request-system
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::systems::requests::my_system_request |
+| **POST** | crate::routes::systems::requests::request_system |
+
+## /metrics
+
+| Method | Summary |
+| --- | --- |
+| **GET** | metrics::metrics_handler |
+
+## /oidc
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::auth::oidc::public_providers |
+
+## /oidc/{id}/authorize
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::auth::oidc::authorize |
+
+### GET /oidc/{id}/authorize parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+| redirect | query | False | string |
+
+## /oidc/{id}/callback
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::auth::oidc::callback |
+
+### GET /oidc/{id}/callback parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+| query | query | False | object |
+
+## /oidc/{id}/enabled
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::auth::oidc::set_enabled |
+
+### POST /oidc/{id}/enabled parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /oidc/{id}/secret
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::auth::oidc::get_secret |
+| **POST** | crate::routes::auth::oidc::update_secret |
+
+### GET /oidc/{id}/secret parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### POST /oidc/{id}/secret parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /password-reset/consume
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::auth::password_reset::consume_reset |
+
+## /password-reset/request
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::auth::password_reset::request_reset |
+
+## /password-reset/verify
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::auth::password_reset::verify_reset |
+
+## /pdf/alter/{id}
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::reports::pdf::export_alter |
+
+### GET /pdf/alter/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /pdf/group/{id}
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::reports::pdf::export_group |
+
+### GET /pdf/group/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /pdf/subsystem/{id}
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::reports::pdf::export_subsystem |
+
+### GET /pdf/subsystem/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /posts
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::posts::list_posts |
+| **POST** | crate::routes::posts::create_post |
+
+### GET /posts parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| limit | query | False | number |
+| offset | query | False | number |
+
+## /posts/{id}
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::posts::delete_post |
+
+### DELETE /posts/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /posts/{id}/repost
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::posts::repost_post |
+
+### POST /posts/{id}/repost parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /settings
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::settings::list_settings |
+| **PUT** | crate::routes::admin::settings::bulk_upsert_settings |
+
+## /settings/{key}
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::settings::get_setting |
+| **PUT** | crate::routes::admin::settings::upsert_setting |
+
+### GET /settings/{key} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| key | path | True | string |
+
+### PUT /settings/{key} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| key | path | True | string |
+
+## /subsystems
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::systems::subsystems::list_subsystems |
+| **POST** | crate::routes::systems::subsystems::create_subsystem |
+
+### GET /subsystems parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| q | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+| per_page | query | False | number |
+| owner_user_id | query | False | string |
+| fields | query | False | string |
+
+## /subsystems/{id}
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::systems::subsystems::delete_subsystem |
+| **GET** | crate::routes::systems::subsystems::get_subsystem |
+| **PUT** | crate::routes::systems::subsystems::update_subsystem |
+
+### DELETE /subsystems/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### GET /subsystems/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### PUT /subsystems/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /subsystems/{id}/leaders/toggle
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::systems::subsystems::toggle_leader |
+
+### POST /subsystems/{id}/leaders/toggle parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /subsystems/{id}/members
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::systems::subsystems::list_members |
+| **POST** | crate::routes::systems::subsystems::change_member |
+
+### GET /subsystems/{id}/members parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### POST /subsystems/{id}/members parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /system-requests
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::systems::requests::list_system_requests |
+
+### GET /system-requests parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| status | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+
+## /system-requests/{id}/decide
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::systems::requests::decide_system_request |
+
+### POST /system-requests/{id}/decide parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /systems
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::systems::list_systems |
+
+### GET /systems parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| q | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+
+## /systems/{id}
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::systems::get_system |
+
+### GET /systems/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+## /upload
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::files::uploads::upload_file |
+
+## /uploads
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::uploads::list_uploads_admin |
+
+### GET /uploads parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| limit | query | False | number |
+| offset | query | False | number |
+| mime | query | False | string |
+| hash | query | False | string |
+| user_id | query | False | string |
+| include_deleted | query | False | boolean |
+
+## /uploads/purge
+
+| Method | Summary |
+| --- | --- |
+| **POST** | crate::routes::admin::uploads::purge_uploads_admin |
+
+### POST /uploads/purge parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| purge_before | query | False | string |
+| force | query | False | boolean |
+
+## /uploads/{filename}
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::files::uploads::serve_file |
+
+### GET /uploads/{filename} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| filename | path | True | string |
+
+## /uploads/{name}
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::admin::uploads::delete_upload_admin |
+
+### DELETE /uploads/{name} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| name | path | True | string |
+| force | query | False | boolean |
+
+## /users
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::users::list_users |
+| **POST** | crate::routes::admin::users::create_user |
+
+### GET /users parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| page | query | False | number |
+| per_page | query | False | number |
+| q | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+| is_admin | query | False | string |
+| is_system | query | False | string |
+| is_approved | query | False | string |
+| sort_by | query | False | string |
+| order | query | False | string |
+| names | query | False | string |
+
+## /users/{id}
+
+| Method | Summary |
+| --- | --- |
+| **DELETE** | crate::routes::admin::users::delete_user |
+| **GET** | crate::routes::admin::users::get_user |
+| **PUT** | crate::routes::admin::users::update_user |
+
+### DELETE /users/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### GET /users/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
+
+### PUT /users/{id} parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
