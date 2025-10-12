@@ -103,7 +103,8 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         .route(
             "/subsystems/{id}/members",
             get(crate::routes::systems::subsystems::list_members)
-                .post(crate::routes::systems::subsystems::change_member),
+                .post(crate::routes::systems::subsystems::change_member)
+                .delete(crate::routes::systems::subsystems::delete_member),
         )
         .route(
             "/posts",

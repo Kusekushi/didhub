@@ -82,6 +82,7 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | GET | `/subsystems/{id}` | crate::routes::systems::subsystems::get_subsystem | id |
 | PUT | `/subsystems/{id}` | crate::routes::systems::subsystems::update_subsystem | id |
 | POST | `/subsystems/{id}/leaders/toggle` | crate::routes::systems::subsystems::toggle_leader | id |
+| DELETE | `/subsystems/{id}/members` | crate::routes::systems::subsystems::delete_member | id |
 | GET | `/subsystems/{id}/members` | crate::routes::systems::subsystems::list_members | id |
 | POST | `/subsystems/{id}/members` | crate::routes::systems::subsystems::change_member | id |
 | GET | `/system-requests` | crate::routes::systems::requests::list_system_requests | status, limit, offset |
@@ -753,8 +754,15 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 
 | Method | Summary |
 | --- | --- |
+| **DELETE** | crate::routes::systems::subsystems::delete_member |
 | **GET** | crate::routes::systems::subsystems::list_members |
 | **POST** | crate::routes::systems::subsystems::change_member |
+
+### DELETE /subsystems/{id}/members parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| id | path | True | string |
 
 ### GET /subsystems/{id}/members parameters
 

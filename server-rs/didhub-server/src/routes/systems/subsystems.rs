@@ -853,3 +853,93 @@ pub async fn list_members(
         alters: members,
     }))
 }
+
+/// Remove a member from a subsystem using DELETE /subsystems/{id}/members with payload { alter_id }
+pub async fn delete_member(
+    Extension(user): Extension<CurrentUser>,
+    Extension(db): Extension<Db>,
+    Path(id): Path<String>,
+    Json(payload): Json<MemberChangePayload>,
+) -> Result<Json<MembersOut>, AppError> {
+    debug!(
+        user_id = %user.id,
+        subsystem_id = %id,
+        alter_id = %payload.alter_id,
+        "Deleting subsystem member"
+    );
+
+    let existing = db
+        .fetch_subsystem(&id)
+        .await
+        .map_err(|e| {
+            error!(
+                user_id = %user.id,
+                subsystem_id = %id,
+                error = %e,
+                "Failed to fetch subsystem for member deletion"
+            );
+            AppError::Internal
+        })?
+        .ok_or_else(|| {
+            warn!(
+                user_id = %user.id,
+                subsystem_id = %id,
+                "Subsystem not found for member deletion"
+            );
+            AppError::NotFound
+        })?;
+
+    check_ownership_with_existing(&user, existing.owner_user_id)?;
+
+    debug!(
+        user_id = %user.id,
+        subsystem_id = %id,
+        "Permission check passed, proceeding with member deletion"
+    );
+
+    db.remove_alter_from_subsystem(&payload.alter_id.to_string(), &id)
+        .await
+        .map_err(|e| {
+            error!(
+                user_id = %user.id,
+                subsystem_id = %id,
+                alter_id = %payload.alter_id,
+                error = %e,
+                "Failed to remove alter from subsystem"
+            );
+            AppError::Internal
+        })?;
+
+    audit::record_with_metadata(
+        &db,
+        Some(user.id.as_str()),
+        "subsystem.member.remove",
+        Some("subsystem"),
+        Some(&id.to_string()),
+        serde_json::json!({"alter_id": payload.alter_id}),
+    )
+    .await;
+
+    let members = db.list_alters_in_subsystem(&id).await.map_err(|e| {
+        error!(
+            user_id = %user.id,
+            subsystem_id = %id,
+            error = %e,
+            "Failed to list alters in subsystem after deletion"
+        );
+        AppError::Internal
+    })?;
+
+    info!(
+        user_id = %user.id,
+        subsystem_id = %id,
+        alter_id = %payload.alter_id,
+        total_members = members.len(),
+        "Subsystem member deletion completed successfully"
+    );
+
+    Ok(Json(MembersOut {
+        subsystem_id: id,
+        alters: members,
+    }))
+}
