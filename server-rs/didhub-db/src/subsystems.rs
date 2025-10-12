@@ -80,37 +80,50 @@ impl SubsystemOperations for Db {
         } else {
             Some(serde_json::to_string(leaders).unwrap())
         };
-        let rec = match self.backend {
+        let id = uuid::Uuid::new_v4().to_string();
+        // Insert the new subsystem row (explicitly providing id) for each backend.
+        match self.backend {
             DbBackend::Sqlite => {
-                sqlx::query_as::<_, Subsystem>("INSERT INTO subsystems (name, description, leaders, metadata, owner_user_id) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id, name, description, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at")
-                    .bind(name)
-                    .bind(description)
-                    .bind(leaders_json)
-                    .bind(metadata)
-                    .bind(owner_user_id)
-                    .fetch_one(&self.pool).await?
-            }
-            DbBackend::Postgres => {
-                sqlx::query_as::<_, Subsystem>("INSERT INTO subsystems (name, description, leaders, metadata, owner_user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *")
-                    .bind(name)
-                    .bind(description)
-                    .bind(leaders_json)
-                    .bind(metadata)
-                    .bind(owner_user_id)
-                    .fetch_one(&self.pool).await?
-            }
-            DbBackend::MySql => {
-                sqlx::query("INSERT INTO subsystems (name, description, leaders, metadata, owner_user_id) VALUES (?1, ?2, ?3, ?4, ?5)")
+                sqlx::query("INSERT INTO subsystems (id, name, description, leaders, metadata, owner_user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
+                    .bind(&id)
                     .bind(name)
                     .bind(description)
                     .bind(leaders_json)
                     .bind(metadata)
                     .bind(owner_user_id)
                     .execute(&self.pool).await?;
-                sqlx::query_as::<_, Subsystem>("SELECT id, name, description, leaders, metadata, owner_user_id, created_at FROM subsystems WHERE id = LAST_INSERT_ID()")
-                    .fetch_one(&self.pool).await?
             }
-        };
+            DbBackend::Postgres => {
+                sqlx::query("INSERT INTO subsystems (id, name, description, leaders, metadata, owner_user_id) VALUES ($1, $2, $3, $4, $5, $6)")
+                    .bind(&id)
+                    .bind(name)
+                    .bind(description)
+                    .bind(leaders_json)
+                    .bind(metadata)
+                    .bind(owner_user_id)
+                    .execute(&self.pool).await?;
+            }
+            DbBackend::MySql => {
+                sqlx::query("INSERT INTO subsystems (id, name, description, leaders, metadata, owner_user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
+                    .bind(&id)
+                    .bind(name)
+                    .bind(description)
+                    .bind(leaders_json)
+                    .bind(metadata)
+                    .bind(owner_user_id)
+                    .execute(&self.pool).await?;
+            }
+        }
+
+        // Fetch a consistent projection matching the Subsystem model. Some DB
+        // schemas may not have avatar/banner/color/updated_at. We alias
+        // NULL/defaults to allow decoding.
+        let rec = sqlx::query_as::<_, Subsystem>(
+            "SELECT id, name, description, NULL as avatar_url, NULL as banner_url, NULL as color, leaders, metadata, owner_user_id, CAST(created_at AS TEXT) as created_at, CAST(created_at AS TEXT) as updated_at FROM subsystems WHERE id = ?1",
+        )
+        .bind(&id)
+        .fetch_one(&self.pool)
+        .await?;
         record_db_operation("create", "subsystems", "success", start.elapsed());
         Ok(rec)
     }

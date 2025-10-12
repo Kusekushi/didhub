@@ -77,7 +77,6 @@ pub struct Group {
     pub created_at: String,
     pub updated_at: String,
     pub owner_user_id: Option<String>,
-    pub is_public: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -91,7 +90,6 @@ pub struct Subsystem {
     pub created_at: String,
     pub updated_at: String,
     pub owner_user_id: Option<String>,
-    pub is_public: bool,
     pub leaders: Option<String>,
     pub metadata: Option<String>,
 }
