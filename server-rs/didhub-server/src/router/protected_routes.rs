@@ -20,10 +20,6 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
             "/alters",
             get(crate::routes::alters::list_alters).post(crate::routes::alters::create_alter),
         )
-        .route(
-            "/alters/names",
-            get(crate::routes::alters::list_alter_names),
-        )
         .route("/alters/search", get(crate::routes::alters::search_alters))
         .route(
             "/alters/family-tree",

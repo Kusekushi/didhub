@@ -215,8 +215,8 @@ async fn alters_names_search_projection_and_delete() {
     let (st2, _body2) = auth_req(&app, axum::http::Method::POST, "/api/alters", &token_u2, Some(json!({"name":"Beta","owner_user_id": user2.id}))).await;
     assert_eq!(st2, StatusCode::OK);
 
-    // list names
-    let (st_names, names_body) = auth_req(&app, axum::http::Method::GET, "/api/alters/names", &token_u1, None).await;
+    // list names (merged into GET /alters via fields=names)
+    let (st_names, names_body) = auth_req(&app, axum::http::Method::GET, "/api/alters?fields=names", &token_u1, None).await;
     assert_eq!(st_names, StatusCode::OK);
     assert!(names_body
         .as_array()

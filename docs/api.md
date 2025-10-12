@@ -20,7 +20,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | GET | `/alters` | crate::routes::alters::list_alters | q, limit, offset, fields, user_id |
 | POST | `/alters` | crate::routes::alters::create_alter |  |
 | GET | `/alters/family-tree` | crate::routes::alters::family_tree |  |
-| GET | `/alters/names` | crate::routes::alters::list_alter_names | q, limit, offset, fields, user_id |
 | GET | `/alters/search` | crate::routes::alters::search_alters | q, limit, offset, fields, user_id |
 | DELETE | `/alters/{alter_id}/relationships/{user_id}/{relationship_type}` | crate::routes::alters::relationships::delete_relationship | alter_id, user_id, relationship_type |
 | DELETE | `/alters/{id}` | crate::routes::alters::delete_alter | id |
@@ -200,22 +199,6 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | Method | Summary |
 | --- | --- |
 | **GET** | crate::routes::alters::family_tree |
-
-## /alters/names
-
-| Method | Summary |
-| --- | --- |
-| **GET** | crate::routes::alters::list_alter_names |
-
-### GET /alters/names parameters
-
-| name | in | required | type |
-| --- | --- | --- | --- |
-| q | query | False | string |
-| limit | query | False | number |
-| offset | query | False | number |
-| fields | query | False | string |
-| user_id | query | False | string |
 
 ## /alters/search
 

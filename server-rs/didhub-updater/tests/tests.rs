@@ -1,5 +1,11 @@
 use didhub_updater::{determine_target_platform, UpdateConfig, UpdateError};
 use std::env;
+use std::sync::Mutex;
+
+// Some tests in this module mutate process-wide environment variables.
+// Cargo runs tests in parallel which can cause races. Guard those tests
+// with a global mutex so they run serially.
+static TEST_ENV_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
 fn test_determine_target_platform() {
@@ -11,6 +17,7 @@ fn test_determine_target_platform() {
 
 #[test]
 fn test_update_config_default() {
+    let _lock = TEST_ENV_LOCK.lock().unwrap();
     // Clear any existing env vars that might affect the test
     env::remove_var("UPDATE_REPO");
     env::remove_var("UPDATE_CHECK_INTERVAL_HOURS");
@@ -26,6 +33,7 @@ fn test_update_config_default() {
 
 #[test]
 fn test_update_config_with_env_vars() {
+    let _lock = TEST_ENV_LOCK.lock().unwrap();
     // Clear env vars first
     env::remove_var("UPDATE_REPO");
     env::remove_var("UPDATE_CHECK_INTERVAL_HOURS");
@@ -46,6 +54,7 @@ fn test_update_config_with_env_vars() {
 
 #[test]
 fn test_update_config_malformed_repo_env() {
+    let _lock = TEST_ENV_LOCK.lock().unwrap();
     // Clear env vars first
     env::remove_var("UPDATE_REPO");
 
@@ -62,6 +71,7 @@ fn test_update_config_malformed_repo_env() {
 
 #[test]
 fn test_update_config_invalid_interval_env() {
+    let _lock = TEST_ENV_LOCK.lock().unwrap();
     // Clear env vars first
     env::remove_var("UPDATE_CHECK_INTERVAL_HOURS");
 

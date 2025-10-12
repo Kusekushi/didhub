@@ -5,6 +5,7 @@ use axum::{
     extract::{Extension, Path, Query, State},
     Json,
 };
+use axum::response::IntoResponse;
 pub use didhub_db::Alter;
 use didhub_db::{
     alters::AlterOperations, audit, relationships::AlterRelationships, user_alter_relationships::UserAlterRelationshipOperations, users::UserOperations, Db
@@ -111,7 +112,8 @@ pub async fn list_alters(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     Query(q): Query<ListQuery>,
-) -> Result<Json<ListResponse<Alter>>, AppError> {
+)
+-> Result<axum::response::Response, AppError> {
     debug!(
         user_id = %user.id,
         username = %user.username,
@@ -126,6 +128,75 @@ pub async fn list_alters(
 
     // Allow filtering by any user_id when explicitly requested
     // The database layer will handle appropriate scoping
+
+    // If caller requested only names via fields=names, return the lightweight names response.
+    if let Some(fields) = q.fields.as_ref() {
+        let wants_names = fields
+            .split(',')
+            .map(|s| s.trim())
+            .any(|field| matches!(field, "names" | "name"));
+        if wants_names {
+            let limit = q.limit.unwrap_or(500).clamp(1, 2000);
+            let offset = q.offset.unwrap_or(0).max(0);
+            let rows = db
+                .list_alters_scoped(q.q.clone(), limit, offset, &user, q.user_id.as_deref())
+                .await
+                .map_err(|_| AppError::Internal)?;
+
+            if rows.is_empty() {
+                return Ok(Json(Vec::<NamesItem>::new()).into_response());
+            }
+
+            let mut owner_ids: Vec<String> = Vec::new();
+            for a in &rows {
+                if let Some(id) = &a.owner_user_id {
+                    owner_ids.push(id.clone());
+                }
+            }
+            owner_ids.sort_unstable();
+            owner_ids.dedup();
+
+            let mut username_lookup: HashMap<String, String> = HashMap::new();
+            if !owner_ids.is_empty() {
+                let mut qb = QueryBuilder::<sqlx::Any>::new("SELECT id, username FROM users WHERE id IN (");
+                {
+                    let mut separated = qb.separated(", ");
+                    for owner_id in &owner_ids {
+                        separated.push_bind(owner_id);
+                    }
+                }
+                qb.push(")");
+
+                match qb
+                    .build_query_as::<(String, String)>()
+                    .fetch_all(&db.pool)
+                    .await
+                {
+                    Ok(rows) => {
+                        for (id, username) in rows {
+                            username_lookup.insert(id, username);
+                        }
+                    }
+                    Err(err) => {
+                        warn!(error = %err, "Failed to load usernames for alter names response");
+                    }
+                }
+            }
+
+            let mut items = Vec::with_capacity(rows.len());
+            for a in rows {
+                items.push(NamesItem {
+                    id: a.id,
+                    name: a.name,
+                    user_id: a.owner_user_id.clone(),
+                    username: a
+                        .owner_user_id
+                        .and_then(|owner| username_lookup.get(&owner).cloned()),
+                });
+            }
+            return Ok(Json(items).into_response());
+        }
+    }
 
     let limit = q.limit.unwrap_or(50).clamp(1, 500);
     let offset = q.offset.unwrap_or(0).max(0);
@@ -178,11 +249,12 @@ pub async fn list_alters(
             "Alter list request returned no rows"
         );
         return Ok(Json(ListResponse {
-            items: Vec::new(),
+            items: Vec::<Alter>::new(),
             total,
             limit,
             offset,
-        }));
+        })
+        .into_response());
     }
 
     info!(
@@ -197,7 +269,8 @@ pub async fn list_alters(
         total,
         limit,
         offset,
-    }))
+    })
+    .into_response())
 }
 
 #[derive(serde::Serialize)]
@@ -206,72 +279,6 @@ pub struct NamesItem {
     pub name: String,
     pub user_id: Option<String>,
     pub username: Option<String>,
-}
-
-pub async fn list_alter_names(
-    State(db): State<Db>,
-    Extension(user): Extension<CurrentUser>,
-    Query(q): Query<ListQuery>,
-) -> Result<Json<Vec<NamesItem>>, AppError> {
-    let limit = q.limit.unwrap_or(500).clamp(1, 2000);
-    let offset = q.offset.unwrap_or(0).max(0);
-    let rows = db
-        .list_alters_scoped(q.q.clone(), limit, offset, &user, q.user_id.as_deref())
-        .await
-        .map_err(|_| AppError::Internal)?;
-
-    if rows.is_empty() {
-        return Ok(Json(Vec::new()));
-    }
-
-    let mut owner_ids: Vec<String> = Vec::new();
-    for a in &rows {
-        if let Some(id) = &a.owner_user_id {
-            owner_ids.push(id.clone());
-        }
-    }
-    owner_ids.sort_unstable();
-    owner_ids.dedup();
-
-    let mut username_lookup: HashMap<String, String> = HashMap::new();
-    if !owner_ids.is_empty() {
-        let mut qb = QueryBuilder::<sqlx::Any>::new("SELECT id, username FROM users WHERE id IN (");
-        {
-            let mut separated = qb.separated(", ");
-            for owner_id in &owner_ids {
-                separated.push_bind(owner_id);
-            }
-        }
-        qb.push(")");
-
-        match qb
-            .build_query_as::<(String, String)>()
-            .fetch_all(&db.pool)
-            .await
-        {
-            Ok(rows) => {
-                for (id, username) in rows {
-                    username_lookup.insert(id, username);
-                }
-            }
-            Err(err) => {
-                warn!(error = %err, "Failed to load usernames for alter names response");
-            }
-        }
-    }
-
-    let mut items = Vec::with_capacity(rows.len());
-    for a in rows {
-        items.push(NamesItem {
-            id: a.id,
-            name: a.name,
-            user_id: a.owner_user_id.clone(),
-            username: a
-                .owner_user_id
-                .and_then(|owner| username_lookup.get(&owner).cloned()),
-        });
-    }
-    Ok(Json(items))
 }
 
 pub async fn search_alters(
