@@ -268,8 +268,11 @@ class RustRouteParser:
             # If this is a defined type, collect its field types
             if current_type in type_def_map:
                 type_def = type_def_map[current_type]
-                for field_name, field_type in type_def.fields:
-                    collect_from_type(field_type)
+                for field_entry in type_def.fields:
+                    # field_entry may be (field_name, rust_type) or (field_name, rust_type, serialized_name, is_optional)
+                    if len(field_entry) >= 2:
+                        field_type = field_entry[1]
+                        collect_from_type(field_type)
 
     def _collect_referenced_types(self, endpoint: Endpoint, referenced_types: set):
         """Collect all types referenced by an endpoint"""
@@ -1165,16 +1168,24 @@ class RustRouteParser:
         
         if body_node:
             for field_node in body_node.children:
-                if field_node.type == 'field_declaration':
-                    field_info = self._parse_struct_field(field_node)
-                    if field_info:
-                        fields.append(field_info)
+                    if field_node.type == 'field_declaration':
+                        field_info = self._parse_struct_field(field_node)
+                        if field_info:
+                            fields.append(field_info)
 
         resolved_module = module_path if module_path else module_prefix
         qualified_fields = []
-        for field_name, rust_type in fields:
+        for entry in fields:
+            # entry may be (field_name, rust_type, serialized_name) or (field_name, rust_type, serialized_name, is_flatten)
+            if len(entry) == 3:
+                field_name, rust_type, serialized_name = entry
+                is_flatten = False
+            else:
+                field_name, rust_type, serialized_name, is_flatten = entry
+
             qualified_type = self._qualify_type(rust_type, resolved_module)
-            qualified_fields.append((field_name, qualified_type))
+            is_optional = self._contains_option(rust_type)
+            qualified_fields.append((field_name, qualified_type, serialized_name, is_optional, is_flatten))
         fields = qualified_fields
         
         return TypeDefinition(
@@ -1193,7 +1204,34 @@ class RustRouteParser:
         name_node = None
         type_node = None
         
+        # Also capture attributes preceding the field (like #[serde(rename = "...")])
+        attr_text = ''
+
+        # Some attribute nodes are siblings before the field_declaration in the AST.
+        # Walk previous siblings to collect attribute text (e.g., #[serde(...)])
+        try:
+            prev = field_node.prev_sibling
+            while prev is not None:
+                if prev.type in ('attribute_item', 'attribute'):
+                    try:
+                        attr_text = prev.text.decode('utf-8') + '\n' + attr_text
+                    except Exception:
+                        pass
+                # Stop collecting once we hit a non-attribute (e.g., a comma or other token)
+                elif prev.type.strip():
+                    # continue scanning but don't treat other nodes as attributes
+                    pass
+                prev = prev.prev_sibling
+        except Exception:
+            # prev_sibling may not exist in some tree-sitter builds; ignore silently
+            pass
+
         for child in field_node.children:
+            if child.type == 'attribute_item' or child.type == 'attribute':
+                try:
+                    attr_text += child.text.decode('utf-8') + '\n'
+                except Exception:
+                    pass
             if child.type == 'field_identifier':
                 name_node = child
             elif child.type in ['generic_type', 'type_identifier', 'primitive_type']:
@@ -1204,5 +1242,133 @@ class RustRouteParser:
         
         field_name = name_node.text.decode('utf-8')
         rust_type = type_node.text.decode('utf-8')
-        
-        return (field_name, rust_type)
+
+        # Inspect attribute nodes more robustly using structured serde meta parsing.
+        serialized_name = field_name
+        is_flatten = False
+
+        if attr_text:
+            # Parse serde meta items from the collected attribute text.
+            serde_meta = self._parse_serde_meta_from_text(attr_text)
+            # serde_meta is a dict with keys like 'rename' -> value or 'flatten' -> True
+            if serde_meta.get('flatten'):
+                is_flatten = True
+            if 'rename' in serde_meta and serde_meta['rename']:
+                serialized_name = serde_meta['rename']
+
+        return (field_name, rust_type, serialized_name, is_flatten)
+
+    def _parse_serde_meta_from_text(self, text: str) -> Dict[str, object]:
+        """Parse the inside of a #[serde(...)] attribute text into a dict.
+
+        This is a pragmatic AST-guided parser that locates the serde(...) segment and
+        parses comma-separated meta items while respecting quoted strings and raw r#"..."# forms.
+        Returns a dict where keys are meta names and values are either True (for flags like flatten)
+        or the string value for assignments like rename = "x".
+        """
+        res: Dict[str, object] = {}
+        if not text:
+            return res
+
+        # Find the serde(...) segment
+        m = re.search(r'serde\s*\(\s*(?P<body>.*?)\s*\)', text, flags=re.DOTALL)
+        if not m:
+            return res
+
+        body = m.group('body').strip()
+
+        # Tokenize respecting quotes and raw string r#"..."#
+        items = []
+        cur = []
+        i = 0
+        L = len(body)
+        in_quote = None
+        raw_delim = None
+
+        while i < L:
+            ch = body[i]
+            if in_quote:
+                # Handle raw string end if present
+                if raw_delim:
+                    # raw string ends with #" where # count == raw_delim
+                    if body.startswith('"' + ('#' * raw_delim), i):
+                        cur.append('"' + ('#' * raw_delim))
+                        i += 1 + raw_delim
+                        in_quote = None
+                        raw_delim = None
+                        continue
+                    else:
+                        cur.append(ch)
+                else:
+                    if ch == in_quote:
+                        in_quote = None
+                    cur.append(ch)
+                i += 1
+                continue
+
+            # Not in quote
+            if ch in ('"', "'"):
+                in_quote = ch
+                cur.append(ch)
+                i += 1
+                continue
+
+            # Raw string literal start r#"..."# or r##"..."##
+            if ch == 'r' and i + 1 < L and body[i+1] == '#':
+                # count number of # after r
+                j = i + 1
+                hash_count = 0
+                while j < L and body[j] == '#':
+                    hash_count += 1
+                    j += 1
+                if j < L and body[j] == '"':
+                    # start raw string
+                    in_quote = '"'
+                    raw_delim = hash_count
+                    cur.append(body[i:j+1])
+                    i = j + 1
+                    continue
+
+            if ch == ',' and not in_quote:
+                item = ''.join(cur).strip()
+                if item:
+                    items.append(item)
+                cur = []
+                i += 1
+                continue
+
+            cur.append(ch)
+            i += 1
+
+        last = ''.join(cur).strip()
+        if last:
+            items.append(last)
+
+        # Now parse items like 'rename = "x"' or 'flatten' or 'rename = r#"x"#'
+        for it in items:
+            if not it:
+                continue
+            if '=' in it:
+                k, v = it.split('=', 1)
+                k = k.strip()
+                v = v.strip()
+                # Remove possible trailing commas/spaces
+                # Strip surrounding quotes or raw string markers
+                # Raw string like r#"value"#
+                raw_match = re.match(r'r#"(?P<val>.*)"#$', v)
+                if raw_match:
+                    val = raw_match.group('val')
+                else:
+                    # normal quoted string
+                    q = v
+                    if (q.startswith('"') and q.endswith('"')) or (q.startswith("'") and q.endswith("'")):
+                        val = q[1:-1]
+                    else:
+                        val = q
+                res[k] = val
+            else:
+                flag = it.strip()
+                if flag:
+                    res[flag] = True
+
+        return res

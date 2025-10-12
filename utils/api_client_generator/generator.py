@@ -169,10 +169,24 @@ class TypeScriptGenerator:
         for param in path_params:
             # Path params are required
             req_fields.append((param, 'string | number', False))
+        query_expanded = False
+        query_field_names = []
         if endpoint.query_type:
-            ts_query_type = self._rust_type_to_typescript(endpoint.query_type, for_types_file=True)
-            # Query is optional at the request level
-            req_fields.append(('query', f'Partial<{ts_query_type}> | QueryInput', True))
+            # Attempt to expand the concrete query struct into individual fields so we can
+            # propagate per-field optionality (Rust Option<T> -> optional marker).
+            q_td = self._find_type_def_for_rust(endpoint.query_type)
+            if q_td:
+                # Collect fields, inlining flattened nested structs recursively
+                inlined = self._collect_inlined_fields(q_td)
+                for field_name, rust_field_type, serialized_name, is_opt in inlined:
+                    ts_field_type = self._rust_type_to_typescript(rust_field_type, for_types_file=True)
+                    req_fields.append((serialized_name, ts_field_type, is_opt))
+                query_expanded = True
+                query_field_names = [f[2] for f in inlined]
+            else:
+                # Fallback: keep query as typed object or QueryInput helper
+                ts_query_type = self._rust_type_to_typescript(endpoint.query_type, for_types_file=True)
+                req_fields.append(('query', f'{ts_query_type} | QueryInput', True))
         if has_body_param:
             # If parser provided a body type use it, otherwise fall back to unknown so the
             # generated request interface still contains a 'body' field and matches the
@@ -189,7 +203,10 @@ class TypeScriptGenerator:
         destructure_items = []
         destructure_items.extend(path_params)
         if endpoint.query_type:
-            destructure_items.append('query')
+            if query_expanded:
+                destructure_items.extend(query_field_names)
+            else:
+                destructure_items.append('query')
         if has_body_param:
             destructure_items.append('body')
         destructure = ', '.join(destructure_items)
@@ -216,6 +233,8 @@ class TypeScriptGenerator:
             has_query=endpoint.query_type is not None,
             use_json_body=use_json_body,
             use_body_payload=use_body_payload,
+            query_expanded=query_expanded,
+            query_field_names=query_field_names,
             request_interface=request_iface,
             response_interface=response_iface
         )
@@ -345,6 +364,60 @@ class TypeScriptGenerator:
 
         return None
 
+    def _find_type_def_for_rust(self, rust_type: str):
+        """Find a TypeDefinition matching the provided rust_type string.
+
+        Accepts fully-qualified paths or simple names and returns the TypeDefinition or None.
+        """
+        if not rust_type:
+            return None
+
+        # Direct match by rust_path
+        if rust_type in (td.rust_path for td in self.type_definitions):
+            for td in self.type_definitions:
+                if td.rust_path == rust_type:
+                    return td
+
+        # Try by simple name
+        simple = rust_type.split('::')[-1]
+        for td in self.type_definitions:
+            if td.original_name == simple or td.name.endswith(simple):
+                return td
+
+        return None
+
+    def _collect_inlined_fields(self, td: TypeDefinition) -> List[tuple]:
+        """Return a flat list of field entries (serialized_name, rust_type, is_optional)
+        for the provided TypeDefinition, recursively inlining fields marked as flatten.
+        """
+        fields_out = []
+        for entry in td.fields:
+            # entry: (field_name, rust_type, serialized_name, is_optional, is_flatten)
+            if len(entry) >= 5:
+                field_name, rust_type, serialized_name, is_opt, is_flatten = entry[:5]
+            elif len(entry) == 4:
+                field_name, rust_type, serialized_name, is_opt = entry
+                is_flatten = False
+            else:
+                # fallback
+                field_name, rust_type = entry[0], entry[1]
+                serialized_name = field_name
+                is_opt = self._is_optional_field(td, field_name, rust_type)
+                is_flatten = False
+
+            if is_flatten:
+                # Try to find type definition for rust_type and inline its fields
+                nested_td = self._find_type_def_for_rust(rust_type)
+                if nested_td:
+                    nested_fields = self._collect_inlined_fields(nested_td)
+                    fields_out.extend(nested_fields)
+                    continue
+                # If we can't find the nested type, fall back to emitting as-is
+
+            fields_out.append((field_name, rust_type, serialized_name, is_opt))
+
+        return fields_out
+
     def _rust_type_to_typescript(self, rust_type: str, for_types_file: bool = False) -> str:
         """Convert Rust type to TypeScript type"""
         if not rust_type:
@@ -448,6 +521,10 @@ class TypeScriptGenerator:
             params = self._split_generic_params(params_str)
             ts_params = [self._rust_type_to_typescript(param, for_types_file) for param in params]
             ts_base = self._rust_type_to_typescript(base, for_types_file)
+            # If the base type is ApiJsonValue (a non-generic marker), don't emit generics
+            if ts_base.endswith('ApiJsonValue'):
+                return 'ApiJsonValue' if for_types_file else 'Types.ApiJsonValue'
+
             return f'{ts_base}<{", ".join(ts_params)}>'
 
         if rust_type in {'serde_json::Value', 'serde_json::value::Value'}:
@@ -512,11 +589,38 @@ class TypeScriptGenerator:
         else:
             lines.append(f"export interface {type_def.name} {{")
         
-        # Fields
-        for field_name, field_type in type_def.fields:
+        # Fields — respect #[serde(flatten)] by inlining nested TypeDefinitions where possible.
+        flat_fields = []
+        for entry in type_def.fields:
+            # entry may be (field_name, rust_type, serialized_name, is_optional, is_flatten)
+            if len(entry) >= 5:
+                field_name, field_type, serialized_name, is_opt, is_flatten = entry[:5]
+            elif len(entry) == 4:
+                field_name, field_type, serialized_name, is_opt = entry
+                is_flatten = False
+            else:
+                field_name, field_type = entry[0], entry[1]
+                serialized_name = field_name
+                is_opt = self._is_optional_field(type_def, field_name, field_type)
+                is_flatten = False
+
+            if is_flatten:
+                nested_td = self._find_type_def_for_rust(field_type)
+                if nested_td:
+                    # Inline nested fields recursively
+                    nested_flat = self._collect_inlined_fields(nested_td)
+                    for nf in nested_flat:
+                        # nf: (field_name, rust_type, serialized_name, is_opt)
+                        nf_name, nf_rust_type, nf_serialized, nf_is_opt = nf
+                        flat_fields.append((nf_name, nf_rust_type, nf_serialized, nf_is_opt))
+                    continue
+
+            flat_fields.append((field_name, field_type, serialized_name, is_opt))
+
+        for field_name, field_type, serialized_name, is_opt in flat_fields:
             ts_field_type = self._rust_type_to_typescript(field_type, for_types_file=True)
-            optional_marker = '?' if self._is_optional_field(type_def, field_name, field_type) else ''
-            lines.append(f"  {field_name}{optional_marker}: {ts_field_type};")
+            optional_marker = '?' if is_opt or self._is_optional_field(type_def, field_name, field_type) else ''
+            lines.append(f"  {serialized_name}{optional_marker}: {ts_field_type};")
         
         lines.append("}")
         lines.append("")  # Empty line between interfaces

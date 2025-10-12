@@ -1,10 +1,21 @@
 public async {{ method_name }}(request: Types.{{ request_interface }}): {{ return_type }} {
       const { {{ destructure }} } = request || {} as any;
+{% if has_query %}
+  {% if query_expanded %}
+      // Reconstruct typed query object from expanded query fields (preserves per-field optionality)
+      const __query: QueryInput = {
+{% for qname in query_field_names %}        {{ qname }},
+{% endfor %}      };
+  {% else %}
+      // Ensure query is treated as QueryInput for the HTTP client
+      const __query = (query as unknown) as QueryInput;
+  {% endif %}
+{% endif %}
       const response = await this.http.request<{{ response_type_full }} & Types.{{ response_interface }}>({
       path: {{ path_expr }},
       method: '{{ method }}',
 {% if has_query %}
-      query,
+      query: __query,
 {% endif %}
 {% if use_json_body %}
       json: body,
