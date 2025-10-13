@@ -140,7 +140,7 @@ impl UserOperations for Db {
         let base = format!("FROM users{}", where_clause);
         let count_sql = format!("SELECT COUNT(*) {}", base);
         let select_sql = format!(
-            "SELECT id, username, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at {} ORDER BY {} {} LIMIT ? OFFSET ?",
+            "SELECT id, username, email, about_me, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at {} ORDER BY {} {} LIMIT ? OFFSET ?",
             base,
             filters.sort_by,
             if filters.order_desc { "DESC" } else { "ASC" }
