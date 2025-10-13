@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(255) UNIQUE NOT NULL,
     email VARCHAR(255),
     password_hash TEXT NOT NULL,
+    about_me TEXT,
     avatar TEXT,
     is_system TINYINT(1) NOT NULL DEFAULT 0,
     is_admin TINYINT(1) NOT NULL DEFAULT 0,

@@ -48,6 +48,8 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | DELETE | `/me/avatar` | crate::routes::files::avatar::delete_avatar |  |
 | POST | `/me/avatar` | crate::routes::files::avatar::upload_avatar |  |
 | POST | `/me/password` | auth::change_password |  |
+| GET | `/me/profile` | crate::routes::me::profile::get_profile |  |
+| PUT | `/me/profile` | crate::routes::me::profile::update_profile |  |
 | GET | `/me/request-system` | crate::routes::systems::requests::my_system_request |  |
 | POST | `/me/request-system` | crate::routes::systems::requests::request_system |  |
 | GET | `/metrics` | metrics::metrics_handler |  |
@@ -440,6 +442,13 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | Method | Summary |
 | --- | --- |
 | **POST** | auth::change_password |
+
+## /me/profile
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::me::profile::get_profile |
+| **PUT** | crate::routes::me::profile::update_profile |
 
 ## /me/request-system
 

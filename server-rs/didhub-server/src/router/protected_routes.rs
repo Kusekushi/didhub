@@ -58,6 +58,10 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
                 .layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
         )
         .route(
+            "/me/profile",
+            get(crate::routes::me::profile::get_profile).put(crate::routes::me::profile::update_profile),
+        )
+        .route(
             "/groups",
             get(crate::routes::groups::list_groups).post(crate::routes::groups::create_group),
         )

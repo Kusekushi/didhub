@@ -54,7 +54,7 @@ impl UserOperations for Db {
         let is_approved = if nu.is_approved { 1 } else { 0 };
         let rec = self.insert_and_return(
             || async {
-                let r = sqlx::query_as::<_, User>("INSERT INTO users (id, username, password_hash, is_system, is_approved) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id, username, email, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at")
+                let r = sqlx::query_as::<_, User>("INSERT INTO users (id, username, password_hash, is_system, is_approved) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id, username, email, about_me, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at")
                     .bind(&id)
                     .bind(&username)
                     .bind(&password_hash)
@@ -71,7 +71,7 @@ impl UserOperations for Db {
                     .bind(is_system)
                     .bind(is_approved)
                     .execute(&self.pool).await?;
-                let r = sqlx::query_as::<_, User>("SELECT id, username, email, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE id = ?1")
+                let r = sqlx::query_as::<_, User>("SELECT id, username, email, about_me, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE id = ?1")
                     .bind(&id)
                     .fetch_one(&self.pool).await?;
                 Ok(r)
@@ -82,7 +82,7 @@ impl UserOperations for Db {
     }
 
     async fn fetch_user_by_username(&self, username: &str) -> Result<Option<User>> {
-        let rec = sqlx::query_as::<_, User>("SELECT id, username, email, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE username = ?1")
+        let rec = sqlx::query_as::<_, User>("SELECT id, username, email, about_me, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE username = ?1")
             .bind(username)
             .fetch_optional(&self.pool)
             .await?;
@@ -90,7 +90,7 @@ impl UserOperations for Db {
     }
 
     async fn fetch_user_by_id(&self, id: &str) -> Result<Option<User>> {
-        let rec = sqlx::query_as::<_, User>("SELECT id, username, email, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE id=?1")
+        let rec = sqlx::query_as::<_, User>("SELECT id, username, email, about_me, password_hash, avatar, is_system, is_admin, is_approved, must_change_password, created_at, updated_at, roles, settings, is_active, email_verified, last_login_at FROM users WHERE id=?1")
             .bind(id)
             .fetch_optional(&self.pool)
             .await?;
@@ -208,6 +208,14 @@ impl UserOperations for Db {
         if let Some(av_opt) = fields.avatar {
             sets.push(format!("avatar=?{}", idx));
             match av_opt {
+                Some(s) => bind_values.push((idx, BindVal::S(s))),
+                None => bind_values.push((idx, BindVal::Null)),
+            }
+            idx += 1;
+        }
+        if let Some(am_opt) = fields.about_me {
+            sets.push(format!("about_me=?{}", idx));
+            match am_opt {
                 Some(s) => bind_values.push((idx, BindVal::S(s))),
                 None => bind_values.push((idx, BindVal::Null)),
             }

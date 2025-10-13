@@ -11,5 +11,6 @@ pub mod posts;
 pub mod reports;
 pub mod static_assets;
 pub mod systems;
+pub mod me;
 
 pub use health::{health, HealthResponse};

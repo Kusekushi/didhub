@@ -14,6 +14,7 @@ pub struct User {
     pub id: String,
     pub username: String,
     pub email: Option<String>,
+    pub about_me: Option<String>,
     #[serde(skip_serializing)]
     pub password_hash: Option<String>,
     pub avatar: Option<String>,
@@ -184,6 +185,7 @@ pub struct UpdateUserFields {
     pub is_approved: Option<bool>,
     pub must_change_password: Option<bool>,
     pub avatar: Option<Option<String>>, // Some(Some(val)) set, Some(None) clear, None ignore
+    pub about_me: Option<Option<String>>, // Some(Some(val)) set, Some(None) clear, None ignore
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
