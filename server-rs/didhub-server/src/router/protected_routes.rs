@@ -38,21 +38,13 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
                 .delete(crate::routes::alters::delete_alter_subsystem),
         )
         .route(
-            "/alters/{id}/relationships",
-            get(crate::routes::alters::relationships::list_relationships)
-                .post(crate::routes::alters::relationships::create_relationship),
+            "/relationships",
+            get(crate::routes::relationships::list_for_entity)
+                .post(crate::routes::relationships::create_relationship),
         )
         .route(
-            "/alters/{id}/alter-relationships",
-            put(crate::routes::alters::replace_alter_relationships),
-        )
-        .route(
-            "/alters/{id}/user-relationships",
-            put(crate::routes::alters::relationships::replace_relationships),
-        )
-        .route(
-            "/alters/{alter_id}/relationships/{user_id}/{relationship_type}",
-            delete(crate::routes::alters::relationships::delete_relationship),
+            "/relationships/{id}",
+            delete(crate::routes::relationships::delete_relationship),
         )
         .route(
             "/upload",

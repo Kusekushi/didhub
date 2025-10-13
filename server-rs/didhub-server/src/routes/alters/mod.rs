@@ -1,5 +1,3 @@
-pub mod relationships;
-
 use crate::routes::common::{normalize_image_list, normalize_string_list};
 use axum::response::IntoResponse;
 use axum::{

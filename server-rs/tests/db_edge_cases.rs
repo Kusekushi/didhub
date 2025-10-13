@@ -114,8 +114,8 @@ async fn replace_relationships_self_and_duplicates() {
     let (st, _b) = auth_req(&app, axum::http::Method::PUT, &format!("/api/alters/{}", a1), "", Some(body)).await;
     assert!(st == 401 || st == 204 || st == 404);
 
-    // ensure DB hasn't created multiple self links
-    let row = sqlx::query("SELECT COUNT(*) as cnt FROM alter_partners WHERE alter_id = ? AND partner_alter_id = ?")
+    // Ensure DB hasn't created multiple self-links; canonicalized person_relationships should prevent duplicates
+    let row = sqlx::query("SELECT COUNT(*) as cnt FROM person_relationships WHERE type='spouse' AND person_a_alter_id = ? AND person_b_alter_id = ?")
         .bind(&a1)
         .bind(&a1)
         .fetch_one(&db.pool)

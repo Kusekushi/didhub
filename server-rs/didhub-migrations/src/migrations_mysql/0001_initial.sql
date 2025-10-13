@@ -74,17 +74,6 @@ CREATE TABLE IF NOT EXISTS alter_subsystems (
   PRIMARY KEY (alter_id, subsystem_id)
 );
 
-CREATE TABLE IF NOT EXISTS alter_partners (
-  alter_id CHAR(36) NOT NULL REFERENCES alters(id) ON DELETE CASCADE,
-  partner_alter_id CHAR(36) NOT NULL REFERENCES alters(id) ON DELETE CASCADE,
-  PRIMARY KEY (alter_id, partner_alter_id)
-);
-
-CREATE TABLE IF NOT EXISTS alter_parents (
-  alter_id CHAR(36) NOT NULL REFERENCES alters(id) ON DELETE CASCADE,           -- child id
-  parent_alter_id CHAR(36) NOT NULL REFERENCES alters(id) ON DELETE CASCADE,    -- parent id
-  PRIMARY KEY (alter_id, parent_alter_id)
-);
 
 CREATE TABLE IF NOT EXISTS alter_affiliations (
   affiliation_id CHAR(36) NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -167,14 +156,6 @@ CREATE TABLE IF NOT EXISTS uploads (
   deleted_at TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS user_alter_relationships (
-  id CHAR(36) PRIMARY KEY,
-  user_id CHAR(36) NOT NULL,
-  alter_id CHAR(36) NOT NULL,
-  relationship_type VARCHAR(255) NOT NULL CHECK (relationship_type IN ('partner', 'parent', 'child')),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, alter_id, relationship_type)
-);
 
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_alters_owner ON alters(owner_user_id);
@@ -199,15 +180,80 @@ CREATE INDEX idx_posts_repost_of ON posts(repost_of_post_id);
 CREATE INDEX idx_oidc_user ON oidc_identities(user_id);
 CREATE INDEX idx_uploads_hash ON uploads(hash);
 CREATE INDEX idx_uploads_user_created ON uploads(user_id, created_at);
-CREATE INDEX idx_user_alter_relationships_user_id ON user_alter_relationships(user_id);
-CREATE INDEX idx_user_alter_relationships_alter_id ON user_alter_relationships(alter_id);
-CREATE INDEX idx_user_alter_relationships_type ON user_alter_relationships(relationship_type);
 CREATE INDEX idx_alters_owner_user_id ON alters(owner_user_id);
 CREATE INDEX idx_alters_name ON alters(name);
 CREATE INDEX idx_alters_created_at ON alters(created_at);
-CREATE INDEX idx_alter_partners_alter_id ON alter_partners(alter_id);
-CREATE INDEX idx_alter_partners_partner_alter_id ON alter_partners(partner_alter_id);
-CREATE INDEX idx_alter_parents_alter_id ON alter_parents(alter_id);
-CREATE INDEX idx_alter_parents_parent_alter_id ON alter_parents(parent_alter_id);
 CREATE INDEX idx_alter_affiliations_alter_id ON alter_affiliations(alter_id);
 CREATE INDEX idx_alter_affiliations_affiliation_id ON alter_affiliations(affiliation_id);
+
+-- person_relationships (MySQL variant)
+CREATE TABLE IF NOT EXISTS person_relationships (
+  id CHAR(36) PRIMARY KEY,
+  type VARCHAR(32) NOT NULL,
+  person_a_user_id CHAR(36) NULL,
+  person_a_alter_id CHAR(36) NULL,
+  person_b_user_id CHAR(36) NULL,
+  person_b_alter_id CHAR(36) NULL,
+  is_past_life TINYINT(1) NOT NULL DEFAULT 0,
+  canonical_a VARCHAR(255),
+  canonical_b VARCHAR(255),
+  created_by_user_id CHAR(36),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_person_type CHECK (type IN ('parent','spouse'))
+);
+
+-- MySQL BEFORE INSERT trigger to compute canonical values and reorder for spouses
+DELIMITER $$
+CREATE TRIGGER trg_person_relationships_before_insert
+BEFORE INSERT ON person_relationships
+FOR EACH ROW
+BEGIN
+  IF NEW.type = 'spouse' THEN
+    IF NEW.person_a_user_id IS NOT NULL THEN
+      SET NEW.canonical_a = CONCAT('U:', NEW.person_a_user_id);
+    ELSE
+      SET NEW.canonical_a = CONCAT('A:', NEW.person_a_alter_id);
+    END IF;
+    IF NEW.person_b_user_id IS NOT NULL THEN
+      SET NEW.canonical_b = CONCAT('U:', NEW.person_b_user_id);
+    ELSE
+      SET NEW.canonical_b = CONCAT('A:', NEW.person_b_alter_id);
+    END IF;
+    IF NEW.canonical_a > NEW.canonical_b THEN
+      -- swap
+      SET @ta = NEW.person_a_user_id; SET NEW.person_a_user_id = NEW.person_b_user_id; SET NEW.person_b_user_id = @ta;
+      SET @ta = NEW.person_a_alter_id; SET NEW.person_a_alter_id = NEW.person_b_alter_id; SET NEW.person_b_alter_id = @ta;
+      SET @tc = NEW.canonical_a; SET NEW.canonical_a = NEW.canonical_b; SET NEW.canonical_b = @tc;
+    END IF;
+  END IF;
+END$$
+DELIMITER ;
+
+-- BEFORE UPDATE trigger (same logic)
+DELIMITER $$
+CREATE TRIGGER trg_person_relationships_before_update
+BEFORE UPDATE ON person_relationships
+FOR EACH ROW
+BEGIN
+  IF NEW.type = 'spouse' THEN
+    IF NEW.person_a_user_id IS NOT NULL THEN
+      SET NEW.canonical_a = CONCAT('U:', NEW.person_a_user_id);
+    ELSE
+      SET NEW.canonical_a = CONCAT('A:', NEW.person_a_alter_id);
+    END IF;
+    IF NEW.person_b_user_id IS NOT NULL THEN
+      SET NEW.canonical_b = CONCAT('U:', NEW.person_b_user_id);
+    ELSE
+      SET NEW.canonical_b = CONCAT('A:', NEW.person_b_alter_id);
+    END IF;
+    IF NEW.canonical_a > NEW.canonical_b THEN
+      SET @ta = NEW.person_a_user_id; SET NEW.person_a_user_id = NEW.person_b_user_id; SET NEW.person_b_user_id = @ta;
+      SET @ta = NEW.person_a_alter_id; SET NEW.person_a_alter_id = NEW.person_b_alter_id; SET NEW.person_b_alter_id = @ta;
+      SET @tc = NEW.canonical_a; SET NEW.canonical_a = NEW.canonical_b; SET NEW.canonical_b = @tc;
+    END IF;
+  END IF;
+END$$
+DELIMITER ;
+
+-- Unique index
+CREATE UNIQUE INDEX uq_person_relationships_spouse_canonical ON person_relationships(type, canonical_a, canonical_b, is_past_life);

@@ -47,8 +47,21 @@ class TypeScriptGenerator:
         )
         return env
 
+    def _sanitize_prop_name(self, name: str) -> str:
+        """Convert Rust raw identifiers like r#type into safe TS/JSON property names.
+        Strategy: strip leading r# if present. If name is a TS reserved word (e.g., 'type'),
+        append an underscore. This keeps serialized names stable while producing valid TS."""
+        if not name:
+            return name
+        if name.startswith('r#'):
+            name = name[2:]
+        # list of JS/TS reserved words we want to avoid as plain identifiers
+        reserved = {'type', 'default', 'function', 'class', 'var', 'let', 'const', 'new'}
+        if name in reserved:
+            return name + '_'
+        return name
+
     def generate_client_code(self) -> str:
-        """Generate the complete API client code"""
         # Prepare data for template
         self.total_method_bindings = 0
         # Reset per-run endpoint interface accumulator
@@ -142,6 +155,7 @@ class TypeScriptGenerator:
                             n_serialized = n_entry[2] if len(n_entry) >= 3 else n_entry[0]
                             if nested.rename_all:
                                 n_serialized = apply_rename_all(n_serialized, nested.rename_all)
+                            n_serialized = self._sanitize_prop_name(n_serialized)
                             n_rust = n_entry[1]
                             n_is_opt = n_entry[3] if len(n_entry) >= 4 else False
                             schema_props[n_serialized] = make_schema_for(n_rust)
@@ -152,6 +166,7 @@ class TypeScriptGenerator:
                 # honor rename_all on the parent TypeDefinition when no explicit serialized name
                 if td.rename_all and serialized_name == entry[0]:
                     serialized_name = apply_rename_all(serialized_name, td.rename_all)
+                serialized_name = self._sanitize_prop_name(serialized_name)
                 schema_props[serialized_name] = make_schema_for(rust_type)
                 if not is_opt:
                     required.append(serialized_name)
@@ -1055,7 +1070,8 @@ class TypeScriptGenerator:
         for field_name, field_type, serialized_name, is_opt in flat_fields:
             ts_field_type = self._rust_type_to_typescript(field_type, for_types_file=True)
             optional_marker = '?' if is_opt or self._is_optional_field(type_def, field_name, field_type) else ''
-            lines.append(f"  {serialized_name}{optional_marker}: {ts_field_type};")
+            safe_name = self._sanitize_prop_name(serialized_name)
+            lines.append(f"  {safe_name}{optional_marker}: {ts_field_type};")
         
         lines.append("}")
         lines.append("")  # Empty line between interfaces

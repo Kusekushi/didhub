@@ -42,6 +42,7 @@ MODULE_MAP = {
     'housekeeping': 'Admin',
     'version': 'misc',
     'debug': 'misc',
+    'relationships': 'Relationship',
 }
 
 # HTTP methods to recognize

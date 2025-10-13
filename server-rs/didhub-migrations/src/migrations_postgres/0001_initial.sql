@@ -74,17 +74,6 @@ CREATE TABLE IF NOT EXISTS alter_subsystems (
   PRIMARY KEY (alter_id, subsystem_id)
 );
 
-CREATE TABLE IF NOT EXISTS alter_partners (
-  alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,
-  partner_alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,
-  PRIMARY KEY (alter_id, partner_alter_id)
-);
-
-CREATE TABLE IF NOT EXISTS alter_parents (
-  alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,           -- child id
-  parent_alter_id TEXT NOT NULL REFERENCES alters(id) ON DELETE CASCADE,    -- parent id
-  PRIMARY KEY (alter_id, parent_alter_id)
-);
 
 CREATE TABLE IF NOT EXISTS alter_affiliations (
   affiliation_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -167,14 +156,6 @@ CREATE TABLE IF NOT EXISTS uploads (
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE IF NOT EXISTS user_alter_relationships (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  alter_id TEXT NOT NULL,
-  relationship_type TEXT NOT NULL CHECK (relationship_type IN ('partner', 'parent', 'child')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  UNIQUE(user_id, alter_id, relationship_type)
-);
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_alters_owner ON alters(owner_user_id);
@@ -199,15 +180,83 @@ CREATE INDEX IF NOT EXISTS idx_posts_repost_of ON posts(repost_of_post_id);
 CREATE INDEX IF NOT EXISTS idx_oidc_user ON oidc_identities(user_id);
 CREATE INDEX IF NOT EXISTS idx_uploads_hash ON uploads(hash);
 CREATE INDEX IF NOT EXISTS idx_uploads_user_created ON uploads(user_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_user_alter_relationships_user_id ON user_alter_relationships(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_alter_relationships_alter_id ON user_alter_relationships(alter_id);
-CREATE INDEX IF NOT EXISTS idx_user_alter_relationships_type ON user_alter_relationships(relationship_type);
 CREATE INDEX IF NOT EXISTS idx_alters_owner_user_id ON alters(owner_user_id);
 CREATE INDEX IF NOT EXISTS idx_alters_name ON alters(name);
 CREATE INDEX IF NOT EXISTS idx_alters_created_at ON alters(created_at);
-CREATE INDEX IF NOT EXISTS idx_alter_partners_alter_id ON alter_partners(alter_id);
-CREATE INDEX IF NOT EXISTS idx_alter_partners_partner_alter_id ON alter_partners(partner_alter_id);
-CREATE INDEX IF NOT EXISTS idx_alter_parents_alter_id ON alter_parents(alter_id);
-CREATE INDEX IF NOT EXISTS idx_alter_parents_parent_alter_id ON alter_parents(parent_alter_id);
 CREATE INDEX IF NOT EXISTS idx_alter_affiliations_alter_id ON alter_affiliations(alter_id);
 CREATE INDEX IF NOT EXISTS idx_alter_affiliations_affiliation_id ON alter_affiliations(affiliation_id);
+
+-- person_relationships table (Postgres variant)
+CREATE TABLE IF NOT EXISTS person_relationships (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL CHECK (type IN ('parent', 'spouse')),
+  person_a_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  person_a_alter_id TEXT REFERENCES alters(id) ON DELETE CASCADE,
+  person_b_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  person_b_alter_id TEXT REFERENCES alters(id) ON DELETE CASCADE,
+  is_past_life INTEGER NOT NULL DEFAULT 0,
+  canonical_a TEXT,
+  canonical_b TEXT,
+  created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT person_one_identifier_a CHECK ((person_a_user_id IS NOT NULL)::int + (person_a_alter_id IS NOT NULL)::int = 1),
+  CONSTRAINT person_one_identifier_b CHECK ((person_b_user_id IS NOT NULL)::int + (person_b_alter_id IS NOT NULL)::int = 1),
+  CONSTRAINT no_reflexive CHECK (NOT (
+      (person_a_user_id IS NOT NULL AND person_b_user_id IS NOT NULL AND person_a_user_id = person_b_user_id)
+      OR
+      (person_a_alter_id IS NOT NULL AND person_b_alter_id IS NOT NULL AND person_a_alter_id = person_b_alter_id)
+    ))
+);
+
+-- Function to compute canonical strings
+CREATE OR REPLACE FUNCTION person_relationships_compute_canonical() RETURNS trigger AS $$
+BEGIN
+  NEW.canonical_a := CASE WHEN NEW.person_a_user_id IS NOT NULL THEN 'U:' || NEW.person_a_user_id ELSE 'A:' || NEW.person_a_alter_id END;
+  NEW.canonical_b := CASE WHEN NEW.person_b_user_id IS NOT NULL THEN 'U:' || NEW.person_b_user_id ELSE 'A:' || NEW.person_b_alter_id END;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to reorder if canonical_a > canonical_b
+CREATE OR REPLACE FUNCTION person_relationships_ensure_order() RETURNS trigger AS $$
+DECLARE tmp TEXT;
+BEGIN
+  IF NEW.canonical_a > NEW.canonical_b THEN
+    -- swap person ids
+    tmp := NEW.person_a_user_id; NEW.person_a_user_id := NEW.person_b_user_id; NEW.person_b_user_id := tmp; tmp := NULL;
+    tmp := NEW.person_a_alter_id; NEW.person_a_alter_id := NEW.person_b_alter_id; NEW.person_b_alter_id := tmp; tmp := NULL;
+    -- swap canonical
+    tmp := NEW.canonical_a; NEW.canonical_a := NEW.canonical_b; NEW.canonical_b := tmp; tmp := NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Triggers for INSERT and UPDATE
+CREATE TRIGGER trg_person_relationships_before_insert
+BEFORE INSERT ON person_relationships
+FOR EACH ROW
+WHEN (NEW.type = 'spouse')
+EXECUTE FUNCTION person_relationships_compute_canonical();
+
+CREATE TRIGGER trg_person_relationships_before_insert_order
+BEFORE INSERT ON person_relationships
+FOR EACH ROW
+WHEN (NEW.type = 'spouse')
+EXECUTE FUNCTION person_relationships_ensure_order();
+
+CREATE TRIGGER trg_person_relationships_before_update
+BEFORE UPDATE ON person_relationships
+FOR EACH ROW
+WHEN (NEW.type = 'spouse')
+EXECUTE FUNCTION person_relationships_compute_canonical();
+
+CREATE TRIGGER trg_person_relationships_before_update_order
+BEFORE UPDATE ON person_relationships
+FOR EACH ROW
+WHEN (NEW.type = 'spouse')
+EXECUTE FUNCTION person_relationships_ensure_order();
+
+-- Unique index for spouse pairs
+CREATE UNIQUE INDEX IF NOT EXISTS uq_person_relationships_spouse_canonical
+  ON person_relationships(type, canonical_a, canonical_b, is_past_life);

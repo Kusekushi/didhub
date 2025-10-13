@@ -253,6 +253,21 @@ pub struct UserAlterRelationship {
     pub username: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PersonRelationship {
+    pub id: String,
+    pub r#type: String,
+    pub person_a_user_id: Option<String>,
+    pub person_a_alter_id: Option<String>,
+    pub person_b_user_id: Option<String>,
+    pub person_b_alter_id: Option<String>,
+    pub is_past_life: i64,
+    pub canonical_a: Option<String>,
+    pub canonical_b: Option<String>,
+    pub created_by_user_id: Option<String>,
+    pub created_at: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewUserAlterRelationship {
     pub user_id: String,

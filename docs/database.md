@@ -200,6 +200,38 @@ ON CONFLICT DO NOTHING; -- or use INSERT IGNORE for MySQL
 
 If you need help generating safe per-dialect migrations, see the project's migration guidance or open an issue/PR describing your target DB platform and version.
 
+## Person relationships
+
+We represent relationships in a single table named `person_relationships`.
+
+Key points:
+
+- Nodes may be either `users` or `alters`. Each side of the relationship has two columns: `person_a_user_id` / `person_a_alter_id` and `person_b_user_id` / `person_b_alter_id`. Exactly one of the pair must be non-null for each side.
+- Two relationship kinds are supported: `parent` (directed: A -> B means A is parent of B) and `spouse` (undirected). The `type` column stores the kind.
+- Past-life relationships are supported via an `is_past_life` flag (0 = current, 1 = past). Spouse relationships in different lives are allowed for the same canonical pair.
+- To enable fast, collision-free lookups and deduplication, the DB stores `canonical_a` and `canonical_b` text columns. These are computed as `U:<user_id>` or `A:<alter_id>` and compared lexicographically to produce a canonical ordering for symmetric relationships (spouses).
+- Database triggers keep `canonical_a`/`canonical_b` in sync and canonicalize spouse rows so a couple is stored only once. For SQLite we use AFTER triggers; for Postgres we use BEFORE triggers + plpgsql functions; for MySQL we use BEFORE triggers. Application logic may also enforce canonical ordering to avoid DB-dependent behavior.
+- A unique index on `(type, canonical_a, canonical_b, is_past_life)` prevents duplicate spouse rows for the same life.
+- Reflexive relationships (same node on both sides) are prevented by a CHECK constraint.
+
+Common queries:
+
+- Find all relationships for an entity (user or alter):
+
+    SELECT * FROM person_relationships WHERE person_a_user_id = <id> OR person_b_user_id = <id>;
+
+- Find parents of an alter:
+
+    SELECT * FROM person_relationships WHERE type = 'parent' AND person_b_alter_id = <alter_id>;
+
+- Current spouses (exclude past-life rows):
+
+    SELECT * FROM person_relationships WHERE type = 'spouse' AND is_past_life = 0 AND (person_a_user_id = <id> OR person_b_user_id = <id> OR person_a_alter_id = <id> OR person_b_alter_id = <id>);
+
+Notes:
+
+- When adding new database backends, implement triggers or application-level canonicalization so spouse rows remain deduplicated.
+
 ## Troubleshooting
 
 ### Common Issues

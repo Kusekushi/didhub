@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod alters;
+pub mod relationships;
 pub mod auth;
 pub mod common;
 pub mod debug;
