@@ -1,5 +1,4 @@
 use sqlx::SqlitePool;
-use sqlx::Row;
 use anyhow::Result;
 
 #[tokio::test]

@@ -65,7 +65,7 @@ impl AlterOperations for Db {
         let nm = name.clone();
         let owner = owner_user_id;
         let id = uuid::Uuid::new_v4().to_string();
-        let mut rec = self
+        let rec = self
             .insert_and_return(
                 || async {
                     let r = sqlx::query_as::<_, Alter>(

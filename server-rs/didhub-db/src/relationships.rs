@@ -472,7 +472,7 @@ impl Db {
         created_by: Option<&str>,
     ) -> Result<u64> {
         let q = "INSERT INTO person_relationships (id, type, person_a_user_id, person_a_alter_id, person_b_user_id, person_b_alter_id, is_past_life, created_by_user_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))";
-        let mut query = sqlx::query(q)
+        let query = sqlx::query(q)
             .bind(id)
             .bind(rel_type)
             .bind(a_user)

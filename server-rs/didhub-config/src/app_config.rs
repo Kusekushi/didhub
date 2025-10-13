@@ -329,7 +329,7 @@ impl AppConfig {
         }
 
         // Check port range
-        if self.port == 0 || self.port > 65535 {
+        if self.port == 0 { // self.port > 65535 is checked by bounds
             return Err(anyhow::anyhow!("Port must be between 1 and 65535"));
         }
 
