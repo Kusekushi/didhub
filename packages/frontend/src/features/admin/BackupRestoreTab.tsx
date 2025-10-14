@@ -4,6 +4,13 @@ import * as adminService from '../../services/adminService';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { downloadBlob } from '../../shared/utils/downloadUtils';
 
+interface BackupRestoreResponse {
+  ok?: boolean;
+  success?: boolean;
+  text?: string;
+  message?: string;
+}
+
 export default function BackupRestoreTab() {
   const [backupLoading, setBackupLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
@@ -15,8 +22,11 @@ export default function BackupRestoreTab() {
       setBackupLoading(true);
       const blob = await adminService.postAdminBackup();
 
-      // Create download link
-      downloadBlob(blob as Blob, `didhub-backup-${new Date().toISOString().split('T')[0]}.zip`);
+      if (!(blob instanceof Blob)) {
+        throw new TypeError('Expected a Blob from postAdminBackup');
+      }
+
+      downloadBlob(blob, `didhub-backup-${new Date().toISOString().split('T')[0]}.zip`);
 
       setSnack({
         open: true,
@@ -46,17 +56,14 @@ export default function BackupRestoreTab() {
 
       try {
       setRestoreLoading(true);
-      const result = await adminService.postAdminBackup(selectedFile || undefined);
+      const result = (await adminService.postAdminBackup(selectedFile || undefined)) as BackupRestoreResponse;
 
-      if (result && (result.ok || result.success || result !== null)) {
+      if (result && (result.ok || result.success)) {
         setSnack({
           open: true,
-          message: (result && (result.text ?? result.message)) || 'Backup restored successfully',
+          message: result.text || result.message || 'Backup restored successfully',
           severity: 'success',
         });
-        setSelectedFile(null);
-        const fileInput = document.getElementById('backup-file-input') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
       } else {
         setSnack({ open: true, message: 'Restore failed', severity: 'error' });
       }

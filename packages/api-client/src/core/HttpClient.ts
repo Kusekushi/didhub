@@ -29,7 +29,7 @@ export interface RequestOptions<TBody = unknown, TQuery extends QueryInput = Que
   json?: unknown;
   body?: TBody;
   auth?: boolean;
-  parse?: 'json' | 'text' | 'none';
+  parse?: 'json' | 'text' | 'none' | 'arraybuffer';
   acceptStatuses?: number[];
   throwOnError?: boolean;
   credentials?: RequestCredentials;
@@ -180,15 +180,35 @@ export class HttpClient {
       throw error;
     }
 
-    const responseText = await response.text();
-    let responseData: unknown = responseText;
-
+    // Choose how to read the response body. For binary responses (zip, octet-stream,
+    // compressed types) we must use arrayBuffer() to preserve raw bytes. The generated
+    // client previously always called response.text(), which decodes bytes into a JS
+    // string and can corrupt binary payloads.
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
     const parse = options.parse ?? 'json';
-    if (parse === 'json' && responseText) {
-      try {
-        responseData = JSON.parse(responseText);
-      } catch {
-        // If JSON parsing fails, keep as text
+
+    let responseText = '';
+    let responseData: unknown = undefined;
+
+    const binaryContent = /application\/(zip|octet-stream|x-zip-compressed)|application\/gzip|application\/x-gzip|application\/x-tar/i.test(contentType);
+
+    if (binaryContent || parse === 'none' || parse === 'arraybuffer') {
+      // Read raw bytes
+      const ab = await response.arrayBuffer();
+      responseData = ab;
+      // Keep text empty for binary responses to avoid accidental string use
+      responseText = '';
+    } else {
+      // Default to text based handling (text/json)
+      responseText = await response.text();
+      responseData = responseText;
+      if (parse === 'json' && responseText) {
+        try {
+          responseData = JSON.parse(responseText);
+        } catch {
+          // If JSON parsing fails, keep as text
+          responseData = responseText;
+        }
       }
     }
 
@@ -203,13 +223,14 @@ export class HttpClient {
     };
 
     if (debugEnabled) {
+      const size = responseData instanceof ArrayBuffer ? (responseData as ArrayBuffer).byteLength : responseText.length;
       recordHttpDebug({
         event: 'complete',
         id: requestId,
         ts: Date.now(),
         status: response.status,
         duration: Date.now() - startedAt,
-        size: responseText.length,
+        size,
       });
     }
 

@@ -48,6 +48,7 @@ import {
   ReportGetPdfGroupByIdRequest,
   ReportGetPdfSubsystemByIdRequest,
 } from '@didhub/api-client';
+import { decompressSync } from 'fflate';
 
 // Local typed extension for non-generated admin helper methods
 type AdminExtras = {
@@ -252,13 +253,94 @@ export async function postAdminReloadUploadDir() {
 export async function postAdminBackup(file?: File) {
   // If file provided, call restore; otherwise create backup
   if (file) {
-    const restoreReq: AdminPostAdminRestoreRequest = { body: file };
+    // Server expects multipart/form-data with field name 'backup'
+    const form = new FormData();
+    form.append('backup', file, file.name);
+    const restoreReq: AdminPostAdminRestoreRequest = { body: form };
     const resp = await apiClient.admin.post_admin_restore(restoreReq);
     return resp?.data ?? null;
   }
   const req: AdminPostAdminBackupRequest = { body: {} };
   const resp = await apiClient.admin.post_admin_backup(req);
-  return resp?.data ?? null;
+
+  console.log('Backend response:', resp);
+
+  // Log the size of the received data
+  if (typeof resp?.data === 'string') {
+    console.log('Received string size:', resp.data.length, 'bytes');
+  } else if (resp?.data instanceof ArrayBuffer || resp?.data instanceof Uint8Array) {
+    console.log('Received binary data size:', resp.data.byteLength, 'bytes');
+  }
+
+  // Handle string response
+  if (typeof resp?.data === 'string') {
+    try {
+      console.log('Attempting Base64 decoding');
+      // Check if the string is Base64-encoded
+      if (/^[A-Za-z0-9+/=]+$/.test(resp.data)) {
+        const binaryString = atob(resp.data);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        console.log('Base64 decoding successful, creating Blob');
+        const blob = new Blob([bytes], { type: 'application/zip' });
+        console.log('Constructed Blob:', blob);
+        return blob;
+      } else {
+        throw new Error('String is not Base64-encoded');
+      }
+    } catch (e) {
+      console.error('Base64 decoding failed, attempting raw binary handling', e);
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(resp.data);
+      console.log('Raw binary handling successful, creating Blob');
+      const blob = new Blob([bytes], { type: 'application/zip' });
+      console.log('Constructed Blob:', blob);
+      return blob;
+    }
+  }
+
+  // Ensure the response is a valid ZIP buffer
+  if (resp?.data instanceof ArrayBuffer || resp?.data instanceof Uint8Array) {
+    console.log('Received ArrayBuffer or Uint8Array, creating Blob');
+    // Avoid referencing SharedArrayBuffer directly in environments where it's undefined
+    const hasSharedArrayBuffer = typeof (globalThis as any).SharedArrayBuffer !== 'undefined';
+    let uint8: Uint8Array;
+    if (resp.data instanceof Uint8Array) {
+      uint8 = resp.data;
+    } else if (resp.data instanceof ArrayBuffer) {
+      uint8 = new Uint8Array(resp.data);
+    } else if (ArrayBuffer.isView(resp.data)) {
+      // covers TypedArray and DataView
+      uint8 = new Uint8Array((resp.data as ArrayBufferView).buffer);
+    } else {
+      // Fallback: coerce to Uint8Array then take buffer
+      uint8 = new Uint8Array(resp.data as any);
+    }
+    const arrayBuffer = uint8.buffer as ArrayBuffer;
+    const blob = new Blob([arrayBuffer], { type: 'application/zip' });
+    console.log('Constructed Blob:', blob);
+    return blob;
+  }
+
+  // Force-handle response data as binary array
+  if (resp?.data) {
+    const binaryData = resp.data instanceof ArrayBuffer
+      ? new Uint8Array(resp.data)
+      : typeof resp.data === 'string'
+      ? new TextEncoder().encode(resp.data)
+      : new Uint8Array(resp.data as any);
+
+    console.log('Force-handling response data as binary array:', binaryData);
+
+    const blob = new Blob([binaryData], { type: 'application/zip' });
+    console.log('Constructed Blob:', blob);
+    return blob;
+  }
+
+  throw new TypeError('Expected a ZIP buffer or string from post_admin_backup');
 }
 
 export async function getOidcSecret(provider: string): Promise<ApiProviderAdminView | null> {
