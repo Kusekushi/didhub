@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import uniq from 'lodash-es/uniq';
 import * as alterService from '../../services/alterService';
+import * as relationshipService from '../../services/relationshipService';
 import * as fileService from '../../services/fileService';
 import { useAuth } from '../contexts/AuthContext';
 import { getEffectiveOwnerId } from '../utils/owner';
@@ -289,21 +290,24 @@ export function useAlterForm(props: AlterFormDialogProps) {
         const alterId = normalizeEntityId((created as any).id);
         // Only set relationships when we have a normalized UUID id
         if (alterId) {
-          await alterService.replaceAlterRelationships(alterId, {
-            partners: relationships.partners.map(String),
-            parents: relationships.parents.map(String),
-            children: relationships.children.map(String),
+          relationships.partners.forEach(async (_otherId) => {
+            await relationshipService.createRelationship({ a: `A:${_otherId}`, b: `A:${alterId}`, relationship_type: "partner", is_past_life: 0 });
           });
-
-          try {
-            await alterService.replaceUserRelationships(alterId, {
-              partners: userRelationships.partners.map(String),
-              parents: userRelationships.parents.map(String),
-              children: userRelationships.children.map(String),
-            });
-          } catch (e) {
-            console.warn('Failed to replace user relationships:', e);
-          }
+          relationships.parents.forEach(async (_otherId) => {
+            await relationshipService.createRelationship({ a: `A:${_otherId}`, b: `A:${alterId}`, relationship_type: "parent", is_past_life: 0 });
+          });
+          relationships.children.forEach(async (_otherId) => {
+            await relationshipService.createRelationship({ a: `A:${alterId}`, b: `A:${_otherId}`, relationship_type: "child", is_past_life: 0 });
+          });
+          userRelationships.partners.forEach(async (_otherId) => {
+            await relationshipService.createRelationship({ a: `U:${_otherId}`, b: `A:${alterId}`, relationship_type: "partner", is_past_life: 0 });
+          });
+          userRelationships.parents.forEach(async (_otherId) => {
+            await relationshipService.createRelationship({ a: `U:${_otherId}`, b: `A:${alterId}`, relationship_type: "parent", is_past_life: 0 });
+          });
+          userRelationships.children.forEach(async (_otherId) => {
+            await relationshipService.createRelationship({ a: `A:${alterId}`, b: `U:${_otherId}`, relationship_type: "child", is_past_life: 0 });
+          });
         } else {
           // Created alter ID was not a normalized UUID - skip relationship calls
           console.warn('Created alter id is not a normalized UUID, skipping relationship updates', (created as any).id);
@@ -345,21 +349,102 @@ export function useAlterForm(props: AlterFormDialogProps) {
         payload.images = [...existingImages, ...urls];
       }
 
-      await alterService.updateAlter(id as any, payload as any);
-      await alterService.replaceAlterRelationships(id as any, {
-        partners: relationships.partners.map(String),
-        parents: relationships.parents.map(String),
-        children: relationships.children.map(String),
-      } as any);
+      await alterService.updateAlter(id, payload);
 
-      try {
-        await alterService.replaceUserRelationships(id as string, {
-          partners: userRelationships.partners.map(String),
-          parents: userRelationships.parents.map(String),
-          children: userRelationships.children.map(String),
-        });
-      } catch (e) {
-        console.warn('Failed to replace user relationships:', e);
+      // Normalize the alter id we just updated and load existing relationships
+      const alterId = normalizeEntityId(id);
+      if (!alterId) return;
+
+      const currentRelationships = (await relationshipService.getRelationships(alterId)) || [];
+
+      // Build a map of current relationship keys -> relationship id for quick lookup.
+      // Key format: `${a}|${b}|${type}` where a/b are canonical strings like "A:<id>" or "U:<id>"
+      const currentMap = new Map<string, string>();
+      for (const r of currentRelationships) {
+        const rel = r as any;
+        const type = rel.type_ || rel.relationship_type || '';
+
+        // Prefer canonical fields if available
+        const a = rel.canonical_a ?? (() => {
+          if (rel.person_a_alter_id) return `A:${String(rel.person_a_alter_id)}`;
+          if (rel.person_a_user_id) return `U:${String(rel.person_a_user_id)}`;
+          return null;
+        })();
+        const b = rel.canonical_b ?? (() => {
+          if (rel.person_b_alter_id) return `A:${String(rel.person_b_alter_id)}`;
+          if (rel.person_b_user_id) return `U:${String(rel.person_b_user_id)}`;
+          return null;
+        })();
+
+        if (!a || !b) continue;
+        const key = `${a}|${b}|${type}`;
+        if (rel.id) currentMap.set(key, String(rel.id));
+      }
+
+      // Build desired relationship keys and payloads from the form
+      const desiredKeys = new Set<string>();
+      const desiredPayloads: Array<{ a: string; b: string; relationship_type: string; is_past_life: number }> = [];
+
+      const pushDesired = (a: string, b: string, relationship_type: string) => {
+        const key = `${a}|${b}|${relationship_type}`;
+        desiredKeys.add(key);
+        desiredPayloads.push({ a, b, relationship_type, is_past_life: 0 });
+      };
+
+      // Alter<->Alter relationships
+      (relationships.partners || []).forEach((_otherId) => {
+        const a = `A:${_otherId}`;
+        const b = `A:${alterId}`;
+        pushDesired(a, b, 'partner');
+      });
+      (relationships.parents || []).forEach((_otherId) => {
+        const a = `A:${_otherId}`;
+        const b = `A:${alterId}`;
+        pushDesired(a, b, 'parent');
+      });
+      (relationships.children || []).forEach((_otherId) => {
+        const a = `A:${alterId}`;
+        const b = `A:${_otherId}`;
+        pushDesired(a, b, 'child');
+      });
+
+      // User<->Alter relationships
+      (userRelationships.partners || []).forEach((_otherId) => {
+        const a = `U:${_otherId}`;
+        const b = `A:${alterId}`;
+        pushDesired(a, b, 'partner');
+      });
+      (userRelationships.parents || []).forEach((_otherId) => {
+        const a = `U:${_otherId}`;
+        const b = `A:${alterId}`;
+        pushDesired(a, b, 'parent');
+      });
+      (userRelationships.children || []).forEach((_otherId) => {
+        const a = `A:${alterId}`;
+        const b = `U:${_otherId}`;
+        pushDesired(a, b, 'child');
+      });
+
+      // Delete relationships that exist currently but are no longer desired
+      const toDelete: string[] = [];
+      for (const [key, relId] of currentMap.entries()) {
+        if (!desiredKeys.has(key)) {
+          toDelete.push(relId);
+        }
+      }
+
+      if (toDelete.length) {
+        await Promise.allSettled(toDelete.map((rid) => relationshipService.deleteRelationship(rid)));
+      }
+
+      // Create relationships that are desired but not already present
+      const toCreate = desiredPayloads.filter((p) => {
+        const key = `${p.a}|${p.b}|${p.relationship_type}`;
+        return !currentMap.has(key);
+      });
+
+      if (toCreate.length) {
+        await Promise.allSettled(toCreate.map((p) => relationshipService.createRelationship(p as any)));
       }
     },
     [id, preparePayload, values._files, values.images, handleFileUpload],
