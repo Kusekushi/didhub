@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import uniq from 'lodash-es/uniq';
 import * as alterService from '../../services/alterService';
 import * as fileService from '../../services/fileService';
 import { useAuth } from '../contexts/AuthContext';
@@ -104,7 +105,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
     if (mode !== 'edit' || !id) return;
 
     try {
-  const alter = await alterService.getAlterById(id as any);
+      const alter = await alterService.getAlterById(id as any);
       if (alter) {
         const userRelationships = Array.isArray((alter as any).user_relationships)
           ? ((alter as any).user_relationships as Array<Record<string, unknown>>)
@@ -121,7 +122,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
           .filter((rel) => rel.relationship_type === 'child')
           .map((rel) => rel.user_id);
 
-  const affiliationIds = normalizeAffiliationIds((alter as any).affiliations) ?? [];
+        const affiliationIds = normalizeAffiliationIds((alter as any).affiliations) ?? [];
 
         setValues({
           ...alter,
@@ -238,17 +239,8 @@ export function useAlterForm(props: AlterFormDialogProps) {
         ...buildRelationshipEntries(values.user_children, 'child'),
       ];
 
-      const dedupeByType = (type: RelationshipType): string[] => {
-        const seen = new Set<string>();
-        return desiredUserRelationships
-          .filter((entry) => entry.type === type)
-          .map((entry) => entry.userId)
-          .filter((userId) => {
-            if (seen.has(userId)) return false;
-            seen.add(userId);
-            return true;
-          });
-      };
+      const dedupeByType = (type: RelationshipType): string[] =>
+        uniq(desiredUserRelationships.filter((e) => e.type === type).map((e) => e.userId));
 
       const userRelationshipsPayload = {
         partners: dedupeByType('partner'),
@@ -291,10 +283,10 @@ export function useAlterForm(props: AlterFormDialogProps) {
         payload.owner_user_id = owner;
       }
 
-  const created = await alterService.createAlter(payload as any);
+      const created = await alterService.createAlter(payload as any);
 
       if (created?.id) {
-  const alterId = normalizeEntityId((created as any).id);
+        const alterId = normalizeEntityId((created as any).id);
         // Only set relationships when we have a normalized UUID id
         if (alterId) {
           await alterService.replaceAlterRelationships(alterId, {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import uniq from 'lodash-es/uniq';
 import {
   Container,
   Typography,
@@ -58,9 +59,9 @@ export default function Birthdays() {
     async function load() {
       setLoading(true);
       try {
-  const res: any = (await listAlters({ limit: 1000 })) ?? { items: [] };
-  const list = (res.items || []) as ApiAlter[];
-        const ownerIds = Array.from(new Set(list.map((a) => a?.owner_user_id).filter(Boolean)));
+        const res: any = (await listAlters({ limit: 1000 })) ?? { items: [] };
+        const list = (res.items || []) as ApiAlter[];
+        const ownerIds = uniq(list.map((a) => a?.owner_user_id).filter(Boolean));
         const owners = new Map<string, any>();
         await Promise.all(
           ownerIds.map(async (id) => {

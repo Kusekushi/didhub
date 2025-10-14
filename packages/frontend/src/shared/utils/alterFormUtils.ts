@@ -1,5 +1,6 @@
 // Minimal alter name shape used by UI formatting
 type AlterName = { id?: string | number; name?: string | null; username?: string | null };
+import uniq from 'lodash-es/uniq';
 import { validate as uuidValidate } from 'uuid';
 
 export interface RelationshipOption {
@@ -100,7 +101,7 @@ export function collectRelationshipIds(source: unknown): string[] {
         pushIfValid(item);
       }
     }
-    return Array.from(new Set(result));
+    return uniq(result);
   }
 
   if (typeof source === 'string') {
@@ -115,7 +116,7 @@ export function collectRelationshipIds(source: unknown): string[] {
       }
     }
     for (const segment of trimmed.split(',')) pushIfValid(segment.trim());
-    return Array.from(new Set(result));
+    return uniq(result);
   }
 
   return [];

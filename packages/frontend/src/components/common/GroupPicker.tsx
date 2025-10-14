@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import debounce from 'lodash-es/debounce';
 import { Autocomplete, TextField } from '@mui/material';
 
 import { listGroups, createGroup } from '../../services/groupService';
@@ -31,20 +32,22 @@ export default function GroupPicker(props: GroupPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-  const response: any = (await listGroups({ q: q || null })) ?? { items: [] };
-  const items = (response.items ?? []) as ApiGroupOut[];
-  setOptions(items);
+    const response: any = (await listGroups({ q: q || null })) ?? { items: [] };
+    const items = (response.items ?? []) as ApiGroupOut[];
+    setOptions(items);
   }
 
+  const debouncedFetch = useMemo(() => debounce((q: string) => fetchOptions(q), 300), []);
+
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current as any);
-    debounceRef.current = setTimeout(() => {
-      fetchOptions(inputValue);
-    }, 300);
+    debouncedFetch(inputValue);
+  }, [inputValue, debouncedFetch]);
+
+  useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current as any);
+      debouncedFetch.cancel();
     };
-  }, [inputValue]);
+  }, [debouncedFetch]);
 
   async function handleChange(e: React.SyntheticEvent, v: Option | Option[] | string | number | null) {
     if (multiple) {

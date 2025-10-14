@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import debounce from 'lodash-es/debounce';
 import { Autocomplete, TextField } from '@mui/material';
 
 // Use a lightweight local type for Subsystem to avoid importing runtime types
@@ -35,20 +36,22 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-  const response: any = (await listSubsystems({ q: q || '', limit: 25 })) ?? { items: [] };
+    const response: any = (await listSubsystems({ q: q || '', limit: 25 })) ?? { items: [] };
     const list = (response.items ?? []) as Subsystem[];
     setOptions(list);
   }
 
+  const debouncedFetch = useMemo(() => debounce((q: string) => fetchOptions(q), 300), []);
+
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      fetchOptions(inputValue);
-    }, 300);
+    debouncedFetch(inputValue);
+  }, [inputValue, debouncedFetch]);
+
+  useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debouncedFetch.cancel();
     };
-  }, [inputValue]);
+  }, [debouncedFetch]);
 
   async function handleChange(e: React.SyntheticEvent, v: Subsystem | string | number | null) {
     if (typeof v === 'string') {
@@ -68,11 +71,11 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
     (typeof props.value === 'object'
       ? (props.value as unknown as Subsystem)
       : (() => {
-          const id = normalizeEntityId(props.value) ?? undefined;
-          if (!id) return null;
-          const found = options.find((x) => x.id === id);
-          return found ? (found as unknown as Subsystem) : null;
-        })());
+        const id = normalizeEntityId(props.value) ?? undefined;
+        if (!id) return null;
+        const found = options.find((x) => x.id === id);
+        return found ? (found as unknown as Subsystem) : null;
+      })());
 
   return (
     <>

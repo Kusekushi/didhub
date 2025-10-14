@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import uniqBy from 'lodash-es/uniqBy';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import {
@@ -23,8 +24,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 // Avoid importing runtime types from the generated client during the migration.
 import type { ApiAlter } from '../../types/ui';
 type ApiGroupOut = any;
-type ApiMembersOut = any;
-type ApiUploadResp = any;
 import { getGroupById, updateGroup, getMembers } from '../../services/groupService';
 import { getAlterById as serviceGetAlterById } from '../../services/alterService';
 import { uploadFile } from '../../services/fileService';
@@ -71,7 +70,7 @@ function extractLeaderIds(group: ApiGroupOut | null): string[] {
             .map((value) => normalizeStringId(value))
             .filter((value): value is string => typeof value === 'string' && value.length > 0);
         }
-      } catch {}
+      } catch { }
     }
     return trimmed
       .split(',')
@@ -110,7 +109,7 @@ function deriveSigilUrl(raw: unknown): string | null {
           const first = parsed.find((value) => typeof value === 'string' && value.trim().length > 0);
           return typeof first === 'string' ? first.trim() : null;
         }
-      } catch {}
+      } catch { }
     }
     if (trimmed.includes(',')) {
       const first = trimmed
@@ -134,15 +133,8 @@ function deriveSigilUrl(raw: unknown): string | null {
 }
 
 function dedupeAltersById(alters: ApiAlter[]): ApiAlter[] {
-  const seen = new Set<string>();
-  const result: ApiAlter[] = [];
-  for (const alter of alters) {
-    const id = normalizeStringId(alter?.id);
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    result.push(alter);
-  }
-  return result;
+  // Use uniqBy to deduplicate by normalized id (fallback to original object if id missing)
+  return uniqBy(alters, (a) => normalizeStringId(a?.id) ?? JSON.stringify(a));
 }
 
 export interface GroupDetailProps {
@@ -184,10 +176,10 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
   }, [invalidIdsQueue]);
 
   const fetchMemberAlters = useCallback(
-  async (groupId: EntityId, ensureAlterIds: string[] = []): Promise<ApiAlter[]> => {
-    try {
-      const membersResp: any = await getMembers(groupId);
-      const response: any = membersResp ?? { alters: [] };
+    async (groupId: EntityId, ensureAlterIds: string[] = []): Promise<ApiAlter[]> => {
+      try {
+        const membersResp: any = await getMembers(groupId);
+        const response: any = membersResp ?? { alters: [] };
         const collectedIds = new Set<string>();
         if (Array.isArray(response.alters)) {
           response.alters.forEach((value) => {
@@ -216,7 +208,7 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
       if (!id) return;
       setLoading(true);
       try {
-  const groupData = (await getGroupById(id)) as ApiGroupOut | null;
+        const groupData = (await getGroupById(id)) as ApiGroupOut | null;
         if (!mounted) return;
         if (!groupData || groupData.id == null) {
           setGroup(null);
@@ -258,11 +250,11 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
   const groupOwnerId = extractOwnerId(group);
   const canManage = Boolean(
     me &&
-      (me.is_admin ||
-        (me.is_system &&
-          groupOwnerId != null &&
-          me.id != null &&
-          normalizeEntityId(me.id) === normalizeEntityId(groupOwnerId))),
+    (me.is_admin ||
+      (me.is_system &&
+        groupOwnerId != null &&
+        me.id != null &&
+        normalizeEntityId(me.id) === normalizeEntityId(groupOwnerId))),
   );
 
   // Normalized leader ids (string form for comparisons) with null guard
@@ -342,8 +334,8 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
         leaders: leaderIdsPayload,
         sigil: editSigilUrl || null,
       };
-  await updateGroup(group.id, payload as any);
-  const updated = (await getGroupById(group.id)) as ApiGroupOut | null;
+      await updateGroup(group.id, payload as any);
+      const updated = (await getGroupById(group.id)) as ApiGroupOut | null;
       setGroup(updated);
       setEditing(false);
     } catch (err) {
@@ -387,7 +379,7 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-    const remote = await uploadFile(file).catch(() => undefined);
+      const remote = await uploadFile(file).catch(() => undefined);
       if (remote) setEditSigilUrl(remote);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err));
@@ -645,9 +637,9 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
             const nid = normalizeEntityId(m.id);
             return nid
               ? renderAlterChip(m, {
-                  color: leaderIds.includes(nid) ? 'primary' : 'default',
-                  variant: leaderIds.includes(nid) ? 'filled' : 'outlined',
-                })
+                color: leaderIds.includes(nid) ? 'primary' : 'default',
+                variant: leaderIds.includes(nid) ? 'filled' : 'outlined',
+              })
               : null;
           })}
         </Box>
