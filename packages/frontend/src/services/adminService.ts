@@ -241,7 +241,7 @@ export async function putSettings(payload: Record<string, unknown>) {
 export async function getAdminRedis() {
   const req: AdminGetAdminRedisRequest = {};
   const resp = await apiClient.admin.get_admin_redis(req);
-  return resp?.data ?? resp ?? null;
+  return resp?.data ?? null;
 }
 
 export async function postAdminReloadUploadDir() {

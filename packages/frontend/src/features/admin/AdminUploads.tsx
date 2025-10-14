@@ -160,15 +160,15 @@ export default function AdminUploads() {
       setSelected([]);
       setTotal(fetchedTotal);
 
-      const uniqueUserIds = new Set<number>();
+      const uniqueUserIds = new Set<string>();
       fetchedItems.forEach((item) => {
-        if (typeof item.user_id === 'number' && Number.isFinite(item.user_id)) {
+        if (typeof item.user_id === 'string') {
           uniqueUserIds.add(item.user_id);
         }
       });
       const missing = Array.from(uniqueUserIds).filter((id) => !(id in usernames));
       if (missing.length) {
-        const fetchedUsernames: Record<number, string> = {};
+        const fetchedUsernames: Record<string, string> = {};
         await Promise.all(
           missing.map(async (id) => {
             try {

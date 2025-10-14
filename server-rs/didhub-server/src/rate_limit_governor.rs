@@ -69,6 +69,12 @@ pub fn governor_layer_with(cache: AppCache, db: didhub_db::Db) -> GovernorLayer 
     }
 }
 
+// Construct a GovernorLayer with no rules which effectively disables
+// rate limiting. Useful for E2E test runs where throttling causes flakes.
+pub fn governor_layer_disabled(cache: AppCache, db: didhub_db::Db) -> GovernorLayer {
+    GovernorLayer { rules: Vec::new(), cache, db }
+}
+
 // metrics served via metrics::metrics_handler
 
 #[derive(Clone)]

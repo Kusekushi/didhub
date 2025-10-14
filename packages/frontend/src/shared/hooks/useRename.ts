@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { updateAlter } from '../../services/alterService';
 
 // lightweight alter type to avoid importing runtime generator at runtime
-type Alter = { id: string | number; name?: string } | null;
+type Alter = { id: string; name?: string } | null;
 
 interface UseRenameResult {
   /** Whether the rename operation is currently active */
@@ -71,7 +71,7 @@ export function useRename(alter: Alter | null, onRenamed?: (updatedAlter: Alter)
 
     try {
       setRenameError(null);
-      const updated = await updateAlter(alter.id as string | number, { name: newName });
+      const updated = await updateAlter(alter.id, { name: newName });
       if (updated && onRenamed) {
         onRenamed(updated as any);
       }

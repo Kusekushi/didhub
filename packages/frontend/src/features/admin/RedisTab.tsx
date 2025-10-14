@@ -59,13 +59,13 @@ export default function RedisTab() {
     const loadSettings = async () => {
       try {
         const settings = await adminService.getSettings();
-        setRedisUrl(String((settings && (settings.redis_url || settings.data?.redis_url)) ?? ''));
-        setRedisPrefixSetting(String((settings && (settings.redis_prefix || settings.data?.redis_prefix)) ?? ''));
-        setRedisTtlSecondsSetting(String((settings && (settings.redis_ttl_seconds || settings.data?.redis_ttl_seconds)) ?? ''));
-        setRedisClientOptions(String((settings && (settings.redis_client_options || settings.data?.redis_client_options)) ?? ''));
-        const sessions = (settings && (settings.redis_sessions_enabled ?? settings.data?.redis_sessions_enabled)) ?? false;
+        setRedisUrl(String((settings && settings['redis_url']) ?? ''));
+        setRedisPrefixSetting(String((settings && settings['redis_prefix']) ?? ''));
+        setRedisTtlSecondsSetting(String((settings && settings['redis_ttl_seconds']) ?? ''));
+        setRedisClientOptions(String((settings && settings['redis_client_options']) ?? ''));
+        const sessions = (settings && settings['redis_sessions_enabled']) ?? false;
         setRedisSessionsEnabled(sessions === '1' || sessions === 'true' || sessions === true);
-        const cacheEnabled = (settings && (settings.redis_cache_enabled ?? settings.data?.redis_cache_enabled)) ?? false;
+        const cacheEnabled = (settings && settings['redis_cache_enabled']) ?? false;
         setRedisCacheEnabled(cacheEnabled === '1' || cacheEnabled === 'true' || cacheEnabled === true);
       } catch (e) {
         setSnack({ open: true, text: `Failed to load Redis settings: ${e}`, severity: 'error' });

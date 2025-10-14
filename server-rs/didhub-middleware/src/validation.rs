@@ -62,9 +62,11 @@ pub async fn require_json_content_type(req: Request<Body>, next: Next) -> Respon
 
 /// Check if a path is allowlisted for content type validation bypass.
 fn is_allowlisted_for_content_type(path: &str) -> bool {
-    // File upload endpoints
+    // File upload endpoints (support both /api/... and unprefixed paths used by some clients)
     path.starts_with("/api/upload") ||
+    path.starts_with("/upload") ||
     path.starts_with("/api/me/avatar") ||
+    path.starts_with("/me/avatar") ||
     // Admin endpoints that don't require JSON body
     path == "/admin/backup" ||
     path == "/admin/restore"

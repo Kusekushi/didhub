@@ -118,10 +118,20 @@ impl AppRouterBuilder {
                     .layer(axum::middleware::from_fn(request_logger::request_logger))
                     .layer(axum::middleware::from_fn(client_ip::extract_client_ip))
                     .layer(axum::middleware::from_fn(csrf::csrf_middleware))
-                    .layer(rate_limit_governor::governor_layer_with(
-                        service_components.cache.clone(),
-                        self.db.clone(),
-                    ))
+                    // Allow disabling rate limiting for e2e via env var so tests
+                    // don't fail due to server-side throttling. Default behavior
+                    // is to use the normal governor with rules.
+                    .layer(if std::env::var("DIDHUB_DISABLE_RATE_LIMIT").is_ok() {
+                        rate_limit_governor::governor_layer_disabled(
+                            service_components.cache.clone(),
+                            self.db.clone(),
+                        )
+                    } else {
+                        rate_limit_governor::governor_layer_with(
+                            service_components.cache.clone(),
+                            self.db.clone(),
+                        )
+                    })
                     .layer(Audit429Layer {
                         db: self.db.clone(),
                     })

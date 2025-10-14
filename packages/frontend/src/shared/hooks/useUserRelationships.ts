@@ -17,8 +17,8 @@ export function useUserRelationshipOptions() {
 
   const refreshUserOptions = useCallback(async () => {
     try {
-  const result = await adminService.listUsers({ perPage: 200 });
-  const rawItems = Array.isArray((result as any)?.items) ? (result as any).items : [];
+      const result = await adminService.listUsers({ per_page: 200 });
+      const rawItems = Array.isArray((result as any)?.items) ? (result as any).items : [];
       const items = rawItems.filter((it) => it && it.username && !it.is_system);
 
       debugLog('Fetched user options', { count: items.length, sample: items.slice(0, 5) });

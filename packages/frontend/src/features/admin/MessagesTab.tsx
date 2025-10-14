@@ -54,8 +54,8 @@ export default function MessagesTab() {
     try {
       setStatus('Posting...');
       const result = await adminService.postDiscordBirthdays();
-      const posted = result && (result.status >= 200 && result.status < 400) || Boolean(result && (result.posted ?? result.reposted ?? false));
-      const message = (result && (result.error ?? result.message)) ?? (posted ? 'Posted birthdays digest' : 'Nothing to post');
+      const posted = result && ((result as any).status >= 200 && (result as any).status < 400) || Boolean(result && ((result as any).posted ?? (result as any).reposted ?? false));
+      const message = (result && ((result as any).error ?? (result as any).message)) ?? (posted ? 'Posted birthdays digest' : 'Nothing to post');
       if (posted) {
         setStatus('Posted birthdays digest');
         setSnack({ open: true, message: 'Posted birthdays digest', severity: 'success' });
@@ -96,11 +96,11 @@ export default function MessagesTab() {
     try {
       setStatus('Reposting...');
       const r = await adminService.repostPost(id);
-      if (r && (r.reposted || r.posted)) {
+      if (r && ((r as any).reposted || (r as any).posted)) {
         setStatus('Reposted');
         setSnack({ open: true, message: 'Post reposted successfully', severity: 'success' });
       } else {
-        const message = r && r.error ? String(r.error) : 'Failed to repost';
+        const message = r && (r as any).error ? String((r as any).error) : 'Failed to repost';
         setStatus(message);
         setSnack({ open: true, message: message, severity: 'error' });
       }

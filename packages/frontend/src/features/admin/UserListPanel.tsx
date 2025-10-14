@@ -158,10 +158,10 @@ export default function UserListPanel() {
           try {
             if (!pwPromptLocal.userId) return;
             const res = await resetUserPassword(pwPromptLocal.userId, value ?? '');
-            if (res?.success) {
-              setLocalMsg({ open: true, text: res.message ?? 'Password reset', severity: 'success' });
+            if ((res as any)?.success) {
+              setLocalMsg({ open: true, text: (res as any).message ?? 'Password reset', severity: 'success' });
             } else {
-              setLocalMsg({ open: true, text: res.message ?? 'Failed to reset password', severity: 'error' });
+              setLocalMsg({ open: true, text: (res as any).message ?? 'Failed to reset password', severity: 'error' });
             }
           } catch (e) {
             setLocalMsg({ open: true, text: String(e || 'Failed'), severity: 'error' });

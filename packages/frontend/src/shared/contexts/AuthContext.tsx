@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 
 import * as authService from '../../services/authService';
+import { setStoredToken } from '@didhub/api-client';
 import { getMe } from '../hooks/useMe';
 
 // Lightweight local types to avoid runtime dependency on generated client
@@ -164,15 +165,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(username: string, password: string) {
     try {
       const result = await authService.login(username, password);
-        if (result) {
-          // After auth, fetch /me to populate user object
-          const session = await authService.getMe();
-          const user = session ?? null;
-          setMe(user as ApiUser | null);
-          if (user && (user as any).must_change_password) setMustChange(true);
-          initTokenState();
-          return { ok: true, user };
+      if (result) {
+        // Persist token immediately so subsequent API calls include Authorization header
+        try {
+          if ((result as any).token) setStoredToken((result as any).token);
+        } catch {
+          // Ignore storage errors
         }
+        // After auth, fetch /me to populate user object
+        const session = await authService.getMe();
+        const user = session ?? null;
+        setMe(user as ApiUser | null);
+        if (user && (user as any).must_change_password) setMustChange(true);
+        initTokenState();
+        return { ok: true, user };
+      }
       return { ok: false, error: 'Login failed' };
     } catch (error) {
       if (error instanceof ApiError) {
@@ -189,10 +196,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function register(username: string, password: string, is_system = false) {
     try {
     const r = await authService.register(username, password, is_system);
-      if (r && r.ok) {
+      if (r && (r as any).ok) {
         return { ok: true, pending: true };
       }
-      return { ok: false, error: r?.error ?? null };
+      return { ok: false, error: (r as any)?.error ?? null };
     } catch (error) {
       if (error instanceof ApiError) {
         const data = error.data as any;
@@ -258,8 +265,8 @@ if (typeof window !== 'undefined') {
         try {
           try {
             const r = await authService.refresh();
-            if (r && r.token) {
-              localStorage.setItem('didhub_jwt', r.token);
+            if (r && (r as any).token) {
+              localStorage.setItem('didhub_jwt', (r as any).token);
               window.__didhub_refreshing = false;
               return;
             }

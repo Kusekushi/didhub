@@ -15,7 +15,7 @@ export default function PendingTab() {
   async function loadPendingRegistrations() {
     setLoadingPending(true);
     try {
-      const pageResult = await adminService.listUsers({ page: 1, perPage: 100, is_approved: false });
+      const pageResult = await adminService.listUsers({ page: 1, per_page: 100, is_approved: "0" });
       const items = (pageResult && (pageResult as any).items) ?? [];
       setPendingRegs(items);
     } catch {
@@ -25,7 +25,7 @@ export default function PendingTab() {
     }
   }
 
-  const handleApprove = async (user: { id: number; username: string }) => {
+  const handleApprove = async (user: { id: string; username: string }) => {
       try {
       await adminService.updateUser(user.id, { is_approved: true });
       setSnack({ open: true, message: `Approved ${user.username}`, severity: 'success' });
@@ -41,7 +41,7 @@ export default function PendingTab() {
     }
   };
 
-  const handleReject = async (user: { id: number; username: string }) => {
+  const handleReject = async (user: { id: string; username: string }) => {
       try {
       await adminService.updateUser(user.id, { is_approved: false });
       setSnack({ open: true, message: `Rejected ${user.username}`, severity: 'info' });

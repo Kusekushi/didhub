@@ -94,7 +94,9 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
                     };
                     if (uid) {
                       const normalizedUid = normalizeEntityId(uid);
-                      if (normalizedUid) payload.owner_user_id = normalizedUid;
+                      // Only set owner_user_id when the normalized uid looks like a UUID
+                      // to avoid accidental numeric route placeholders such as '1'
+                      if (normalizedUid && normalizedUid.includes('-')) payload.owner_user_id = normalizedUid;
                     }
                     await handleCreateSubsystem(payload);
                     try {

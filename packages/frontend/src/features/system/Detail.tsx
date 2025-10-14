@@ -45,7 +45,7 @@ export default function Detail(props: DetailProps = {}): React.ReactElement {
   const [removeImageDialog, setRemoveImageDialog] = React.useState<{
     open: boolean;
     url: string;
-    id: number | string | null;
+    id: string | null;
   }>({ open: false, url: '', id: null });
 
   if (loading) return <Container sx={{ mt: 4 }}>Loading...</Container>;

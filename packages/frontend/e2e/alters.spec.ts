@@ -31,9 +31,10 @@ test.describe('Alters UI flows', () => {
       await page.waitForNavigation({ timeout: 5000 });
     } catch {}
 
-    await page.goto('/did-system/1');
-    await page.waitForSelector('text=Alters', { timeout: 15000 });
-    await page.getByRole('tab', { name: 'Alters' }).click();
+  await page.goto('/did-system/1');
+  const altersTab = page.getByRole('tab', { name: 'Alters' });
+  await altersTab.waitFor({ timeout: 15000 });
+  await altersTab.click();
     await page.getByRole('button', { name: /create alter/i }).click();
 
     await page.getByLabel('Name').fill('Playwright E2E Alter');

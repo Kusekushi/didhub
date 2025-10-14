@@ -62,6 +62,7 @@ const child = spawn('cargo', cargoArgs, {
   cwd: serverDir,
   stdio: ['inherit', 'pipe', 'pipe'],
   shell: false,
+  env: Object.assign({}, process.env, { DIDHUB_DISABLE_RATE_LIMIT: '1' }),
 });
 
 child.stdout.on('data', (data) => {

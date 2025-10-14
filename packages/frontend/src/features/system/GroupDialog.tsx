@@ -89,7 +89,7 @@ const toAlterOption = (id: string, options: Alter[]): Alter => {
   const match = options.find((option) => normalizeEntityId(option.id) === normalizeEntityId(id));
   if (match) return match;
   // create a synthetic Alter with a string id cast -- callers expect an object with an id and name
-  return { id: id as unknown as number, name: `#${id}` } as Alter;
+  return { id, name: `#${id}` } as Alter;
 };
 
 const getLeadersFromGroup = (group: Group | null, options: Alter[]): Alter[] => {

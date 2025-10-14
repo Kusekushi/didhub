@@ -33,8 +33,14 @@ export default function GroupsTab({ uid }: GroupsTabProps) {
   // Permission checking
   const canManage =
     !!me &&
-    (String(me.is_admin) === '1' ||
-      (String(me.is_system) === '1' && normalizeEntityId(me.id) === normalizeEntityId(uid)));
+    (
+      // `me.is_admin` and `me.is_system` are booleans in our UI types. Some
+      // backends represent these as 0/1 or strings, but in the client we
+      // should treat them as booleans. Avoid fragile String(...) === '1'
+      // comparisons which evaluate to false when the value is `true`.
+      Boolean(me.is_admin) ||
+      (Boolean(me.is_system) && normalizeEntityId(me.id) === normalizeEntityId(uid))
+    );
 
   const pageCount = Math.max(1, Math.ceil((groupsData.total || 0) / 20));
   const displayStart = groupsData.total === 0 ? 0 : 0 * 20 + 1;

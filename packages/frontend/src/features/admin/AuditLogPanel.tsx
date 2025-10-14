@@ -47,7 +47,7 @@ export default function AuditLogPanel(props: AuditLogPanelProps) {
   async function load() {
     setLoading(true);
     try {
-      const parsedUserId = filters.user_id ? parseInt(filters.user_id, 10) : undefined;
+      const parsedUserId = filters.user_id ?? undefined;
       const r = await adminService.getAudit({
         action: filters.action || undefined,
         user_id: parsedUserId,

@@ -288,6 +288,12 @@ pub async fn create_subsystem(
         Some(user.id.to_string())
     };
 
+    debug!(
+        user_id = %user.id,
+        owner = ?owner,
+        "Resolved owner for new subsystem"
+    );
+
     let created = db
         .create_subsystem(
             &payload.name,
@@ -301,6 +307,7 @@ pub async fn create_subsystem(
             error!(
                 user_id = %user.id,
                 subsystem_name = %payload.name,
+                owner = ?owner,
                 error = %e,
                 "Failed to create subsystem in database"
             );
