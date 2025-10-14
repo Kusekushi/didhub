@@ -23,7 +23,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.4",
     "@mui/material": "^7.3.4",
-    "@mui/x-data-grid": "^8.11.0",
+    "@mui/x-data-grid": "^8.14.0",
     "@mui/x-date-pickers": "^8.11.0",
     "dayjs": "^1.11.18",
     "fflate": "^0.8.2",
