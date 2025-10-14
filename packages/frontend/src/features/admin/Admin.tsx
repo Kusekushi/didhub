@@ -1,5 +1,6 @@
 import React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, List, ListItem, ListItemButton, ListItemText } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -36,11 +37,9 @@ import SystemUpdates from './SystemUpdates';
 import UserListPanel from './UserListPanel';
 
 export default function Admin() {
-  const [tab, setTab] = useState(0);
   const { me } = useMe();
-
-  // Early return after all hooks to avoid hook ordering issues
-  if (!me || !me.is_admin) return <div style={{ padding: 20 }}>Admin only</div>;
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const tabsDef = [
     {
@@ -135,6 +134,45 @@ export default function Admin() {
     },
   ];
 
+  // Compute initial tab from URL so the correct tab is active on first render
+  const [tab, setTab] = useState<number>(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const t = params.get('tab');
+      if (!t) return 0;
+      const idx = Number(t);
+      if (!Number.isNaN(idx) && idx >= 0 && idx < tabsDef.length) return idx;
+      const found = tabsDef.findIndex((d) => d.key === t);
+      return found >= 0 ? found : 0;
+    } catch (e) {
+      return 0;
+    }
+  });
+
+  // Keep in sync if the URL changes while the page is open
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const t = params.get('tab');
+      if (!t) return;
+      const idx = Number(t);
+      if (!Number.isNaN(idx) && idx >= 0 && idx < tabsDef.length) {
+        setTab(idx);
+        return;
+      }
+
+      // Try matching by key
+      const found = tabsDef.findIndex((d) => d.key === t);
+      if (found >= 0) setTab(found);
+    } catch (e) {
+      // ignore
+    }
+  }, [location.search, tabsDef.length]);
+
+  // Early return after all hooks to avoid hook ordering issues
+  if (!me || !me.is_admin) return <div style={{ padding: 20 }}>Admin only</div>;
+
+
   const panels = tabsDef.map((tdef) => tdef.render || (() => null));
 
   return (
@@ -146,7 +184,16 @@ export default function Admin() {
             <ListItem key={tdef.key} disablePadding>
               <ListItemButton
                 selected={tab === i}
-                onClick={() => setTab(i)}
+                onClick={() => {
+                  setTab(i);
+                  try {
+                    const params = new URLSearchParams(location.search);
+                    params.set('tab', tabsDef[i].key);
+                    navigate({ search: params.toString() }, { replace: true });
+                  } catch (e) {
+                    // ignore
+                  }
+                }}
                 sx={{
                   '&.Mui-selected': {
                     backgroundColor: 'primary.main',

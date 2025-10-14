@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { listUsers } from '../../services/adminService';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
@@ -47,6 +47,27 @@ export default function DIDSystemView(): React.ReactElement {
     }
   }, [uid, me, nav]);
 
+  // Read initial tab from query param (supports numeric index or key)
+  const location = useLocation();
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const t = params.get('tab');
+      if (!t) return;
+      const idx = Number(t);
+      if (!Number.isNaN(idx) && idx >= 0 && idx <= 2) {
+        setTab(idx);
+        return;
+      }
+
+      // support keys: alters, groups, subsystems
+      const keyMap: Record<string, number> = { alters: 0, groups: 1, subsystems: 2 };
+      if (t && keyMap[t as string] !== undefined) setTab(keyMap[t]);
+    } catch (e) {
+      // ignore
+    }
+  }, [location.search]);
+
   // Computed values
   const currentSystem = systems.find((s) => normalizeEntityId(s.user_id) === normalizeEntityId(uid));
   const canManage = me && (me.is_admin || (me.is_system && normalizeEntityId(me.id) === normalizeEntityId(uid)));
@@ -56,7 +77,17 @@ export default function DIDSystemView(): React.ReactElement {
     <div style={{ padding: 20 }}>
       <SystemHeader
         tab={tab}
-        onTabChange={(e: React.SyntheticEvent, v: number) => setTab(v)}
+        onTabChange={(e: React.SyntheticEvent, v: number) => {
+          setTab(v);
+          try {
+            const params = new URLSearchParams(location.search);
+            const keyMap = ['alters', 'groups', 'subsystems'];
+            params.set('tab', keyMap[v] || String(v));
+            nav({ search: params.toString() });
+          } catch (e) {
+            // ignore
+          }
+        }}
         systems={systems}
         currentSystem={currentSystem}
         onSystemChange={(_e: React.SyntheticEvent, v: any | null) => {
