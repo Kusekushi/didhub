@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, List, ListItem, ListItemText, Button, Stack } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import { getSystemRequests, decideSystemRequest } from '../../services/adminService';
 import type { AlertColor } from '@mui/material';
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 
 export interface SystemRequest {
-  id: number;
-  user_id: number;
+  id: string;
+  user_id: string;
   username: string;
   status: string;
   created_at: string;
@@ -24,7 +24,7 @@ export default function SystemRequestsTab() {
   useEffect(() => {
     const loadSystemRequests = async () => {
       try {
-        const sr = await apiClient.admin.get_system_requests();
+        const sr: any = await getSystemRequests();
         setSysRequests(sr || []);
       } catch (e) {
         setSnack({ open: true, text: `Failed to load system requests: ${e}`, severity: 'error' });
@@ -33,17 +33,17 @@ export default function SystemRequestsTab() {
     loadSystemRequests();
   }, []);
 
-  const handleSetRequestStatus = async (id: number, status: 'approved' | 'rejected') => {
+  const handleSetRequestStatus = async (id: string, status: 'approved' | 'rejected') => {
     try {
-      const result = await apiClient.admin.post_system_requests_by_id_decide(id, status);
-      if (result.success !== false) {
+      const result: any = await decideSystemRequest(id, status);
+      if ((result as any).success !== false) {
         setSnack({
           open: true,
           text: result.message ?? `Request ${status}`,
           severity: 'success',
         });
         // Refresh the list
-        const sr = await apiClient.admin.get_system_requests();
+        const sr: any = await getSystemRequests();
         setSysRequests(sr || []);
       } else {
         setSnack({

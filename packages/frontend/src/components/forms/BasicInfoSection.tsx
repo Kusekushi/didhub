@@ -1,11 +1,32 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { parseRoles, type ApiAlter, type UserAlterRelationship } from '@didhub/api-client';
+import type { ApiAlter } from '../../types/ui';
+
+function parseRoles(raw: unknown): string[] {
+  if (!raw) return [];
+  try {
+    if (Array.isArray(raw)) return raw.map((r) => String(r));
+    if (typeof raw === 'string') {
+      const s = raw.trim();
+      if (!s) return [];
+      if (s.startsWith('[') && s.endsWith(']')) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.map((r) => String(r));
+      }
+      return s.split(',').map((p) => p.trim()).filter(Boolean);
+    }
+    return [String(raw)];
+  } catch (e) {
+    return [];
+  }
+}
 import { useAlterLinks } from '../../shared/hooks/useAlterLinks';
+import { getUsersById } from '../../services/adminService';
+import { ApiPersonRelationship } from '@didhub/api-client';
 
 type AlterWithRelationships = ApiAlter & {
-  user_relationships?: UserAlterRelationship[];
+  user_relationships?: ApiPersonRelationship[];
   system_roles?: unknown;
   is_dormant?: boolean | null;
   is_merged?: boolean | null;
@@ -20,13 +41,65 @@ export default function BasicInfoSection(props: BasicInfoSectionProps) {
 
   // Group user relationships by type
   const userRelationships = props.alter.user_relationships || [];
-  const userPartners = userRelationships.filter((rel) => rel.relationship_type === 'partner');
-  const userParents = userRelationships.filter((rel) => rel.relationship_type === 'parent');
-  const userChildren = userRelationships.filter((rel) => rel.relationship_type === 'child');
+  const userPartners = userRelationships.filter((rel) => rel.type_ === 'partner');
+  const userParents = userRelationships.filter((rel) => rel.type_ === 'parent');
+  const userChildren = userRelationships.filter((rel) => rel.type_ === 'child');
+
+  const UserChip: React.FC<{ rel: ApiPersonRelationship; idx: number; keyPrefix: string }> = ({ rel, idx, keyPrefix }) => {
+    const userId = (rel as any).user_id;
+    const initialName = (rel as any).username ?? null;
+    const [username, setUsername] = useState<string | null>(initialName);
+
+    useEffect(() => {
+      if (username || !userId) return;
+      let cancelled = false;
+
+      const fetchName = async () => {
+        try {
+          const resp = await getUsersById(String(userId));
+          if (cancelled) return;
+          const name = resp?.username ?? null;
+          if (name) {
+            setUsername(String(name));
+            return;
+          }
+          if (!cancelled) setUsername(`User ${userId}`);
+        } catch {
+          if (!cancelled) setUsername(`User ${userId}`);
+        }
+      };
+
+      fetchName();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [userId, username]);
+
+    const label = username ?? `User ${userId ?? idx}`;
+    return userId ? (
+      <Chip
+        key={`${keyPrefix}-user-${idx}`}
+        component={RouterLink as any}
+        to={`/detail/user/${userId}`}
+        label={label}
+        clickable
+        size="small"
+        sx={{ mr: 1, mb: 1, backgroundColor: 'action.selected' }}
+      />
+    ) : (
+      <Chip
+        key={`${keyPrefix}-user-${idx}`}
+        label={label}
+        size="small"
+        sx={{ mr: 1, mb: 1, backgroundColor: 'action.selected' }}
+      />
+    );
+  };
 
   const renderRelationshipChips = (
     links: Array<{ name: string; id?: number | string }>,
-    userRels: UserAlterRelationship[],
+    userRels: ApiPersonRelationship[],
     keyPrefix: string,
   ) => {
     return links.length || userRels.length ? (
@@ -47,12 +120,7 @@ export default function BasicInfoSection(props: BasicInfoSectionProps) {
           ),
         )}
         {userRels.map((rel, idx) => (
-          <Chip
-            key={`${keyPrefix}-user-${idx}`}
-            label={rel.username || `User ${rel.user_id}`}
-            size="small"
-            sx={{ mr: 1, mb: 1, backgroundColor: 'action.selected' }}
-          />
+          <UserChip key={`${keyPrefix}-user-${idx}`} rel={rel} idx={idx} keyPrefix={keyPrefix} />
         ))}
       </>
     ) : (

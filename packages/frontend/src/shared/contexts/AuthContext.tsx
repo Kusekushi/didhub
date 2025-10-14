@@ -1,8 +1,30 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 
-import { apiClient, getTokenExp, ApiError } from '@didhub/api-client';
-import type { ApiUser } from '@didhub/api-client';
+import * as authService from '../../services/authService';
 import { getMe } from '../hooks/useMe';
+
+// Lightweight local types to avoid runtime dependency on generated client
+type ApiUser = any;
+class ApiError extends Error {
+  data: any;
+  constructor(message?: string, data?: any) {
+    super(message);
+    this.data = data;
+  }
+}
+
+function getTokenExp(token: string | null): number | null {
+  if (!token) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (!payload || typeof payload.exp !== 'number') return null;
+    return payload.exp as number;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Shape of the authentication context.
@@ -79,34 +101,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (delayMs < 0) delayMs = 5000; // soon
     refreshTimer.current = window.setTimeout(async () => {
       if (refreshingRef.current) return;
-      refreshingRef.current = true;
-      try {
-        const r = await apiClient.users.post_auth_refresh();
-        refreshingRef.current = false;
-        if (!r.ok) {
-          // Failed refresh -> trigger logout
-          await logout();
-          return;
-        }
-        const data = r.data as any;
-        const token = data?.token;
-        if (!token) {
-          await logout();
-          return;
-        }
+        refreshingRef.current = true;
         try {
-          localStorage.setItem('didhub_jwt', token);
+          const r: any = await authService.refresh();
+          refreshingRef.current = false;
+          if (!r || !r.token) {
+            await logout();
+            return;
+          }
+          try {
+            localStorage.setItem('didhub_jwt', r.token);
+          } catch {
+            // Ignore localStorage errors
+          }
+          const newExp = r.token ? getTokenExp(r.token) : null;
+          setTokenExp(newExp);
+          scheduleRefresh(newExp);
         } catch {
-          // Ignore localStorage errors
+          refreshingRef.current = false;
+          await logout();
         }
-        const newExp = token ? getTokenExp(token) : null;
-        setTokenExp(newExp);
-        scheduleRefresh(newExp);
-      } catch {
-        refreshingRef.current = false;
-        // On unexpected error, ensure we clear state and log out.
-        await logout();
-      }
     }, delayMs) as unknown as number;
   }, []);
 
@@ -149,54 +163,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [me]);
   async function login(username: string, password: string) {
     try {
-      const result = await apiClient.users.post_auth_login({ username, password });
-      if (result.ok) {
-        const session = await apiClient.users.get_me();
-        const user = session.ok ? (session.data as ApiUser) : null;
-        setMe(user);
-        if (user && user.must_change_password) setMustChange(true);
-        initTokenState();
-        return { ok: true, user };
-      }
-
-      const data = result.data as any;
-      const code = data?.code;
-      if (code === 'not_approved') {
-        return {
-          ok: false,
-          pending: true,
-          error: data?.error ?? 'Account awaiting approval',
-        };
-      }
-
-      return { ok: false, error: data?.error ?? null };
+      const result = await authService.login(username, password);
+        if (result) {
+          // After auth, fetch /me to populate user object
+          const session = await authService.getMe();
+          const user = session ?? null;
+          setMe(user as ApiUser | null);
+          if (user && (user as any).must_change_password) setMustChange(true);
+          initTokenState();
+          return { ok: true, user };
+        }
+      return { ok: false, error: 'Login failed' };
     } catch (error) {
-      // Handle API errors (non-2xx responses)
       if (error instanceof ApiError) {
         const data = error.data as any;
         const code = data?.code;
         if (code === 'not_approved') {
-          return {
-            ok: false,
-            pending: true,
-            error: data?.error ?? 'Account awaiting approval',
-          };
+          return { ok: false, pending: true, error: data?.error ?? 'Account awaiting approval' };
         }
         return { ok: false, error: data?.error ?? error.message ?? 'Login failed' };
       }
-      // Handle unexpected errors
       return { ok: false, error: 'An unexpected error occurred' };
     }
   }
   async function register(username: string, password: string, is_system = false) {
     try {
-      const r = await apiClient.users.post_auth_register({ username, password, is_system });
-      if (r.ok) {
-        // Account created. Because new accounts require admin approval, don't auto-login.
+    const r = await authService.register(username, password, is_system);
+      if (r && r.ok) {
         return { ok: true, pending: true };
       }
-      const data = r.data as any;
-      return { ok: false, error: data?.error ?? data?.message ?? null };
+      return { ok: false, error: r?.error ?? null };
     } catch (error) {
       if (error instanceof ApiError) {
         const data = error.data as any;
@@ -215,19 +211,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
   async function changePassword(current: string, next: string) {
-    const res = await apiClient.users.post_me_password({ current_password: current, new_password: next });
-    if (res.ok) {
+  const res = await authService.changePassword({ current_password: current, new_password: next } as any);
+    if (res && (res as any).ok) {
       setMustChange(false);
       try {
-        const m = await apiClient.users.get_me();
-        setMe(m.ok ? (m.data as ApiUser) : null);
+        const m = await authService.getMe();
+        setMe(m ?? null);
       } catch {
         // Ignore fetch errors
       }
       return { ok: true };
     }
-    const data = res.data as any;
-    return { ok: false, error: data?.error ?? data?.message ?? 'error' };
+    return { ok: false, error: (res as any)?.error ?? 'error' };
   }
   const refetchUser = useCallback(() => getMe().then(setMe), []);
 
@@ -261,15 +256,15 @@ if (typeof window !== 'undefined') {
       window.__didhub_refreshing = true;
       (async () => {
         try {
-          const r = await apiClient.users.post_auth_refresh();
-          if (r.ok) {
-            const data = r.data as any;
-            if (data.token) {
-              localStorage.setItem('didhub_jwt', data.token);
-              // Clear the refreshing flag immediately since the operation is complete
+          try {
+            const r = await authService.refresh();
+            if (r && r.token) {
+              localStorage.setItem('didhub_jwt', r.token);
               window.__didhub_refreshing = false;
               return;
             }
+          } catch {
+            // ignore
           }
         } catch {
           // Ignore refresh errors

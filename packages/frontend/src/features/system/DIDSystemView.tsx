@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { apiClient } from '@didhub/api-client';
+import { listUsers } from '../../services/adminService';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
 import { useAuth } from '../../shared/contexts/AuthContext';
@@ -13,22 +13,23 @@ import SubsystemsTab from '../../features/system/SubsystemsTab';
 export default function DIDSystemView(): React.ReactElement {
   const { uid } = useParams() as { uid?: string };
   const nav = useNavigate();
-  const { user: me } = useAuth() as { user?: User };
+  const { user: me } = useAuth() as { user?: any };
 
   // Basic state
   const [search, setSearch] = useState('');
   const [hideDormant, setHideDormant] = useState(false);
   const [hideMerged, setHideMerged] = useState(false);
   const [tab, setTab] = useState(0);
-  const [systems, setSystems] = useState<User[]>([]);
+  const [systems, setSystems] = useState<any[]>([]);
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
 
   // Load systems list
   useEffect(() => {
     (async () => {
       try {
-        const s = await apiClient.users.systems();
-        setSystems(s || []);
+        const users = (await listUsers({ perPage: 1000 } as any)) as any[] | null;
+        const systems = (users || []).filter((u) => u.is_system);
+        setSystems(systems || []);
       } catch {
         // Ignore errors when fetching systems
       }
@@ -58,10 +59,10 @@ export default function DIDSystemView(): React.ReactElement {
         onTabChange={(e: React.SyntheticEvent, v: number) => setTab(v)}
         systems={systems}
         currentSystem={currentSystem}
-        onSystemChange={(_e: React.SyntheticEvent, v: User | null) => {
+        onSystemChange={(_e: React.SyntheticEvent, v: any | null) => {
           if (!v) {
             nav(`/systems`);
-          } else nav(`/did-system/${(v as User).user_id}`);
+          } else nav(`/did-system/${(v as any).user_id}`);
         }}
         search={search}
         onSearchChange={setSearch}

@@ -24,7 +24,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
-import { apiClient } from '@didhub/api-client';
+import {
+  getUploads,
+  getUsersById,
+  deleteUpload,
+  getSettingsByKey,
+  postUploadsPurge,
+} from '../../services/adminService';
 
 type UploadRecord = {
   id: number;
@@ -148,10 +154,8 @@ export default function AdminUploads() {
     if (includeDeleted) params.include_deleted = true;
 
     try {
-      const response = await apiClient.admin.get_uploads(params).catch(() => null);
-      const { items: fetchedItems, total: fetchedTotal } = parseUploadList(
-        response as UploadListPayload | UploadRecord[] | null,
-      );
+      const response = await getUploads(params).catch(() => null);
+      const { items: fetchedItems, total: fetchedTotal } = parseUploadList(response as UploadListPayload | UploadRecord[] | null);
       setItems(fetchedItems);
       setSelected([]);
       setTotal(fetchedTotal);
@@ -168,10 +172,9 @@ export default function AdminUploads() {
         await Promise.all(
           missing.map(async (id) => {
             try {
-              const resp = await apiClient.admin.get_users_by_id(id);
+              const resp = await getUsersById(id);
               const user = resp ? resp : null;
-              // resp may be an HttpResponse wrapper in some usages; try to access username safely
-              const username = (user as any)?.username ?? (user as any)?.body?.username ?? null;
+              const username = user?.username ?? null;
               if (username) fetchedUsernames[id] = username;
             } catch {
               /* ignore */
@@ -185,8 +188,8 @@ export default function AdminUploads() {
 
       if (retentionDays === null) {
         try {
-          const settingResp = await apiClient.admin.get_settings_by_key('uploads.delete.retention.days');
-          const rawSetting = (settingResp as any)?.body ?? (settingResp as any) ?? null;
+          const settingResp = await getSettingsByKey('uploads.delete.retention.days');
+          const rawSetting = settingResp?.body ?? settingResp ?? null;
           const parsed = parseSettingValue(rawSetting);
           setRetentionDays(parsed ?? 0);
         } catch {
@@ -213,7 +216,7 @@ export default function AdminUploads() {
     async (name: string, force: boolean) => {
       setDeleting(`${name}${force ? ':force' : ':soft'}`);
       try {
-        await apiClient.admin.delete_uploads_by_name(name, { force });
+        await deleteUpload(name, force);
         await load();
       } catch {
         /* ignore */
@@ -236,7 +239,7 @@ export default function AdminUploads() {
           while (idx < names.length) {
             const current = names[idx++];
             try {
-              await apiClient.admin.delete_uploads_by_name(current, { force });
+              await deleteUpload(current, force);
             } catch {
               /* ignore */
             }
@@ -255,7 +258,7 @@ export default function AdminUploads() {
     setPurging(true);
     try {
       const purgeBefore = purgeCutoff ? new Date(purgeCutoff).toISOString() : undefined;
-      await apiClient.admin.post_uploads_purge({ purge_before: purgeBefore, force: purgeForce }, {});
+      await postUploadsPurge({ purge_before: purgeBefore, force: purgeForce });
       await load();
     } finally {
       setPurging(false);

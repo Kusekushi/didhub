@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import { apiClient, type Subsystem } from '@didhub/api-client';
 import { EntityFetchFilters, useEntityData } from './useEntityData';
+import { listSubsystems } from '../../services/subsystemService';
 
-const { subsystem } = apiClient;
+type Subsystem = any;
 
 /**
  * Hook to manage subsystems data for a system
@@ -16,14 +16,13 @@ export function useSubsystemsData(
 ) {
   const fetchSubsystems = useCallback(
     async ({ owner_user_id, query, includeMembers, limit, offset }: EntityFetchFilters) => {
-      const response = await subsystem.get_subsystems({ owner_user_id, query, includeMembers, limit, offset });
-      const payload = response.data as unknown;
-      if (payload && typeof payload === 'object' && 'items' in (payload as Record<string, unknown>)) {
-        return payload as { items: Subsystem[]; total?: number; limit?: number; offset?: number };
+      const response = await listSubsystems({ owner_user_id, query, includeMembers, limit, offset } as any);
+      if (response && typeof response === 'object' && 'items' in (response as unknown as Record<string, unknown>)) {
+        return response as { items: Subsystem[]; total?: number; limit?: number; offset?: number };
       }
       return { items: [], total: 0, limit, offset };
     },
-    [subsystem],
+    [],
   );
 
   return useEntityData<Subsystem>(2, fetchSubsystems, uid, search, activeTab, page, pageSize);

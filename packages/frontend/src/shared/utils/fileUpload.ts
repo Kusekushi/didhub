@@ -1,4 +1,4 @@
-import { apiClient } from '@didhub/api-client';
+import * as fileService from '../../services/fileService';
 
 /**
  * Utility function to upload multiple files
@@ -9,25 +9,16 @@ export async function uploadFiles(files: FileList | File[] | null | undefined): 
   const arr: File[] = Array.isArray(files) ? files : Array.from(files as FileList);
   for (const f of arr) {
     try {
-      const res = await apiClient.files.post_upload(f);
-      if (typeof res.url === 'string' && res.url) {
-        urls.push(res.url);
+      // Uploads expect a FormData body. Wrap single file in FormData.
+      try {
+        const url = await fileService.uploadFile(f);
+        urls.push(url);
         continue;
-      }
-      if (res.payload && typeof res.payload === 'object') {
-        const record = res.payload as Record<string, unknown>;
-        const directUrl = typeof record.url === 'string' ? record.url : undefined;
-        if (directUrl) {
-          urls.push(directUrl);
-          continue;
-        }
-        const filename = typeof record.filename === 'string' ? record.filename : undefined;
-        if (filename) {
-          urls.push(filename);
-        }
+      } catch {
+        // ignore per-file errors
       }
     } catch {
-      // ignore
+      // ignore per-file errors
     }
   }
   return urls;

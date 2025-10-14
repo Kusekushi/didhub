@@ -12,9 +12,9 @@ import EntityDetail from '../../features/system/EntityDetail';
 import FamilyTree from '../../features/system/FamilyTree';
 import RedirectToSystem from '../../features/system/RedirectToSystem';
 import SubsystemEdit from '../../features/system/SubsystemEdit';
-import Systems from '../../features/system/Systems';
 import Licenses from '../../shared/pages/Licenses';
 import Home from '../../shared/pages/Home';
+import SystemList from './SystemList';
 
 export interface AppRoutesProps {
   user: any;
@@ -50,7 +50,11 @@ export default function AppRoutes(props: AppRoutesProps) {
       />
       <Route
         path="/systems"
-        element={props.user ? <Systems /> : <Navigate to="/login" state={{ from: location }} replace />}
+        element={props.user ? <SystemList
+          title="Systems"
+          primary={(system) => `${system.username ?? ''} (${system.user_id ?? ''})`}
+        // secondary={(system) => system.display_name ?? ''}
+        /> : <Navigate to="/login" state={{ from: location }} replace />}
       />
       <Route
         path="/did-system/:uid"

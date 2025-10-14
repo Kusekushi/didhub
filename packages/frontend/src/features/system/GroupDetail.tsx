@@ -20,13 +20,14 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-import {
-  apiClient,
-  type ApiAlter,
-  type Group,
-  type GroupMembersResponse,
-  type ApiUploadResp,
-} from '@didhub/api-client';
+// Avoid importing runtime types from the generated client during the migration.
+import type { ApiAlter } from '../../types/ui';
+type ApiGroupOut = any;
+type ApiMembersOut = any;
+type ApiUploadResp = any;
+import { getGroupById, updateGroup, getMembers } from '../../services/groupService';
+import { getAlterById as serviceGetAlterById } from '../../services/alterService';
+import { uploadFile } from '../../services/fileService';
 
 import logger from '../../shared/lib/logger';
 import { useAuth } from '../../shared/contexts/AuthContext';
@@ -34,13 +35,12 @@ import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUt
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { usePdf } from '../../shared/hooks/usePdf';
 
-type LeaderOption = Partial<ApiAlter> & { id: string; name?: string | null };
+type LeaderOption = { id: string; name?: string | null } & Partial<Record<string, any>>;
 
 // ...existing code...
 async function getAlterById(id: string | number): Promise<ApiAlter | null> {
   try {
-    const response = await apiClient.alter.get_alters_by_id(id);
-    return (response.data as ApiAlter) ?? null;
+    return await serviceGetAlterById(id as any);
   } catch (error) {
     logger.warn('failed to fetch alter', id, error);
     return null;
@@ -51,7 +51,7 @@ function normalizeStringId(value: unknown): string | undefined {
   return normalizeEntityId(value) ?? undefined;
 }
 
-function extractLeaderIds(group: Group | null): string[] {
+function extractLeaderIds(group: ApiGroupOut | null): string[] {
   if (!group) return [];
   const leaders = (group as { leaders?: unknown }).leaders;
   if (!leaders) return [];
@@ -81,7 +81,7 @@ function extractLeaderIds(group: Group | null): string[] {
   return [];
 }
 
-function extractOwnerId(group: Group | null): string | undefined {
+function extractOwnerId(group: ApiGroupOut | null): string | undefined {
   if (!group) return undefined;
   const candidate = (group as unknown as { owner_user_id?: unknown }).owner_user_id;
   if (typeof candidate === 'string') {
@@ -153,7 +153,7 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
   const params = useParams() as { id?: string };
   const id = props.groupId ?? params.id;
   const nav = useNavigate();
-  const [group, setGroup] = useState<Group | null>(null);
+  const [group, setGroup] = useState<ApiGroupOut | null>(null);
   const [members, setMembers] = useState<ApiAlter[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -184,11 +184,10 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
   }, [invalidIdsQueue]);
 
   const fetchMemberAlters = useCallback(
-    async (groupId: EntityId, ensureAlterIds: string[] = []): Promise<ApiAlter[]> => {
-      try {
-        const membersResp = await apiClient.group.get_groups_by_id_members(groupId);
-        const response: GroupMembersResponse =
-          (membersResp.data as GroupMembersResponse) ?? ({} as GroupMembersResponse);
+  async (groupId: EntityId, ensureAlterIds: string[] = []): Promise<ApiAlter[]> => {
+    try {
+      const membersResp: any = await getMembers(groupId);
+      const response: any = membersResp ?? { alters: [] };
         const collectedIds = new Set<string>();
         if (Array.isArray(response.alters)) {
           response.alters.forEach((value) => {
@@ -217,8 +216,7 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
       if (!id) return;
       setLoading(true);
       try {
-        const groupResp = await apiClient.group.get_groups_by_id(id);
-        const groupData = (groupResp.data as Group) ?? null;
+  const groupData = (await getGroupById(id)) as ApiGroupOut | null;
         if (!mounted) return;
         if (!groupData || groupData.id == null) {
           setGroup(null);
@@ -344,9 +342,8 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
         leaders: leaderIdsPayload,
         sigil: editSigilUrl || null,
       };
-      await apiClient.group.put_groups_by_id(group.id, payload as any);
-      const updatedResp = await apiClient.group.get_groups_by_id(group.id);
-      const updated = (updatedResp.data as Group) ?? null;
+  await updateGroup(group.id, payload as any);
+  const updated = (await getGroupById(group.id)) as ApiGroupOut | null;
       setGroup(updated);
       setEditing(false);
     } catch (err) {
@@ -390,9 +387,7 @@ export default function GroupDetail(props: GroupDetailProps = {}) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await apiClient.files.post_upload(formData);
-      const data = response.data as ApiUploadResp | undefined;
-      const remote = data?.filename ? `/uploads/${data.filename}` : undefined;
+    const remote = await uploadFile(file).catch(() => undefined);
       if (remote) setEditSigilUrl(remote);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err));

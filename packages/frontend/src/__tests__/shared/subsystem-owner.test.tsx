@@ -20,24 +20,14 @@ vi.mock('../../shared/contexts/AuthContext', () => ({
 }));
 
 const { createSubsystemMock, listSubsystemsMock } = vi.hoisted(() => ({
-  createSubsystemMock: vi.fn(async (payload: any) => ({ data: { id: 321, ...payload } })),
-  listSubsystemsMock: vi.fn(async () => ({ data: { items: [], total: 0 } })),
+  createSubsystemMock: vi.fn(async (payload: any) => ({ id: 321, ...payload })),
+  listSubsystemsMock: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('@didhub/api-client', async () => {
-  const actual = await vi.importActual<any>('@didhub/api-client');
-  return {
-    ...actual,
-    apiClient: {
-      ...actual.apiClient,
-      subsystem: {
-        ...actual.apiClient.subsystem,
-        post_subsystems: createSubsystemMock,
-        get_subsystems: listSubsystemsMock,
-      },
-    },
-  };
-});
+vi.mock('../../services/subsystemService', async () => ({
+  createSubsystem: createSubsystemMock,
+  listSubsystems: listSubsystemsMock,
+} as any));
 
 import SubsystemsTab from '../../features/system/SubsystemsTab';
 

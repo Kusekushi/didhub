@@ -19,7 +19,9 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { ApiAlter, apiClient, ApiSystemDetail } from '@didhub/api-client';
+import type { ApiAlter, ApiSystemDetail } from '../../types/ui';
+import { listAlters } from '../../services/alterService';
+import { getSubsystemById } from '../../services/subsystemService';
 
 import ThumbnailWithHover from '../../components/ui/ThumbnailWithHover';
 import {
@@ -56,14 +58,14 @@ export default function Birthdays() {
     async function load() {
       setLoading(true);
       try {
-        const res = (await apiClient.alter.get_alters({ perPage: 1000 })).data;
-        const list = (res.items || []) as unknown as ApiAlter[];
+  const res: any = (await listAlters({ limit: 1000 })) ?? { items: [] };
+  const list = (res.items || []) as ApiAlter[];
         const ownerIds = Array.from(new Set(list.map((a) => a?.owner_user_id).filter(Boolean)));
-        const owners = new Map<string, ApiSystemDetail>();
+        const owners = new Map<string, any>();
         await Promise.all(
           ownerIds.map(async (id) => {
             try {
-              const owner = (await apiClient.subsystem.get_systems_by_id(id as string)).data;
+              const owner = await getSubsystemById(id as string);
               if (owner) owners.set(id as string, owner);
             } catch (e) {
               // ignore missing owners
@@ -79,7 +81,7 @@ export default function Birthdays() {
           if (!parsed) continue;
           nextEntries.push({
             alter,
-            owner: alter.owner_user_id ? (owners.get(alter.owner_user_id) ?? null) : null,
+            owner: alter.owner_user_id ? (owners.get(String(alter.owner_user_id)) ?? null) : null,
             month: parsed.getMonth(),
             day: parsed.getDate(),
             label: alter.name || '(no name)',

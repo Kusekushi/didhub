@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 
 type PdfType = 'alter' | 'group' | 'subsystem';
 
@@ -19,23 +19,24 @@ export function usePdf(): UsePdfResult {
 
   const handlePdfDownload = async (id: string, type: PdfType = 'alter') => {
     try {
-      let response: Response;
+      let response: any;
 
       switch (type) {
         case 'group':
-          response = await apiClient.report.get_pdf_group_by_id(id);
+          response = await adminService.getPdfGroupById(id);
           break;
         case 'subsystem':
-          response = await apiClient.report.get_pdf_subsystem_by_id(id);
+          response = await adminService.getPdfSubsystemById(id);
           break;
         case 'alter':
         default:
-          response = await apiClient.report.get_pdf_alter_by_id(id);
+          response = await adminService.getPdfAlterById(id);
           break;
       }
 
-      if (!response.ok) {
-        setPdfError(`Failed (${response.status})`);
+      // Adapter returns a Response-like object; be defensive
+      if (!response || (typeof (response.ok) !== 'undefined' && !response.ok)) {
+        setPdfError(`Failed`);
         setPdfSnackOpen(true);
         return;
       }

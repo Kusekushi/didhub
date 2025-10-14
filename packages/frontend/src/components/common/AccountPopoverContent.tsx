@@ -21,7 +21,7 @@ export default function AccountPopoverContent() {
         </Avatar>
         <Stack>
           <Typography variant="body2" fontWeight="medium">
-            {(user as any)?.username || (user as any)?.name}
+            {user?.username || user?.name}
           </Typography>
         </Stack>
       </Stack>

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { apiClient, type Group, type Subsystem } from '@didhub/api-client';
+import { getGroupById, listGroups } from '../../services/groupService';
+import { getSubsystemById, listSubsystems } from '../../services/subsystemService';
 
 /**
  * Hook to resolve a group by ID or name
  */
 export function useGroupResolution(groupIdOrName: string | number | null | undefined) {
-  const [group, setGroup] = useState<Group | null>(null);
+  // Adapter returns the API shape; keep local typing loose to avoid coupling to generated client types
+  const [group, setGroup] = useState<any | null>(null);
 
   useEffect(() => {
     if (groupIdOrName == null) {
@@ -20,8 +22,8 @@ export function useGroupResolution(groupIdOrName: string | number | null | undef
           const id = groupIdOrName.trim().replace(/^#/u, '');
           if (id) {
             try {
-              const groupData = await apiClient.group.get_groups_by_id(id as any);
-              setGroup(groupData.data);
+              const groupData = await getGroupById(id as any);
+              setGroup(groupData ?? null);
               return;
             } catch {
               // fall through to name lookup
@@ -31,10 +33,8 @@ export function useGroupResolution(groupIdOrName: string | number | null | undef
 
         // Name-based lookup
         const name = String(groupIdOrName);
-        const groups = await apiClient.group.get_groups({ query: name, includeMembers: true });
-        const found = groups.data.items.find(
-          (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
-        );
+        const groups: any = (await listGroups({ q: name })) ?? { items: [] };
+        const found = (groups.items || []).find((it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase());
         setGroup(found || null);
       } catch (e) {
         setGroup(null);
@@ -51,7 +51,7 @@ export function useGroupResolution(groupIdOrName: string | number | null | undef
  * Hook to resolve a subsystem by ID or name
  */
 export function useSubsystemResolution(subsystemIdOrName: string | number | null | undefined) {
-  const [subsystem, setSubsystem] = useState<Subsystem | null>(null);
+  const [subsystem, setSubsystem] = useState<any | null>(null);
 
   useEffect(() => {
     if (subsystemIdOrName == null) {
@@ -66,8 +66,8 @@ export function useSubsystemResolution(subsystemIdOrName: string | number | null
           const id = subsystemIdOrName.trim().replace(/^#/u, '');
           if (id) {
             try {
-              const subsystemData = await apiClient.subsystem.get_subsystems_by_id(id as any);
-              setSubsystem(subsystemData.data);
+              const subsystemData = await getSubsystemById(id as any);
+              setSubsystem(subsystemData ?? null);
               return;
             } catch {
               // fall through to name lookup
@@ -77,10 +77,8 @@ export function useSubsystemResolution(subsystemIdOrName: string | number | null
 
         // Name-based lookup
         const name = String(subsystemIdOrName);
-        const subsystems = await apiClient.subsystem.get_subsystems({ query: name, includeMembers: true });
-        const found = subsystems.data.items.find(
-          (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
-        );
+        const subsystems: any = (await listSubsystems({ q: name })) ?? { items: [] };
+        const found = (subsystems.items || []).find((it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase());
         setSubsystem(found || null);
       } catch (e) {
         setSubsystem(null);

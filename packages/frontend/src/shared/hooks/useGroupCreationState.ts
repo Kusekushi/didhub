@@ -1,5 +1,6 @@
-import { type Alter } from '@didhub/api-client';
 import { useEntityCreationState } from './useEntityCreationState';
+
+type Alter = any;
 
 /**
  * Hook to manage group creation state

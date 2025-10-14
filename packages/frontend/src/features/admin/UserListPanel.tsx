@@ -18,12 +18,22 @@ import {
 } from '@mui/material';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import InputPromptDialog from '../../components/forms/InputPromptDialog';
-import { apiClient, type User } from '@didhub/api-client';
-import moment from 'moment';
+import {
+  listUsers,
+  updateUser,
+  resetUserPassword,
+  disableUser,
+  createUser,
+} from '../../services/adminService';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+
+dayjs.extend(utc);
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
+import { ApiUser } from 'types/ui';
 
 export default function UserListPanel() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<ApiUser[]>([]);
   const [localMsg, setLocalMsg] = useState<{ open: boolean; text: string; severity: AlertColor }>({
     open: false,
     text: '',
@@ -58,8 +68,8 @@ export default function UserListPanel() {
   async function load() {
     setLoading(true);
     try {
-      const r = await apiClient.admin.get_users({ q, page: 1, per_page: 200 });
-      setUsers(r.items ?? []);
+      const r: any = await listUsers({ q, page: 1, per_page: 200 });
+      setUsers(r?.items ?? []);
     } catch (e) {
       setUsers([]);
     } finally {
@@ -110,7 +120,7 @@ export default function UserListPanel() {
                   size="small"
                   variant="contained"
                   onClick={async () => {
-                    await apiClient.admin.put_users_by_id(u.id, { is_system: !u.is_system });
+                    await updateUser(u.id, { is_system: !u.is_system });
                     await load();
                   }}
                 >
@@ -121,7 +131,7 @@ export default function UserListPanel() {
                   variant={u.is_admin ? 'contained' : 'outlined'}
                   color={u.is_admin ? 'secondary' : 'primary'}
                   onClick={async () => {
-                    await apiClient.admin.put_users_by_id(u.id, { is_admin: !u.is_admin });
+                    await updateUser(u.id, { is_admin: !u.is_admin });
                     await load();
                   }}
                 >
@@ -133,7 +143,7 @@ export default function UserListPanel() {
             <Avatar src={u.avatar ? `/uploads/${u.avatar}` : ''} sx={{ mr: 2 }} />
             <ListItemText
               primary={u.username}
-              secondary={`Created: ${u.created_at ? moment(u.created_at).format('MMM D, YYYY') : 'Unknown'} — System: ${u.is_system ? 'yes' : 'no'} — Admin: ${u.is_admin ? 'yes' : 'no'} — Approved: ${u.is_approved ? 'yes' : 'no'}`}
+              secondary={`Created: ${u.created_at ? dayjs.utc(u.created_at).format('MMM D, YYYY') : 'Unknown'} — System: ${u.is_system ? 'yes' : 'no'} — Admin: ${u.is_admin ? 'yes' : 'no'} — Approved: ${u.is_approved ? 'yes' : 'no'}`}
             />
           </ListItem>
         ))}
@@ -144,11 +154,11 @@ export default function UserListPanel() {
         label="New password"
         defaultValue=""
         onCancel={() => setPwPromptLocal({ open: false, userId: null })}
-        onSubmit={async (value) => {
+            onSubmit={async (value) => {
           try {
             if (!pwPromptLocal.userId) return;
-            const res = await apiClient.admin.resetUserPassword(pwPromptLocal.userId, value ?? '');
-            if (res.success) {
+            const res = await resetUserPassword(pwPromptLocal.userId, value ?? '');
+            if (res?.success) {
               setLocalMsg({ open: true, text: res.message ?? 'Password reset', severity: 'success' });
             } else {
               setLocalMsg({ open: true, text: res.message ?? 'Failed to reset password', severity: 'error' });
@@ -164,8 +174,8 @@ export default function UserListPanel() {
         open={disableConfirm.open}
         label="this user"
         onClose={() => setDisableConfirm({ open: false, userId: null })}
-        onConfirm={async () => {
-          if (disableConfirm.userId) await apiClient.admin.disableUser(disableConfirm.userId);
+          onConfirm={async () => {
+          if (disableConfirm.userId) await disableUser(disableConfirm.userId);
           setDisableConfirm({ open: false, userId: null });
           await load();
         }}
@@ -233,27 +243,27 @@ export default function UserListPanel() {
           </Button>
           <Button
             variant="contained"
-            onClick={async () => {
-              if (!validateCreateForm()) {
-                return;
-              }
-              try {
-                await apiClient.admin.post_users(createForm);
-                setCreateDialog({ open: false });
-                setCreateForm({
-                  username: '',
-                  password: '',
-                  is_admin: false,
-                  is_system: false,
-                  is_approved: true,
-                });
-                setCreateFormErrors({});
-                await load();
-                setLocalMsg({ open: true, text: 'User created successfully', severity: 'success' });
-              } catch (e) {
-                setLocalMsg({ open: true, text: String(e || 'Failed to create user'), severity: 'error' });
-              }
-            }}
+              onClick={async () => {
+                if (!validateCreateForm()) {
+                  return;
+                }
+                try {
+                  await createUser(createForm);
+                  setCreateDialog({ open: false });
+                  setCreateForm({
+                    username: '',
+                    password: '',
+                    is_admin: false,
+                    is_system: false,
+                    is_approved: true,
+                  });
+                  setCreateFormErrors({});
+                  await load();
+                  setLocalMsg({ open: true, text: 'User created successfully', severity: 'success' });
+                } catch (e) {
+                  setLocalMsg({ open: true, text: String(e || 'Failed to create user'), severity: 'error' });
+                }
+              }}
           >
             Create
           </Button>

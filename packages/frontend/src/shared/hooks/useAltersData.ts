@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiClient, type ApiAlter } from '@didhub/api-client';
+import { listAlters } from '../../services/alterService';
 import logger from '../lib/logger';
 
 /**
@@ -12,7 +12,7 @@ export function useAltersData(
   page: number = 0,
   pageSize: number = 20,
 ) {
-  const [items, setItems] = useState<ApiAlter[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
 
@@ -29,16 +29,16 @@ export function useAltersData(
     const load = async () => {
       try {
         setLoading(true);
-        const pageResult = await apiClient.alter.get_alters({
+        const pageResult: any = (await listAlters({
           userId: uid,
           query: search,
           includeRelationships: true,
           perPage: pageSize,
           offset,
-        });
+        })) ?? { items: [], total: 0 };
         if (cancelled) return;
-        const payload = pageResult.data;
-        const items = Array.isArray(payload?.items) ? (payload.items as unknown as ApiAlter[]) : [];
+        const payload = pageResult;
+  const items = Array.isArray(payload?.items) ? (payload.items as any[]) : [];
         setItems(items);
         setTotal(payload?.total ?? 0);
       } catch (e) {
@@ -63,15 +63,15 @@ export function useAltersData(
     if (!uid || activeTab !== 0) return;
     try {
       const offset = Math.max(0, page) * Math.max(1, pageSize);
-      const pageResult = await apiClient.alter.get_alters({
+      const pageResult: any = (await listAlters({
         userId: uid,
         query: search,
         includeRelationships: true,
         perPage: pageSize,
         offset,
-      });
-      const payload = pageResult.data;
-      const items = Array.isArray(payload?.items) ? (payload.items as unknown as ApiAlter[]) : [];
+      })) ?? { items: [], total: 0 };
+      const payload = pageResult;
+      const items = Array.isArray(payload?.items) ? (payload.items as any[]) : [];
       setItems(items);
       setTotal(payload?.total ?? 0);
     } catch (e) {

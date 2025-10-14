@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { apiClient, type Alter } from '@didhub/api-client';
+import { updateAlter } from '../../services/alterService';
+
+// lightweight alter type to avoid importing runtime generator at runtime
+type Alter = { id: string | number; name?: string } | null;
 
 interface UseRenameResult {
   /** Whether the rename operation is currently active */
@@ -68,9 +71,9 @@ export function useRename(alter: Alter | null, onRenamed?: (updatedAlter: Alter)
 
     try {
       setRenameError(null);
-      const updated = await apiClient.alter.put_alters_by_id(alter.id as string | number, { name: newName });
+      const updated = await updateAlter(alter.id as string | number, { name: newName });
       if (updated && onRenamed) {
-        onRenamed(updated.data);
+        onRenamed(updated as any);
       }
       setRenaming(false);
     } catch (e) {

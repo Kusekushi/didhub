@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, List, ListItem, ListItemText, Button, Stack } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 
 export default function PendingTab() {
@@ -15,8 +15,8 @@ export default function PendingTab() {
   async function loadPendingRegistrations() {
     setLoadingPending(true);
     try {
-      const pageResult = await apiClient.admin.get_users({ page: 1, perPage: 100, is_approved: false });
-      const items = pageResult.items ?? [];
+      const pageResult = await adminService.listUsers({ page: 1, perPage: 100, is_approved: false });
+      const items = (pageResult && (pageResult as any).items) ?? [];
       setPendingRegs(items);
     } catch {
       setPendingRegs([]);
@@ -26,15 +26,13 @@ export default function PendingTab() {
   }
 
   const handleApprove = async (user: { id: number; username: string }) => {
-    try {
-      await apiClient.admin.put_users_by_id(user.id, { is_approved: true });
+      try {
+      await adminService.updateUser(user.id, { is_approved: true });
       setSnack({ open: true, message: `Approved ${user.username}`, severity: 'success' });
       loadPendingRegistrations();
       // Refresh system requests
       try {
-        const sr = await apiClient.admin.get_system_requests();
-        // Note: This would need to be handled by parent or a global state
-        // For now, we'll just refresh pending registrations
+        await adminService.getSystemRequests();
       } catch (e) {
         // ignore
       }
@@ -44,8 +42,8 @@ export default function PendingTab() {
   };
 
   const handleReject = async (user: { id: number; username: string }) => {
-    try {
-      await apiClient.admin.put_users_by_id(user.id, { is_approved: false });
+      try {
+      await adminService.updateUser(user.id, { is_approved: false });
       setSnack({ open: true, message: `Rejected ${user.username}`, severity: 'info' });
       loadPendingRegistrations();
     } catch (e) {

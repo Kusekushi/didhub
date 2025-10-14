@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Grid, Typography } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import { deleteAlterImage } from '../../services/alterService';
 
 const G: any = Grid;
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -54,17 +54,17 @@ export default function Detail(props: DetailProps = {}): React.ReactElement {
 
   return (
     <Container sx={{ mt: 4 }}>
-      <DetailHeader alter={alter} user={user ?? null} onAlterUpdate={refetch} onBack={() => nav(-1)} />
+  <DetailHeader alter={alter as any} user={user ?? null} onAlterUpdate={refetch} onBack={() => nav(-1)} />
 
       <G container spacing={2} sx={{ mt: 2 }}>
         <G item xs={12} md={6}>
-          <BasicInfoSection alter={alter} />
+          <BasicInfoSection alter={alter as any} />
         </G>
         <G item xs={12} md={6}>
-          <WorkAffiliationsSection alter={alter} />
+          <WorkAffiliationsSection alter={alter as any} />
         </G>
         <G item xs={12}>
-          <ListsSection alter={alter} />
+          <ListsSection alter={alter as any} />
         </G>
         <G item xs={12}>
           <NotesSection alter={alter} />
@@ -72,7 +72,7 @@ export default function Detail(props: DetailProps = {}): React.ReactElement {
       </G>
 
       <ImagesGallery
-        alter={alter}
+        alter={alter as any}
         onRemoveImage={(url, alterId) => setRemoveImageDialog({ open: true, url, id: alterId })}
       />
 
@@ -88,11 +88,7 @@ export default function Detail(props: DetailProps = {}): React.ReactElement {
         onConfirm={async () => {
           try {
             if (removeImageDialog.id == null) return;
-            await apiClient.http.request({
-              path: `/api/alters/${removeImageDialog.id}/image`,
-              method: 'DELETE',
-              json: { url: removeImageDialog.url },
-            });
+            await deleteAlterImage(removeImageDialog.id, removeImageDialog.url as string);
             await refetch();
           } catch (e) {
             logger.warn('delete image error', e);

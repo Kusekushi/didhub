@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
-import { apiClient, type Group } from '@didhub/api-client';
 import { EntityFetchFilters, useEntityData } from './useEntityData';
-
-const { group } = apiClient;
+import * as groupService from '../../services/groupService';
 
 /**
  * Hook to manage groups data for a system
@@ -16,9 +14,9 @@ export function useGroupsData(
 ) {
   const fetchGroups = useCallback(
     ({ owner_user_id, query, includeMembers, limit, offset }: EntityFetchFilters) =>
-      group.get_groups({ owner_user_id, query, includeMembers, limit, offset }),
-    [group],
+      groupService.listGroups({ owner_user_id, query, includeMembers, limit, offset }),
+    [],
   );
 
-  return useEntityData<Group>(1, fetchGroups, uid, search, activeTab, page, pageSize);
+  return useEntityData<any>(1, fetchGroups, uid, search, activeTab, page, pageSize);
 }

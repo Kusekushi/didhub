@@ -24,11 +24,12 @@ import {
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import type { AlertColor } from '@mui/material';
-import { apiClient, type UpdateStatus, type UpdateResult } from '@didhub/api-client';
+import { checkUpdates, runUpdate } from '../../services/adminService';
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
+import { ApiUpdateStatus } from '@didhub/api-client';
 
 export default function SystemUpdates() {
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<ApiUpdateStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(false);
@@ -39,11 +40,11 @@ export default function SystemUpdates() {
     severity: 'info',
   });
 
-  const checkUpdates = async () => {
+  const _checkUpdates = async () => {
     setLoading(true);
     try {
-      const status = await apiClient.admin.get_admin_update_check();
-      setUpdateStatus(status);
+      const status = await checkUpdates();
+      setUpdateStatus(status as any);
       setLastChecked(new Date());
 
       if (status.available) {
@@ -67,14 +68,14 @@ export default function SystemUpdates() {
     setConfirmDialog(false);
     setUpdating(true);
     try {
-      const result: UpdateResult = await apiClient.admin.post_admin_update();
+      const result: any = await runUpdate();
 
-      if (result.success) {
-        setSnack({ open: true, text: `Update successful: ${result.message}`, severity: 'success' });
+      if ((result as any)?.success) {
+        setSnack({ open: true, text: `Update successful: ${(result as any).message}`, severity: 'success' });
         // Refresh update status after successful update
-        await checkUpdates();
+        await _checkUpdates();
       } else {
-        setSnack({ open: true, text: `Update failed: ${result.message}`, severity: 'error' });
+        setSnack({ open: true, text: `Update failed: ${(result as any).message}`, severity: 'error' });
       }
     } catch (error) {
       console.error('Failed to perform update:', error);
@@ -86,7 +87,7 @@ export default function SystemUpdates() {
 
   // Check for updates on component mount
   useEffect(() => {
-    checkUpdates();
+    _checkUpdates();
   }, []);
 
   const getStatusColor = () => {
@@ -200,7 +201,7 @@ export default function SystemUpdates() {
             <Button
               variant="outlined"
               startIcon={loading ? <CircularProgress size={16} /> : <SystemUpdateIcon />}
-              onClick={checkUpdates}
+              onClick={_checkUpdates}
               disabled={loading || updating}
             >
               Check for Updates

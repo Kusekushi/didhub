@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button, Avatar, Typography, TextField, type AlertColor } from '@mui/material';
-import { SystemRequest, apiClient } from '@didhub/api-client';
+import * as userService from '../../services/userService';
+
+import type { SystemRequest } from '../../types/ui';
 
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 import ThemeEditor from '../../features/settings/ThemeEditor';
@@ -30,25 +32,26 @@ export default function UserSettings() {
     setLoading(true);
     const body = new FormData();
     body.append('file', file);
-    const res = await apiClient.users.post_me_avatar(body);
+    const res = await userService.postMeAvatar(body);
     setLoading(false);
-    if (res.ok) {
+    // adapter returns the generated-client response object (or null)
+    if (res && (res as any).ok) {
       await refetchUser();
       setMsg({ open: true, text: 'Avatar updated', severity: 'success' });
     } else {
-      const data = res.data as any;
+      const data = (res && (res as any).data) as any;
       setMsg({ open: true, text: data?.message ?? data?.error ?? 'Avatar upload failed', severity: 'error' });
     }
   }
 
   async function doDelete() {
     setLoading(true);
-    const res = await apiClient.users.delete_me_avatar();
+    const res = await userService.deleteMeAvatar();
     setLoading(false);
-    if (res.ok) {
+    if (res && (res as any).ok) {
       await refetchUser();
     } else {
-      const data = res.data as any;
+      const data = (res && (res as any).data) as any;
       setMsg({ open: true, text: data?.message ?? data?.error ?? 'Avatar delete failed', severity: 'error' });
     }
   }
@@ -94,8 +97,8 @@ export default function UserSettings() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await apiClient.users.get_me_request_system();
-        setMyRequest(r.data ?? null);
+        const r = await userService.getMeRequestSystem();
+        setMyRequest(r ?? null);
       } catch (e) {
         setMyRequest(null);
       }
@@ -166,15 +169,21 @@ export default function UserSettings() {
             onClick={async () => {
               setLoading(true);
               try {
-                const res = await apiClient.users.post_me_request_system({});
-                if (res.ok && res.data && typeof (res.data as any).id !== 'undefined') {
-                  await refetchUser();
-                  setMyRequest(res.data as SystemRequest);
-                  setPwMsg({ open: true, text: 'System request submitted', severity: 'success' });
-                } else {
-                  const data = res.data as any;
-                  setPwMsg({ open: true, text: data?.message ?? data?.error ?? 'Request failed', severity: 'error' });
+                setLoading(true);
+                try {
+                  const res = await userService.postMeRequestSystem({});
+                  if (res && (res as any).ok && (res as any).data && typeof ((res as any).data as any).id !== 'undefined') {
+                    await refetchUser();
+                    setMyRequest((res as any).data as SystemRequest);
+                    setPwMsg({ open: true, text: 'System request submitted', severity: 'success' });
+                  } else {
+                    const data = (res && (res as any).data) as any;
+                    setPwMsg({ open: true, text: data?.message ?? data?.error ?? 'Request failed', severity: 'error' });
+                  }
+                } catch (e) {
+                  setPwMsg({ open: true, text: String(e || 'request failed'), severity: 'error' });
                 }
+                setLoading(false);
               } catch (e) {
                 setPwMsg({ open: true, text: String(e || 'request failed'), severity: 'error' });
               }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ImageList, ImageListItem, Button } from '@mui/material';
-import type { ApiAlter } from '@didhub/api-client';
+import type { ApiAlter } from '../../types/ui';
 import { useAuth } from '../../shared/contexts/AuthContext';
 
 export interface ImagesGalleryProps {
@@ -23,7 +23,7 @@ export default function ImagesGallery(props: ImagesGalleryProps) {
           {user && (user.id === props.alter.owner_user_id || user.is_admin) ? (
             <Button
               size="small"
-              onClick={() => props.onRemoveImage(u, props.alter.id)}
+              onClick={() => props.onRemoveImage(u, String(props.alter.id))}
               sx={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}
             >
               Remove

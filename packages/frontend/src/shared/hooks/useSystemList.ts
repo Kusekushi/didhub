@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { apiClient, ApiSystemSummary } from '@didhub/api-client';
+import { listSubsystems } from '../../services/subsystemService';
 
 /**
  * Hook for managing system list data and search
  */
 export function useSystemList() {
-  const [systems, setSystems] = useState<ApiSystemSummary[]>([]);
+  const [systems, setSystems] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -13,9 +13,9 @@ export function useSystemList() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiClient.subsystem.get_systems();
-        const payload = res.data;
-        const items = Array.isArray(payload?.items) ? (payload.items as unknown as ApiSystemSummary[]) : [];
+  const res = await listSubsystems({});
+        const payload = res ?? null;
+        const items = Array.isArray(payload?.items) ? payload.items : [];
         setSystems(items);
       } catch (e) {
         setSystems([]);

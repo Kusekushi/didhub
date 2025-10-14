@@ -1,7 +1,8 @@
 import React from 'react';
 import { ListItem, ListItemText, ListItemAvatar, Divider } from '@mui/material';
 
-import type { Group } from '@didhub/api-client';
+// Local lightweight type to avoid importing generated runtime types during migration.
+type Group = any;
 import GroupAvatar from './GroupAvatar';
 import GroupActions from './GroupActions';
 

@@ -6,13 +6,9 @@ const { systemsMock } = vi.hoisted(() => ({
   systemsMock: vi.fn(),
 }));
 
-vi.mock('@didhub/api-client', () => ({
-  apiClient: {
-    subsystem: {
-      get_systems: systemsMock,
-    },
-  },
-}));
+vi.mock('../../../services/subsystemService', async () => ({
+  listSubsystems: systemsMock,
+} as any));
 
 describe('useSystemList', () => {
   beforeEach(() => {
@@ -33,7 +29,7 @@ describe('useSystemList', () => {
       { user_id: 1, username: 'user1' },
       { user_id: 2, username: 'user2' },
     ];
-    systemsMock.mockResolvedValue({ data: { items: mockSystems, total: mockSystems.length } });
+    systemsMock.mockResolvedValue({ items: mockSystems, total: mockSystems.length });
 
     const { result } = renderHook(() => useSystemList());
 
@@ -55,7 +51,7 @@ describe('useSystemList', () => {
   });
 
   it('should handle null response from systems API', async () => {
-    systemsMock.mockResolvedValue({ data: null });
+    systemsMock.mockResolvedValue(null);
 
     const { result } = renderHook(() => useSystemList());
 
@@ -70,7 +66,7 @@ describe('useSystemList', () => {
       { user_id: 2, username: 'bob' },
       { user_id: 3, username: 'charlie' },
     ];
-    systemsMock.mockResolvedValue({ data: { items: mockSystems, total: mockSystems.length } });
+    systemsMock.mockResolvedValue({ items: mockSystems, total: mockSystems.length });
 
     const { result } = renderHook(() => useSystemList());
 
@@ -100,7 +96,7 @@ describe('useSystemList', () => {
       { user_id: 456, username: 'bob' },
       { user_id: 789, username: 'charlie' },
     ];
-    systemsMock.mockResolvedValue({ data: { items: mockSystems, total: mockSystems.length } });
+    systemsMock.mockResolvedValue({ items: mockSystems, total: mockSystems.length });
 
     const { result } = renderHook(() => useSystemList());
 
@@ -126,7 +122,7 @@ describe('useSystemList', () => {
       { user_id: 2, username: 'BOB' },
       { user_id: 3, username: 'Charlie' },
     ];
-    systemsMock.mockResolvedValue({ data: { items: mockSystems, total: mockSystems.length } });
+    systemsMock.mockResolvedValue({ items: mockSystems, total: mockSystems.length });
 
     const { result } = renderHook(() => useSystemList());
 
@@ -151,7 +147,7 @@ describe('useSystemList', () => {
       { user_id: 1, username: 'alice' },
       { user_id: 2, username: 'bob' },
     ];
-    systemsMock.mockResolvedValue({ data: { items: mockSystems, total: mockSystems.length } });
+  systemsMock.mockResolvedValue({ items: mockSystems, total: mockSystems.length });
 
     const { result } = renderHook(() => useSystemList());
 
@@ -188,7 +184,7 @@ describe('useSystemList', () => {
       { user_id: 1, username: 'alice' },
       { user_id: 2, username: 'bob' },
     ];
-    systemsMock.mockResolvedValue({ data: { items: mockSystems, total: mockSystems.length } });
+  systemsMock.mockResolvedValue({ items: mockSystems, total: mockSystems.length });
 
     const { result } = renderHook(() => useSystemList());
 
@@ -228,7 +224,7 @@ describe('useSystemList', () => {
       { user_id: 1, username: 'alice' },
       { user_id: 2, username: 'bob' },
     ];
-    systemsMock.mockResolvedValue({ data: { items: mockSystems, total: mockSystems.length } });
+  systemsMock.mockResolvedValue({ items: mockSystems, total: mockSystems.length });
 
     const { result } = renderHook(() => useSystemList());
 
@@ -272,7 +268,7 @@ describe('useSystemList', () => {
       { username: 'bob' }, // missing user_id
       {}, // missing both
     ];
-    systemsMock.mockResolvedValue({ data: { items: mockSystems, total: mockSystems.length } });
+  systemsMock.mockResolvedValue({ items: mockSystems, total: mockSystems.length });
 
     const { result } = renderHook(() => useSystemList());
 

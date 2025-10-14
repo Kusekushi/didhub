@@ -12,7 +12,7 @@ import {
   TableRow,
   Box,
 } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 
 export interface AuditLogEntry {
   id: string;
@@ -48,7 +48,7 @@ export default function AuditLogPanel(props: AuditLogPanelProps) {
     setLoading(true);
     try {
       const parsedUserId = filters.user_id ? parseInt(filters.user_id, 10) : undefined;
-      const r = await apiClient.admins.audit({
+      const r = await adminService.getAudit({
         action: filters.action || undefined,
         user_id: parsedUserId,
         from: filters.from || undefined,
@@ -56,8 +56,9 @@ export default function AuditLogPanel(props: AuditLogPanelProps) {
         limit: 500,
         offset: 0,
       });
-      const normalized: AuditLogEntry[] = Array.isArray(r)
-        ? r.map((item: any, idx: number) => ({
+      const items = (r && (r.data ?? r)) ?? [];
+      const normalized: AuditLogEntry[] = Array.isArray(items)
+        ? items.map((item: any, idx: number) => ({
             id: String(item.id ?? `entry-${idx}`),
             created_at: String(item.created_at ?? ''),
             action: String(item.action ?? ''),

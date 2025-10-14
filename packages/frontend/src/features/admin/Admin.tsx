@@ -33,7 +33,7 @@ import RedisTab from './RedisTab';
 import SettingsTab from './SettingsTab';
 import SystemRequestsTab from './SystemRequestsTab';
 import SystemUpdates from './SystemUpdates';
-import UsersTab from './UsersTab';
+import UserListPanel from './UserListPanel';
 
 export default function Admin() {
   const [tab, setTab] = useState(0);
@@ -59,7 +59,7 @@ export default function Admin() {
       key: 'users',
       label: 'Users',
       icon: <UsersIcon />,
-      render: () => <UsersTab />,
+      render: () => <UserListPanel />,
     },
     {
       key: 'pending',

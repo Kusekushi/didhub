@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Paper, TextField, Stack, Button, FormControlLabel, Switch } from '@mui/material';
-import { apiClient, SETTINGS as SETTINGS_KEYS } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
+
+// Minimal key constants used by this component to avoid runtime dependency on generated client
+const SETTINGS_KEYS = {
+  DISCORD_WEBHOOK_URL: 'discord.webhook_url',
+  DISCORD_DIGEST_ENABLED: 'discord.digest.enabled',
+  EMAIL_ENABLED: 'email.enabled',
+};
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 
 export default function SettingsTab() {
@@ -15,15 +22,11 @@ export default function SettingsTab() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const s = await apiClient.admin.get_settings();
+        const s = await adminService.getSettings();
         if (s) {
           setWebhook(String(s[SETTINGS_KEYS.DISCORD_WEBHOOK_URL] || ''));
-          setUploadDirTtlSecs(
-            s['uploads.upload_dir_cache.ttl_secs'] ? String(s['uploads.upload_dir_cache.ttl_secs']) : '3600',
-          );
-          setDiscordDigestEnabled(
-            s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED] === '1' || s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED] === true,
-          );
+          setUploadDirTtlSecs(s['uploads.upload_dir_cache.ttl_secs'] ? String(s['uploads.upload_dir_cache.ttl_secs']) : '3600');
+          setDiscordDigestEnabled(s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED] === '1' || s[SETTINGS_KEYS.DISCORD_DIGEST_ENABLED] === true);
           setEmailEnabled(s[SETTINGS_KEYS.EMAIL_ENABLED] === '1' || s[SETTINGS_KEYS.EMAIL_ENABLED] === true);
           setAutoUpdateEnabled(s['auto_update_enabled'] === '1' || s['auto_update_enabled'] === true);
         }
@@ -37,11 +40,11 @@ export default function SettingsTab() {
 
   const handleReloadUploadDir = async () => {
     try {
-      setStatus('Reloading upload dir...');
-      const r = await apiClient.admin.post_admin_reload_upload_dir();
-      const msg = r && r.dir ? `Reloaded upload dir: ${r.dir}` : 'Reloaded upload dir';
-      setStatus(msg);
-      setSnack({ open: true, message: msg, severity: 'success' });
+  setStatus('Reloading upload dir...');
+  const r = await adminService.postAdminReloadUploadDir();
+  const msg = r && r.dir ? `Reloaded upload dir: ${r.dir}` : 'Reloaded upload dir';
+  setStatus(msg);
+  setSnack({ open: true, message: msg, severity: 'success' });
     } catch (e) {
       setStatus('Reload failed');
       setSnack({ open: true, message: 'Reload failed', severity: 'error' });
@@ -53,7 +56,7 @@ export default function SettingsTab() {
   const handleSave = async () => {
     try {
       setStatus('Saving...');
-      await apiClient.admin.put_settings({
+      await adminService.putSettings({
         [SETTINGS_KEYS.DISCORD_WEBHOOK_URL]: webhook || null,
         [SETTINGS_KEYS.DISCORD_DIGEST_ENABLED]: discordDigestEnabled ? '1' : '0',
         [SETTINGS_KEYS.EMAIL_ENABLED]: emailEnabled ? '1' : '0',

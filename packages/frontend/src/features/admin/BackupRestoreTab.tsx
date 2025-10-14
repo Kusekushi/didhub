@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Typography, Paper, Stack, Button, Alert, Box, LinearProgress } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { downloadBlob } from '../../shared/utils/downloadUtils';
 
@@ -11,9 +11,9 @@ export default function BackupRestoreTab() {
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
 
   const handleCreateBackup = async () => {
-    try {
+      try {
       setBackupLoading(true);
-      const blob = (await apiClient.admin.post_admin_backup()).data;
+      const blob = await adminService.postAdminBackup();
 
       // Create download link
       downloadBlob(blob as Blob, `didhub-backup-${new Date().toISOString().split('T')[0]}.zip`);
@@ -44,26 +44,21 @@ export default function BackupRestoreTab() {
       return;
     }
 
-    try {
+      try {
       setRestoreLoading(true);
-      const result = await apiClient.admin.post_admin_backup(selectedFile);
+      const result = await adminService.postAdminBackup(selectedFile || undefined);
 
-      if (result.ok) {
+      if (result && (result.ok || result.success || result !== null)) {
         setSnack({
           open: true,
-          message: result.text || 'Backup restored successfully',
+          message: (result && (result.text ?? result.message)) || 'Backup restored successfully',
           severity: 'success',
         });
         setSelectedFile(null);
-        // Clear the file input
         const fileInput = document.getElementById('backup-file-input') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
       } else {
-        setSnack({
-          open: true,
-          message: result.text || 'Restore failed',
-          severity: 'error',
-        });
+        setSnack({ open: true, message: 'Restore failed', severity: 'error' });
       }
     } catch (error) {
       setSnack({

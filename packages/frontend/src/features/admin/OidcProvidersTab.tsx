@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Paper, Stack, TextField, Button, FormControlLabel, Switch } from '@mui/material';
-import { apiClient, type OidcProviderAdminView } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
+// Local lightweight type for admin view
+type OidcProviderAdminView = any;
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 
 function OidcSecretForm({
@@ -78,7 +80,7 @@ export default function OidcProvidersTab() {
             onChange={async (e) => {
               const v = e.target.value;
               setSelectedOidcProvider(v);
-              const info = await apiClient.oidc.getSecret(v);
+              const info = await adminService.getOidcSecret(v);
               setProviderAdminView(info);
             }}
             size="small"
@@ -90,14 +92,7 @@ export default function OidcProvidersTab() {
               </option>
             ))}
           </TextField>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={async () => {
-              const info = await apiClient.oidc.getSecret(selectedOidcProvider);
-              setProviderAdminView(info);
-            }}
-          >
+          <Button variant="outlined" size="small" onClick={async () => setProviderAdminView(await adminService.getOidcSecret(selectedOidcProvider))}>
             Load
           </Button>
         </Stack>
@@ -105,10 +100,10 @@ export default function OidcProvidersTab() {
           <OidcSecretForm
             view={providerAdminView}
             disabled={updatingProvider}
-            onSave={async (cid, secret, enabled) => {
+                onSave={async (cid, secret, enabled) => {
               try {
                 setUpdatingProvider(true);
-                const updated = await apiClient.oidc.updateSecret(selectedOidcProvider, {
+                const updated = await adminService.updateOidcSecret(selectedOidcProvider, {
                   client_id: cid || undefined,
                   client_secret: secret || undefined,
                   enabled,

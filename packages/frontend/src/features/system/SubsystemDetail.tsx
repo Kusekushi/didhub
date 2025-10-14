@@ -19,16 +19,31 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/PersonAddAlt1';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import {
-  Subsystem,
-  type ApiUser,
-  AlterName,
-  apiClient,
-  SubsystemMember,
-  parseRoles,
-  type ApiMembersOut,
-  type ApiAlter,
-} from '@didhub/api-client';
+// Prefer UI-facing shared types instead of importing generated-client types.
+import type { ApiUser, ApiAlter, ApiSystemDetail as ApiSubsystemOut } from '../../types/ui';
+type ApiRoutesAltersNamesItem = any;
+type ApiMembersOut = any;
+
+function parseRoles(raw: unknown): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter((r) => typeof r === 'string') as string[];
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter((r) => typeof r === 'string') as string[];
+      } catch {}
+    }
+    return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+import { getSubsystemById, listSubsystems, getMembers, toggleLeader, updateSubsystem, toggleLeaderRaw } from '../../services/subsystemService';
+import { searchAlters, listAlters, getAlterById } from '../../services/alterService';
+type Subsystem = ApiSubsystemOut;
+type AlterName = ApiRoutesAltersNamesItem;
 
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { usePdf } from '../../shared/hooks/usePdf';
@@ -48,7 +63,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
   const uid = props.systemUid ?? params.uid;
   const sid = props.subsystemId ?? params.sid;
   const nav = useNavigate();
-  const [subsystem, setSubsystem] = useState<Subsystem | null>(null);
+  const [subsystem, setSubsystem] = useState<ApiSubsystemOut | null>(null);
   const [members, setMembers] = useState<AlterMember[]>([]);
   const { user: me } = useAuth() as { user?: ApiUser };
   const [editing, setEditing] = useState(false);
@@ -68,7 +83,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
   // Member editing state
   const [memberBusy, setMemberBusy] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [alterOptions, setAlterOptions] = useState<AlterName[]>([]);
+  const [alterOptions, setAlterOptions] = useState<ApiRoutesAltersNamesItem[]>([]);
   const [alterSearch, setAlterSearch] = useState('');
   const [selectedAlter, setSelectedAlter] = useState<AlterName | null>(null);
   const [newMemberRole, setNewMemberRole] = useState('Member');
@@ -83,10 +98,9 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
           setMembers([]);
           return;
         }
-        // fetch subsystem first
-        const subsResp = await apiClient.subsystem.get_subsystems_by_id(sid);
-        const subsystemData = (subsResp.data as Subsystem) ?? null;
-        setSubsystem(subsystemData ?? null);
+    // fetch subsystem first
+    const subsystemData = (await getSubsystemById(sid)) as Subsystem | null;
+    setSubsystem(subsystemData ?? null);
         if (subsystemData) {
           setEditName(subsystemData.name ?? '');
           setEditDesc(subsystemData.description ?? '');
@@ -106,12 +120,12 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
       if (!addMemberOpen) return;
       setLoadingAlterNames(true);
       try {
-        const ownerId = subsystemOwnerId;
-        const nameParams: { q?: string; user_id?: EntityId } = {};
-        if (alterSearch) nameParams.q = alterSearch;
-        if (ownerId != null) nameParams.user_id = ownerId;
-        const response = await apiClient.alter.get_alters_names(nameParams);
-        const results = Array.isArray(response.data) ? (response.data as AlterName[]) : [];
+    const ownerId = subsystemOwnerId;
+    const nameParams: { q?: string; user_id?: EntityId } = {};
+    if (alterSearch) nameParams.q = alterSearch;
+    if (ownerId != null) nameParams.user_id = ownerId;
+    const response = (await searchAlters(nameParams)) ?? { items: [] };
+    const results = Array.isArray(response.items) ? (response.items as ApiRoutesAltersNamesItem[]) : [];
         if (!active) return;
         const filtered = results.filter((item): item is AlterName => Boolean(item && item.name));
         setAlterOptions(filtered);
@@ -136,8 +150,8 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
   async function refreshMembers() {
     if (!sid) return;
     try {
-      const membersResp = await apiClient.subsystem.get_subsystems_by_id_members(sid);
-      const membersData = (membersResp.data as ApiMembersOut | undefined) ?? { alters: [] };
+  const membersResp = (await getMembers(sid)) as ApiMembersOut | null;
+  const membersData = (membersResp as ApiMembersOut | undefined) ?? { alters: [] };
       const rawMembers = Array.isArray(membersData.alters) ? membersData.alters : [];
       const membershipRows = rawMembers.map((value) => ({
         alterId: normalizeEntityId(value) ?? undefined,
@@ -145,7 +159,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
         roles: [],
       }));
       const byId: Record<string, { alterId: string; roles: string[] }> = {};
-      membershipRows.forEach((row: SubsystemMember) => {
+      membershipRows.forEach((row: any) => {
         const alterId = row.alterId;
         if (!alterId) return;
         const roles = parseRoles(row.roles);
@@ -159,10 +173,8 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
           const u = normalizeEntityId(uid);
           if (u) listParams.user_id = u;
         }
-        const listResponse = await apiClient.alter.get_alters(listParams);
-        const alters = Array.isArray(listResponse.data?.items)
-          ? (listResponse.data?.items as unknown as ApiAlter[])
-          : [];
+  const listResponse: any = (await listAlters(listParams)) ?? { items: [] };
+  const alters = Array.isArray(listResponse.items) ? (listResponse.items as ApiAlter[]) : [];
         alters
           .filter((al) => normalizeEntityId(al.subsystem) === normalizeEntityId(sid))
           .forEach((al) => {
@@ -177,8 +189,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
       const detailed = await Promise.all(
         Object.values(byId).map(async ({ alterId, roles }) => {
           try {
-            const alterResponse = await apiClient.alter.get_alters_by_id(alterId);
-            const alter = (alterResponse.data as ApiAlter) ?? null;
+            const alter = (await getAlterById(alterId)) as ApiAlter | null;
             if (!alter) return null;
             return { ...alter, roles } as AlterMember;
           } catch {
@@ -199,10 +210,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
     try {
       const alterId = normalizeEntityId((selectedAlter as any).id);
       if (!alterId) throw new Error('Invalid alter id');
-      await apiClient.subsystem.post_subsystems_by_id_leaders_toggle(sid, {
-        alter_id: alterId,
-        add: true,
-      });
+  await toggleLeaderRaw(sid, { alter_id: alterId, add: true });
       // server side handles non-host roles via same endpoint (role param optional)
       await refreshMembers();
       setSelectedAlter(null);
@@ -220,10 +228,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
     setMemberBusy(true);
     try {
       for (const _roleName of roles) {
-        await apiClient.subsystem.post_subsystems_by_id_leaders_toggle(sid, {
-          alter_id: String(alterId),
-          add: false,
-        });
+  await toggleLeaderRaw(sid, { alter_id: String(alterId), add: false });
         // role param omitted; server will remove leader/role appropriately
       }
       await refreshMembers();
@@ -239,10 +244,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
     if (!sid) return;
     setMemberBusy(true);
     try {
-      await apiClient.subsystem.post_subsystems_by_id_leaders_toggle(sid, {
-        alter_id: String(alterId),
-        add,
-      });
+  await toggleLeaderRaw(sid, { alter_id: String(alterId), add });
       await refreshMembers();
     } catch {
       // ignore
@@ -336,12 +338,8 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
                 if (!subsystem || subsystem.id == null) return;
                 setSaving(true);
                 try {
-                  await apiClient.subsystem.put_subsystems_by_id(subsystem.id, {
-                    name: editName.trim(),
-                    description: editDesc || null,
-                  } as any);
-                  const updatedResp = await apiClient.subsystem.get_subsystems_by_id(subsystem.id);
-                  const updated = (updatedResp.data as Subsystem) ?? null;
+                  await updateSubsystem(subsystem.id, { name: editName.trim(), description: editDesc || null } as any);
+                  const updated = (await getSubsystemById(subsystem.id)) as Subsystem | null;
                   setSubsystem(updated ?? null);
                   setEditing(false);
                 } catch (e) {

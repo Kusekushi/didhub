@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { createFilterOptions, type AutocompleteRenderGetTagProps } from '@mui/material/Autocomplete';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { ApiAlter, apiClient } from '@didhub/api-client';
+import type { ApiAlter } from '../../types/ui';
 import {
   RelationshipOption,
   TagValue,
@@ -29,6 +29,9 @@ import RichEditor from '../common/RichEditor';
 import GroupPicker from '../common/GroupPicker';
 import SubsystemPicker from '../common/SubsystemPicker';
 import { StackItem } from '../common/StackItem';
+
+import { getAlterById } from '../../services/alterService';
+import { getRelationships } from '../../services/relationshipService';
 
 function debugLog(...args: unknown[]) {
   console.debug('[AlterForm]', ...args);
@@ -180,8 +183,8 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
             try {
               const normalizedId = normalizeEntityId(id);
               if (!normalizedId) return;
-              const resp = await apiClient.alter.get_alters_by_id(normalizedId);
-              const alter = (resp.data as ApiAlter) ?? null;
+              const alter = await getAlterById(normalizedId);
+              // alter is already the unwrapped object or null
               if (alter && alter.id != null) {
                 const key = normalizeEntityId(alter.id);
                 if (!key) return null;
@@ -222,8 +225,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
     if (thisId == null) return;
     (async () => {
       try {
-        const resp = await apiClient.alter.get_alters_by_id_relationships(thisId);
-        const rels = Array.isArray(resp.data) ? resp.data : [];
+  const rels = await getRelationships(String(thisId));
         const entries: Array<[string, string]> = [];
         for (const r of rels) {
           const aid = (r as any).alter_id ?? null;

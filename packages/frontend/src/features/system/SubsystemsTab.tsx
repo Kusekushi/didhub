@@ -16,7 +16,10 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, type ApiUser, type Subsystem } from '@didhub/api-client';
+// Avoid importing generator runtime types during sweep
+import type { ApiUser } from '../../types/ui';
+type Subsystem = any;
+import { createSubsystem, listSubsystems, getSubsystemById, deleteSubsystem } from '../../services/subsystemService';
 
 import { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { useSubsystemCreationState } from '../../shared/hooks/useSubsystemCreationState';
@@ -55,7 +58,7 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
 
   const handleDelete = async (subsystemId: string) => {
     try {
-      await apiClient.subsystem.delete_subsystems_by_id(subsystemId);
+      await deleteSubsystem(subsystemId);
       await subsystemsData.refresh();
       setSnack({ open: true, message: 'Subsystem deleted', severity: 'success' });
     } catch (error) {
@@ -64,8 +67,7 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
   };
 
   const handleCreateSubsystem = async (payload: Record<string, unknown>) => {
-    const response = await apiClient.subsystem.post_subsystems(payload as any);
-    return response.data;
+    return await createSubsystem(payload as any);
   };
 
   return (

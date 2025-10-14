@@ -13,7 +13,7 @@ import {
   TableRow,
   Alert,
 } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 
 export default function DatabaseTab() {
@@ -37,8 +37,8 @@ export default function DatabaseTab() {
 
     try {
       setLoading(true);
-      const response = await apiClient.admin.post_admin_db_query({ sql: sql.trim(), limit });
-      const data = response.data as {
+      const response = await adminService.postAdminDbQuery({ sql: sql.trim(), limit });
+      const data = response as {
         success: boolean;
         columns: string[];
         rows: Record<string, unknown>[];

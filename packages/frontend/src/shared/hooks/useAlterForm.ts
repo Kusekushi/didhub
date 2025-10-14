@@ -1,10 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import {
-  apiClient,
-  type ApiReplaceAlterRelationshipsPayload,
-  type ApiReplaceRelationshipsPayload,
-  type ApiUploadResp,
-} from '@didhub/api-client';
+import * as alterService from '../../services/alterService';
+import * as fileService from '../../services/fileService';
 import { useAuth } from '../contexts/AuthContext';
 import { getEffectiveOwnerId } from '../utils/owner';
 import {
@@ -76,53 +72,7 @@ const emptyAlter: AlterFormState = {
   is_merged: 0,
 };
 
-const alterApi = {
-  async get(id: string | number): Promise<AlterFormState | null> {
-    const response = await apiClient.alter.get_alters_by_id(id);
-    const data = response.data ?? null;
-    return data ? ({ ...data } as unknown as AlterFormState) : null;
-  },
-  async create(body: Record<string, unknown>): Promise<AlterFormState | null> {
-    const response = await apiClient.alter.post_alters(body as any);
-    const data = response.data ?? null;
-    return data ? ({ ...data } as unknown as AlterFormState) : null;
-  },
-  async update(id: string | number, body: Record<string, unknown>): Promise<void> {
-    await apiClient.alter.put_alters_by_id(id, body as any);
-  },
-  async replaceAlterRelationships(
-    id: EntityId,
-    relationships: { partners: string[]; parents: string[]; children: string[] },
-    affiliations: unknown,
-  ): Promise<void> {
-    const affiliationList = Array.isArray(affiliations)
-      ? affiliations
-      : typeof affiliations === 'string'
-        ? affiliations
-            .split(',')
-            .map((v) => v.trim())
-            .filter(Boolean)
-        : [];
-    const payload: ApiReplaceAlterRelationshipsPayload = {
-      partners: (relationships.partners ?? []).map((value) => (value ?? '').toString()),
-      parents: (relationships.parents ?? []).map((value) => (value ?? '').toString()),
-      children: (relationships.children ?? []).map((value) => (value ?? '').toString()),
-      affiliations: affiliationList.map((value) => (value ?? '').toString()),
-    };
-    await apiClient.alter.put_alters_by_id_alter_relationships(id, payload);
-  },
-  async replaceUserRelationships(
-    id: EntityId,
-    userRelationships: { partners: string[]; parents: string[]; children: string[] },
-  ): Promise<void> {
-    const payload: ApiReplaceRelationshipsPayload = {
-      partners: (userRelationships.partners ?? []).map((value) => (value ?? '').toString()),
-      parents: (userRelationships.parents ?? []).map((value) => (value ?? '').toString()),
-      children: (userRelationships.children ?? []).map((value) => (value ?? '').toString()),
-    };
-    await apiClient.alter.put_alters_by_id_user_relationships(id, payload);
-  },
-};
+// adaptors: prefer service layer
 
 function isRelationshipType(value: unknown): value is RelationshipType {
   return value === 'partner' || value === 'parent' || value === 'child';
@@ -154,10 +104,10 @@ export function useAlterForm(props: AlterFormDialogProps) {
     if (mode !== 'edit' || !id) return;
 
     try {
-      const alter = await alterApi.get(id);
+  const alter = await alterService.getAlterById(id as any);
       if (alter) {
-        const userRelationships = Array.isArray(alter.user_relationships)
-          ? (alter.user_relationships as Array<Record<string, unknown>>)
+        const userRelationships = Array.isArray((alter as any).user_relationships)
+          ? ((alter as any).user_relationships as Array<Record<string, unknown>>)
           : [];
 
         // Transform user_relationships into form fields
@@ -171,7 +121,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
           .filter((rel) => rel.relationship_type === 'child')
           .map((rel) => rel.user_id);
 
-        const affiliationIds = normalizeAffiliationIds(alter.affiliations) ?? [];
+  const affiliationIds = normalizeAffiliationIds((alter as any).affiliations) ?? [];
 
         setValues({
           ...alter,
@@ -235,17 +185,9 @@ export function useAlterForm(props: AlterFormDialogProps) {
       for (const file of files) {
         setProgressMap((prev) => ({ ...prev, [file.name]: 0 }));
 
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await apiClient.files.post_upload(formData);
-        const data = response.data as ApiUploadResp | undefined;
+        const url = await fileService.uploadFile(file);
         setProgressMap((prev) => ({ ...prev, [file.name]: 100 }));
-
-        if (data && data.filename) {
-          const normalizedUrl = `/uploads/${data.filename}`;
-          urls.push(normalizedUrl);
-        }
+        urls.push(url);
       }
 
       if (!urls.length) {
@@ -344,32 +286,25 @@ export function useAlterForm(props: AlterFormDialogProps) {
       }
 
       // Set owner for new alters (string IDs only)
-      const owner = getEffectiveOwnerId(
-        routeUid == null ? undefined : normalizeEntityId(routeUid),
-        auth.user?.id ?? null,
-      );
+      const owner = getEffectiveOwnerId(routeUid == null ? undefined : routeUid, auth.user?.id ?? null);
       if (typeof owner === 'string') {
         payload.owner_user_id = owner;
       }
 
-      const created = await alterApi.create(payload);
+  const created = await alterService.createAlter(payload as any);
 
       if (created?.id) {
-        const alterId = normalizeEntityId((created as any).id);
+  const alterId = normalizeEntityId((created as any).id);
         // Only set relationships when we have a normalized UUID id
         if (alterId) {
-          await alterApi.replaceAlterRelationships(
-            alterId,
-            {
-              partners: relationships.partners.map(String),
-              parents: relationships.parents.map(String),
-              children: relationships.children.map(String),
-            },
-            payload.affiliations,
-          );
+          await alterService.replaceAlterRelationships(alterId, {
+            partners: relationships.partners.map(String),
+            parents: relationships.parents.map(String),
+            children: relationships.children.map(String),
+          });
 
           try {
-            await alterApi.replaceUserRelationships(alterId, {
+            await alterService.replaceUserRelationships(alterId, {
               partners: userRelationships.partners.map(String),
               parents: userRelationships.parents.map(String),
               children: userRelationships.children.map(String),
@@ -418,19 +353,15 @@ export function useAlterForm(props: AlterFormDialogProps) {
         payload.images = [...existingImages, ...urls];
       }
 
-      await alterApi.update(id, payload);
-      await alterApi.replaceAlterRelationships(
-        id as string,
-        {
-          partners: relationships.partners.map(String),
-          parents: relationships.parents.map(String),
-          children: relationships.children.map(String),
-        },
-        payload.affiliations,
-      );
+      await alterService.updateAlter(id as any, payload as any);
+      await alterService.replaceAlterRelationships(id as any, {
+        partners: relationships.partners.map(String),
+        parents: relationships.parents.map(String),
+        children: relationships.children.map(String),
+      } as any);
 
       try {
-        await alterApi.replaceUserRelationships(id as string, {
+        await alterService.replaceUserRelationships(id as string, {
           partners: userRelationships.partners.map(String),
           parents: userRelationships.parents.map(String),
           children: userRelationships.children.map(String),
@@ -518,11 +449,7 @@ export function useAlterForm(props: AlterFormDialogProps) {
       if (mode !== 'edit' || !id) return;
 
       try {
-        await apiClient.http.request({
-          path: `/api/alters/${id}/image`,
-          method: 'DELETE',
-          json: { url },
-        });
+        await alterService.deleteAlterImage(id as any, url);
 
         setValues((prev) => {
           const existing = Array.isArray(prev.images) ? prev.images : prev.images ? [String(prev.images)] : [];

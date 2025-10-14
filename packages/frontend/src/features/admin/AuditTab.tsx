@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Typography, Stack, Button } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 import AuditLogPanel from './AuditLogPanel';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -20,8 +20,8 @@ export default function AuditTab() {
         <Button
           variant="contained"
           onClick={async () => {
-            const result = await apiClient.admin.exportAuditCsv();
-            if (result.ok && result.content) {
+            const result = await adminService.exportAuditCsv();
+            if (result && result.ok && result.content) {
               const txt = result.content;
               const blob = new Blob([txt], { type: 'text/csv' });
               downloadBlob(blob, 'admin_audit');
@@ -42,9 +42,9 @@ export default function AuditTab() {
         title="Clear audit logs"
         label="all admin audit logs"
         onClose={() => setConfirmClearAudit(false)}
-        onConfirm={async () => {
+            onConfirm={async () => {
           try {
-            const r = await apiClient.admin.clearAuditLogs();
+            const r = await adminService.clearAuditLogs();
             if (r && r.success) {
               setSnack({ open: true, message: r.message || 'Cleared audit logs', severity: 'success' });
               setAuditReloadCounter((c) => c + 1);

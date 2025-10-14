@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Typography, Tooltip, Box, IconButton } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import type { ApiAlter, ApiUser } from '@didhub/api-client';
+import type { ApiAlter, ApiUser } from '../../types/ui';
 import { useRename } from '../../shared/hooks/useRename';
 import { usePdf } from '../../shared/hooks/usePdf';
 
@@ -14,7 +14,7 @@ export interface DetailHeaderProps {
 
 export default function DetailHeader(props: DetailHeaderProps) {
   const { renaming, renameVal, renameError, startRename, cancelRename, saveRename, setRenameVal } = useRename(
-    props.alter,
+  { ...props.alter, id: String(props.alter.id) },
     props.onAlterUpdate,
   );
 

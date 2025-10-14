@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Box, Typography, Button, TextField } from '@mui/material';
 
-import { apiClient } from '@didhub/api-client';
+import { getSubsystemById, updateSubsystem } from '../../services/subsystemService';
 
 export default function SubsystemEdit() {
   const { sid } = useParams() as any;
@@ -11,8 +11,8 @@ export default function SubsystemEdit() {
   useEffect(() => {
     (async () => {
       try {
-        const response = await apiClient.subsystem.get_subsystems_by_id(sid);
-        setValues((response.data as any) || {});
+        const response = await getSubsystemById(sid);
+        setValues(response ?? {});
       } catch (e) {
         setValues({});
       }
@@ -48,7 +48,7 @@ export default function SubsystemEdit() {
           <Button
             variant="contained"
             onClick={async () => {
-              await apiClient.subsystem.put_subsystems_by_id(sid, values as any);
+              await updateSubsystem(sid, values as any);
               nav(-1);
             }}
           >

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper, Typography } from '@mui/material';
-import type { ApiAlter } from '@didhub/api-client';
+import type { ApiAlter } from '../../types/ui';
 import ReactMarkdown from 'react-markdown';
 import { normalizeToArray } from '../../shared/utils/detailUtils';
 

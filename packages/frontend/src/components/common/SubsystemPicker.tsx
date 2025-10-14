@@ -1,7 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
 
-import { apiClient, type Subsystem } from '@didhub/api-client';
+// Use a lightweight local type for Subsystem to avoid importing runtime types
+// from the generated client during this migration sweep.
+type Subsystem = {
+  id?: string | null;
+  name?: string | null;
+  [k: string]: any;
+};
+import { listSubsystems, createSubsystem, getSubsystemById } from '../../services/subsystemService';
 
 import InputPromptDialog from '../forms/InputPromptDialog';
 import { useAuth } from '../../shared/contexts/AuthContext';
@@ -28,8 +35,8 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-    const response = await apiClient.subsystem.get_subsystems({ query: q || '', limit: 25 });
-    const list = (response.data?.items ?? []) as unknown as Subsystem[];
+  const response: any = (await listSubsystems({ q: q || '', limit: 25 })) ?? { items: [] };
+    const list = (response.items ?? []) as Subsystem[];
     setOptions(list);
   }
 
@@ -96,8 +103,7 @@ export default function SubsystemPicker(props: SubsystemPickerProps) {
               );
               const payload: any = { name: createDialog.name, type };
               if (typeof owner === 'string') payload.owner_user_id = owner;
-              const response = await apiClient.subsystem.post_subsystems(payload);
-              const subsystem = response.data as Subsystem | undefined;
+              const subsystem = (await createSubsystem(payload)) as Subsystem | undefined;
               const createdId = normalizeEntityId(subsystem?.id) ?? undefined;
               if (subsystem && createdId != null) {
                 setOptions((prev) => [subsystem, ...prev]);

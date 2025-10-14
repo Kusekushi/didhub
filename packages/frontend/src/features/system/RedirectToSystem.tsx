@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '@didhub/api-client';
+import { getMe as getSession } from '../../services/authService';
 
 import { useAuth } from '../../shared/contexts/AuthContext';
 
@@ -19,9 +19,9 @@ export default function RedirectToSystem() {
           if (mounted) nav('/', { replace: true });
           return;
         }
-        const session = await apiClient.users.session();
+        const session = (await getSession()) as any;
         if (!mounted) return;
-        if (session.ok && session.user && session.user.is_system) {
+        if (session && session.user && session.user.is_system) {
           nav(`/did-system/${session.user.id}`, { replace: true });
           return;
         }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Paper, Stack, Button, TextField, FormControlLabel, Switch } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 
 export default function MetricsTab() {
   const [raw, setRaw] = useState('');
@@ -9,12 +9,11 @@ export default function MetricsTab() {
   const [auto, setAuto] = useState(false);
   useEffect(() => {
     let t: any;
-    if (auto) {
+      if (auto) {
       const run = async () => {
         try {
           setLoading(true);
-          const txt = (await apiClient.admin.get_metrics()).data;
-          setRaw(txt);
+          setRaw(await adminService.getMetrics() ?? `# fetch error: no data`);
         } catch (e) {
         } finally {
           setLoading(false);
@@ -30,8 +29,7 @@ export default function MetricsTab() {
   async function load() {
     try {
       setLoading(true);
-      const txt = (await apiClient.admin.get_metrics()).data;
-      setRaw(txt);
+      setRaw(await adminService.getMetrics() ?? `# fetch error: no data`);
     } catch (e) {
       setRaw(`# fetch error: ${String(e)}`);
     } finally {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiClient } from '@didhub/api-client';
+import * as alterService from '../../services/alterService';
 import { normalizeToArray } from '../../shared/utils/detailUtils';
 import { normalizeEntityId } from '../utils/alterFormUtils';
 
@@ -22,10 +22,11 @@ export function useAlterLinks(alter: any | null) {
   useEffect(() => {
     async function loadAlterNamesMap() {
       try {
-        const namesRes = await apiClient.alter.get_alters_names();
-        const map = new Map<string, string>();
-        const idMap = new Map<string, string>();
-        namesRes.data.forEach((it) => {
+  const namesRes = await alterService.searchAlters({ q: '' });
+  const map = new Map<string, string>();
+  const idMap = new Map<string, string>();
+  const items = Array.isArray(namesRes?.items) ? (namesRes.items as any[]) : [];
+        items.forEach((it) => {
           if (it && it.name) {
             const idVal = it.id !== undefined && it.id !== null ? normalizeEntityId(it.id) : undefined;
             map.set(String(it.name).toLowerCase(), idVal ?? String(it.name));
@@ -54,9 +55,10 @@ export function useAlterLinks(alter: any | null) {
       try {
         const map = alterNamesMap ?? new Map<string, string>();
         if (!alterNamesMap) {
-          try {
-            const namesRes = await apiClient.alter.get_alters_names();
-            namesRes.data.forEach((it) => {
+            try {
+            const namesRes = await alterService.searchAlters({ q: '' });
+            const items = Array.isArray(namesRes?.items) ? (namesRes.items as any[]) : [];
+            items.forEach((it) => {
               if (it && it.name) {
                 const nid = normalizeEntityId(it.id ?? it.name) ?? undefined;
                 map.set(String(it.name).toLowerCase(), nid ?? String(it.name));
@@ -77,8 +79,8 @@ export function useAlterLinks(alter: any | null) {
               links.push({ name: nameFromId, id: idKey });
               continue;
             }
-            try {
-              const fetched = idKey ? (await apiClient.alter.get_alters_by_id(idKey)).data : null;
+              try {
+                const fetched = idKey ? await alterService.getAlterById(idKey) : null;
               if (fetched && fetched.name) {
                 const newMap = new Map(alterIdToNameMap?.entries() || []);
                 if (idKey) newMap.set(idKey, fetched.name);
@@ -117,8 +119,9 @@ export function useAlterLinks(alter: any | null) {
           const map = alterNamesMap ?? new Map<string, string>();
           if (!alterNamesMap) {
             try {
-              const namesRes = await apiClient.alter.get_alters_names();
-              namesRes.data.forEach((it) => {
+              const namesRes = await alterService.searchAlters({ q: '' });
+              const items = Array.isArray(namesRes?.items) ? (namesRes.items as any[]) : [];
+              items.forEach((it) => {
                 if (it && it.name) {
                   const nid = normalizeEntityId(it.id ?? it.name) ?? undefined;
                   map.set(String(it.name).toLowerCase(), nid ?? String(it.name));
@@ -139,8 +142,8 @@ export function useAlterLinks(alter: any | null) {
                 links.push({ name: nameFromId, id: idKey });
                 continue;
               }
-              try {
-                const fetched = (await apiClient.alter.get_alters_by_id(idKey)).data;
+                try {
+                const fetched = await alterService.getAlterById(idKey);
                 if (fetched && fetched.name) {
                   const newMap = new Map(alterIdToNameMap?.entries() || []);
                   newMap.set(idKey, fetched.name);

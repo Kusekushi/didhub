@@ -14,7 +14,27 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
-import { apiClient, parseRoles, type ApiUser, type ApiAlter } from '@didhub/api-client';
+import type { ApiUser } from '../../types/ui';
+
+function parseRoles(raw: unknown): string[] {
+  if (!raw) return [];
+  try {
+    if (Array.isArray(raw)) return raw.map((r) => String(r));
+    if (typeof raw === 'string') {
+      const s = raw.trim();
+      if (!s) return [];
+      if (s.startsWith('[') && s.endsWith(']')) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.map((r) => String(r));
+      }
+      return s.split(',').map((p) => p.trim()).filter(Boolean);
+    }
+    return [String(raw)];
+  } catch (e) {
+    return [];
+  }
+}
+import { deleteAlter } from '../../services/alterService';
 import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUtils';
 
 import AlterFormDialog from '../../components/forms/AlterFormDialog';
@@ -56,7 +76,7 @@ export default function AltersTab({ routeUid }: AltersTabProps) {
 
   const handleDelete = async (alterId: string) => {
     try {
-      await apiClient.alter.delete_alters_by_id(alterId);
+      await deleteAlter(alterId);
       await altersData.refresh();
       setSnack({ open: true, message: 'Alter deleted', severity: 'success' });
     } catch (error) {
@@ -84,7 +104,7 @@ export default function AltersTab({ routeUid }: AltersTabProps) {
         </div>
       )}
       <List>
-        {filteredItems.map((it: ApiAlter, idx: number) => (
+  {filteredItems.map((it: any, idx: number) => (
           <React.Fragment key={it.id}>
             <ListItem
               alignItems="flex-start"

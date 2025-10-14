@@ -1,5 +1,4 @@
 export { default as DashboardTab } from './DashboardTab';
-export { default as UsersTab } from './UsersTab';
 export { default as UserListPanel } from './UserListPanel';
 export { default as PendingTab } from './PendingTab';
 export { default as SystemRequestsTab } from './SystemRequestsTab';

@@ -10,15 +10,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
-import type { Alter, Group } from '@didhub/api-client';
+// Avoid importing runtime types from generated client during this migration sweep
+import type { AlterModel as Alter } from '../../types/ui';
+type Group = any;
+import { createGroup, updateGroup } from '../../services/groupService';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
-const groupApi = {
-  create: async (payload: Record<string, unknown>) => (await apiClient.group.post_groups(payload)).data,
-  update: async (id: string, payload: Record<string, unknown>) =>
-    (await apiClient.group.put_groups_by_id(id, payload)).data,
-};
+// Use adapter services instead of calling the generated client directly
 import SigilUpload from '../../components/forms/SigilUpload';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { getEffectiveOwnerId } from '../../shared/utils/owner';
@@ -332,10 +330,10 @@ export default function GroupDialog(props: GroupDialogProps) {
           leaders: mapLeadersToIds(creationState.newGroupLeaders || []),
         };
         if (owner) payload.owner_user_id = String(owner);
-        // Debug: log final payload being sent to API
-        // eslint-disable-next-line no-console
-        console.debug('[GroupDialog] create payload', payload);
-        await groupApi.create(payload);
+  // Debug: log final payload being sent to API
+  // eslint-disable-next-line no-console
+  console.debug('[GroupDialog] create payload', payload);
+  await createGroup(payload as any);
 
         // Allow parent refresh handler to complete before closing so callers (and tests) can rely on updated data
         try {
@@ -369,9 +367,9 @@ export default function GroupDialog(props: GroupDialogProps) {
       return;
     }
 
-    try {
+      try {
       const leadersPayload = mapLeadersToIds(leaderValue);
-      await groupApi.update(group.id!, {
+      await updateGroup(group.id!, {
         name: group.name,
         description: group.description,
         sigil: getSigilUrlFromGroup(group),

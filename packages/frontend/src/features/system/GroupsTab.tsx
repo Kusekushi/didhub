@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Button, List, Pagination, Typography } from '@mui/material';
-import { apiClient, type ApiUser, type Group } from '@didhub/api-client';
+
+import type { ApiUser } from '../../types/ui';
+import { deleteGroup } from '../../services/groupService';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
 import GroupDialog from './GroupDialog';
@@ -24,7 +26,7 @@ export default function GroupsTab({ uid }: GroupsTabProps) {
   const groupsData = useGroupsData(uid, '', 1, 0, 20);
 
   // Dialog state management
-  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [editingGroup, setEditingGroup] = useState<any | null>(null);
   const [editGroupOpen, setEditGroupOpen] = useState(false);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
@@ -40,7 +42,7 @@ export default function GroupsTab({ uid }: GroupsTabProps) {
 
   const handleDelete = async (groupId: string) => {
     try {
-      await apiClient.group.delete_groups_by_id(groupId);
+      await deleteGroup(groupId);
       await groupsData.refresh();
       setSnack({ open: true, message: 'Group deleted', severity: 'success' });
     } catch (error) {
@@ -67,7 +69,7 @@ export default function GroupsTab({ uid }: GroupsTabProps) {
       )}
 
       <List>
-        {groupsData.items.map((g: Group, idx: number) => (
+  {groupsData.items.map((g: any, idx: number) => (
           <GroupListItem
             key={g.id}
             group={g}

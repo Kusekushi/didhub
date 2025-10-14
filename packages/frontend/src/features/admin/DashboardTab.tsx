@@ -21,7 +21,9 @@ import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
-import { apiClient, type ApiAuditLogResponse, type ApiSystemRequestAdminResponse } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
+type ApiAuditLogResponse = any;
+type ApiSystemRequestAdminResponse = any;
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 
 type SystemRequest = ApiSystemRequestAdminResponse;
@@ -73,41 +75,36 @@ export default function DashboardTab() {
       setLoading(true);
 
       // Load user statistics
-      const [allUsersRes, approvedUsersRes, pendingUsersRes] = await Promise.all([
-        apiClient.admin.get_users({ perPage: 1 }), // Just get total
-        apiClient.admin.get_users({ perPage: 1, is_approved: true }),
-        apiClient.admin.get_users({ perPage: 1, is_approved: false }),
+      const [allUsersRes, approvedUsersRes, pendingUsersRes, systemsRes] = await Promise.all([
+        adminService.getUsersCount({ perPage: 1 }),
+        adminService.getUsersCount({ perPage: 1, is_approved: true }),
+        adminService.getUsersCount({ perPage: 1, is_approved: false }),
+        adminService.getUsersCount({ perPage: 1, is_system: true }),
       ]);
 
-      // Load system statistics (systems are users with is_system=true)
-      const systems = (await apiClient.admin.get_users({ perPage: 1, is_system: true })).data;
+      const requestsResp = await adminService.getSystemRequests();
+      const requests = (requestsResp && (requestsResp.data ?? requestsResp)) ?? [];
+      const recentReqs = Array.isArray(requests) ? requests.slice(-5) : [];
 
-      // Load pending system requests
-      const requests = (await apiClient.admin.get_system_requests()).data;
+      const auditResp = await adminService.getAudit({ perPage: 10 });
+      const audit = (auditResp && (auditResp.data ?? auditResp)) ?? [];
 
-      // Load recent system requests (last 5)
-      const recentReqs = requests.slice(-5);
-
-      // Load recent audit logs
-      const audit = (await apiClient.admin.get_audit({ perPage: 10 })).data;
-
-      // Load system health
-      const redisStatus = (await apiClient.admin.get_admin_redis()).data;
+      const redisStatus = await adminService.getAdminRedis();
 
       setStats({
-        totalUsers: allUsersRes.data.meta?.total ?? 0,
-        approvedUsers: approvedUsersRes.data.meta?.total ?? 0,
-        pendingUsers: pendingUsersRes.data.meta?.total ?? 0,
-        totalSystems: systems.meta?.total ?? 0,
-        totalUploads: 0, // TODO: Add uploads API
-        pendingRequests: requests.filter((r: any) => r.status === 'pending').length,
+        totalUsers: (allUsersRes && (allUsersRes.meta?.total ?? allUsersRes.data?.meta?.total)) ?? 0,
+        approvedUsers: (approvedUsersRes && (approvedUsersRes.meta?.total ?? approvedUsersRes.data?.meta?.total)) ?? 0,
+        pendingUsers: (pendingUsersRes && (pendingUsersRes.meta?.total ?? pendingUsersRes.data?.meta?.total)) ?? 0,
+        totalSystems: (systemsRes && (systemsRes.meta?.total ?? systemsRes.data?.meta?.total)) ?? 0,
+        totalUploads: 0,
+        pendingRequests: Array.isArray(requests) ? requests.filter((r: any) => r.status === 'pending').length : 0,
       });
 
       setRecentRequests(recentReqs);
       setRecentAudit(audit ?? []);
       setSystemHealth({
         redis: redisStatus,
-        database: true, // Assume DB is ok if we got this far
+        database: true,
       });
     } catch (error) {
       console.error('Failed to load dashboard data:', error);

@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
 
-import { apiClient, Group } from '@didhub/api-client';
+import { listGroups, createGroup } from '../../services/groupService';
 
 import InputPromptDialog from '../forms/InputPromptDialog';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { getEffectiveOwnerId } from '../../shared/utils/owner';
 import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUtils';
+import { ApiGroupOut } from '@didhub/api-client';
 
-type Option = Group | { name: string };
+type Option = ApiGroupOut | { name: string };
 
 export interface GroupPickerProps {
   value?: string | string[] | { id?: string; name?: string } | null;
@@ -19,7 +20,7 @@ export interface GroupPickerProps {
 
 export default function GroupPicker(props: GroupPickerProps) {
   const multiple = props.multiple ?? false;
-  const [options, setOptions] = useState<Group[]>([]);
+  const [options, setOptions] = useState<ApiGroupOut[]>([]);
   const [inputValue, setInputValue] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [createDialog, setCreateDialog] = useState({ open: false, name: '' });
@@ -30,9 +31,9 @@ export default function GroupPicker(props: GroupPickerProps) {
   }, []);
 
   async function fetchOptions(q: string) {
-    const response = await apiClient.group.get_groups({ q: q || null });
-    const items = (response.data?.items ?? []) as unknown as Group[];
-    setOptions(items);
+  const response: any = (await listGroups({ q: q || null })) ?? { items: [] };
+  const items = (response.items ?? []) as ApiGroupOut[];
+  setOptions(items);
   }
 
   useEffect(() => {
@@ -130,7 +131,7 @@ export default function GroupPicker(props: GroupPickerProps) {
               // Debug: log payload prior to API call
               // eslint-disable-next-line no-console
               console.debug('[GroupPicker] inline create payload', payload);
-              const group = (await apiClient.group.post_groups(payload)).data;
+              const group = (await createGroup(payload)) as ApiGroupOut | undefined;
               const createdId = normalizeEntityId(group?.id) ?? undefined;
               if (group && createdId != null) {
                 setOptions((prev) => [group, ...prev]);

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { apiClient, SETTINGS as SETTINGS_KEYS } from '@didhub/api-client';
+import { getSettings, SETTINGS as SETTINGS_KEYS } from '../../services/settingsService';
 
 export interface SettingsState {
   loaded: boolean;
@@ -39,10 +39,10 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
         return;
       }
       try {
-        const res = await apiClient.admin.get_settings();
+        const res = await getSettings();
         if (!mounted) return;
 
-        const rawData = res.data as unknown;
+        const rawData = res as unknown;
         const asArray = Array.isArray(rawData) ? (rawData as Array<Record<string, unknown>>) : [];
         const rawObject: Record<string, unknown> = {};
 

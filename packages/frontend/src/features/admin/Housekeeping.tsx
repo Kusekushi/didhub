@@ -1,3 +1,4 @@
+import * as adminService from '../../services/adminService';
 import React, { useEffect, useState } from 'react';
 import {
   Paper,
@@ -11,9 +12,18 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material';
-import { apiClient, type HousekeepingJob } from '@didhub/api-client';
+// Local lightweight types (avoid runtime dependency on generated client types)
+type HousekeepingJob = { name: string; description?: string; last_run?: string };
 
-type HousekeepingRunRecord = Awaited<ReturnType<typeof apiClient.admin.listHousekeepingRuns>>['runs'][number];
+type HousekeepingRunRecord = {
+  id: string;
+  job_name: string;
+  status: string;
+  started_at: string;
+  finished_at?: string | null;
+  rows_affected?: number | null;
+  message?: string | null;
+};
 
 export default function Housekeeping() {
   const [jobs, setJobs] = useState<HousekeepingJob[]>([]);
@@ -27,8 +37,9 @@ export default function Housekeeping() {
   async function load() {
     setLoading(true);
     try {
-      const jobsResult = await apiClient.admin.get_housekeeping_jobs();
-      setJobs(jobsResult.jobs);
+      const jobsResult = await adminService.getHousekeepingJobs();
+      const jobItems = (jobsResult && jobsResult.jobs) ?? [];
+      setJobs(jobItems as HousekeepingJob[]);
 
       // Initialize dry run state for each job
       const initialDryRun: Record<string, boolean> = {};
@@ -37,8 +48,9 @@ export default function Housekeeping() {
       });
       setDryRun(initialDryRun);
 
-      const runsResult = await apiClient.admin.get_housekeeping_runs(1, 50);
-      setRuns(runsResult.runs);
+      const runsResult = await adminService.getHousekeepingRuns(1, 50);
+      const runItems = (runsResult && runsResult.runs) ?? [];
+      setRuns(runItems as HousekeepingRunRecord[]);
     } catch (e) {
       console.error('Failed to load housekeeping data:', e);
       setJobs([]);
@@ -54,16 +66,16 @@ export default function Housekeeping() {
 
   async function onRun(name: string, opts?: { dry?: boolean }) {
     try {
-      const res = await apiClient.admin.post_housekeeping_trigger_by_name(name, { dry: opts?.dry });
+      const res = await adminService.postHousekeepingTriggerByName(name, { dry: opts?.dry });
       await load();
       // if dry run returned candidates and dry=true, open confirm dialog
       const candidates =
         res && typeof res === 'object'
           ? ((
-              (res as Record<string, unknown>).metadata as
-                | { result?: { result?: { candidates?: unknown[] } } }
-                | undefined
-            )?.result?.result?.candidates ?? null)
+            (res as Record<string, unknown>).metadata as
+            | { result?: { result?: { candidates?: unknown[] } } }
+            | undefined
+          )?.result?.result?.candidates ?? null)
           : null;
       if (opts && opts.dry && Array.isArray(candidates)) {
         setConfirmJob(name);
@@ -80,7 +92,7 @@ export default function Housekeeping() {
   async function confirmExecute() {
     if (!confirmJob) return;
     try {
-      await apiClient.admin.post_housekeeping_trigger_by_name(confirmJob, { dry: false });
+      await adminService.postHousekeepingTriggerByName(confirmJob, { dry: false });
     } catch (e) {
       // ignore
     } finally {
@@ -190,7 +202,7 @@ export default function Housekeeping() {
           onClick={async () => {
             try {
               setLoading(true);
-              await apiClient.admin.clearHousekeepingRuns();
+              await adminService.clearHousekeepingRuns();
             } catch (e) {
               // ignore
             } finally {

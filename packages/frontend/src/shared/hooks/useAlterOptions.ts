@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { apiClient, type ApiRoutesAltersNamesItem } from '@didhub/api-client';
 import RequestCache from './utils/requestCache';
+import { searchAlters } from '../../services/alterService';
+
+type ApiRoutesAltersNamesItem = any;
 
 // shared cache instance used by the hook
 const altersRequestCache = new RequestCache(5_000);
@@ -21,13 +23,8 @@ export function useAlterOptions(uid?: string, leaderQuery: string = '', enabled 
         const key = `${uid}:${q}`;
 
         const options = await altersRequestCache.fetch<ApiRoutesAltersNamesItem[]>(key, async () => {
-          const response = await apiClient.alter.get_alters_search({
-            userId: uid,
-            query: q,
-            includeRelationships: true,
-          });
-          const payload = response.data;
-          return Array.isArray(payload?.items) ? (payload.items as unknown as ApiRoutesAltersNamesItem[]) : [];
+          const response = await searchAlters({ userId: uid, query: q, includeRelationships: true } as any);
+          return Array.isArray(response?.items) ? (response.items as ApiRoutesAltersNamesItem[]) : [];
         });
 
         if (!mounted) return;

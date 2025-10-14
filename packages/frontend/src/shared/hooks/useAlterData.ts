@@ -1,43 +1,42 @@
 import { useEffect, useState } from 'react';
-import { apiClient, type Alter, type Group, type Subsystem } from '@didhub/api-client';
+import * as alterService from '../../services/alterService';
+import * as groupService from '../../services/groupService';
+import * as subsystemService from '../../services/subsystemService';
 import { normalizeEntityId } from '../utils/alterFormUtils';
 
-type AlterDetails = Alter & {
-  // entity IDs are UUID strings only (no numeric ids)
+type AlterDetails = any & {
+  // optional helper fields used by the frontend
   group?: string | null;
   affiliations?: unknown;
+  subsystem?: unknown;
 };
 
-type GroupMap = Record<string, Group>;
+type GroupMap = Record<string, any>;
 
-type GroupIdMap = Record<string, Group>;
+type GroupIdMap = Record<string, any>;
 
 function coerceStringId(value: unknown): string | null {
   // Accept strings or objects with `id` and normalize to UUID-like id strings
   return normalizeEntityId(value);
 }
 
-function coerceGroupArray(value: unknown): Group[] {
+function coerceGroupArray(value: unknown): any[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((candidate): candidate is Group =>
-    Boolean(candidate && typeof (candidate as Group).name === 'string'),
-  );
+  return value.filter((candidate): candidate is any => Boolean(candidate && typeof (candidate as any).name === 'string'));
 }
 
-function coerceSubsystemArray(value: unknown): Subsystem[] {
+function coerceSubsystemArray(value: unknown): any[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((candidate): candidate is Subsystem =>
-    Boolean(candidate && typeof (candidate as Subsystem).name === 'string'),
-  );
+  return value.filter((candidate): candidate is any => Boolean(candidate && typeof (candidate as any).name === 'string'));
 }
 
 export function useAlterData(id?: string) {
   const [alter, setAlter] = useState<AlterDetails | null>(null);
-  const [groupObj, setGroupObj] = useState<Group | null>(null);
-  const [affiliationGroup, setAffiliationGroup] = useState<Group | null>(null);
+  const [groupObj, setGroupObj] = useState<any | null>(null);
+  const [affiliationGroup, setAffiliationGroup] = useState<any | null>(null);
   const [affiliationGroupsMap, setAffiliationGroupsMap] = useState<GroupMap>({});
   const [affiliationIdMap, setAffiliationIdMap] = useState<GroupIdMap>({});
-  const [subsystemObj, setSubsystemObj] = useState<Subsystem | null>(null);
+  const [subsystemObj, setSubsystemObj] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,8 +60,7 @@ export function useAlterData(id?: string) {
       setLoading(true);
       setError(null);
 
-      const response = await apiClient.alter.get_alters_by_id(targetId);
-      const alterData = (response.data ?? null) as AlterDetails | null;
+  const alterData = (await alterService.getAlterById(targetId as any)) as AlterDetails | null;
       setAlter(alterData);
 
       if (!alterData) {
@@ -78,8 +76,8 @@ export function useAlterData(id?: string) {
       const normalizedGroupId = normalizeEntityId(groupId);
       if (normalizedGroupId) {
         try {
-          const groupRes = await apiClient.group.get_groups_by_id(normalizedGroupId);
-          setGroupObj(groupRes.data ?? null);
+          const group = await groupService.getGroupById(normalizedGroupId as any);
+          setGroupObj(group ?? null);
         } catch {
           setGroupObj(null);
         }
@@ -117,13 +115,13 @@ export function useAlterData(id?: string) {
       const entries = Array.isArray(affiliationData) ? affiliationData : [affiliationData];
       const groupsByName: GroupMap = {};
       const groupsById: GroupIdMap = {};
-      let cachedGroupList: Group[] | null = null;
+  let cachedGroupList: any[] | null = null;
 
       const ensureGroupList = async () => {
         if (cachedGroupList) return cachedGroupList;
         try {
-          const res = await apiClient.group.get_groups();
-          cachedGroupList = coerceGroupArray(res.data?.items);
+          const res = await groupService.listGroups({});
+          cachedGroupList = coerceGroupArray(res?.items ?? []);
         } catch {
           cachedGroupList = [];
         }
@@ -136,9 +134,9 @@ export function useAlterData(id?: string) {
         const maybeId = coerceStringId(raw);
         if (maybeId !== null) {
           try {
-            const groupRes = await apiClient.group.get_groups_by_id(maybeId as any);
-            if (groupRes.data) {
-              groupsById[maybeId] = groupRes.data;
+              const group = await groupService.getGroupById(maybeId as any);
+            if (group) {
+              groupsById[maybeId] = group;
               continue;
             }
           } catch {
@@ -175,9 +173,9 @@ export function useAlterData(id?: string) {
       const normalized = normalizeEntityId(rawSubsystem);
       if (normalized) {
         try {
-          const subsystemRes = await apiClient.subsystem.get_subsystems_by_id(normalized as any);
-          if (subsystemRes.data) {
-            setSubsystemObj(subsystemRes.data);
+          const subsystem = await subsystemService.getSubsystemById(normalized as any);
+          if (subsystem) {
+            setSubsystemObj(subsystem);
             return;
           }
         } catch {
@@ -191,8 +189,8 @@ export function useAlterData(id?: string) {
         return;
       }
 
-      const listRes = await apiClient.subsystem.get_subsystems();
-      const subsystems = coerceSubsystemArray(listRes.data?.items);
+  const listRes = await subsystemService.listSubsystems({});
+    const subsystems = coerceSubsystemArray(listRes?.items ?? []);
       const match = subsystems.find((item) => item && item.name && item.name.toLowerCase() === rawStr.toLowerCase());
       setSubsystemObj(match ?? null);
     } catch {

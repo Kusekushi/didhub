@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 import { normalizeEntityId } from '../utils/alterFormUtils';
 
 function debugLog(...args: unknown[]) {
@@ -17,10 +17,8 @@ export function useUserRelationshipOptions() {
 
   const refreshUserOptions = useCallback(async () => {
     try {
-      const result = (await apiClient.admin.get_users({ perPage: 200 })).data;
-      // result.items may be loosely typed from the API client; narrow to any[] so
-      // we can perform runtime checks safely without TypeScript complaining.
-      const rawItems = (result.items || []) as any[];
+  const result = await adminService.listUsers({ perPage: 200 });
+  const rawItems = Array.isArray((result as any)?.items) ? (result as any).items : [];
       const items = rawItems.filter((it) => it && it.username && !it.is_system);
 
       debugLog('Fetched user options', { count: items.length, sample: items.slice(0, 5) });

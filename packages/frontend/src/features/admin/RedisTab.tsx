@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Typography, Paper, Stack, TextField, Button, FormControlLabel, Switch } from '@mui/material';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 import type { AlertColor } from '@mui/material';
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 
@@ -58,17 +58,15 @@ export default function RedisTab() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const settings = await apiClient.admin.get_settings();
-        setRedisUrl(String(settings?.data.redis_url || ''));
-        setRedisPrefixSetting(String(settings?.data.redis_prefix || ''));
-        setRedisTtlSecondsSetting(String(settings?.data.redis_ttl_seconds || ''));
-        setRedisClientOptions(String(settings?.data.redis_client_options || ''));
-        setRedisSessionsEnabled(
-          settings?.data.redis_sessions_enabled === '1' || settings?.data.redis_sessions_enabled === 'true',
-        );
-        setRedisCacheEnabled(
-          settings?.data.redis_cache_enabled === '1' || settings?.data.redis_cache_enabled === 'true',
-        );
+        const settings = await adminService.getSettings();
+        setRedisUrl(String((settings && (settings.redis_url || settings.data?.redis_url)) ?? ''));
+        setRedisPrefixSetting(String((settings && (settings.redis_prefix || settings.data?.redis_prefix)) ?? ''));
+        setRedisTtlSecondsSetting(String((settings && (settings.redis_ttl_seconds || settings.data?.redis_ttl_seconds)) ?? ''));
+        setRedisClientOptions(String((settings && (settings.redis_client_options || settings.data?.redis_client_options)) ?? ''));
+        const sessions = (settings && (settings.redis_sessions_enabled ?? settings.data?.redis_sessions_enabled)) ?? false;
+        setRedisSessionsEnabled(sessions === '1' || sessions === 'true' || sessions === true);
+        const cacheEnabled = (settings && (settings.redis_cache_enabled ?? settings.data?.redis_cache_enabled)) ?? false;
+        setRedisCacheEnabled(cacheEnabled === '1' || cacheEnabled === 'true' || cacheEnabled === true);
       } catch (e) {
         setSnack({ open: true, text: `Failed to load Redis settings: ${e}`, severity: 'error' });
       }
@@ -76,7 +74,7 @@ export default function RedisTab() {
 
     const loadStatus = async () => {
       try {
-        const rs = await apiClient.admin.get_admin_redis();
+        const rs = await adminService.getAdminRedis();
         setRedisStatusState(rs || null);
       } catch (e) {
         setRedisStatusState({ ok: false, error: String(e) });
@@ -148,21 +146,21 @@ export default function RedisTab() {
           variant="contained"
           sx={{ mt: 2 }}
           disabled={!redisUrl}
-          onClick={async () => {
-            try {
-              await apiClient.admin.put_settings({
-                redis_url: redisUrl,
-                redis_prefix: redisPrefixSetting,
-                redis_ttl_seconds: redisTtlSecondsSetting,
-                redis_client_options: redisClientOptions,
-                redis_sessions_enabled: redisSessionsEnabled,
-                redis_cache_enabled: redisCacheEnabled,
-              });
-              setSnack({ open: true, text: 'Redis settings saved', severity: 'success' });
-            } catch (e) {
-              setSnack({ open: true, text: `Failed to save: ${e}`, severity: 'error' });
-            }
-          }}
+            onClick={async () => {
+              try {
+                await adminService.putSettings({
+                  redis_url: redisUrl,
+                  redis_prefix: redisPrefixSetting,
+                  redis_ttl_seconds: redisTtlSecondsSetting,
+                  redis_client_options: redisClientOptions,
+                  redis_sessions_enabled: redisSessionsEnabled,
+                  redis_cache_enabled: redisCacheEnabled,
+                });
+                setSnack({ open: true, text: 'Redis settings saved', severity: 'success' });
+              } catch (e) {
+                setSnack({ open: true, text: `Failed to save: ${e}`, severity: 'error' });
+              }
+            }}
         >
           Save
         </Button>
@@ -175,7 +173,7 @@ export default function RedisTab() {
             variant="outlined"
             onClick={async () => {
               try {
-                const rs = await apiClient.admin.get_admin_redis();
+                const rs = await adminService.getAdminRedis();
                 setRedisStatusState(rs || null);
               } catch (e) {
                 setRedisStatusState({ ok: false, error: String(e) });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { type Group } from '@didhub/api-client';
+
+type Group = any;
 
 /**
  * Hook to manage dialog states for DIDSystemView

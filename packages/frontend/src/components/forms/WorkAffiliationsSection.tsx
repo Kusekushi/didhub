@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { apiClient, parseRoles, type ApiAlter, type Group, type Subsystem } from '@didhub/api-client';
+import type { ApiAlter } from '../../types/ui';
 import { useAffiliationResolution } from '../../shared/hooks/useAffiliationResolution';
 import { useGroupResolution, useSubsystemResolution } from '../../shared/hooks/useEntityResolution';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
+import { ApiGroupOut } from '@didhub/api-client';
 
 export interface WorkAffiliationsSectionProps {
   alter: ApiAlter & {
@@ -25,8 +26,8 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
   const subsystemObj = useSubsystemResolution(props.alter.subsystem as string | number | null | undefined);
 
   // For affiliationGroup, we need to determine if we should show a primary affiliation
-  // This is a simplified version - in a real implementation, you might want more complex logic
-  const affiliationGroup = null; // Simplified for now
+  // This is a simplified version - we might want more complex logic
+  const affiliationGroup = null;
 
   // Computed normalized arrays (IDs are strings)
   const affiliationsNormalized = Array.isArray(props.alter.affiliations)
@@ -35,7 +36,7 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
 
   const affiliationsChips = affiliationsNormalized.length ? (
     affiliationsNormalized.map((af: string, idx: number) => {
-      let g: Group | null = null;
+      let g: ApiGroupOut | null = null;
       const key = String(af);
       if (affiliationIdMap && affiliationIdMap[key]) {
         g = affiliationIdMap[key];
@@ -93,13 +94,13 @@ export default function WorkAffiliationsSection(props: WorkAffiliationsSectionPr
     <Paper sx={{ p: 2 }}>
       <Typography variant="subtitle2">Work & Affiliations</Typography>
       <div>
-        <strong>Job:</strong> {props.alter.job || '-'}
+        <strong>Job:</strong> {String((props.alter as any).job ?? '-')}
       </div>
       <div>
         <strong>Affiliations:</strong> {affiliationsChips}
       </div>
       <div>
-        <strong>Weapon:</strong> {props.alter.weapon || '-'}
+        <strong>Weapon:</strong> {String((props.alter as any).weapon ?? '-')}
       </div>
       <div>
         <strong>Subsystem:</strong>{' '}

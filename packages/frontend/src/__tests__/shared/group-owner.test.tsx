@@ -18,23 +18,15 @@ vi.mock('../../shared/contexts/AuthContext', () => ({
 }));
 
 const { createMock, listMock } = vi.hoisted(() => ({
-  createMock: vi.fn(async (payload: any) => ({ data: { id: 123, ...payload } })),
-  listMock: vi.fn(async () => ({ data: { items: [], total: 0 } })),
+  createMock: vi.fn(async (payload: any) => ({ id: 123, ...payload })),
+  listMock: vi.fn(async () => ({ items: [], total: 0 })),
 }));
 
-vi.mock('@didhub/api-client', async () => {
-  const actual = await vi.importActual<any>('@didhub/api-client');
+vi.mock('../../services/groupService', async () => {
   return {
-    ...actual,
-    apiClient: {
-      ...actual.apiClient,
-      group: {
-        ...actual.apiClient.group,
-        post_groups: createMock,
-        get_groups: listMock,
-      },
-    },
-  };
+    createGroup: createMock,
+    listGroups: listMock,
+  } as any;
 });
 
 import React from 'react';

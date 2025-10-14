@@ -16,7 +16,7 @@ import {
   DialogActions,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { apiClient } from '@didhub/api-client';
+import * as adminService from '../../services/adminService';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { downloadJson, downloadText } from '../../shared/utils/downloadUtils';
 
@@ -40,11 +40,8 @@ export default function MessagesTab() {
   useEffect(() => {
     const loadPosts = async () => {
       try {
-        const p = await apiClient.admin.posts(page, 20);
-        const postItems =
-          p && typeof p === 'object' && !Array.isArray(p) && Array.isArray((p as { items?: unknown[] }).items)
-            ? ((p as { items?: unknown[] }).items as unknown[])
-            : [];
+        const p = await adminService.posts(page, 20);
+        const postItems = p && Array.isArray((p as any).items) ? (p as any).items : [];
         setPosts(postItems as Post[]);
       } catch (error) {
         console.error('Failed to load posts:', error);
@@ -56,9 +53,9 @@ export default function MessagesTab() {
   async function postBirthdays() {
     try {
       setStatus('Posting...');
-      const result = await apiClient.admin.postDiscordBirthdays();
-      const posted = result.status >= 200 && result.status < 400;
-      const message = result.error ?? (posted ? 'Posted birthdays digest' : 'Nothing to post');
+      const result = await adminService.postDiscordBirthdays();
+      const posted = result && (result.status >= 200 && result.status < 400) || Boolean(result && (result.posted ?? result.reposted ?? false));
+      const message = (result && (result.error ?? result.message)) ?? (posted ? 'Posted birthdays digest' : 'Nothing to post');
       if (posted) {
         setStatus('Posted birthdays digest');
         setSnack({ open: true, message: 'Posted birthdays digest', severity: 'success' });
@@ -78,8 +75,8 @@ export default function MessagesTab() {
     try {
       setStatus('Posting custom digest...');
       setCustomDigestOpen(false);
-      const r = await apiClient.admin.postCustomDigest(customDaysAhead);
-      if (r && r.posted) {
+      const r = await adminService.postCustomDigest(customDaysAhead);
+      if (r && (r.posted || r.count)) {
         setStatus(`Posted custom digest with ${r.count} birthdays`);
         setSnack({ open: true, message: `Posted custom digest with ${r.count} birthdays`, severity: 'success' });
       } else {
@@ -98,8 +95,8 @@ export default function MessagesTab() {
   async function doRepost(id: string) {
     try {
       setStatus('Reposting...');
-      const r = await apiClient.admin.repostPost(id);
-      if (r && r.reposted) {
+      const r = await adminService.repostPost(id);
+      if (r && (r.reposted || r.posted)) {
         setStatus('Reposted');
         setSnack({ open: true, message: 'Post reposted successfully', severity: 'success' });
       } else {

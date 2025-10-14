@@ -1,4 +1,5 @@
-import type { AlterName } from '@didhub/api-client';
+// Minimal alter name shape used by UI formatting
+type AlterName = { id?: string | number; name?: string | null; username?: string | null };
 import { validate as uuidValidate } from 'uuid';
 
 export interface RelationshipOption {

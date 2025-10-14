@@ -1,17 +1,21 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Mock the alterService adapter used by the hook
+const searchAltersMock = vi.fn();
+vi.mock('../../../../src/services/alterService', () => ({
+  searchAlters: (...args: any[]) => searchAltersMock(...args),
+}))
+
 describe('useAlterOptions', () => {
   beforeEach(() => {
-    // Reset module registry so we can stub api-client before importing the hook module
+    // Reset module registry so we can stub service mocks before importing the hook module
     vi.resetModules();
     vi.clearAllMocks();
   });
 
   it('does not fetch when uid is not provided', async () => {
-    // stub apiClient.alters.search before importing the hook
-    const mod = await import('@didhub/api-client');
-    (mod as any).apiClient.alter.get_alters_search = vi.fn();
+    searchAltersMock.mockResolvedValue({ items: [], total: 0 });
 
     const { useAlterOptions } = await import('../useAlterOptions');
     renderHook(() => useAlterOptions());
@@ -19,24 +23,22 @@ describe('useAlterOptions', () => {
     // wait past debounce
     await new Promise((r) => setTimeout(r, 500));
 
-    expect((mod as any).apiClient.alter.get_alters_search).not.toHaveBeenCalled();
+    expect(searchAltersMock).not.toHaveBeenCalled();
   });
 
   it('does not fetch when enabled is false', async () => {
-    const mod = await import('@didhub/api-client');
-    (mod as any).apiClient.alter.get_alters_search = vi.fn();
+    searchAltersMock.mockResolvedValue({ items: [], total: 0 });
 
     const { useAlterOptions } = await import('../useAlterOptions');
     renderHook(() => useAlterOptions('system-1', '', false));
 
     await new Promise((r) => setTimeout(r, 500));
-    expect((mod as any).apiClient.alter.get_alters_search).not.toHaveBeenCalled();
+    expect(searchAltersMock).not.toHaveBeenCalled();
   });
 
   it('fetches options when uid is provided and leaderQuery set', async () => {
-    const mod = await import('@didhub/api-client');
-    const mockSearch = vi.fn().mockResolvedValue({ data: { items: [{ id: 'a' }], total: 1, limit: 20, offset: 0 } });
-    (mod as any).apiClient.alter.get_alters_search = mockSearch;
+    const mockSearch = vi.fn().mockResolvedValue({ items: [{ id: 'a' }], total: 1, limit: 20, offset: 0 });
+    searchAltersMock.mockImplementation(mockSearch as any);
 
     const { useAlterOptions } = await import('../useAlterOptions');
     const { result } = renderHook(() => useAlterOptions('system-1', 'query'));
@@ -45,21 +47,20 @@ describe('useAlterOptions', () => {
     await new Promise((r) => setTimeout(r, 350));
 
     await waitFor(() => {
-      expect(mockSearch).toHaveBeenCalledWith({ userId: 'system-1', query: 'query', includeRelationships: true });
+      expect(mockSearch).toHaveBeenCalledWith({ userId: 'system-1', query: 'query', includeRelationships: true, perPage: undefined, offset: undefined } as any);
       expect(result.current.altersOptions).toEqual([{ id: 'a' }]);
     });
   });
 
   it('coalesces inflight identical requests across multiple hook instances', async () => {
-    const mod = await import('@didhub/api-client');
     // Simulate a slow network call
     const mockSearch = vi.fn(
       () =>
         new Promise((resolve) =>
-          setTimeout(() => resolve({ data: { items: [{ id: 'coalesced' }], total: 1, limit: 20, offset: 0 } }), 100),
+          setTimeout(() => resolve({ items: [{ id: 'coalesced' }], total: 1, limit: 20, offset: 0 }), 100),
         ),
     );
-    (mod as any).apiClient.alter.get_alters_search = mockSearch;
+    searchAltersMock.mockImplementation(mockSearch as any);
 
     const { useAlterOptions } = await import('../useAlterOptions');
     const r1 = renderHook(() => useAlterOptions('system-x', 'same'));

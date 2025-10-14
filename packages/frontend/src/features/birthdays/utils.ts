@@ -1,4 +1,9 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+import utc from 'dayjs/plugin/utc';
+
+dayjs.extend(customParseFormat);
+dayjs.extend(utc);
 
 export interface BirthdayLike {
   month: number;
@@ -10,10 +15,10 @@ export function parseBirthdayToDate(bday: unknown, year: number): Date | null {
   const s = String(bday).trim();
   const formats = ['DD-MM', 'D-M', 'DD/MM', 'D/M', 'D MMMM', 'D MMM'];
   for (const fmt of formats) {
-    const m = moment(s, fmt, true);
+    const m = dayjs.utc(s, fmt, true);
     if (m.isValid()) return new Date(year, m.month(), m.date());
   }
-  const loose = moment(s);
+  const loose = dayjs.utc(s);
   if (loose.isValid()) return new Date(year, loose.month(), loose.date());
   const nums = s.match(/\d+/g);
   if (!nums || nums.length === 0) return null;

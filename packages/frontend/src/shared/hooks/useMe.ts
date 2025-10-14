@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
-import { apiClient } from '@didhub/api-client';
+import * as authService from '../../services/authService';
 
 export async function getMe() {
   try {
-    const result = await apiClient.users.get_me();
-    return result.data;
+    return await authService.getMe();
   } catch {
     return null;
   }
 }
 
 export function useMe() {
-  const [me, setMe] = useState(null);
+  const [me, setMe] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

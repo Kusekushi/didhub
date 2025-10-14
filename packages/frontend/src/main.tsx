@@ -38,7 +38,7 @@ function InnerApp(): React.ReactElement {
     if (!user) {
       return { main: [], footer: [] };
     }
-    if (user && (user as any).is_admin) {
+    if (user && user.is_admin) {
       // insert admin before licenses for visibility
       const licensesIdx = nav.findIndex((i) => i.segment === 'licenses');
       if (licensesIdx >= 0) {
@@ -50,7 +50,7 @@ function InnerApp(): React.ReactElement {
       }
     }
     // For DID-system users, expose a quick link to their system which redirects
-    if (user && (user as any).is_system) {
+    if (user && user.is_system) {
       // insert 'My system' after home
       const idx = nav.findIndex((i) => i.segment === 'home');
       const insertAt = idx >= 0 ? idx + 1 : 0;

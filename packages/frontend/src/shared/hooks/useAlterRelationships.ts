@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { apiClient } from '@didhub/api-client';
+import * as alterService from '../../services/alterService';
 import {
   formatAlterDisplayName,
   collectRelationshipIds,
@@ -51,23 +51,37 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
     }
 
     const fetchPromise = (async () => {
-      let items = (await apiClient.alter.get_alters_names()).data;
+      // Use the service helper which will call legacy `get_alters_names` when present
+      // or fall back to the search endpoint. This preserves existing test mocks.
+      let items: any[] = [];
+      try {
+        items = (await alterService.getAlterNamesFallback()) ?? [];
+      } catch (e) {
+        items = [];
+      }
       if (!Array.isArray(items)) {
-        debugLog('Alter names endpoint returned non-array payload, normalizing to empty array', items);
+        debugLog('Alter search endpoint returned non-array payload, normalizing to empty array', items);
         items = [];
       }
 
       if (!items.length) {
-        debugLog('Alter names endpoint returned empty; falling back to alters.list');
-        try {
-          const listPage = await apiClient.alter.get_alters({ perPage: 1000 });
-          items = listPage.data.items
-            .filter((alter) => Boolean(alter) && typeof (alter as any).id !== 'undefined')
-            .map((alter) => ({
-              id: (alter as any).id,
-              name: (alter as any).name ?? '',
-              username: (alter as any).username ?? undefined,
-              user_id: (alter as any).user_id ?? null,
+        debugLog('Alter search returned empty; falling back to alters.list');
+          try {
+            // Fallback to the list endpoint via the service
+            let listPage: any;
+            try {
+              listPage = await alterService.listAlters({ perPage: 1000 });
+            } catch (e) {
+              listPage = await alterService.listAlters({ limit: 1000 });
+            }
+            const pageItems = (listPage as any)?.items ?? [];
+          items = pageItems
+            .filter((alter: any) => Boolean(alter) && typeof alter.id !== 'undefined')
+            .map((alter: any) => ({
+              id: alter.id,
+              name: alter.name ?? '',
+              username: alter.username ?? undefined,
+              user_id: alter.user_id ?? null,
             }));
           debugLog('Fallback alters.list loaded', { count: items.length, sample: items.slice(0, 5) });
         } catch (fallbackError) {
@@ -125,7 +139,7 @@ export function useAlterRelationshipOptions(relationships: RelationshipSources) 
           if (aliasMap[idValue] || aliasMap[idValue.toLowerCase()]) return;
 
           try {
-            const fetched = (await apiClient.alter.get_alters_by_id(idValue)).data;
+              const fetched = await alterService.getAlterById(idValue as any);
             if (fetched && typeof fetched.id !== 'undefined') {
               const display = formatAlterDisplayName({
                 id: fetched.id,

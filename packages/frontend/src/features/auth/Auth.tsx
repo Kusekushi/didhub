@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { apiClient } from '@didhub/api-client';
+import * as authService from '../../services/authService';
 
 import { useAuth } from '../../shared/contexts/AuthContext';
 import AuthLayout from '../../components/common/AuthLayout';
@@ -37,7 +37,7 @@ export default function Login(): React.ReactElement {
 
     async function loadProviders() {
       try {
-        const list = await apiClient.oidc.list();
+        const list = await authService.listOidcProviders();
         const arr: Provider[] = Array.isArray(list) ? list : [];
         arr.push({ id: 'credentials', name: 'Username and Password' });
         if (mounted) setProviders(arr);

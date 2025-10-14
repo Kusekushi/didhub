@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { apiClient } from '@didhub/api-client';
+import * as authService from '../../services/authService';
 
 import { useAuth } from '../../shared/contexts/AuthContext';
 import AuthLayout from '../../components/common/AuthLayout';
@@ -31,7 +31,6 @@ type SignInResponse = { success?: string; error?: string } | undefined;
 export default function Login(): React.ReactElement {
   const { login } = useAuth();
   // AuthLayout provides AppProvider and themed Container
-
   const [providers, setProviders] = useState<Provider[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const location = useLocation();
@@ -41,7 +40,7 @@ export default function Login(): React.ReactElement {
 
     async function loadProviders() {
       try {
-        const list = await apiClient.oidcs.oidc();
+        const list = await authService.listOidcProviders();
         const arr: Provider[] = Array.isArray(list) ? list : [];
         arr.push({ id: 'credentials', name: 'Username and Password' });
         if (mounted) setProviders(arr);

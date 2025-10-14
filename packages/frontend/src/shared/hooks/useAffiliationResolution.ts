@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { apiClient, type Group } from '@didhub/api-client';
+import * as groupService from '../../services/groupService';
 import { normalizeEntityId } from '../utils/alterFormUtils';
 
 /**
  * Hook to resolve affiliations for an alter without fetching the full alter data
  */
 export function useAffiliationResolution(affiliations: any) {
-  const [affiliationGroupsMap, setAffiliationGroupsMap] = useState<Record<string, Group>>({});
+  const [affiliationGroupsMap, setAffiliationGroupsMap] = useState<Record<string, any>>({});
   // keys are string ids (UUID or numeric string)
-  const [affiliationIdMap, setAffiliationIdMap] = useState<Record<string, Group>>({});
+  const [affiliationIdMap, setAffiliationIdMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (!affiliations) return;
@@ -25,18 +25,17 @@ export function useAffiliationResolution(affiliations: any) {
   async function resolveAffiliations(affiliationData: any) {
     try {
       const affiliations = Array.isArray(affiliationData) ? affiliationData : [affiliationData];
-      const map: Record<string, Group> = {};
-      const idMap: Record<string, Group> = {};
+  const map: Record<string, any> = {};
+  const idMap: Record<string, any> = {};
 
       for (const rawName of affiliations) {
         // Try direct id lookup using normalized entity id
         const maybeId = normalizeEntityId(rawName);
         if (maybeId) {
           try {
-            const response = await apiClient.group.get_groups_by_id(maybeId);
-            const group = response.data;
+            const group = await groupService.getGroupById(maybeId as any);
             if (group) {
-              idMap[maybeId] = group as Group;
+              idMap[maybeId] = group as any;
               continue;
             }
           } catch (e) {
@@ -47,11 +46,9 @@ export function useAffiliationResolution(affiliations: any) {
         // Name-based lookup
         const name = Array.isArray(rawName) ? rawName.join(',') : String(rawName);
         try {
-          const response = await apiClient.group.get_groups({ query: name || '', includeMembers: true });
-          const items = Array.isArray(response.data?.items) ? (response.data?.items as unknown[]) : [];
-          const found = (items as Group[]).find(
-            (it) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase(),
-          );
+          const res = await groupService.listGroups({ query: name || '', includeMembers: true });
+          const items = Array.isArray(res?.items) ? res.items : [];
+          const found = items.find((it: any) => it && it.name && String(it.name).toLowerCase() === name.toLowerCase());
           if (found) map[name] = found;
         } catch (e) {
           // Ignore individual lookup errors

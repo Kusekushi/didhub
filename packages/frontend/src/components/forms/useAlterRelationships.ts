@@ -1,5 +1,5 @@
 import React from 'react';
-import { apiClient } from '@didhub/api-client';
+import { getRelationships } from '../../services/relationshipService';
 import type { RelationshipOption } from './alterFormUtils';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
@@ -26,8 +26,7 @@ export function useAlterRelationships(alterId: number | string | null | undefine
     setError(undefined);
     (async () => {
       try {
-        const resp = await apiClient.alter.get_alters_by_id_relationships(normalized);
-        const rels = Array.isArray(resp.data) ? resp.data : [];
+      const rels = (await getRelationships(normalized)) ?? [];
         const opts: RelationshipOption[] = [];
         const lookup: Record<string, string> = {};
         for (const r of rels) {

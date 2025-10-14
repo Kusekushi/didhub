@@ -2,23 +2,21 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('useAltersData tab-aware refresh', () => {
+  const { listMock } = vi.hoisted(() => ({
+    listMock: vi.fn(),
+  }));
+
+  vi.mock('../../../services/alterService', () => ({
+    listAlters: (...args: any[]) => listMock(...args),
+  }));
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
   });
 
   it('only loads initial data when activeTab is 0 and reloads when returning to tab 0', async () => {
-    const mod = await import('@didhub/api-client');
-
-    const listMock = vi.fn().mockResolvedValue({
-      data: {
-        items: [{ id: 'initial' }],
-        total: 1,
-        limit: 20,
-        offset: 0,
-      },
-    });
-    (mod as any).apiClient.alter.get_alters = listMock;
+    listMock.mockResolvedValue({ items: [{ id: 'initial' }], total: 1, limit: 20, offset: 0 });
 
     const { useAltersData } = await import('../useAltersData');
 
@@ -39,13 +37,7 @@ describe('useAltersData tab-aware refresh', () => {
     });
 
     await waitFor(() => {
-      expect(listMock).toHaveBeenCalledWith({
-        userId: 'sys-1',
-        query: '',
-        includeRelationships: true,
-        perPage: 20,
-        offset: 0,
-      });
+      expect(listMock).toHaveBeenCalledWith({ userId: 'sys-1', query: '', includeRelationships: true, perPage: 20, offset: 0 });
       expect(result.current.items).toEqual([{ id: 'initial' }]);
     });
 
