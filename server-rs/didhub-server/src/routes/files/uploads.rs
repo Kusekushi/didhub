@@ -153,6 +153,8 @@ pub async fn upload_file(
                         "success",
                         Some(processed_bytes.len() as i64),
                     );
+                    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+                    let ip = ip_arc.as_ref().map(|s| s.as_str());
                     audit::record_with_metadata(
                         &db,
                         Some(user.id.as_str()),
@@ -160,6 +162,7 @@ pub async fn upload_file(
                         Some("upload"),
                         Some(&final_name),
                         serde_json::Value::Object(metadata.clone()),
+                        ip,
                     )
                     .await;
                     return Ok(Json(UploadResp {
@@ -215,6 +218,8 @@ pub async fn upload_file(
             .await;
         info!(user_id=%user.id, username=%user.username, filename=%safe_name, original_name=%original_name, file_size=%raw.len(), file_type=%ext, "file uploaded successfully");
         record_upload_operation("upload", "success", Some(raw.len() as i64));
+        let ip_arc = didhub_middleware::client_ip::get_request_ip();
+        let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
             &db,
             Some(user.id.as_str()),
@@ -222,6 +227,7 @@ pub async fn upload_file(
             Some("upload"),
             Some(&safe_name),
             serde_json::Value::Object(metadata.clone()),
+            ip,
         )
         .await;
         return Ok(Json(UploadResp {
@@ -237,8 +243,7 @@ pub async fn list_uploads(
     Extension(db): Extension<Db>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     debug!("listing all uploaded files");
-    let names = db
-        .list_upload_filenames()
+    let names = db.list_upload_filenames()
         .await
         .map_err(|_| AppError::Internal)?;
     debug!(file_count=%names.len(), "upload files listed");

@@ -235,6 +235,7 @@ impl Job for ExpiredTokensCleanupJob {
                 Some("housekeeping"),
                 None,
                 json!({"removed": removed}),
+                None,
             )
             .await;
         }

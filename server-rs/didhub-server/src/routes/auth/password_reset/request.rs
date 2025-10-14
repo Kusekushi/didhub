@@ -65,6 +65,8 @@ pub async fn request_reset(
         .await
         .map_err(|_| AppError::Internal)?;
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -72,6 +74,7 @@ pub async fn request_reset(
         None,
         None,
         serde_json::json!({"selector": selector}),
+        ip,
     )
     .await;
 

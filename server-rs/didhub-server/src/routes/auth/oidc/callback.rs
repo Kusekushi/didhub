@@ -132,15 +132,18 @@ pub async fn callback(
 
     if let Ok(Some(existing)) = db.fetch_user_by_oidc(&id, &subject).await {
         let token = issue_jwt(&cfg, &existing.username)?;
+        let ip_arc = didhub_middleware::client_ip::get_request_ip();
+        let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
-            &db,
-            Some(existing.id.as_str()),
-            "oidc.login",
-            Some("oidc_provider"),
-            Some(&id),
-            serde_json::json!({"sub": subject, "existing": true}),
-        )
-        .await;
+                &db,
+                Some(existing.id.as_str()),
+                "oidc.login",
+                Some("oidc_provider"),
+                Some(&id),
+                serde_json::json!({"sub": subject, "existing": true}),
+                ip,
+            )
+            .await;
         OIDC_LOGIN_TOTAL
             .with_label_values(&[id.as_str(), "existing"])
             .inc();
@@ -163,6 +166,8 @@ pub async fn callback(
                 .link_oidc_identity(&id, &subject, &existing_by_username.id)
                 .await;
             let token = issue_jwt(&cfg, &existing_by_username.username)?;
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
             audit::record_with_metadata(
                 &db,
                 Some(existing_by_username.id.as_str()),
@@ -170,6 +175,7 @@ pub async fn callback(
                 Some("oidc_provider"),
                 Some(&id),
                 serde_json::json!({"sub": subject, "linked_via": "email"}),
+                ip,
             )
             .await;
             OIDC_LOGIN_TOTAL
@@ -213,6 +219,8 @@ pub async fn callback(
 
     let _ = db.link_oidc_identity(&id, &subject, &new_user.id).await;
     let token = issue_jwt(&cfg, &new_user.username)?;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(new_user.id.as_str()),
@@ -220,6 +228,7 @@ pub async fn callback(
         Some("oidc_provider"),
         Some(&id),
         serde_json::json!({"sub": subject, "email": email, "name": name}),
+        ip,
     )
     .await;
     OIDC_LOGIN_TOTAL

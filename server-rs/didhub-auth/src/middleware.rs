@@ -96,6 +96,8 @@ pub async fn auth_middleware(
         let ok = MUST_CHANGE_PASSWORD_ALLOW.contains(&path) || path.starts_with("/api/auth");
         if !ok {
             // audit event for enforcement denial
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
             audit::record_with_metadata(
                 &state.db,
                 Some(current.id.as_str()),
@@ -103,6 +105,7 @@ pub async fn auth_middleware(
                 Some("route"),
                 Some(path),
                 serde_json::json!({"path": path}),
+                ip,
             )
             .await;
             return Err(AppError::MustChangePassword);

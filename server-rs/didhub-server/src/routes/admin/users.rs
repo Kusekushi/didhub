@@ -199,12 +199,15 @@ pub async fn update_user(
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(actor.id.as_str()),
         "user.update",
         "user",
         &u.id.to_string(),
+        ip,
     )
     .await;
     Ok(Json(sanitize_user(u)))
@@ -258,7 +261,9 @@ pub async fn delete_user(
     if !ok {
         return Err(AppError::NotFound);
     }
-    audit::record_entity(&db, Some(actor.id.as_str()), "user.delete", "user", &id).await;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
+    audit::record_entity(&db, Some(actor.id.as_str()), "user.delete", "user", &id, ip).await;
     Ok(Json(
         serde_json::json!({"deleted": true, "reassigned_to": payload.reassign_to }),
     ))
@@ -310,12 +315,15 @@ pub async fn create_user(
             .map_err(|_| AppError::Internal)?
             .unwrap_or(user);
     }
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(actor.id.as_str()),
         "user.create",
         "user",
         &user.id.to_string(),
+        ip,
     )
     .await;
     Ok(Json(sanitize_user(user)))
@@ -350,12 +358,15 @@ pub async fn admin_password_reset(
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(actor.id.as_str()),
         "user.admin_password_reset",
         "user",
         &id,
+        ip,
     )
     .await;
     Ok(Json(sanitize_user(user)))

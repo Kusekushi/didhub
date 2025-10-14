@@ -194,6 +194,7 @@ pub async fn create_backup(
         serde_json::json!({
             "backup_id": backup_id,
         }),
+        None,
     )
     .await;
 

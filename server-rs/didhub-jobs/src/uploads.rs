@@ -159,6 +159,7 @@ impl Job for UploadsGcJob {
                         Some("upload"),
                         path.file_name().and_then(|s| s.to_str()),
                         json!({"days": days}),
+                        None,
                     )
                     .await;
                 }
@@ -187,6 +188,7 @@ impl Job for UploadsGcJob {
                     Some("upload"),
                     None,
                     json!({"purged": purged, "cutoff": cutoff_str}),
+                    None,
                 )
                 .await;
             }
@@ -318,6 +320,7 @@ impl Job for UploadsBackfillJob {
             Some("upload"),
             None,
             json!({"added": added}),
+            None,
         )
         .await;
 
@@ -427,6 +430,7 @@ impl Job for UploadsIntegrityJob {
                     Some("upload"),
                     Some(name),
                     json!({"issue": "file_missing"}),
+                    None,
                 )
                 .await;
             }
@@ -443,6 +447,7 @@ impl Job for UploadsIntegrityJob {
                     Some("upload"),
                     Some(name),
                     json!({"issue": "untracked"}),
+                    None,
                 )
                 .await;
             }

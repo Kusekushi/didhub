@@ -314,12 +314,15 @@ pub async fn create_subsystem(
         "Subsystem created successfully in database"
     );
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "subsystem.create",
         "subsystem",
         &created.id.to_string(),
+        ip,
     )
     .await;
 
@@ -460,12 +463,15 @@ pub async fn update_subsystem(
         "Subsystem updated successfully in database"
     );
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "subsystem.update",
         "subsystem",
         &id.to_string(),
+        ip,
     )
     .await;
 
@@ -521,12 +527,15 @@ pub async fn delete_subsystem(
         return Err(AppError::NotFound);
     }
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "subsystem.delete",
         "subsystem",
         &id.to_string(),
+        ip,
     )
     .await;
 
@@ -655,12 +664,15 @@ pub async fn toggle_leader(
             AppError::NotFound
         })?;
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "subsystem.leaders.toggle",
         "subsystem",
         &id.to_string(),
+        ip,
     )
     .await;
 
@@ -754,6 +766,8 @@ pub async fn change_member(
             "Alter added to subsystem successfully"
         );
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
             &db,
             Some(user.id.as_str()),
@@ -761,6 +775,7 @@ pub async fn change_member(
             Some("subsystem"),
             Some(&id.to_string()),
             serde_json::json!({"alter_id": payload.alter_id}),
+            ip,
         )
         .await;
     } else {
@@ -784,6 +799,8 @@ pub async fn change_member(
             "Alter removed from subsystem successfully"
         );
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
             &db,
             Some(user.id.as_str()),
@@ -791,6 +808,7 @@ pub async fn change_member(
             Some("subsystem"),
             Some(&id.to_string()),
             serde_json::json!({"alter_id": payload.alter_id}),
+            ip,
         )
         .await;
     }
@@ -910,6 +928,8 @@ pub async fn delete_member(
             AppError::Internal
         })?;
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -917,6 +937,7 @@ pub async fn delete_member(
         Some("subsystem"),
         Some(&id.to_string()),
         serde_json::json!({"alter_id": payload.alter_id}),
+        ip,
     )
     .await;
 

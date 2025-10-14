@@ -172,6 +172,8 @@ pub async fn restore_backup(
     // Perform the restore
     restore_from_archive(&mut archive, &db, &config).await?;
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -181,6 +183,7 @@ pub async fn restore_backup(
         serde_json::json!({
             "file_count": archive.len(),
         }),
+        ip,
     )
     .await;
 

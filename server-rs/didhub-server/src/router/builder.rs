@@ -15,7 +15,7 @@ use tower_http::{
 use didhub_auth as auth;
 use didhub_config as config;
 use didhub_db as db;
-use didhub_middleware::{csrf, middleware_ext, request_logger, validation};
+use didhub_middleware::{csrf, middleware_ext, request_logger, validation, client_ip};
 
 use crate::{
     constants::cors::ALLOWED_METHODS,
@@ -116,6 +116,7 @@ impl AppRouterBuilder {
                         middleware_ext::error_logging_middleware,
                     ))
                     .layer(axum::middleware::from_fn(request_logger::request_logger))
+                    .layer(axum::middleware::from_fn(client_ip::extract_client_ip))
                     .layer(axum::middleware::from_fn(csrf::csrf_middleware))
                     .layer(rate_limit_governor::governor_layer_with(
                         service_components.cache.clone(),

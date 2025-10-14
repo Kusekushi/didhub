@@ -150,7 +150,9 @@ pub async fn upsert_setting(
     };
 
     // Fire and forget audit
-    audit::record_settings_update(&db, Some(user.id.as_str()), &key).await;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
+    audit::record_settings_update(&db, Some(user.id.as_str()), &key, ip).await;
     debug!(user_id=%user.id, setting_key=%key, "setting updated");
     if key == "app.upload_dir" {
         if let Some(g) = upload_dir::global() {
@@ -207,7 +209,9 @@ pub async fn bulk_upsert_settings(
     }
 
     // Fire and forget audit for all updates
-    audit::record_settings_update(&db, Some(user.id.as_str()), "bulk_update").await;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
+    audit::record_settings_update(&db, Some(user.id.as_str()), "bulk_update", ip).await;
 
     info!(user_id=%user.id, settings_count=%results.len(), "bulk settings update completed successfully");
     Ok(Json(results))

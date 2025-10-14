@@ -68,6 +68,8 @@ pub async fn post_custom_digest(
         })
         .collect();
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -80,8 +82,10 @@ pub async fn post_custom_digest(
             "days_ahead": days_ahead,
             "custom": true
         }),
+        ip,
     )
     .await;
+
 
     warn!(user_id=%user.id, count=%names.len(), days_ahead=%days_ahead, "custom digest unimplemented");
 

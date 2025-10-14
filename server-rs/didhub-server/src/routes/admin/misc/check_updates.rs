@@ -43,6 +43,8 @@ pub async fn check_updates(
 
     if !auto_update_enabled {
         warn!(user_id=%user.id, "update check attempted but auto-updates are disabled");
+        let ip_arc = didhub_middleware::client_ip::get_request_ip();
+        let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
             &db,
             Some(user.id.as_str()),
@@ -50,6 +52,7 @@ pub async fn check_updates(
             Some("update"),
             None,
             serde_json::json!({"enabled": auto_update_enabled}),
+            ip,
         )
         .await;
 
@@ -69,6 +72,8 @@ pub async fn check_updates(
     match check_for_updates(&config).await {
         Ok(status) => {
             info!(user_id=%user.id, update_available=%status.available, current_version=%status.current_version, latest_version=?status.latest_version, "update check completed");
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
             audit::record_with_metadata(
                 &db,
                 Some(user.id.as_str()),
@@ -80,6 +85,7 @@ pub async fn check_updates(
                     "current": status.current_version,
                     "latest": status.latest_version
                 }),
+                ip,
             )
             .await;
 
@@ -88,6 +94,8 @@ pub async fn check_updates(
         Err(e) => {
             warn!(user_id=%user.id, error=%e, "update check failed");
             tracing::error!(error = %e, "Failed to check for updates");
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
             audit::record_with_metadata(
                 &db,
                 Some(user.id.as_str()),
@@ -95,6 +103,7 @@ pub async fn check_updates(
                 Some("update"),
                 None,
                 serde_json::json!({"error": e.to_string()}),
+                ip,
             )
             .await;
 
@@ -123,6 +132,8 @@ pub async fn check_updates(
     }
 
     debug!(user_id=%user.id, "update check attempted but updater feature not compiled in");
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -130,6 +141,7 @@ pub async fn check_updates(
         Some("update"),
         None,
         serde_json::json!({"updater_feature": false}),
+        ip,
     )
     .await;
 

@@ -67,6 +67,7 @@ impl Job for BirthdaysDigestJob {
             Some("digest"),
             None,
             json!({"count": names.len(), "entries": names}),
+            None,
         )
         .await;
 
@@ -115,6 +116,7 @@ impl Job for OrphansPruneJob {
                 Some("housekeeping"),
                 None,
                 json!({"removed": removed}),
+                None,
             )
             .await;
         }
@@ -153,7 +155,7 @@ impl Job for VacuumDbJob {
         _cancel_token: &CancellationToken,
     ) -> Result<JobOutcome> {
         let affected = db.perform_database_maintenance().await?;
-        audit::record_simple(db, None, "db.vacuum").await;
+    audit::record_simple(db, None, "db.vacuum", None).await;
         Ok(JobOutcome::new(
             affected,
             Some("vacuum/optimize invoked".into()),

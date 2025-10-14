@@ -253,14 +253,18 @@ pub async fn create_group(
         .await
         .map_err(|_| AppError::Internal)?;
     info!(user_id=%user.id, group_id=%created.id, group_name=%created.name, "group created successfully");
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "group.create",
         "group",
         &created.id.to_string(),
+        ip,
     )
     .await;
+
     record_entity_operation("group", "create", "success");
     Ok((axum::http::StatusCode::CREATED, Json(project(created))))
 }
@@ -319,14 +323,18 @@ pub async fn update_group(
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
     info!(user_id=%user.id, group_id=%id, group_name=%updated.name, "group updated successfully");
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "group.update",
         "group",
         &id.to_string(),
+        ip,
     )
     .await;
+
     record_entity_operation("group", "update", "success");
     Ok(Json(project(updated)))
 }
@@ -344,14 +352,18 @@ pub async fn delete_group(
         return Err(AppError::NotFound);
     }
     info!(user_id=%user.id, group_id=%id, "group deleted successfully");
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "group.delete",
         "group",
         &id.to_string(),
+        ip,
     )
     .await;
+
     record_entity_operation("group", "delete", "success");
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
@@ -391,14 +403,18 @@ pub async fn toggle_leader(
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
     info!(user_id=%user.id, group_id=%id, alter_id=%payload.alter_id, action=%if payload.add.unwrap_or(true) { "added" } else { "removed" }, "group leader toggled successfully");
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "group.leaders.toggle",
         "group",
         &id.to_string(),
+        ip,
     )
     .await;
+
     Ok(Json(project(updated)))
 }
 

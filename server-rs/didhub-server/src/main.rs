@@ -183,6 +183,7 @@ async fn background_update_checker(db: db::Db, cfg: config::AppConfig) {
                             "message": status.message,
                             "scheduled_check": true
                         }),
+                        None,
                     )
                     .await;
                 } else {
@@ -203,6 +204,7 @@ async fn background_update_checker(db: db::Db, cfg: config::AppConfig) {
                         "error": e.to_string(),
                         "scheduled_check": true
                     }),
+                    None,
                 )
                 .await;
             }

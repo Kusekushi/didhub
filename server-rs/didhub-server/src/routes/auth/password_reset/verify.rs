@@ -54,6 +54,8 @@ pub async fn verify_reset(
         warn!(selector=%payload.selector, user_id=%rec.user_id, "password reset token verification failed - invalid verifier");
     }
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(rec.user_id.as_str()),
@@ -61,6 +63,7 @@ pub async fn verify_reset(
         None,
         None,
         serde_json::json!({"selector": payload.selector, "valid": is_valid}),
+        ip,
     )
     .await;
 

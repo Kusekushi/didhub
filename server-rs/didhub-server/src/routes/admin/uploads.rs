@@ -112,6 +112,8 @@ pub async fn delete_upload_admin(
             let _ = tokio::fs::remove_file(&path).await;
         }
     }
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -123,6 +125,7 @@ pub async fn delete_upload_admin(
         Some("upload"),
         Some(&name),
         serde_json::json!({"hard_removed": removed, "soft": soft}),
+        ip,
     )
     .await;
     db.invalidate_upload_counts(&cache).await;
@@ -196,7 +199,9 @@ pub async fn purge_uploads_admin(
             }
         }
     }
-    audit::record_with_metadata(&db, Some(user.id.as_str()), "uploads.purge.manual", Some("upload"), None, serde_json::json!({"purged": purged, "cutoff": cutoff, "files_removed": files_removed, "force": p.force.unwrap_or(false)})).await;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
+    audit::record_with_metadata(&db, Some(user.id.as_str()), "uploads.purge.manual", Some("upload"), None, serde_json::json!({"purged": purged, "cutoff": cutoff, "files_removed": files_removed, "force": p.force.unwrap_or(false)}), ip).await;
     db.invalidate_upload_counts(&cache).await;
     info!(user_id=%user.id, purged=%purged, files_removed=%files_removed, cutoff=%cutoff, "admin upload purge completed");
     Ok(Json(

@@ -80,6 +80,8 @@ pub async fn consume_reset(
         .await
         .map_err(|_| AppError::Internal)?;
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(rec.user_id.as_str()),
@@ -87,8 +89,10 @@ pub async fn consume_reset(
         None,
         None,
         serde_json::json!({"selector": payload.selector}),
+        ip,
     )
     .await;
+
 
     info!(selector=%payload.selector, user_id=%rec.user_id, "password reset completed successfully");
 

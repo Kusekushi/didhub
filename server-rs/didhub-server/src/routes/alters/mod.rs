@@ -34,10 +34,9 @@ fn normalize_subsystem_field(body: &mut serde_json::Value) {
                 } else if let Ok(id) = trimmed.parse::<i64>() {
                     Some(Value::String(id.to_string()))
                 } else {
-                    None
+                    Some(Value::String(trimmed.to_string()))
                 }
             }
-            Value::Null => None,
             _ => None,
         };
 
@@ -353,7 +352,8 @@ pub async fn set_alter_subsystem(
         error!(alter_id = %id, error = %e, "DB error getting subsystem for alter after set");
         AppError::Internal
     })?;
-
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -361,6 +361,7 @@ pub async fn set_alter_subsystem(
         Some("alter"),
         Some(&id.to_string()),
         serde_json::json!({"subsystem_id": subs}),
+        ip,
     )
     .await;
 
@@ -402,6 +403,8 @@ pub async fn delete_alter_subsystem(
         AppError::Internal
     })?;
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -409,6 +412,7 @@ pub async fn delete_alter_subsystem(
         Some("alter"),
         Some(&id.to_string()),
         serde_json::json!({"subsystem_id": serde_json::Value::Null}),
+        ip,
     )
     .await;
 
@@ -543,12 +547,15 @@ pub async fn create_alter(
             tracing::error!(error=%e, "update_alter_fields failed during create");
             AppError::Internal
         })?;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "alter.create",
         "alter",
         &created.id.to_string(),
+        ip,
     )
     .await;
     record_entity_operation("alter", "create", "success");
@@ -713,6 +720,8 @@ pub async fn replace_alter_relationships(
 
     let rows_affected = partner_rows + parent_rows + child_rows + affiliation_rows;
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -725,6 +734,7 @@ pub async fn replace_alter_relationships(
             "children": children,
             "affiliations": affiliations,
         }),
+        ip,
     )
     .await;
 
@@ -830,6 +840,8 @@ pub async fn update_alter(
                 .ok_or(AppError::NotFound)?;
 
             // Log the deletion under the same audit event used previously
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
             audit::record_with_metadata(
                 &db,
                 Some(user.id.as_str()),
@@ -837,6 +849,7 @@ pub async fn update_alter(
                 Some("alter"),
                 Some(&id.to_string()),
                 serde_json::json!({ "url": url }),
+                ip,
             )
             .await;
 
@@ -848,12 +861,15 @@ pub async fn update_alter(
         .await
         .map_err(|_| AppError::Internal)?
         .ok_or(AppError::NotFound)?;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "alter.update",
         "alter",
         &id.to_string(),
+        ip,
     )
     .await;
     record_entity_operation("alter", "update", "success");
@@ -881,12 +897,15 @@ pub async fn delete_alter(
         record_entity_operation("alter", "delete", "failure");
         return Err(AppError::NotFound);
     }
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "alter.delete",
         "alter",
         &id.to_string(),
+        ip,
     )
     .await;
     record_entity_operation("alter", "delete", "success");

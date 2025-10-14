@@ -95,6 +95,8 @@ pub async fn request_system(
         "System request created successfully in database"
     );
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -102,8 +104,10 @@ pub async fn request_system(
         Some("system_request"),
         Some(&rec.id.to_string()),
         serde_json::json!({"status": rec.status}),
+        ip,
     )
     .await;
+
 
     info!(
         user_id = %user.id,
@@ -283,6 +287,8 @@ pub async fn decide_system_request(
             "System request decision applied successfully"
         );
 
+        let ip_arc = didhub_middleware::client_ip::get_request_ip();
+        let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
             &db,
             Some(user.id.as_str()),
@@ -290,6 +296,7 @@ pub async fn decide_system_request(
             Some("system_request"),
             Some(&v.id.to_string()),
             serde_json::json!({"status": v.status, "note": v.note}),
+            ip,
         )
         .await;
 

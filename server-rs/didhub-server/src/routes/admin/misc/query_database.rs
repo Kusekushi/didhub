@@ -94,6 +94,8 @@ pub async fn query_database(
 
     info!(user_id=%user.id, row_count=%row_count, "database query executed successfully");
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -105,8 +107,10 @@ pub async fn query_database(
             "row_count": row_count,
             "limited": row_count > limit as usize
         }),
+        ip,
     )
     .await;
+
 
     Ok(Json(QueryResponse {
         success: true,

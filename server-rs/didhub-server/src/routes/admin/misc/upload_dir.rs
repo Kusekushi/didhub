@@ -6,7 +6,7 @@ use axum::{
 use didhub_db::{audit, Db};
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tracing::{debug, info, warn};
 
 #[derive(Serialize)]
@@ -43,6 +43,8 @@ pub async fn upload_dir(
             let dir = udc.current().await;
             info!(user_id=%user.id, upload_dir=%dir, "upload directory reloaded");
 
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
             audit::record_with_metadata(
                 &db,
                 Some(user.id.as_str()),
@@ -50,6 +52,7 @@ pub async fn upload_dir(
                 Some("upload_dir"),
                 Some(&dir),
                 serde_json::json!({"dir": dir}),
+                ip,
             )
             .await;
 
@@ -69,6 +72,8 @@ pub async fn upload_dir(
                 Ok((moved, skipped)) => {
                     let total = moved.len() + skipped.len();
 
+                    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+                    let ip = ip_arc.as_ref().map(|s| s.as_str());
                     audit::record_with_metadata(
                         &db,
                         Some(user.id.as_str()),
@@ -76,6 +81,7 @@ pub async fn upload_dir(
                         Some("upload_dir"),
                         None,
                         serde_json::json!({"moved": moved.len(), "skipped": skipped.len()}),
+                        ip,
                     )
                     .await;
 

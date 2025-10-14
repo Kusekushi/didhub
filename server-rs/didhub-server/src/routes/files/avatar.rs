@@ -259,6 +259,8 @@ pub async fn upload_avatar(
     );
     // Fire audit with metadata (dimensions & size)
     // Simple mime inference already validated; assume png output
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -279,6 +281,7 @@ pub async fn upload_avatar(
             "hash": hash_hex,
             "mime": "image/png"
         }),
+        ip,
     )
     .await;
     info!(
@@ -345,12 +348,15 @@ pub async fn delete_avatar(
         "User avatar removed from database successfully"
     );
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "avatar.delete",
         "avatar",
         &user.id.to_string(),
+        ip,
     )
     .await;
     info!(

@@ -12,6 +12,7 @@ tracing = "0.1"
 didhub-db = { path = "../didhub-db" }
 didhub-error = { path = "../didhub-error" }
 didhub-metrics = { path = "../didhub-metrics" }
+tokio = { version = "1", features = ["rt", "macros"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

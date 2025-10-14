@@ -90,6 +90,8 @@ pub async fn authorize(
         auth_url.to_string()
     };
 
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         user.as_ref().map(|u| u.id.as_str()),
@@ -97,6 +99,7 @@ pub async fn authorize(
         Some("oidc_provider"),
         Some(&prov.id),
         serde_json::json!({"state": csrf_token.secret(), "redirect": q.redirect}),
+        ip,
     )
     .await;
 

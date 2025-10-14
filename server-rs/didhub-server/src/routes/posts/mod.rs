@@ -51,12 +51,15 @@ pub async fn create_post(
         .await
         .map_err(|_| AppError::Internal)?;
     info!(user_id=%user.id, username=%user.username, post_id=%post.id, "post created successfully");
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(
         &db,
         Some(user.id.as_str()),
         "post.create",
         "post",
         &post.id.to_string(),
+        ip,
     )
     .await;
     Ok(Json(serde_json::json!({"item": post})))
@@ -81,6 +84,8 @@ pub async fn repost_post(
         return Err(AppError::NotFound);
     };
     info!(user_id=%user.id, username=%user.username, original_post_id=%id, new_post_id=%post.id, "post reposted successfully");
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -88,6 +93,7 @@ pub async fn repost_post(
         Some("post"),
         Some(&post.id.to_string()),
         serde_json::json!({"repost_of": id}),
+        ip,
     )
     .await;
     Ok(Json(serde_json::json!({"item": post})))
@@ -110,6 +116,8 @@ pub async fn delete_post(
         return Err(AppError::NotFound);
     }
     info!(user_id=%user.id, username=%user.username, post_id=%id, "post deleted successfully");
-    audit::record_entity(&db, Some(user.id.as_str()), "post.delete", "post", &id).await;
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
+    audit::record_entity(&db, Some(user.id.as_str()), "post.delete", "post", &id, ip).await;
     Ok(Json(serde_json::json!({"ok": true, "id": id})))
 }

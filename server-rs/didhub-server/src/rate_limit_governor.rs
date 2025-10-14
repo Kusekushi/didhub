@@ -125,7 +125,7 @@ where
                     user_id=?user_id,
                     "rate limit exceeded - recording audit event"
                 );
-                tokio::spawn(async move {
+                    tokio::spawn(async move {
                     audit::record_with_metadata(
                         &db,
                         user_id.as_deref(),
@@ -133,6 +133,7 @@ where
                         Some("route"),
                         Some(&path),
                         serde_json::json!({"method": method.as_str(), "ip": ip}),
+                        Some(ip.as_str()),
                     )
                     .await;
                 });
@@ -241,7 +242,7 @@ where
                     let path_clone = rule.path.to_string();
                     let method_static = rule.method;
                     let db_for_audit = db.clone();
-                    tokio::spawn(async move {
+                        tokio::spawn(async move {
                         audit::record_with_metadata(
                             &db_for_audit,
                             audit_user.as_deref(),
@@ -249,6 +250,7 @@ where
                             Some("route"),
                             Some(path_clone.as_str()),
                             serde_json::json!({"method": method_static, "ip": ip_clone}),
+                            Some(ip_clone.as_str()),
                         )
                         .await;
                     });

@@ -41,15 +41,18 @@ pub async fn perform_update_endpoint(
 
     if !auto_update_enabled {
         warn!(user_id=%user.id, "update perform attempted but auto-updates are disabled");
-        audit::record_with_metadata(
-            &db,
-            Some(user.id.as_str()),
-            "admin.update.disabled",
-            Some("update"),
-            None,
-            serde_json::json!({"enabled": auto_update_enabled}),
-        )
-        .await;
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
+            audit::record_with_metadata(
+                &db,
+                Some(user.id.as_str()),
+                "admin.update.disabled",
+                Some("update"),
+                None,
+                serde_json::json!({"enabled": auto_update_enabled}),
+                ip,
+            )
+            .await;
 
         return Ok(Json(UpdateResult {
             success: false,
@@ -92,6 +95,8 @@ pub async fn perform_update_endpoint(
                 info!(user_id=%user.id, "no update needed - already up to date");
             }
 
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
             audit::record_with_metadata(
                 &db,
                 Some(user.id.as_str()),
@@ -107,6 +112,7 @@ pub async fn perform_update_endpoint(
                     "version_updated": result.version_updated,
                     "message": result.message
                 }),
+                ip,
             )
             .await;
 
@@ -125,6 +131,8 @@ pub async fn perform_update_endpoint(
         Err(e) => {
             warn!(user_id=%user.id, error=%e, "update perform failed");
             tracing::error!(error = %e, "Failed to perform update");
+            let ip_arc = didhub_middleware::client_ip::get_request_ip();
+            let ip = ip_arc.as_ref().map(|s| s.as_str());
             audit::record_with_metadata(
                 &db,
                 Some(user.id.as_str()),
@@ -132,6 +140,7 @@ pub async fn perform_update_endpoint(
                 Some("update"),
                 None,
                 serde_json::json!({"error": e.to_string()}),
+                ip,
             )
             .await;
 
@@ -197,6 +206,8 @@ pub async fn perform_update_endpoint(
     }
 
     tracing::debug!(user_id=%user.id, "update perform attempted but updater feature not compiled in");
+    let ip_arc = didhub_middleware::client_ip::get_request_ip();
+    let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_with_metadata(
         &db,
         Some(user.id.as_str()),
@@ -204,6 +215,7 @@ pub async fn perform_update_endpoint(
         Some("update"),
         None,
         serde_json::json!({"updater_feature": false}),
+        ip,
     )
     .await;
 
