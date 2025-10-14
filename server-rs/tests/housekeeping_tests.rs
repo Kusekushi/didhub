@@ -33,13 +33,24 @@ async fn housekeeping_audit_retention_flow() {
     // Use direct SQL to avoid needing to call routes with clock manipulation.
     let cutoff_days = 5; // retention will be 5 days
     let old_ts = (Utc::now() - Duration::days(cutoff_days as i64 + 10)).to_rfc3339();
-    for i in 0..3 { sqlx::query("INSERT INTO audit_log (created_at, user_id, action, entity_type, entity_id, ip, metadata) VALUES (?1,NULL,?2,'system',NULL,NULL,NULL)")
-        .bind(&old_ts).bind(format!("old_event_{}", i)).execute(&db.pool).await.unwrap(); }
+    for i in 0..3 {
+        let id = uuid::Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO audit_log (id, created_at, user_id, action, entity_type, entity_id, ip, metadata) VALUES (?1,?2,NULL,?3,'system',NULL,NULL,NULL)")
+            .bind(&id)
+            .bind(&old_ts)
+            .bind(format!("old_event_{}", i))
+            .execute(&db.pool).await.unwrap();
+    }
 
     // Add a recent audit entry that should survive
     let recent_ts = Utc::now().to_rfc3339();
-    sqlx::query("INSERT INTO audit_log (created_at, user_id, action, entity_type, entity_id, ip, metadata) VALUES (?1,NULL,'recent_event','system',NULL,NULL,NULL)")
-        .bind(&recent_ts).execute(&db.pool).await.unwrap();
+    {
+        let id = uuid::Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO audit_log (id, created_at, user_id, action, entity_type, entity_id, ip, metadata) VALUES (?1,?2,NULL,'recent_event','system',NULL,NULL,NULL)")
+            .bind(&id)
+            .bind(&recent_ts)
+            .execute(&db.pool).await.unwrap();
+    }
 
     // Configure retention days setting
     let set_retention = Request::builder().method("PUT").uri("/api/settings/audit.retention.days")

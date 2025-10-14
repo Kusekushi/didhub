@@ -95,7 +95,9 @@ impl CommonOperations for Db {
     ) -> Result<()> {
         let metadata_str = metadata_json.map(|v| serde_json::to_string(v).unwrap());
         let now = chrono::Utc::now().to_rfc3339();
-        sqlx::query("INSERT INTO audit_log (created_at, user_id, action, entity_type, entity_id, ip, metadata) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)")
+        let id = uuid::Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO audit_log (id, created_at, user_id, action, entity_type, entity_id, ip, metadata) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+            .bind(&id)
             .bind(now)
             .bind(user_id)
             .bind(action)
