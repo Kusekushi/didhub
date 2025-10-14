@@ -24,6 +24,7 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 import ToolbarActions from './components/common/ToolbarActions';
 import PasswordChangeDialog from './components/forms/PasswordChangeDialog';
 import AppRoutes from './components/common/AppRoutes';
+import BuildInfoBanner from './components/common/BuildInfoBanner';
 import { ThemeToggleContext } from './shared/contexts/ThemeContext';
 import { useAuth } from './shared/contexts/AuthContext';
 import { useNavigationRestrictions } from './shared/hooks/useNavigationRestrictions';
@@ -221,6 +222,9 @@ export default function App() {
           )}
 
           <AppRoutes user={me} />
+
+          {/* Build info banner (non-intrusive) */}
+          <BuildInfoBanner />
 
           {!isAuthRoute && <PasswordChangeDialog open={!!mustChange} />}
         </ErrorBoundary>

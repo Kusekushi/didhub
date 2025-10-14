@@ -47,6 +47,27 @@ fn main() {
     let updater_version = get_crate_version("../didhub-updater");
     let migrations_version = get_crate_version("../didhub-migrations");
     let frontend_version = get_frontend_version();
+    // Attempt to read current git commit short hash and build time
+    fn get_git_commit() -> String {
+        if let Ok(output) = std::process::Command::new("git").args(["rev-parse", "--short", "HEAD"]).output() {
+            if output.status.success() {
+                if let Ok(s) = String::from_utf8(output.stdout) {
+                    return s.trim().to_string();
+                }
+            }
+        }
+        "unknown".to_string()
+    }
+
+    fn get_build_time() -> String {
+        // Use RFC3339 UTC now
+        chrono::Utc::now().to_rfc3339()
+    }
+
+    let git_commit = get_git_commit();
+    let build_time = get_build_time();
+    // Capture Rust target triple if provided during cross-compilation
+    let target_triple = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
 
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("versions.rs");
@@ -64,6 +85,9 @@ pub const MIDDLEWARE_VERSION: &str = "{}";
 pub const UPDATER_VERSION: &str = "{}";
 pub const MIGRATIONS_VERSION: &str = "{}";
 pub const FRONTEND_VERSION: &str = "{}";
+pub const GIT_COMMIT: &str = "{}";
+pub const BUILD_TIME: &str = "{}";
+pub const TARGET_TRIPLE: &str = "{}";
 "#,
         server_version,
         db_version,
@@ -77,7 +101,10 @@ pub const FRONTEND_VERSION: &str = "{}";
         middleware_version,
         updater_version,
         migrations_version,
-        frontend_version
+        frontend_version,
+        git_commit,
+        build_time,
+        target_triple
     );
 
     fs::write(&dest_path, versions_code).unwrap();

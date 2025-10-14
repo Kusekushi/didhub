@@ -72,6 +72,9 @@ rsa = "0.9"
 pkcs8 = "0.10"
 tempfile = "3"
 
+[build-dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+
 [features]
 # Enable this to compile in self-update logic
 updater = ["didhub-updater/updater"]
