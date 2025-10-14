@@ -31,6 +31,8 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
                 .put(crate::routes::alters::update_alter)
                 .delete(crate::routes::alters::delete_alter),
         )
+        .route("/users", get(crate::routes::admin::users::list_users))
+        .route("/users/{id}", get(crate::routes::admin::users::get_user))
         .route(
             "/alters/{id}/subsystems",
             get(crate::routes::alters::get_alter_subsystem)

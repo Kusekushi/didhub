@@ -4,13 +4,13 @@ import { Container, Typography, List } from '@mui/material';
 import { useSystemList } from '../../shared/hooks/useSystemList';
 import SystemSearch from './SystemSearch';
 import SystemListItem from './SystemListItem';
-import { ApiSystemSummary } from '@didhub/api-client';
+import { ApiUser } from '@didhub/api-client';
 
 export interface SystemListProps {
   title?: string;
   header?: React.ReactNode;
-  primary?: (s: ApiSystemSummary) => React.ReactNode;
-  secondary?: (s: ApiSystemSummary) => React.ReactNode;
+  primary?: (s: ApiUser) => React.ReactNode;
+  secondary?: (s: ApiUser) => React.ReactNode;
   showContainer?: boolean;
   showSearch?: boolean;
 }
@@ -32,7 +32,7 @@ export default function SystemList(props: SystemListProps) {
 
       <List>
         {systems.map((s) => (
-          <SystemListItem key={s.user_id} system={s} primary={primary} secondary={secondary} />
+          <SystemListItem key={s.id} system={s} primary={primary} secondary={secondary} />
         ))}
       </List>
     </>

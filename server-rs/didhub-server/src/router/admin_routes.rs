@@ -1,5 +1,5 @@
 use axum::{
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 
@@ -8,12 +8,10 @@ use didhub_metrics as metrics;
 
 pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
     Router::new()
-        .route("/users", get(crate::routes::admin::users::list_users))
         .route("/users", post(crate::routes::admin::users::create_user))
         .route(
             "/users/{id}",
-            get(crate::routes::admin::users::get_user)
-                .put(crate::routes::admin::users::update_user)
+            put(crate::routes::admin::users::update_user)
                 .delete(crate::routes::admin::users::delete_user),
         )
         .route(

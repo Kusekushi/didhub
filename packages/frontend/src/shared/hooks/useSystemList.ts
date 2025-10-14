@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { listSubsystems } from '../../services/subsystemService';
+import { listUsers } from '../../services/adminService';
+import { ApiUser } from '@didhub/api-client';
 
 /**
  * Hook for managing system list data and search
  */
 export function useSystemList() {
-  const [systems, setSystems] = useState<any[]>([]);
+  const [systems, setSystems] = useState<ApiUser[]>([]);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -13,7 +14,7 @@ export function useSystemList() {
   useEffect(() => {
     (async () => {
       try {
-  const res = await listSubsystems({});
+        const res = await listUsers({ is_system: '1', is_approved: '1' });
         const payload = res ?? null;
         const items = Array.isArray(payload?.items) ? payload.items : [];
         setSystems(items);
@@ -37,7 +38,7 @@ export function useSystemList() {
       String(s.username || '')
         .toLowerCase()
         .includes(q) ||
-      String(s.user_id || '')
+      String(s.id || '')
         .toLowerCase()
         .includes(q)
     );

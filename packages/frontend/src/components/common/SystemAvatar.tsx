@@ -1,9 +1,9 @@
 import React from 'react';
 import { Avatar } from '@mui/material';
-import { ApiSystemSummary } from '@didhub/api-client';
+import { ApiUser } from '@didhub/api-client';
 
 export interface SystemAvatarProps {
-  system: ApiSystemSummary;
+  system: ApiUser;
 }
 
 /**
@@ -16,7 +16,7 @@ export default function SystemAvatar(props: SystemAvatarProps) {
 
   return (
     <Avatar>
-      {String((props.system.username || props.system.user_id || '').toString())
+      {String((props.system.username || props.system.id || '').toString())
         .charAt(0)
         .toUpperCase()}
     </Avatar>

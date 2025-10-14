@@ -3,12 +3,12 @@ import { ListItem, ListItemText, Button, ListItemAvatar } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 
 import SystemAvatar from './SystemAvatar';
-import { ApiSystemSummary } from '@didhub/api-client';
+import { ApiUser } from '@didhub/api-client';
 
 export interface SystemListItemProps {
-  system: ApiSystemSummary;
-  primary?: (s: ApiSystemSummary) => React.ReactNode;
-  secondary?: (s: ApiSystemSummary) => React.ReactNode;
+  system: ApiUser;
+  primary?: (s: ApiUser) => React.ReactNode;
+  secondary?: (s: ApiUser) => React.ReactNode;
 }
 
 /**
@@ -18,7 +18,7 @@ export default function SystemListItem(props: SystemListItemProps) {
   return (
     <ListItem
       secondaryAction={
-        <Button component={RouterLink} to={`/did-system/${props.system.user_id}`}>
+        <Button component={RouterLink} to={`/did-system/${props.system.id}`}>
           View
         </Button>
       }

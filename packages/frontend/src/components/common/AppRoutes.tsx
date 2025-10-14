@@ -52,7 +52,7 @@ export default function AppRoutes(props: AppRoutesProps) {
         path="/systems"
         element={props.user ? <SystemList
           title="Systems"
-          primary={(system) => `${system.username ?? ''} (${system.user_id ?? ''})`}
+          primary={(system) => `${system.username ?? ''} (${system.id ?? ''})`}
         // secondary={(system) => system.display_name ?? ''}
         /> : <Navigate to="/login" state={{ from: location }} replace />}
       />
