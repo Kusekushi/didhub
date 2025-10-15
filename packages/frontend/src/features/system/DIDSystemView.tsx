@@ -9,6 +9,7 @@ import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/Notif
 import AltersTab from '../../features/system/AltersTab';
 import GroupsTab from '../../features/system/GroupsTab';
 import SubsystemsTab from '../../features/system/SubsystemsTab';
+import { ApiUser } from '@didhub/api-client';
 
 export default function DIDSystemView(): React.ReactElement {
   const { uid } = useParams() as { uid?: string };
@@ -20,7 +21,7 @@ export default function DIDSystemView(): React.ReactElement {
   const [hideDormant, setHideDormant] = useState(false);
   const [hideMerged, setHideMerged] = useState(false);
   const [tab, setTab] = useState(0);
-  const [systems, setSystems] = useState<any[]>([]);
+  const [systems, setSystems] = useState<ApiUser[]>([]);
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
 
   // Load systems list
@@ -69,7 +70,7 @@ export default function DIDSystemView(): React.ReactElement {
   }, [location.search]);
 
   // Computed values
-  const currentSystem = systems.find((s) => normalizeEntityId(s.user_id) === normalizeEntityId(uid));
+  const currentSystem = systems.find((s) => normalizeEntityId(s.id) === normalizeEntityId(uid));
   const canManage = me && (me.is_admin || (me.is_system && normalizeEntityId(me.id) === normalizeEntityId(uid)));
   const readOnly = !!uid && !canManage;
 

@@ -126,6 +126,7 @@ async fn restore_from_archive(
 }
 
 #[axum::debug_handler]
+/// @api body=formdata
 pub async fn restore_backup(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,

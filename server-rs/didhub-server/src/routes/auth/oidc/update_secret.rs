@@ -62,7 +62,6 @@ pub async fn update_secret(
         None,
     )
     .await;
-    
 
     if client_id_changed || secret_changed {
         OIDC_SECRET_UPDATE_TOTAL

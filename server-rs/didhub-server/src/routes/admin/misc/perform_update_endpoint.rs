@@ -41,18 +41,18 @@ pub async fn perform_update_endpoint(
 
     if !auto_update_enabled {
         warn!(user_id=%user.id, "update perform attempted but auto-updates are disabled");
-            let ip_arc = didhub_middleware::client_ip::get_request_ip();
-            let ip = ip_arc.as_ref().map(|s| s.as_str());
-            audit::record_with_metadata(
-                &db,
-                Some(user.id.as_str()),
-                "admin.update.disabled",
-                Some("update"),
-                None,
-                serde_json::json!({"enabled": auto_update_enabled}),
-                ip,
-            )
-            .await;
+        let ip_arc = didhub_middleware::client_ip::get_request_ip();
+        let ip = ip_arc.as_ref().map(|s| s.as_str());
+        audit::record_with_metadata(
+            &db,
+            Some(user.id.as_str()),
+            "admin.update.disabled",
+            Some("update"),
+            None,
+            serde_json::json!({"enabled": auto_update_enabled}),
+            ip,
+        )
+        .await;
 
         return Ok(Json(UpdateResult {
             success: false,

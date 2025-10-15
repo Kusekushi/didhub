@@ -1,5 +1,5 @@
-use sqlx::SqlitePool;
 use anyhow::Result;
+use sqlx::SqlitePool;
 
 #[tokio::test]
 async fn mixed_user_alter_and_user_user_spouse_tests() -> Result<()> {

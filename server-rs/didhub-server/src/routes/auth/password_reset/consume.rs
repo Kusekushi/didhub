@@ -93,7 +93,6 @@ pub async fn consume_reset(
     )
     .await;
 
-
     info!(selector=%payload.selector, user_id=%rec.user_id, "password reset completed successfully");
 
     Ok(Json(ConsumeOut { ok: true }))

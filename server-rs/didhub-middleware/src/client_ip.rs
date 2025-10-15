@@ -1,7 +1,7 @@
+use axum::extract::Extension;
 use axum::{body::Body, http::Request, middleware::Next, response::Response};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use axum::extract::Extension;
 use tokio::task_local;
 
 task_local! {
@@ -31,7 +31,9 @@ pub async fn extract_client_ip(mut req: Request<Body>, next: Next) -> Response {
     if !ip.is_empty() {
         let arc = Arc::new(ip);
         req.extensions_mut().insert(arc.clone());
-        return REQUEST_IP.scope(arc, async move { next.run(req).await }).await;
+        return REQUEST_IP
+            .scope(arc, async move { next.run(req).await })
+            .await;
     }
 
     next.run(req).await

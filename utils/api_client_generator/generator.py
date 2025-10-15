@@ -36,6 +36,16 @@ class TypeScriptGenerator:
             for name, names in simple_name_map.items()
             if len(names) == 1
         }
+        # Alias map for case-insensitive lookups and fast plural/pluralized matching
+        # Keys are lowercase simple names (and some common plural forms), values are TS names
+        self.alias_map: Dict[str, str] = {}
+        for k, v in self.simple_to_ts.items():
+            self.alias_map[k.lower()] = v
+            # also add basic plural form mapping (user -> users)
+            if k.endswith('y'):
+                self.alias_map[(k[:-1] + 'ies').lower()] = v
+            else:
+                self.alias_map[(k + 's').lower()] = v
 
     def _setup_jinja_env(self) -> Environment:
         """Setup Jinja2 environment with templates"""
@@ -516,6 +526,117 @@ class TypeScriptGenerator:
         response_ts_type_full = self._rust_type_to_typescript(endpoint.response_type, for_types_file=False) if endpoint.response_type else 'unknown'
         # Short form used in the generated types file (no 'Types.' prefix)
         response_type_short = self._rust_type_to_typescript(endpoint.response_type, for_types_file=True) if endpoint.response_type else 'unknown'
+
+        # Heuristics: if the parser did not provide a concrete response type, attempt
+        # to infer binary or form-data shapes based on the endpoint path and method.
+        # This prevents the generator from emitting opaque 'unknown' for common file
+        # download/upload endpoints (backups, PDFs, assets, uploads).
+        # If an explicit response_hint was provided by parser (via @api), prefer it
+        if getattr(endpoint, 'response_hint', None):
+            hint = endpoint.response_hint.lower()
+            if hint in ('binary', 'backup'):
+                # Prefer Blob in browser contexts; allow JSON fallbacks
+                response_ts_type_full = 'Blob | Types.ApiJsonValue'
+                response_type_short = 'Blob | ApiJsonValue'
+            elif hint in ('blob', 'pdf'):
+                response_ts_type_full = 'Blob | Types.ApiJsonValue'
+                response_type_short = 'Blob | ApiJsonValue'
+            elif hint in ('string', 'text'):
+                response_ts_type_full = 'string | Types.ApiJsonValue'
+                response_type_short = 'string | ApiJsonValue'
+            elif hint in ('none', 'void', 'empty'):
+                # Explicitly indicate no response body
+                response_ts_type_full = 'void'
+                response_type_short = 'void'
+        elif not endpoint.response_type:
+            p = endpoint.path.lower()
+            # Try to infer a concrete response type from the path and known type defs.
+            # Example: /api/users -> Array<User>, /api/users/{id} -> User
+            try:
+                # collect non-parameter segments (skip {id}-style parts)
+                raw_segs = [s for s in endpoint.path.strip('/').split('/') if s and not s.startswith('{')]
+            except Exception:
+                raw_segs = []
+            # Skip common API prefixes (like 'api' and version tokens)
+            skip_prefixes = {'api', 'v1', 'v2', 'v3'}
+            segs = [s for s in raw_segs if s.lower() not in skip_prefixes]
+            if segs:
+                # pick the last resource-like segment (e.g., 'users' or 'uploads')
+                resource_seg = segs[-1]
+                candidates = []
+                # handle hyphenated names: 'user-groups' -> ['user','groups'] -> try 'groups' then 'usergroups'
+                parts = re.split(r'[-_]', resource_seg)
+                if parts:
+                    candidates.extend(parts[::-1])  # prefer last hyphen part first
+                    if len(parts) >= 2:
+                        candidates.append(''.join(parts))
+
+                # also consider the raw segment and the previous segment (deeper path heuristics)
+                candidates.append(resource_seg)
+                if len(segs) >= 2:
+                    two_seg = segs[-2] + '/' + segs[-1]
+                    candidates.append(two_seg)
+
+                matched = False
+                for cand in candidates:
+                    # naive singularization heuristics for candidate
+                    seg = cand.lower()
+                    if seg.endswith('ies'):
+                        sing = seg[:-3] + 'y'
+                    elif seg.endswith('ses'):
+                        sing = seg[:-2]
+                    elif seg.endswith('s') and len(seg) > 1:
+                        sing = seg[:-1]
+                    else:
+                        sing = seg
+
+                    # capitalise to match TypeDefinition simple names (e.g., 'user' -> 'User')
+                    candidate_key = sing.capitalize()
+                    ts_name = self.simple_to_ts.get(candidate_key)
+                    if not ts_name:
+                        # try alias_map (lowercase keys)
+                        ts_name = self.alias_map.get(seg) or self.alias_map.get(sing) or self.alias_map.get(candidate_key.lower())
+                    if ts_name:
+                        matched = True
+                        # If GET and no path params -> collection endpoint -> Array<type>
+                        # Prefer array for collection GET endpoints. Be stricter: require
+                        # no path params and either a plural resource segment or pagination query params.
+                        is_collection_preferred = False
+                        if endpoint.method == 'GET' and not re.search(r"\{[^}]+\}", endpoint.path):
+                            # If resource segment looks plural, prefer an array
+                            if seg.endswith('s'):
+                                is_collection_preferred = True
+                            else:
+                                # If query_type exists and contains pagination-like fields, prefer array
+                                if endpoint.query_type:
+                                    q_td_for_check = self._find_type_def_for_rust(endpoint.query_type)
+                                    if q_td_for_check:
+                                        inlined = self._collect_inlined_fields(q_td_for_check)
+                                        field_names = [f[2] for f in inlined]
+                                        if any(n in ('limit', 'offset', 'page', 'per_page') for n in field_names):
+                                            is_collection_preferred = True
+
+                        if is_collection_preferred:
+                            response_ts_type_full = f'Array<Types.{ts_name}>'
+                            response_type_short = f'Array<{ts_name}>'
+                        else:
+                            response_ts_type_full = f'Types.{ts_name}'
+                            response_type_short = f'{ts_name}'
+                        break
+            # fallthrough to other heuristics below if not matched
+            # Admin backup endpoint (generally returns zip buffer)
+            if '/admin/backup' in p or p.endswith('/backup') or '/backup' in p:
+                response_ts_type_full = 'Blob | Types.ApiJsonValue'
+                response_type_short = 'Blob | ApiJsonValue'
+            # PDF/report endpoints -> prefer Blob in browser contexts
+            elif '/pdf' in p or p.endswith('.pdf') or '/report' in p and 'pdf' in p:
+                response_ts_type_full = 'Blob | ArrayBuffer | Uint8Array | Types.ApiJsonValue'
+                response_type_short = 'Blob | ArrayBuffer | Uint8Array | ApiJsonValue'
+            # Static assets and uploads -> may be binary or JSON metadata
+            elif '/assets' in p or '/uploads/' in p or '/upload' in p:
+                # Assets/uploads may be binary or textual; prefer Blob or string with JSON fallback
+                response_ts_type_full = 'Blob | string | Types.ApiJsonValue'
+                response_type_short = 'Blob | string | ApiJsonValue'
         return_type = f'Promise<HttpResponse<{response_ts_type_full}>>'
         response_type = response_type_short
 
@@ -558,7 +679,25 @@ class TypeScriptGenerator:
             if endpoint.body_type:
                 ts_body_type = self._rust_type_to_typescript(endpoint.body_type, for_types_file=True)
             else:
-                ts_body_type = 'unknown'
+                # If an explicit body_hint was provided, prefer it
+                bh = getattr(endpoint, 'body_hint', None)
+                if bh:
+                    sbh = bh.lower()
+                    if sbh in ('formdata', 'multipart', 'form'):
+                        ts_body_type = 'FormData | ApiJsonValue'
+                    elif sbh in ('binary', 'blob'):
+                        ts_body_type = 'Blob | ApiJsonValue'
+                    elif sbh in ('json', 'object'):
+                        ts_body_type = 'ApiJsonValue'
+                    else:
+                        ts_body_type = 'ApiJsonValue'
+                else:
+                    # Heuristic: form-data uploads and restore endpoints should be typed as FormData
+                    p = endpoint.path.lower()
+                    if '/upload' in p or '/uploads' in p or '/restore' in p or 'backup' in p:
+                        ts_body_type = 'FormData | ApiJsonValue'
+                    else:
+                        ts_body_type = 'unknown'
             # Use parser-provided flag for body optionality when available
             is_body_optional = bool(getattr(endpoint, 'body_optional', False))
             req_fields.append(('body', ts_body_type, is_body_optional))

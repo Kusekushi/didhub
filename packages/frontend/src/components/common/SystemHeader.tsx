@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Tabs, Tab, Autocomplete, TextField, CircularProgress, InputAdornment, Alert } from '@mui/material';
-import type { ApiUser } from '../../types/ui';
+import { ApiUser } from '@didhub/api-client';
 
 export interface SystemHeaderProps {
   tab: number;
@@ -34,7 +34,7 @@ export default function SystemHeader(props: SystemHeaderProps) {
           size="small"
           sx={{ minWidth: 320 }}
           options={props.systems || []}
-          getOptionLabel={(s: ApiUser | string) => (s ? `${(s as ApiUser).username} (${(s as ApiUser).id})` : '')}
+          getOptionLabel={(s: ApiUser) => (s ? `${s.username} (${s.id})` : '')}
           value={props.currentSystem || null}
           onChange={props.onSystemChange}
           renderInput={(params: Parameters<typeof TextField>[0]) => <TextField {...params} label="System" />}

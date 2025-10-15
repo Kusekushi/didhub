@@ -56,16 +56,29 @@ pub struct UsersListResponse<T> {
     pub items: Vec<T>,
 }
 
+// Concrete top-level response for the admin users endpoint which historically
+// returned either a lightweight names-only list or a full user list. We model
+// both shapes as an untagged enum so the generated client can consume either.
+#[derive(serde::Serialize)]
+#[serde(untagged)]
+pub enum AdminGetUsersResponse {
+    Names(UsersListResponse<NamesItem>),
+    Full(UsersListResponse<User>),
+}
+
 fn sanitize_user(mut user: User) -> User {
     user.password_hash = None;
     user
 }
 
+/// @api response=json
+/// @api response=infer
+/// @api response=UsersListResponse<User>
 pub async fn list_users(
     State(db): State<Db>,
     Extension(current): Extension<CurrentUser>,
     Query(q): Query<UsersQuery>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<AdminGetUsersResponse>, AppError> {
     if current.is_approved == 0 {
         return Err(AppError::Forbidden);
     }
@@ -110,13 +123,16 @@ pub async fn list_users(
                 name: u.username,
             });
         }
-        let resp = serde_json::json!({
-            "items": items,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        });
-        return Ok(Json(resp));
+        let meta = UsersListResponseMeta {
+            page: 0,
+            per_page: limit,
+            total,
+            pages: 1,
+            next: None,
+            prev: None,
+        };
+        let resp = UsersListResponse { meta, items };
+        return Ok(Json(AdminGetUsersResponse::Names(resp)));
     }
 
     let offset = (page - 1) * per_page;
@@ -151,9 +167,10 @@ pub async fn list_users(
         next,
         prev,
     };
-    Ok(Json(
-        serde_json::to_value(UsersListResponse { meta, items }).map_err(|_| AppError::Internal)?,
-    ))
+    Ok(Json(AdminGetUsersResponse::Full(UsersListResponse {
+        meta,
+        items,
+    })))
 }
 
 #[derive(serde::Deserialize)]
@@ -218,13 +235,14 @@ pub struct DeleteUserPayload {
     pub reassign_to: Option<String>,
 }
 
+/// @api response=json
 pub async fn delete_user(
     State(db): State<Db>,
     _admin: Extension<AdminFlag>,
     Extension(actor): Extension<CurrentUser>,
     Path(id): Path<String>,
     maybe_payload: Option<Json<DeleteUserPayload>>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<DeleteUserResult>, AppError> {
     // Prevent self deletion for now (could be allowed with extra safeguards)
     if actor.id == id {
         return Err(AppError::Forbidden);
@@ -264,9 +282,16 @@ pub async fn delete_user(
     let ip_arc = didhub_middleware::client_ip::get_request_ip();
     let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(&db, Some(actor.id.as_str()), "user.delete", "user", &id, ip).await;
-    Ok(Json(
-        serde_json::json!({"deleted": true, "reassigned_to": payload.reassign_to }),
-    ))
+    Ok(Json(DeleteUserResult {
+        deleted: true,
+        reassigned_to: payload.reassign_to,
+    }))
+}
+
+#[derive(serde::Serialize)]
+pub struct DeleteUserResult {
+    pub deleted: bool,
+    pub reassigned_to: Option<String>,
 }
 
 #[derive(serde::Deserialize)]

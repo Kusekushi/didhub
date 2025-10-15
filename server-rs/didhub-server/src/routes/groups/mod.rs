@@ -209,7 +209,9 @@ pub struct CreateGroupPayload {
     pub name: String,
     pub description: Option<String>,
     pub sigil: Option<String>,
-    pub leaders: Option<serde_json::Value>,
+    #[serde(default)]
+    #[serde(deserialize_with = "crate::routes::common::deserialize_leader_vec")]
+    pub leaders: Option<Vec<String>>,
     pub metadata: Option<String>,
     pub owner_user_id: Option<String>,
 }
@@ -224,11 +226,7 @@ pub async fn create_group(
         return Err(AppError::BadRequest("name required".into()));
     }
     debug!(user_id=%user.id, group_name=%payload.name, "creating group");
-    let leaders_vec = payload
-        .leaders
-        .as_ref()
-        .map(parse_leaders)
-        .unwrap_or_default();
+    let leaders_vec = payload.leaders.unwrap_or_default();
     // Ownership rules: allow explicit owner_user_id when provided, but disallow non-admin users
     // from creating a group for another user.
     let owner: Option<&str> = if let Some(explicit) = payload.owner_user_id.as_deref() {
@@ -284,28 +282,52 @@ pub async fn get_group(
     Ok(Json(project(g)))
 }
 
-#[derive(serde::Deserialize)]
-pub struct UpdateGroupPayload {
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct UpdateGroupDto {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub sigil: Option<String>,
+    pub leaders: Option<serde_json::Value>,
+    pub metadata: Option<String>,
+    pub owner_user_id: Option<String>,
     #[serde(flatten)]
-    pub rest: serde_json::Value,
+    pub rest: std::collections::HashMap<String, serde_json::Value>,
 }
 
 pub async fn update_group(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
     Path(id): Path<String>,
-    Json(payload): Json<UpdateGroupPayload>,
+    Json(payload): Json<UpdateGroupDto>,
 ) -> Result<Json<GroupOut>, AppError> {
-    if payload
-        .rest
-        .as_object()
-        .map(|m| m.is_empty())
-        .unwrap_or(true)
-    {
+    // build serde_json::Value object from DTO for existing db.update_group
+    let mut rest = serde_json::Map::new();
+    if let Some(n) = payload.name {
+        rest.insert("name".to_string(), serde_json::Value::String(n));
+    }
+    if let Some(d) = payload.description {
+        rest.insert("description".to_string(), serde_json::Value::String(d));
+    }
+    if let Some(s) = payload.sigil {
+        rest.insert("sigil".to_string(), serde_json::Value::String(s));
+    }
+    if let Some(l) = payload.leaders {
+        rest.insert("leaders".to_string(), l);
+    }
+    if let Some(m) = payload.metadata {
+        rest.insert("metadata".to_string(), serde_json::Value::String(m));
+    }
+    if let Some(o) = payload.owner_user_id {
+        rest.insert("owner_user_id".to_string(), serde_json::Value::String(o));
+    }
+    for (k, v) in payload.rest {
+        rest.insert(k, v);
+    }
+    let mut rest = serde_json::Value::Object(rest);
+    if rest.as_object().map(|m| m.is_empty()).unwrap_or(true) {
         warn!(user_id=%user.id, group_id=%id, "group update failed - no update fields provided");
         return Err(AppError::BadRequest("no update fields".into()));
     }
-    let mut rest = payload.rest;
     debug!(user_id=%user.id, group_id=%id, update_fields=?rest, "updating group");
     check_group_ownership(&db, &user, &id).await?;
     if let Some(obj) = rest.as_object_mut() {
@@ -339,6 +361,7 @@ pub async fn update_group(
     Ok(Json(project(updated)))
 }
 
+/// @api response=none
 pub async fn delete_group(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,

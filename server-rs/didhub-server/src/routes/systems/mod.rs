@@ -34,7 +34,8 @@ pub async fn list_systems(
     Extension(db): Extension<Db>,
     Query(q): Query<ListQuery>,
 ) -> Result<Json<Paged<SystemSummary>>, AppError> {
-    if !(user.is_admin == 1 || user.is_system == 1) { /* For now allow all; could restrict later */ }
+    if !(user.is_admin == 1 || user.is_system == 1) { /* For now allow all; could restrict later */
+    }
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
     let offset = q.offset.unwrap_or(0).max(0);
 

@@ -18,6 +18,9 @@ class Endpoint:
     body_type: Optional[str] = None   # Type name for request body (e.g., "CreateUserPayload")
     body_optional: bool = False  # True if the request body is an Option<...> in Rust
     response_type: Optional[str] = None  # Type name for response (e.g., "UsersListResponse<UserOut>")
+    # Optional explicit hints parsed from doc comments or attributes (e.g., @api response=binary)
+    response_hint: Optional[str] = None  # e.g., 'binary', 'pdf', 'json'
+    body_hint: Optional[str] = None      # e.g., 'formdata', 'json', 'binary'
 
 
 @dataclass

@@ -9,6 +9,7 @@ use openidconnect::{CsrfToken, Nonce, PkceCodeChallenge, Scope};
 
 use super::{build_oidc_client, get_global_oidc_enabled, get_provider_config, AuthorizeQuery};
 
+/// @api response=none
 pub async fn authorize(
     Path(id): Path<String>,
     Query(q): Query<AuthorizeQuery>,

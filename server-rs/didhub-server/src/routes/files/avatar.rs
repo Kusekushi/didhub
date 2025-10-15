@@ -23,6 +23,7 @@ pub struct AvatarResp {
     pub avatar: Option<String>,
 }
 
+/// @api body=formdata
 pub async fn upload_avatar(
     Extension(user): Extension<CurrentUser>,
     Extension(_cfg): Extension<AppConfig>,

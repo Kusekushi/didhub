@@ -61,7 +61,8 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route(
             "/me/profile",
-            get(crate::routes::me::profile::get_profile).put(crate::routes::me::profile::update_profile),
+            get(crate::routes::me::profile::get_profile)
+                .put(crate::routes::me::profile::update_profile),
         )
         .route(
             "/groups",

@@ -1,11 +1,10 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 
 import * as authService from '../../services/authService';
-import { setStoredToken } from '@didhub/api-client';
+import { ApiUser, setStoredToken } from '@didhub/api-client';
 import { getMe } from '../hooks/useMe';
 
 // Lightweight local types to avoid runtime dependency on generated client
-type ApiUser = any;
 class ApiError extends Error {
   data: any;
   constructor(message?: string, data?: any) {
@@ -102,26 +101,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (delayMs < 0) delayMs = 5000; // soon
     refreshTimer.current = window.setTimeout(async () => {
       if (refreshingRef.current) return;
-        refreshingRef.current = true;
-        try {
-          const r: any = await authService.refresh();
-          refreshingRef.current = false;
-          if (!r || !r.token) {
-            await logout();
-            return;
-          }
-          try {
-            localStorage.setItem('didhub_jwt', r.token);
-          } catch {
-            // Ignore localStorage errors
-          }
-          const newExp = r.token ? getTokenExp(r.token) : null;
-          setTokenExp(newExp);
-          scheduleRefresh(newExp);
-        } catch {
-          refreshingRef.current = false;
+      refreshingRef.current = true;
+      try {
+        const r: any = await authService.refresh();
+        refreshingRef.current = false;
+        if (!r || !r.token) {
           await logout();
+          return;
         }
+        try {
+          localStorage.setItem('didhub_jwt', r.token);
+        } catch {
+          // Ignore localStorage errors
+        }
+        const newExp = r.token ? getTokenExp(r.token) : null;
+        setTokenExp(newExp);
+        scheduleRefresh(newExp);
+      } catch {
+        refreshingRef.current = false;
+        await logout();
+      }
     }, delayMs) as unknown as number;
   }, []);
 
@@ -195,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
   async function register(username: string, password: string, is_system = false) {
     try {
-    const r = await authService.register(username, password, is_system);
+      const r = await authService.register(username, password, is_system);
       if (r && (r as any).ok) {
         return { ok: true, pending: true };
       }
@@ -218,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
   async function changePassword(current: string, next: string) {
-  const res = await authService.changePassword({ current_password: current, new_password: next } as any);
+    const res = await authService.changePassword({ current_password: current, new_password: next } as any);
     if (res && (res as any).ok) {
       setMustChange(false);
       try {

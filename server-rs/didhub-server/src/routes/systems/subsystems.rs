@@ -236,7 +236,9 @@ pub async fn list_subsystems(
 pub struct CreateSubsystemPayload {
     pub name: String,
     pub description: Option<String>,
-    pub leaders: Option<serde_json::Value>,
+    #[serde(default)]
+    #[serde(deserialize_with = "crate::routes::common::deserialize_leader_vec")]
+    pub leaders: Option<Vec<String>>,
     pub metadata: Option<String>,
     pub owner_user_id: Option<String>,
 }
@@ -264,11 +266,7 @@ pub async fn create_subsystem(
         return Err(AppError::BadRequest("name required".into()));
     }
 
-    let leaders_vec = payload
-        .leaders
-        .as_ref()
-        .map(parse_leaders)
-        .unwrap_or_default();
+    let leaders_vec = payload.leaders.unwrap_or_default();
 
     debug!(
         user_id = %user.id,
@@ -388,17 +386,23 @@ pub async fn get_subsystem(
     Ok(Json(project(s)))
 }
 
-#[derive(serde::Deserialize)]
-pub struct UpdateSubsystemPayload {
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct UpdateSubsystemDto {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub avatar_url: Option<String>,
+    pub banner_url: Option<String>,
+    pub color: Option<String>,
+    pub owner_user_id: Option<String>,
     #[serde(flatten)]
-    pub rest: serde_json::Value,
+    pub rest: std::collections::HashMap<String, serde_json::Value>,
 }
 
 pub async fn update_subsystem(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
     Path(id): Path<String>,
-    Json(payload): Json<UpdateSubsystemPayload>,
+    Json(payload): Json<UpdateSubsystemDto>,
 ) -> Result<Json<SubsystemOut>, AppError> {
     debug!(
         user_id = %user.id,
@@ -409,12 +413,16 @@ pub async fn update_subsystem(
         "Starting subsystem update"
     );
 
-    if payload
-        .rest
-        .as_object()
-        .map(|m| m.is_empty())
-        .unwrap_or(true)
-    {
+    // Determine if there's anything to update: check known fields and the flattened rest map
+    let no_fields = payload.name.is_none()
+        && payload.description.is_none()
+        && payload.avatar_url.is_none()
+        && payload.banner_url.is_none()
+        && payload.color.is_none()
+        && payload.owner_user_id.is_none()
+        && payload.rest.is_empty();
+
+    if no_fields {
         warn!(
             user_id = %user.id,
             subsystem_id = %id,
@@ -431,7 +439,30 @@ pub async fn update_subsystem(
         "Permission check passed, proceeding with update"
     );
 
-    let mut rest = payload.rest;
+    // build rest object from DTO
+    let mut rest_map = serde_json::Map::new();
+    if let Some(n) = payload.name {
+        rest_map.insert("name".to_string(), serde_json::Value::String(n));
+    }
+    if let Some(d) = payload.description {
+        rest_map.insert("description".to_string(), serde_json::Value::String(d));
+    }
+    if let Some(a) = payload.avatar_url {
+        rest_map.insert("avatar_url".to_string(), serde_json::Value::String(a));
+    }
+    if let Some(b) = payload.banner_url {
+        rest_map.insert("banner_url".to_string(), serde_json::Value::String(b));
+    }
+    if let Some(c) = payload.color {
+        rest_map.insert("color".to_string(), serde_json::Value::String(c));
+    }
+    if let Some(o) = payload.owner_user_id {
+        rest_map.insert("owner_user_id".to_string(), serde_json::Value::String(o));
+    }
+    for (k, v) in payload.rest {
+        rest_map.insert(k, v);
+    }
+    let mut rest = serde_json::Value::Object(rest_map);
     if let Some(obj) = rest.as_object_mut() {
         if let Some(raw) = obj.get("leaders").cloned() {
             let ids = parse_leaders(&raw);
@@ -494,6 +525,7 @@ pub async fn update_subsystem(
     Ok(Json(project(updated)))
 }
 
+/// @api response=none
 pub async fn delete_subsystem(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
@@ -773,8 +805,8 @@ pub async fn change_member(
             "Alter added to subsystem successfully"
         );
 
-    let ip_arc = didhub_middleware::client_ip::get_request_ip();
-    let ip = ip_arc.as_ref().map(|s| s.as_str());
+        let ip_arc = didhub_middleware::client_ip::get_request_ip();
+        let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
             &db,
             Some(user.id.as_str()),
@@ -806,8 +838,8 @@ pub async fn change_member(
             "Alter removed from subsystem successfully"
         );
 
-    let ip_arc = didhub_middleware::client_ip::get_request_ip();
-    let ip = ip_arc.as_ref().map(|s| s.as_str());
+        let ip_arc = didhub_middleware::client_ip::get_request_ip();
+        let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
             &db,
             Some(user.id.as_str()),

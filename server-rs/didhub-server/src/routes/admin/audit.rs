@@ -89,11 +89,13 @@ pub struct PurgeBody {
 /// POST /audit/purge
 /// If body.before is provided, purge entries before that timestamp.
 /// If omitted, clear all audit entries (previously /audit/clear).
+/// @api body=json
+/// @api response=json
 pub async fn purge_audit(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
     Json(body): Json<PurgeBody>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<PurgeAuditResponse>, AppError> {
     if user.is_admin == 0 {
         return Err(AppError::Forbidden);
     }
@@ -109,7 +111,7 @@ pub async fn purge_audit(
             AppError::Internal
         })?
     };
-    Ok(Json(serde_json::json!({"deleted": deleted})))
+    Ok(Json(PurgeAuditResponse { deleted }))
 }
 
 /// Internal helper which operates on a CommonOperations trait object. This
@@ -134,4 +136,9 @@ pub async fn purge_audit_inner<DB: CommonOperations + Sync>(
         })?
     };
     Ok(serde_json::json!({"deleted": deleted}))
+}
+
+#[derive(Serialize)]
+pub struct PurgeAuditResponse {
+    pub deleted: i64,
 }

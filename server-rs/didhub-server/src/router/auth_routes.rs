@@ -3,13 +3,14 @@ use axum::{
     Router,
 };
 
+use crate::routes::auth::wrappers;
 use didhub_auth as auth;
 
 pub fn build_auth_routes(auth_state: &auth::AuthState) -> Router {
     Router::new()
-        .route("/auth/register", post(auth::register))
-        .route("/auth/login", post(auth::login))
-        .route("/auth/refresh", post(auth::refresh))
+        .route("/auth/register", post(wrappers::register))
+        .route("/auth/login", post(wrappers::login))
+        .route("/auth/refresh", post(wrappers::refresh))
         .route("/version", get(crate::version::version_handler))
         .route("/oidc", get(crate::routes::auth::oidc::public_providers))
         .route(

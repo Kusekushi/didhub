@@ -87,7 +87,11 @@ impl AlterRelationships for Db {
         let start = Instant::now();
         // Remove existing spouse relationships for this alter (either side)
         let del_q = "DELETE FROM person_relationships WHERE type = 'spouse' AND (person_a_alter_id = ?1 OR person_b_alter_id = ?1)";
-        let mut rows_affected = sqlx::query(del_q).bind(id).execute(&self.pool).await?.rows_affected();
+        let mut rows_affected = sqlx::query(del_q)
+            .bind(id)
+            .execute(&self.pool)
+            .await?
+            .rows_affected();
         for p in partners {
             if *p == id {
                 continue;
@@ -121,8 +125,13 @@ impl AlterRelationships for Db {
         // Replace parent relationships for an alter by using person_relationships
         let start = Instant::now();
         // Delete existing parent relationships where this alter is the child
-        let del_q = "DELETE FROM person_relationships WHERE type = 'parent' AND person_a_alter_id = ?1";
-        let mut rows_affected = sqlx::query(del_q).bind(id).execute(&self.pool).await?.rows_affected();
+        let del_q =
+            "DELETE FROM person_relationships WHERE type = 'parent' AND person_a_alter_id = ?1";
+        let mut rows_affected = sqlx::query(del_q)
+            .bind(id)
+            .execute(&self.pool)
+            .await?
+            .rows_affected();
         for p in parents {
             if *p == id {
                 continue;
@@ -156,8 +165,13 @@ impl AlterRelationships for Db {
         // we delete existing parent relationships where person_b_alter_id = parent_id
         // and insert new rows where person_a is the child and person_b is the parent.
         let start = Instant::now();
-        let del_q = "DELETE FROM person_relationships WHERE type = 'parent' AND person_b_alter_id = ?1";
-        let mut rows_affected = sqlx::query(del_q).bind(id).execute(&self.pool).await?.rows_affected();
+        let del_q =
+            "DELETE FROM person_relationships WHERE type = 'parent' AND person_b_alter_id = ?1";
+        let mut rows_affected = sqlx::query(del_q)
+            .bind(id)
+            .execute(&self.pool)
+            .await?
+            .rows_affected();
         for c in children {
             if *c == id {
                 continue;
@@ -226,16 +240,27 @@ impl AlterRelationships for Db {
         let mut out: Vec<String> = Vec::new();
         for r in rows {
             if r.person_a_alter_id.as_deref() == Some(id) {
-                if let Some(b) = r.person_b_alter_id { out.push(b); }
-                else if let Some(bu) = r.person_b_user_id { out.push(bu); }
+                if let Some(b) = r.person_b_alter_id {
+                    out.push(b);
+                } else if let Some(bu) = r.person_b_user_id {
+                    out.push(bu);
+                }
             } else {
-                if let Some(a) = r.person_a_alter_id { out.push(a); }
-                else if let Some(au) = r.person_a_user_id { out.push(au); }
+                if let Some(a) = r.person_a_alter_id {
+                    out.push(a);
+                } else if let Some(au) = r.person_a_user_id {
+                    out.push(au);
+                }
             }
         }
         out.sort();
         out.dedup();
-        record_db_operation("partners_of", "person_relationships", "success", start.elapsed());
+        record_db_operation(
+            "partners_of",
+            "person_relationships",
+            "success",
+            start.elapsed(),
+        );
         Ok(out)
     }
 
@@ -250,12 +275,20 @@ impl AlterRelationships for Db {
         .await?;
         let mut out: Vec<String> = Vec::new();
         for r in rows {
-            if let Some(pid) = r.person_b_alter_id { out.push(pid); }
-            else if let Some(puid) = r.person_b_user_id { out.push(puid); }
+            if let Some(pid) = r.person_b_alter_id {
+                out.push(pid);
+            } else if let Some(puid) = r.person_b_user_id {
+                out.push(puid);
+            }
         }
         out.sort();
         out.dedup();
-        record_db_operation("parents_of", "person_relationships", "success", start.elapsed());
+        record_db_operation(
+            "parents_of",
+            "person_relationships",
+            "success",
+            start.elapsed(),
+        );
         Ok(out)
     }
 
@@ -270,12 +303,20 @@ impl AlterRelationships for Db {
         .await?;
         let mut out: Vec<String> = Vec::new();
         for r in rows {
-            if let Some(cid) = r.person_a_alter_id { out.push(cid); }
-            else if let Some(cu) = r.person_a_user_id { out.push(cu); }
+            if let Some(cid) = r.person_a_alter_id {
+                out.push(cid);
+            } else if let Some(cu) = r.person_a_user_id {
+                out.push(cu);
+            }
         }
         out.sort();
         out.dedup();
-        record_db_operation("children_of", "person_relationships", "success", start.elapsed());
+        record_db_operation(
+            "children_of",
+            "person_relationships",
+            "success",
+            start.elapsed(),
+        );
         Ok(out)
     }
 
@@ -414,7 +455,6 @@ impl AlterRelationships for Db {
 
 // New helpers for person_relationships to support users and alters as nodes
 impl Db {
-
     /// Insert a person relationship using typed `PersonIdentifier` values.
     pub async fn insert_person_relationship_pid(
         &self,
@@ -431,11 +471,24 @@ impl Db {
         let a_alter = if a_is_user { None } else { Some(a_id) };
         let b_user = if b_is_user { Some(b_id) } else { None };
         let b_alter = if b_is_user { None } else { Some(b_id) };
-        self.insert_person_relationship(id, rel_type, a_user, a_alter, b_user, b_alter, is_past_life, created_by).await
+        self.insert_person_relationship(
+            id,
+            rel_type,
+            a_user,
+            a_alter,
+            b_user,
+            b_alter,
+            is_past_life,
+            created_by,
+        )
+        .await
     }
 
     /// Fetch relationships for a typed `PersonIdentifier`.
-    pub async fn relationships_for_pid(&self, pid: PersonIdentifier) -> Result<Vec<PersonRelationship>> {
+    pub async fn relationships_for_pid(
+        &self,
+        pid: PersonIdentifier,
+    ) -> Result<Vec<PersonRelationship>> {
         let (is_user, id) = pid.as_pair();
         self.relationships_for_entity(id, is_user).await
     }
@@ -452,7 +505,8 @@ impl Db {
     ) -> Result<u64> {
         let a = PersonIdentifier::from_mixed_str(mixed_a);
         let b = PersonIdentifier::from_mixed_str(mixed_b);
-        self.insert_person_relationship_pid(id, rel_type, a, b, is_past_life, created_by).await
+        self.insert_person_relationship_pid(id, rel_type, a, b, is_past_life, created_by)
+            .await
     }
 
     pub async fn relationships_for_mixed(&self, mixed_id: &str) -> Result<Vec<PersonRelationship>> {
@@ -486,7 +540,11 @@ impl Db {
     }
 
     /// Fetch relationships where the given entity (user or alter) participates
-    pub async fn relationships_for_entity(&self, entity_id: &str, is_user: bool) -> Result<Vec<PersonRelationship>> {
+    pub async fn relationships_for_entity(
+        &self,
+        entity_id: &str,
+        is_user: bool,
+    ) -> Result<Vec<PersonRelationship>> {
         let start = Instant::now();
         let rows = if is_user {
             sqlx::query_as::<_, PersonRelationship>("SELECT * FROM person_relationships WHERE person_a_user_id = ?1 OR person_b_user_id = ?1")
@@ -499,7 +557,12 @@ impl Db {
                 .fetch_all(&self.pool)
                 .await?
         };
-        record_db_operation("relationships_for_entity", "person_relationships", "success", start.elapsed());
+        record_db_operation(
+            "relationships_for_entity",
+            "person_relationships",
+            "success",
+            start.elapsed(),
+        );
         Ok(rows)
     }
 

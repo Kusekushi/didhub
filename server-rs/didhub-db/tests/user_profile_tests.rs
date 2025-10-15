@@ -1,6 +1,6 @@
-use didhub_db::{Db, NewUser, UpdateUserFields};
-use didhub_db::users::UserOperations;
 use anyhow::Result;
+use didhub_db::users::UserOperations;
+use didhub_db::{Db, NewUser, UpdateUserFields};
 
 #[tokio::test]
 async fn update_about_me_set_and_clear() -> Result<()> {
@@ -8,7 +8,10 @@ async fn update_about_me_set_and_clear() -> Result<()> {
     let url = "sqlite::memory:?cache=shared";
     // Ensure drivers are installed for sqlx::any
     sqlx::any::install_default_drivers();
-    let pool = sqlx::any::AnyPoolOptions::new().max_connections(1).connect(url).await?;
+    let pool = sqlx::any::AnyPoolOptions::new()
+        .max_connections(1)
+        .connect(url)
+        .await?;
     didhub_migrations::sqlite_migrator().run(&pool).await?;
     let db = Db::from_any_pool(pool, didhub_db::models::DbBackend::Sqlite, url.to_string());
 

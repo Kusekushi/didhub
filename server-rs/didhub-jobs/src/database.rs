@@ -155,7 +155,7 @@ impl Job for VacuumDbJob {
         _cancel_token: &CancellationToken,
     ) -> Result<JobOutcome> {
         let affected = db.perform_database_maintenance().await?;
-    audit::record_simple(db, None, "db.vacuum", None).await;
+        audit::record_simple(db, None, "db.vacuum", None).await;
         Ok(JobOutcome::new(
             affected,
             Some("vacuum/optimize invoked".into()),

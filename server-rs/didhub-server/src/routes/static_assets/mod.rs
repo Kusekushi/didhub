@@ -12,6 +12,7 @@ use tokio::fs;
 use include_dir::{include_dir, Dir};
 
 // Serve an asset under /assets or root of the dist directory.
+/// @api response=binary
 pub async fn serve_asset(Path(rel): Path<String>) -> impl IntoResponse {
     tracing::debug!(path=%rel, "serve_asset called");
     let base = dist_dir();
@@ -36,6 +37,7 @@ pub async fn serve_asset(Path(rel): Path<String>) -> impl IntoResponse {
     serve_file(full).await
 }
 
+/// @api response=binary
 pub async fn serve_root_file(Path(name): Path<String>) -> impl IntoResponse {
     tracing::debug!(path=%name, "serve_root_file called");
     let base = dist_dir();
@@ -63,6 +65,7 @@ pub async fn serve_root_file(Path(name): Path<String>) -> impl IntoResponse {
 }
 
 // SPA fallback: anything not matching existing /api or static file returns index.html
+/// @api response=binary
 pub async fn spa_fallback() -> impl IntoResponse {
     // Try embedded index.html first
     #[cfg(feature = "embed_static")]

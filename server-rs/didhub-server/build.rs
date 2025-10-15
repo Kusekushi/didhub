@@ -49,7 +49,10 @@ fn main() {
     let frontend_version = get_frontend_version();
     // Attempt to read current git commit short hash and build time
     fn get_git_commit() -> String {
-        if let Ok(output) = std::process::Command::new("git").args(["rev-parse", "--short", "HEAD"]).output() {
+        if let Ok(output) = std::process::Command::new("git")
+            .args(["rev-parse", "--short", "HEAD"])
+            .output()
+        {
             if output.status.success() {
                 if let Ok(s) = String::from_utf8(output.stdout) {
                     return s.trim().to_string();

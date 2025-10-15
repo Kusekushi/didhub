@@ -29,6 +29,7 @@ pub struct UploadResp {
     pub filename: String,
 }
 
+/// @api body=formdata
 pub async fn upload_file(
     Extension(_cfg): Extension<AppConfig>,
     Extension(db): Extension<Db>,
@@ -239,17 +240,25 @@ pub async fn upload_file(
     Err(AppError::BadRequest("no file field provided".into()))
 }
 
+/// @api response=json
 pub async fn list_uploads(
     Extension(db): Extension<Db>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<ListUploadsResponse>, AppError> {
     debug!("listing all uploaded files");
-    let names = db.list_upload_filenames()
+    let names = db
+        .list_upload_filenames()
         .await
         .map_err(|_| AppError::Internal)?;
     debug!(file_count=%names.len(), "upload files listed");
-    Ok(Json(serde_json::json!({"files": names})))
+    Ok(Json(ListUploadsResponse { files: names }))
 }
 
+#[derive(Serialize)]
+pub struct ListUploadsResponse {
+    pub files: Vec<String>,
+}
+
+/// @api response=binary
 pub async fn serve_file(
     Extension(_cfg): Extension<AppConfig>,
     Extension(udc): Extension<UploadDirCache>,

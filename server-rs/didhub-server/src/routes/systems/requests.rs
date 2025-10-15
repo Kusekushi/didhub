@@ -108,7 +108,6 @@ pub async fn request_system(
     )
     .await;
 
-
     info!(
         user_id = %user.id,
         request_id = %rec.id,

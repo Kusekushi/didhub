@@ -4,10 +4,10 @@ use axum::{
 };
 use didhub_db::audit;
 use didhub_db::posts::PostOperations;
-use didhub_db::Db;
+use didhub_db::{Db, Post};
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
 #[derive(Deserialize)]
@@ -16,10 +16,27 @@ pub struct ListParams {
     pub offset: Option<i64>,
 }
 
+/// @api response=json
+#[derive(Serialize)]
+pub struct PostsListResponse {
+    pub items: Vec<Post>,
+}
+
+#[derive(Serialize)]
+pub struct PostItemResponse {
+    pub item: Post,
+}
+
+#[derive(Serialize)]
+pub struct DeletePostResponse {
+    pub ok: bool,
+    pub id: String,
+}
+
 pub async fn list_posts(
     Extension(db): Extension<Db>,
     Query(p): Query<ListParams>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<PostsListResponse>, AppError> {
     let limit = p.limit.unwrap_or(50).clamp(1, 200);
     let offset = p.offset.unwrap_or(0).max(0);
     debug!(limit=%limit, offset=%offset, "listing posts");
@@ -28,7 +45,7 @@ pub async fn list_posts(
         .await
         .map_err(|_| AppError::Internal)?;
     debug!(post_count=%posts.len(), "posts listed successfully");
-    Ok(Json(serde_json::json!({"items": posts})))
+    Ok(Json(PostsListResponse { items: posts }))
 }
 
 #[derive(Deserialize)]
@@ -36,11 +53,13 @@ pub struct CreatePostBody {
     pub body: String,
 }
 
+/// @api body=json
+/// @api response=json
 pub async fn create_post(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
     Json(body): Json<CreatePostBody>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<PostItemResponse>, AppError> {
     if user.is_admin == 0 && user.is_system == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized post creation attempt");
         return Err(AppError::Forbidden);
@@ -62,14 +81,15 @@ pub async fn create_post(
         ip,
     )
     .await;
-    Ok(Json(serde_json::json!({"item": post})))
+    Ok(Json(PostItemResponse { item: post }))
 }
 
+/// @api response=json
 pub async fn repost_post(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<PostItemResponse>, AppError> {
     if user.is_admin == 0 && user.is_system == 0 {
         warn!(user_id=%user.id, username=%user.username, post_id=%id, "unauthorized repost attempt");
         return Err(AppError::Forbidden);
@@ -96,15 +116,16 @@ pub async fn repost_post(
         ip,
     )
     .await;
-    Ok(Json(serde_json::json!({"item": post})))
+    Ok(Json(PostItemResponse { item: post }))
 }
 // Removed internal_err helper; using AppError::Internal mapping.
 
+/// @api response=json
 pub async fn delete_post(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<DeletePostResponse>, AppError> {
     if user.is_admin == 0 && user.is_system == 0 {
         warn!(user_id=%user.id, username=%user.username, post_id=%id, "unauthorized post deletion attempt");
         return Err(AppError::Forbidden);
@@ -119,5 +140,5 @@ pub async fn delete_post(
     let ip_arc = didhub_middleware::client_ip::get_request_ip();
     let ip = ip_arc.as_ref().map(|s| s.as_str());
     audit::record_entity(&db, Some(user.id.as_str()), "post.delete", "post", &id, ip).await;
-    Ok(Json(serde_json::json!({"ok": true, "id": id})))
+    Ok(Json(DeletePostResponse { ok: true, id }))
 }

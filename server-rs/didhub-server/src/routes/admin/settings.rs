@@ -163,19 +163,19 @@ pub async fn upsert_setting(
     Ok(Json(response))
 }
 
+use std::collections::HashMap;
+
 pub async fn bulk_upsert_settings(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
-    Json(payload): Json<serde_json::Value>,
+    Json(payload): Json<HashMap<String, serde_json::Value>>,
 ) -> Result<Json<Vec<SettingResponse>>, AppError> {
     if user.is_admin == 0 {
         warn!(user_id=%user.id, username=%user.username, "unauthorized attempt to bulk update settings");
         return Err(AppError::Forbidden);
     }
 
-    let settings_map = payload
-        .as_object()
-        .ok_or_else(|| AppError::BadRequest("Expected JSON object".to_string()))?;
+    let settings_map = &payload;
 
     let mut results = Vec::new();
 

@@ -1,7 +1,7 @@
 use axum::extract::{Extension, State};
 use axum::Json;
-use didhub_db::{Db, UpdateUserFields};
 use didhub_db::users::UserOperations;
+use didhub_db::{Db, UpdateUserFields};
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
 use serde::{Deserialize, Serialize};

@@ -32,16 +32,17 @@ async fn person_relationships_spouse_canonicalization() -> Result<()> {
         .execute(&pool)
         .await?;
 
-    let row = sqlx::query("SELECT canonical_a, canonical_b FROM person_relationships WHERE id='t_rel_test'")
-        .fetch_one(&pool)
-        .await?;
+    let row = sqlx::query(
+        "SELECT canonical_a, canonical_b FROM person_relationships WHERE id='t_rel_test'",
+    )
+    .fetch_one(&pool)
+    .await?;
     let ca: String = row.try_get("canonical_a")?;
     let cb: String = row.try_get("canonical_b")?;
     assert!(ca <= cb);
 
     Ok(())
 }
-
 
 #[tokio::test]
 async fn person_relationships_parent_and_reflexive() -> Result<()> {
@@ -67,7 +68,6 @@ async fn person_relationships_parent_and_reflexive() -> Result<()> {
 
     Ok(())
 }
-
 
 #[tokio::test]
 async fn person_relationships_past_life_separation() -> Result<()> {

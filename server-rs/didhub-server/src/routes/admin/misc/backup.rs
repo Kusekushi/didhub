@@ -127,6 +127,7 @@ async fn backup_database(
     Ok(())
 }
 
+/// @api response=binary
 pub async fn create_backup(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,

@@ -15,7 +15,7 @@ use tower_http::{
 use didhub_auth as auth;
 use didhub_config as config;
 use didhub_db as db;
-use didhub_middleware::{csrf, middleware_ext, request_logger, validation, client_ip};
+use didhub_middleware::{client_ip, csrf, middleware_ext, request_logger, validation};
 
 use crate::{
     constants::cors::ALLOWED_METHODS,

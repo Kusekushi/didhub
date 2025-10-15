@@ -17,6 +17,7 @@ use didhub_middleware::types::CurrentUser;
 use didhub_pdf::simple_pdf;
 use tracing::{debug, error, info, warn};
 
+/// @api response=pdf
 pub async fn export_alter(
     Path(id): Path<String>,
     Extension(db): Extension<Db>,
@@ -247,6 +248,7 @@ pub async fn export_alter(
     Ok((headers, pdf))
 }
 
+/// @api response=pdf
 pub async fn export_group(
     Path(id): Path<String>,
     Extension(db): Extension<Db>,
@@ -320,6 +322,7 @@ pub async fn export_group(
     Ok((headers, pdf))
 }
 
+/// @api response=pdf
 pub async fn export_subsystem(
     Path(id): Path<String>,
     Extension(db): Extension<Db>,

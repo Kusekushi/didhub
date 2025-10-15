@@ -15,6 +15,7 @@ use openidconnect::{AuthorizationCode, OAuth2TokenResponse, PkceCodeVerifier, To
 
 use super::{build_oidc_client, get_global_oidc_enabled, get_provider_config, issue_jwt};
 
+/// @api response=json
 pub async fn callback(
     Path(id): Path<String>,
     Query(params): Query<std::collections::HashMap<String, String>>,
@@ -135,15 +136,15 @@ pub async fn callback(
         let ip_arc = didhub_middleware::client_ip::get_request_ip();
         let ip = ip_arc.as_ref().map(|s| s.as_str());
         audit::record_with_metadata(
-                &db,
-                Some(existing.id.as_str()),
-                "oidc.login",
-                Some("oidc_provider"),
-                Some(&id),
-                serde_json::json!({"sub": subject, "existing": true}),
-                ip,
-            )
-            .await;
+            &db,
+            Some(existing.id.as_str()),
+            "oidc.login",
+            Some("oidc_provider"),
+            Some(&id),
+            serde_json::json!({"sub": subject, "existing": true}),
+            ip,
+        )
+        .await;
         OIDC_LOGIN_TOTAL
             .with_label_values(&[id.as_str(), "existing"])
             .inc();

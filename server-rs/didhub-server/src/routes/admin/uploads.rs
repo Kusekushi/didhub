@@ -7,7 +7,7 @@ use axum::{
 use didhub_cache::AppCache;
 use didhub_db::audit;
 use didhub_db::uploads::UploadOperations;
-use didhub_db::Db;
+use didhub_db::{Db, UploadRow};
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
@@ -24,12 +24,21 @@ pub struct ListParams {
     pub include_deleted: Option<bool>,
 }
 
+#[derive(serde::Serialize)]
+pub struct UploadsListResponse {
+    pub items: Vec<UploadRow>,
+    pub limit: i64,
+    pub offset: i64,
+    pub total: i64,
+}
+
+/// @api response=json
 pub async fn list_uploads_admin(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
     Query(p): Query<ListParams>,
     Extension(cache): Extension<AppCache>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<UploadsListResponse>, AppError> {
     require_admin(&user)?;
     let limit = p.limit.unwrap_or(50).clamp(1, 500);
     let offset = p.offset.unwrap_or(0).max(0);
@@ -56,9 +65,12 @@ pub async fn list_uploads_admin(
         .await
         .map_err(|_| AppError::Internal)?;
     debug!(user_id=%user.id, result_count=%rows.len(), total_count=%total, "admin uploads listed");
-    Ok(Json(
-        serde_json::json!({"items": rows, "limit": limit, "offset": offset, "total": total }),
-    ))
+    Ok(Json(UploadsListResponse {
+        items: rows,
+        limit,
+        offset,
+        total,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -66,6 +78,14 @@ pub struct DeleteParams {
     pub force: Option<bool>,
 }
 
+#[derive(serde::Serialize)]
+pub struct DeleteUploadResponse {
+    pub ok: bool,
+    pub hard_removed: i64,
+    pub soft: bool,
+}
+
+/// @api response=json
 pub async fn delete_upload_admin(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
@@ -74,7 +94,7 @@ pub async fn delete_upload_admin(
     Extension(_cfg): Extension<crate::config::AppConfig>,
     Extension(cache): Extension<AppCache>,
     Extension(udc): Extension<UploadDirCache>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<DeleteUploadResponse>, AppError> {
     require_admin(&user)?;
     debug!(user_id=%user.id, filename=%name, force=%p.force.unwrap_or(false), "admin deleting upload");
     let existing = db
@@ -130,9 +150,11 @@ pub async fn delete_upload_admin(
     .await;
     db.invalidate_upload_counts(&cache).await;
     info!(user_id=%user.id, filename=%name, hard_removed=%removed, soft=%soft, "admin upload deletion completed");
-    Ok(Json(
-        serde_json::json!({"ok": true, "hard_removed": removed, "soft": soft }),
-    ))
+    Ok(Json(DeleteUploadResponse {
+        ok: true,
+        hard_removed: removed,
+        soft,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -142,6 +164,14 @@ pub struct PurgeParams {
 }
 
 // Batch purge soft-deleted uploads older than purge_before (ISO timestamp). If force=1 also remove files.
+#[derive(serde::Serialize)]
+pub struct PurgeUploadsResponse {
+    pub ok: bool,
+    pub purged: i64,
+    pub files_removed: i64,
+}
+
+/// @api response=json
 pub async fn purge_uploads_admin(
     Extension(db): Extension<Db>,
     Extension(user): Extension<CurrentUser>,
@@ -149,7 +179,7 @@ pub async fn purge_uploads_admin(
     Extension(_cfg): Extension<crate::config::AppConfig>,
     Extension(cache): Extension<AppCache>,
     Extension(udc): Extension<UploadDirCache>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<PurgeUploadsResponse>, AppError> {
     require_admin(&user)?;
     let cutoff = if let Some(c) = &p.purge_before {
         c.clone()
@@ -204,7 +234,9 @@ pub async fn purge_uploads_admin(
     audit::record_with_metadata(&db, Some(user.id.as_str()), "uploads.purge.manual", Some("upload"), None, serde_json::json!({"purged": purged, "cutoff": cutoff, "files_removed": files_removed, "force": p.force.unwrap_or(false)}), ip).await;
     db.invalidate_upload_counts(&cache).await;
     info!(user_id=%user.id, purged=%purged, files_removed=%files_removed, cutoff=%cutoff, "admin upload purge completed");
-    Ok(Json(
-        serde_json::json!({"ok": true, "purged": purged, "files_removed": files_removed }),
-    ))
+    Ok(Json(PurgeUploadsResponse {
+        ok: true,
+        purged,
+        files_removed,
+    }))
 }

@@ -190,18 +190,18 @@ pub async fn login(
     if user.is_approved == 0 {
         warn!(user_id=%user.id, username=%user.username, "login denied - user not approved");
         record_auth_operation("login", "failure");
-            let ip_arc = didhub_middleware::client_ip::get_request_ip();
-            let ip = ip_arc.as_ref().map(|s| s.as_str());
-            audit::record_with_metadata(
-                    &state.db,
-                    Some(user.id.as_str()),
-                    "auth.login.not_approved",
-                    Some("user"),
-                    Some(&user.id.to_string()),
-                    serde_json::json!({"reason":"not_approved"}),
-                    ip,
-                )
-            .await;
+        let ip_arc = didhub_middleware::client_ip::get_request_ip();
+        let ip = ip_arc.as_ref().map(|s| s.as_str());
+        audit::record_with_metadata(
+            &state.db,
+            Some(user.id.as_str()),
+            "auth.login.not_approved",
+            Some("user"),
+            Some(&user.id.to_string()),
+            serde_json::json!({"reason":"not_approved"}),
+            ip,
+        )
+        .await;
         return Err(AppError::NotApproved);
     }
     let token = sign_jwt(&state.cfg, &user.username)?;
@@ -345,7 +345,13 @@ pub async fn change_password(
 
     let ip_arc = didhub_middleware::client_ip::get_request_ip();
     let ip = ip_arc.as_ref().map(|s| s.as_str());
-    audit::record_simple(&state.db, Some(user.id.as_str()), "user.password.change", ip).await;
+    audit::record_simple(
+        &state.db,
+        Some(user.id.as_str()),
+        "user.password.change",
+        ip,
+    )
+    .await;
     record_auth_operation("change_password", "success");
     Ok((
         StatusCode::OK,

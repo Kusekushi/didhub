@@ -30,9 +30,9 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | GET | `/assets/{path}` | crate::routes::static_assets::serve_asset | path |
 | GET | `/audit` | crate::routes::admin::audit::list_audit | action, user_id, from, to, limit, offset |
 | POST | `/audit/purge` | crate::routes::admin::audit::purge_audit |  |
-| POST | `/auth/login` | auth::login |  |
-| POST | `/auth/refresh` | auth::refresh |  |
-| POST | `/auth/register` | auth::register |  |
+| POST | `/auth/login` | wrappers::login |  |
+| POST | `/auth/refresh` | wrappers::refresh |  |
+| POST | `/auth/register` | wrappers::register |  |
 | GET | `/groups` | crate::routes::groups::list_groups | q, limit, offset, fields, owner_user_id |
 | POST | `/groups` | crate::routes::groups::create_group |  |
 | DELETE | `/groups/{id}` | crate::routes::groups::delete_group | id |
@@ -310,19 +310,19 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 
 | Method | Summary |
 | --- | --- |
-| **POST** | auth::login |
+| **POST** | wrappers::login |
 
 ## /auth/refresh
 
 | Method | Summary |
 | --- | --- |
-| **POST** | auth::refresh |
+| **POST** | wrappers::refresh |
 
 ## /auth/register
 
 | Method | Summary |
 | --- | --- |
-| **POST** | auth::register |
+| **POST** | wrappers::register |
 
 ## /groups
 

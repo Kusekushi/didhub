@@ -1,12 +1,15 @@
-use axum::{extract::{Extension, State, Query}, Json};
-use didhub_db::Db;
+use axum::{
+    extract::{Extension, Query, State},
+    Json,
+};
+use didhub_db::alters::AlterOperations;
 use didhub_db::models::PersonRelationship;
 use didhub_db::relationships::PersonIdentifier;
-use didhub_db::alters::AlterOperations;
+use didhub_db::Db;
 use didhub_error::AppError;
 use didhub_middleware::types::CurrentUser;
 use serde::Deserialize;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 #[derive(Deserialize)]
 pub struct CreatePersonRelationshipPayload {
@@ -27,7 +30,9 @@ pub async fn create_relationship(
 ) -> Result<Json<didhub_db::models::PersonRelationship>, AppError> {
     // Validate type
     if !["spouse", "parent"].contains(&payload.relationship_type.as_str()) {
-        return Err(AppError::BadRequest("Invalid relationship type".to_string()));
+        return Err(AppError::BadRequest(
+            "Invalid relationship type".to_string(),
+        ));
     }
 
     // Permission enforcement: allow only admins, or owners of any Alter involved.
@@ -42,11 +47,15 @@ pub async fn create_relationship(
     // If current user matches either user participant, allow
     if !allowed {
         if let PersonIdentifier::User(ref uid) = a_pid {
-            if uid == &user.id { allowed = true; }
+            if uid == &user.id {
+                allowed = true;
+            }
         }
         if !allowed {
             if let PersonIdentifier::User(ref uid) = b_pid {
-                if uid == &user.id { allowed = true; }
+                if uid == &user.id {
+                    allowed = true;
+                }
             }
         }
     }
@@ -55,14 +64,22 @@ pub async fn create_relationship(
     if !allowed {
         if let PersonIdentifier::Alter(ref aid) = a_pid {
             if let Ok(Some(alt)) = db.fetch_alter(aid).await {
-                if let Some(owner) = alt.owner_user_id { if owner == user.id { allowed = true; } }
+                if let Some(owner) = alt.owner_user_id {
+                    if owner == user.id {
+                        allowed = true;
+                    }
+                }
             }
         }
     }
     if !allowed {
         if let PersonIdentifier::Alter(ref bid) = b_pid {
             if let Ok(Some(alt)) = db.fetch_alter(bid).await {
-                if let Some(owner) = alt.owner_user_id { if owner == user.id { allowed = true; } }
+                if let Some(owner) = alt.owner_user_id {
+                    if owner == user.id {
+                        allowed = true;
+                    }
+                }
             }
         }
     }
@@ -84,7 +101,10 @@ pub async fn create_relationship(
     .map_err(|_| AppError::Internal)?;
 
     // Fetch the inserted row for return (use relationships_for_mixed on one side and find the id)
-    let rows = db.relationships_for_mixed(&payload.a).await.map_err(|_| AppError::Internal)?;
+    let rows = db
+        .relationships_for_mixed(&payload.a)
+        .await
+        .map_err(|_| AppError::Internal)?;
     for r in rows {
         if r.id == id {
             info!(user_id=%user.id, rel_id=%id, "created person relationship");
@@ -118,31 +138,44 @@ pub async fn list_for_entity(
     Extension(_user): Extension<CurrentUser>,
     Query(query): Query<ListQuery>,
 ) -> Result<Json<Vec<PersonRelationship>>, AppError> {
-    let rows = db.relationships_for_mixed(&query.id).await.map_err(|_| AppError::Internal)?;
+    let rows = db
+        .relationships_for_mixed(&query.id)
+        .await
+        .map_err(|_| AppError::Internal)?;
     debug!(count=%rows.len(), "listed person relationships");
     Ok(Json(rows))
 }
 
+/// @api response=none
 pub async fn delete_relationship(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<axum::http::StatusCode, AppError> {
     // Fetch the relationship row so we can evaluate permissions
-    let row = sqlx::query_as::<_, PersonRelationship>("SELECT * FROM person_relationships WHERE id = ?1")
-        .bind(&id)
-        .fetch_optional(&db.pool)
-        .await
-        .map_err(|_| AppError::Internal)?;
+    let row =
+        sqlx::query_as::<_, PersonRelationship>("SELECT * FROM person_relationships WHERE id = ?1")
+            .bind(&id)
+            .fetch_optional(&db.pool)
+            .await
+            .map_err(|_| AppError::Internal)?;
 
     let rel = row.ok_or(AppError::NotFound)?;
 
     // Build PersonIdentifier values for participants
     let mut participants: Vec<PersonIdentifier> = Vec::new();
-    if let Some(u) = rel.person_a_user_id.as_deref() { participants.push(PersonIdentifier::User(u.to_string())); }
-    if let Some(a) = rel.person_a_alter_id.as_deref() { participants.push(PersonIdentifier::Alter(a.to_string())); }
-    if let Some(u) = rel.person_b_user_id.as_deref() { participants.push(PersonIdentifier::User(u.to_string())); }
-    if let Some(a) = rel.person_b_alter_id.as_deref() { participants.push(PersonIdentifier::Alter(a.to_string())); }
+    if let Some(u) = rel.person_a_user_id.as_deref() {
+        participants.push(PersonIdentifier::User(u.to_string()));
+    }
+    if let Some(a) = rel.person_a_alter_id.as_deref() {
+        participants.push(PersonIdentifier::Alter(a.to_string()));
+    }
+    if let Some(u) = rel.person_b_user_id.as_deref() {
+        participants.push(PersonIdentifier::User(u.to_string()));
+    }
+    if let Some(a) = rel.person_b_alter_id.as_deref() {
+        participants.push(PersonIdentifier::Alter(a.to_string()));
+    }
 
     // Permission enforcement: admin or owner of any alter involved
     if user.is_admin == 0 {
@@ -150,7 +183,12 @@ pub async fn delete_relationship(
         for p in &participants {
             if let PersonIdentifier::Alter(aid) = p {
                 if let Ok(Some(alt)) = db.fetch_alter(aid).await {
-                    if let Some(owner) = alt.owner_user_id { if owner == user.id { allowed = true; break; } }
+                    if let Some(owner) = alt.owner_user_id {
+                        if owner == user.id {
+                            allowed = true;
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -159,7 +197,10 @@ pub async fn delete_relationship(
         }
     }
 
-    let deleted = db.delete_person_relationship(&id).await.map_err(|_| AppError::Internal)?;
+    let deleted = db
+        .delete_person_relationship(&id)
+        .await
+        .map_err(|_| AppError::Internal)?;
     if deleted == 0 {
         return Err(AppError::NotFound);
     }

@@ -68,6 +68,45 @@ pub fn parse_leaders(raw: &serde_json::Value) -> Vec<String> {
     acc
 }
 
+use serde::de::{self, Deserializer, Visitor};
+use serde::Deserialize;
+use std::fmt;
+
+// Serde-friendly wrapper to accept either JSON arrays, numbers, or comma-separated strings
+// and yield Vec<String>. This can be used in DTOs to accept flexible leader inputs.
+pub fn deserialize_leader_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct LeaderVisitor;
+
+    impl<'de> Visitor<'de> for LeaderVisitor {
+        type Value = Option<Vec<String>>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            write!(formatter, "a leader id, list of ids, or a JSON string")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_some<D2>(self, deserializer: D2) -> Result<Self::Value, D2::Error>
+        where
+            D2: Deserializer<'de>,
+        {
+            // Try parsing as generic JSON value then normalize
+            let v = serde_json::Value::deserialize(deserializer)?;
+            Ok(Some(parse_leaders(&v)))
+        }
+    }
+
+    deserializer.deserialize_option(LeaderVisitor)
+}
+
 fn collect_text_values(value: &serde_json::Value, acc: &mut Vec<String>) {
     match value {
         serde_json::Value::Array(items) => {

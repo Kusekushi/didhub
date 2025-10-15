@@ -86,7 +86,6 @@ pub async fn post_custom_digest(
     )
     .await;
 
-
     warn!(user_id=%user.id, count=%names.len(), days_ahead=%days_ahead, "custom digest unimplemented");
 
     info!(user_id=%user.id, count=%names.len(), days_ahead=%days_ahead, "custom digest posted successfully");

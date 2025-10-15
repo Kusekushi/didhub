@@ -1,7 +1,7 @@
 use anyhow::Result;
-use didhub_db::Db;
 use didhub_db::common::CommonOperations;
 use didhub_db::users::UserOperations;
+use didhub_db::Db;
 use serde_json::json;
 
 #[tokio::test]
@@ -59,12 +59,23 @@ async fn audit_insert_generates_id_and_stores_ip() -> Result<()> {
         is_approved: true,
     };
     let created2 = db.create_user(nu2).await?;
-    db.insert_audit(Some(created2.id.as_str()), "test.action", None, None, None, None).await?;
+    db.insert_audit(
+        Some(created2.id.as_str()),
+        "test.action",
+        None,
+        None,
+        None,
+        None,
+    )
+    .await?;
     // Query specifically for audits for created2.user id
     let rows2 = db
         .list_audit(None, Some(created2.id.as_str()), None, None, 10, 0)
         .await?;
-    assert!(!rows2.is_empty(), "expected to find at least one audit row for user 2");
+    assert!(
+        !rows2.is_empty(),
+        "expected to find at least one audit row for user 2"
+    );
     for r in rows2.iter() {
         assert_eq!(r.user_id.as_deref(), Some(created2.id.as_str()));
         assert_eq!(r.ip, None, "expected ip to be None when not provided");

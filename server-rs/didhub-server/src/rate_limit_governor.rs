@@ -72,7 +72,11 @@ pub fn governor_layer_with(cache: AppCache, db: didhub_db::Db) -> GovernorLayer 
 // Construct a GovernorLayer with no rules which effectively disables
 // rate limiting. Useful for E2E test runs where throttling causes flakes.
 pub fn governor_layer_disabled(cache: AppCache, db: didhub_db::Db) -> GovernorLayer {
-    GovernorLayer { rules: Vec::new(), cache, db }
+    GovernorLayer {
+        rules: Vec::new(),
+        cache,
+        db,
+    }
 }
 
 // metrics served via metrics::metrics_handler
@@ -131,7 +135,7 @@ where
                     user_id=?user_id,
                     "rate limit exceeded - recording audit event"
                 );
-                    tokio::spawn(async move {
+                tokio::spawn(async move {
                     audit::record_with_metadata(
                         &db,
                         user_id.as_deref(),
@@ -248,7 +252,7 @@ where
                     let path_clone = rule.path.to_string();
                     let method_static = rule.method;
                     let db_for_audit = db.clone();
-                        tokio::spawn(async move {
+                    tokio::spawn(async move {
                         audit::record_with_metadata(
                             &db_for_audit,
                             audit_user.as_deref(),

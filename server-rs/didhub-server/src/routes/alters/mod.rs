@@ -85,9 +85,11 @@ pub struct ListResponse<T> {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(transparent)]
-pub struct UpdateAlterPayload {
-    pub rest: serde_json::Value,
+pub struct UpdateAlterDto {
+    pub name: Option<String>,
+    pub owner_user_id: Option<String>,
+    #[serde(flatten)]
+    pub rest: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(serde::Deserialize)]
@@ -369,6 +371,7 @@ pub async fn set_alter_subsystem(
 }
 
 /// Remove subsystem membership for an alter (equivalent to setting subsystem_id to null)
+/// @api response=json
 pub async fn delete_alter_subsystem(
     Extension(user): Extension<CurrentUser>,
     Extension(db): Extension<Db>,
@@ -503,11 +506,30 @@ pub async fn search_alters(
     }))
 }
 
+/// @api body=json
+/// @api response=json
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct CreateAlterDto {
+    pub name: Option<String>,
+    pub owner_user_id: Option<String>,
+    #[serde(flatten)]
+    pub extra: std::collections::HashMap<String, serde_json::Value>,
+}
+
 pub async fn create_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
-    Json(mut body): Json<serde_json::Value>,
+    Json(dto): Json<CreateAlterDto>,
 ) -> Result<Json<Alter>, AppError> {
+    // Convert DTO to serde_json::Value (object) for existing normalization and DB calls
+    let mut body = match serde_json::to_value(&dto) {
+        Ok(serde_json::Value::Object(mut obj)) => {
+            // merge flattened extra into object (serde_json::to_value already includes extra)
+            serde_json::Value::Object(obj)
+        }
+        Ok(v) => v,
+        Err(_) => return Err(AppError::BadRequest("invalid payload".into())),
+    };
     if body
         .get("name")
         .and_then(|v| v.as_str())
@@ -759,10 +781,21 @@ pub async fn update_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<String>,
-    Json(payload): Json<UpdateAlterPayload>,
+    Json(payload): Json<UpdateAlterDto>,
 ) -> Result<Json<Alter>, AppError> {
-    let UpdateAlterPayload { rest } = payload;
-    let mut body = rest;
+    // Convert DTO rest map into serde_json::Value object for existing normalization
+    let mut body = serde_json::Value::Object(serde_json::Map::new());
+    if let Some(n) = payload.name {
+        body["name"] = serde_json::Value::String(n);
+    }
+    if let Some(o) = payload.owner_user_id {
+        body["owner_user_id"] = serde_json::Value::String(o);
+    }
+    if let serde_json::Value::Object(map) = &mut body {
+        for (k, v) in payload.rest {
+            map.insert(k, v);
+        }
+    }
 
     if body.as_object().map(|m| m.is_empty()).unwrap_or(true) {
         record_entity_operation("alter", "update", "failure");
@@ -876,6 +909,7 @@ pub async fn update_alter(
     Ok(Json(updated))
 }
 
+/// @api response=none
 pub async fn delete_alter(
     State(db): State<Db>,
     Extension(user): Extension<CurrentUser>,
@@ -914,10 +948,10 @@ pub async fn delete_alter(
 
 #[derive(serde::Serialize)]
 pub struct FamilyTreeResponse {
-    pub nodes: std::collections::HashMap<String, serde_json::Value>,
+    pub nodes: std::collections::HashMap<String, FlatFamilyTreeNode>,
     pub edges: FamilyTreeEdges,
     pub roots: Vec<NestedFamilyTreeNode>,
-    pub owners: std::collections::HashMap<String, serde_json::Value>,
+    pub owners: std::collections::HashMap<String, OwnerInfo>,
 }
 
 #[derive(serde::Serialize)]
@@ -946,6 +980,28 @@ pub struct NestedFamilyTreeNode {
     pub children: Vec<NestedFamilyTreeNode>, // Nested for tree building
     pub affiliations: Vec<String>,
     pub duplicated: bool,
+}
+
+#[derive(serde::Serialize, Clone)]
+pub struct FlatFamilyTreeNode {
+    pub id: String,
+    pub name: String,
+    pub partners: Vec<String>,
+    pub parents: Vec<String>,
+    pub children: Vec<String>,
+    pub age: Option<String>,
+    pub system_roles: Vec<String>,
+    pub owner_user_id: Option<String>,
+    pub user_partners: Vec<String>,
+    pub user_parents: Vec<String>,
+    pub user_children: Vec<String>,
+}
+
+#[derive(serde::Serialize, Clone)]
+pub struct OwnerInfo {
+    pub id: String,
+    pub username: String,
+    pub is_system: i64,
 }
 
 pub async fn family_tree(
@@ -1104,11 +1160,11 @@ pub async fn family_tree(
         if let Ok(Some(user)) = db.fetch_user_by_id(&user_id).await {
             owners_map.insert(
                 user.id.to_string(),
-                serde_json::json!({
-                    "id": user.id,
-                    "username": user.username,
-                    "is_system": user.is_system
-                }),
+                OwnerInfo {
+                    id: user.id.to_string(),
+                    username: user.username.clone(),
+                    is_system: user.is_system,
+                },
             );
         }
     }
@@ -1130,7 +1186,7 @@ pub async fn family_tree(
 
     // Convert nodes_map to the flat format expected by frontend
     let empty_relationships = Vec::new();
-    let flat_nodes = nodes_map
+    let flat_nodes: std::collections::HashMap<String, FlatFamilyTreeNode> = nodes_map
         .into_iter()
         .map(|(id, node)| {
             let alter = alter_data.get(&id);
@@ -1159,19 +1215,19 @@ pub async fn family_tree(
 
             (
                 id.to_string(),
-                serde_json::json!({
-                    "id": node.id,
-                    "name": node.name,
-                    "partners": node.partners,
-                    "parents": node.parents,
-                    "children": node.children,
-                    "age": alter.and_then(|a| a.age.clone()),
-                    "system_roles": system_roles,
-                    "owner_user_id": alter.and_then(|a| a.owner_user_id.clone()),
-                    "user_partners": user_partners,
-                    "user_parents": user_parents,
-                    "user_children": user_children
-                }),
+                FlatFamilyTreeNode {
+                    id: node.id,
+                    name: node.name,
+                    partners: node.partners,
+                    parents: node.parents,
+                    children: node.children,
+                    age: alter.and_then(|a| a.age.clone()),
+                    system_roles,
+                    owner_user_id: alter.and_then(|a| a.owner_user_id.clone()),
+                    user_partners,
+                    user_parents,
+                    user_children,
+                },
             )
         })
         .collect();

@@ -99,19 +99,24 @@ pub struct TriggerRequest {
     pub dry: Option<bool>,
 }
 
+/// @api body=json
+/// @api response=json
 pub async fn trigger_job(
     Path(name): Path<String>,
     Extension(state): Extension<HousekeepingState>,
     Json(body): Json<TriggerRequest>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<TriggerJobResponse>, AppError> {
     if body.dry.unwrap_or(false) {
         let outcome = state.registry.dry_run_job_by_name(&state.db, &name).await?;
-        Ok(Json(serde_json::json!({
-            "job": name,
-            "rows_affected": outcome.rows_affected,
-            "message": outcome.message,
-            "metadata": outcome.metadata,
-        })))
+        Ok(Json(TriggerJobResponse {
+            job: name,
+            status: "dry_run".to_string(),
+            rows_affected: Some(outcome.rows_affected),
+            message: outcome.message,
+            metadata: outcome.metadata,
+            run_id: None,
+            started_at: None,
+        }))
     } else {
         let run_record = state.db.start_housekeeping_run(&name).await;
         let run_id = run_record.as_ref().ok().map(|r| r.id.to_string());
@@ -134,13 +139,27 @@ pub async fn trigger_job(
             }
         });
 
-        Ok(Json(serde_json::json!({
-            "job": name,
-            "status": "queued",
-            "run_id": run_id,
-            "started_at": started_at,
-        })))
+        Ok(Json(TriggerJobResponse {
+            job: name,
+            status: "queued".to_string(),
+            rows_affected: None,
+            message: None,
+            metadata: None,
+            run_id,
+            started_at,
+        }))
     }
+}
+
+#[derive(Serialize)]
+pub struct TriggerJobResponse {
+    pub job: String,
+    pub status: String,
+    pub rows_affected: Option<i64>,
+    pub message: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+    pub run_id: Option<String>,
+    pub started_at: Option<String>,
 }
 
 #[derive(Deserialize)]

@@ -888,6 +888,60 @@ class RustRouteParser:
                     # If the type is Option<...> or contains Option anywhere, mark optional
                     endpoint.body_optional = self._contains_option(ct)
 
+        # Also attempt to parse any @api hints from the function's leading attributes or doc-comments
+        try:
+            # Collect preceding siblings (attributes, comments) text
+            leading_text = ''
+            prev = function_node.prev_sibling
+            while prev is not None:
+                if prev.type in ('attribute_item', 'attribute', 'line_comment', 'block_comment'):
+                    try:
+                        leading_text = prev.text.decode('utf-8') + '\n' + leading_text
+                    except Exception:
+                        pass
+                    prev = prev.prev_sibling
+                    continue
+                break
+            # Also check children for inner attribute nodes
+            for child in function_node.children:
+                if child.type in ('attribute_item', 'attribute'):
+                    try:
+                        leading_text += child.text.decode('utf-8') + '\n'
+                    except Exception:
+                        pass
+
+            if leading_text:
+                # Look for patterns like #[api(response = "binary")]
+                # match attribute forms like #[api(response = "binary")] or #[api(response = r#"binary"#)]
+                m_attr = re.search(r'api\s*\(\s*response\s*=\s*(?P<q>r#".+?"#|".+?"|\'.+?\')\s*\)', leading_text, flags=re.DOTALL)
+                if m_attr:
+                    raw = m_attr.group('q')
+                    # strip quotes/raw string markers
+                    raw_val = raw
+                    if raw_val.startswith('r#'):
+                        raw_val = raw_val[2:]
+                    if raw_val.startswith('"') or raw_val.startswith("'"):
+                        raw_val = raw_val[1:-1]
+                    endpoint.response_hint = raw_val.strip()
+
+                # Look for doc-comment style /// @api response=binary or /// @api body=formdata
+                for m in re.finditer(r'@api\s+([^\n\r]+)', leading_text):
+                    kv = m.group(1).strip()
+                    # split on spaces or commas
+                    parts = re.split(r'[\s,]+', kv)
+                    for part in parts:
+                        if '=' in part:
+                            k, v = part.split('=', 1)
+                            k = k.strip()
+                            v = v.strip().strip('\"\'')
+                            if k == 'response':
+                                endpoint.response_hint = v
+                            elif k == 'body':
+                                endpoint.body_hint = v
+        except Exception:
+            # be resilient to any parsing errors here
+            pass
+
     def _extract_generic_inner(self, type_text: str, generic: str) -> Optional[str]:
         """Extract the inner type from a generic like Generic<T> handling nested generics."""
         idx = 0

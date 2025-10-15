@@ -111,7 +111,6 @@ pub async fn query_database(
     )
     .await;
 
-
     Ok(Json(QueryResponse {
         success: true,
         columns,
