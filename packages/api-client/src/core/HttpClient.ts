@@ -141,7 +141,36 @@ export class HttpClient {
     } else if (options.body instanceof FormData) {
       init.body = options.body;
     } else if (options.body !== undefined) {
-      init.body = options.body as BodyInit;
+      // If the caller passed a plain object as `body`, we should send it as
+      // JSON (matching most generated endpoints). Otherwise, pass through
+      // known BodyInit-friendly types unchanged.
+      const rawBody: any = options.body;
+      const isPlainObject =
+        typeof rawBody === 'object' &&
+        rawBody !== null &&
+        !(rawBody instanceof FormData) &&
+        !(rawBody instanceof URLSearchParams) &&
+        !(rawBody instanceof ArrayBuffer) &&
+        // Blob exists in browser environments; include it in the exclusion
+        // set so we don't accidentally stringify binary payloads.
+        !(typeof Blob !== 'undefined' && rawBody instanceof Blob) &&
+        // ReadableStream may be used for streaming bodies in some envs
+        !(typeof ReadableStream !== 'undefined' && rawBody instanceof ReadableStream);
+
+      if (isPlainObject) {
+        if (!headers.has('Content-Type')) {
+          headers.set('Content-Type', 'application/json');
+        }
+        try {
+          init.body = JSON.stringify(rawBody);
+        } catch {
+          // If serialization fails, fall back to String conversion to avoid
+          // passing an object directly into fetch which yields 'text/plain'.
+          init.body = String(rawBody) as BodyInit;
+        }
+      } else {
+        init.body = rawBody as BodyInit;
+      }
     }
 
     if (
