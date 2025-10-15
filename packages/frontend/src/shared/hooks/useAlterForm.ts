@@ -63,7 +63,7 @@ const emptyAlter: AlterFormState = {
   job: '',
   weapon: '',
   soul_songs: [],
-  interests: [],
+  interests: '',
   triggers: '',
   notes: '',
   affiliations: [],
@@ -210,8 +210,10 @@ export function useAlterForm(props: AlterFormDialogProps) {
       if (typeof payload.soul_songs === 'string' && payload.soul_songs) {
         payload.soul_songs = processArrayField(payload.soul_songs);
       }
-      if (payload.interests && typeof payload.interests === 'string') {
-        payload.interests = processArrayField(payload.interests);
+      // Keep interests as a raw string on the payload. Backend expects a
+      // single TEXT field. Do not coerce into an array here.
+      if (payload.interests && typeof payload.interests !== 'string') {
+          payload.interests = String(payload.interests ?? '');
       }
       if (typeof payload.system_roles === 'string' && payload.system_roles) {
         payload.system_roles = processArrayField(payload.system_roles);

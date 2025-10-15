@@ -111,9 +111,7 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
   }, [values.soul_songs]);
 
   React.useEffect(() => {
-    if (Array.isArray(values.interests)) {
-      setInterestsInput(values.interests.join(', '));
-    } else if (typeof values.interests === 'string') {
+    if (typeof values.interests === 'string') {
       setInterestsInput(values.interests);
     } else {
       setInterestsInput('');
@@ -845,7 +843,8 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
           onChange={(e) => {
             const next = e.target.value;
             setInterestsInput(next);
-            onChange('interests', parseCommaSeparated(next));
+            // Keep interests as a plain string for the backend TEXT field
+            onChange('interests', next);
           }}
           error={!!errors.interests}
           helperText={errors.interests}
