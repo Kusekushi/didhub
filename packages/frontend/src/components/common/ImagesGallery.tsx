@@ -1,7 +1,7 @@
 import React from 'react';
 import { ImageList, ImageListItem, Button } from '@mui/material';
-import type { ApiAlter } from '../../types/ui';
 import { useAuth } from '../../shared/contexts/AuthContext';
+import { ApiAlter } from '@didhub/api-client';
 
 export interface ImagesGalleryProps {
   alter: ApiAlter;

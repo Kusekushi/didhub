@@ -15,8 +15,6 @@ import { useAlterRelationshipOptions } from '../../shared/hooks/useAlterRelation
 import { useUserRelationshipOptions } from '../../shared/hooks/useUserRelationships';
 import AlterFormFields from './AlterForm';
 
-export { useAlterRelationshipOptions } from '../../shared/hooks/useAlterRelationships';
-
 export default function AlterFormDialog(props: AlterFormDialogProps) {
   const { mode, open, onClose } = props;
 

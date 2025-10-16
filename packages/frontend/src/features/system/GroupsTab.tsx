@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Button, List, Pagination, Typography } from '@mui/material';
 
-import type { ApiUser } from '../../types/ui';
 import { deleteGroup } from '../../services/groupService';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
@@ -17,7 +16,7 @@ export interface GroupsTabProps {
 }
 
 export default function GroupsTab({ uid }: GroupsTabProps) {
-  const { user: me } = useAuth() as { user?: ApiUser };
+  const { user: me } = useAuth();
 
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
@@ -75,7 +74,7 @@ export default function GroupsTab({ uid }: GroupsTabProps) {
       )}
 
       <List>
-  {groupsData.items.map((g: any, idx: number) => (
+        {groupsData.items.map((g: any, idx: number) => (
           <GroupListItem
             key={g.id}
             group={g}

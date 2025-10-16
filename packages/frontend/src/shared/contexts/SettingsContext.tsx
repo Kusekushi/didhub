@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { getSettings, SETTINGS as SETTINGS_KEYS } from '../../services/settingsService';
+import { getSettings } from '../../services/settingsService';
+import { SETTINGS } from '@didhub/api-client';
 
 export interface SettingsState {
   loaded: boolean;
@@ -64,9 +65,9 @@ export const SettingsProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
 
         setState({
           loaded: true,
-          discordDigestEnabled: parseBool(getValue(SETTINGS_KEYS.DISCORD_DIGEST_ENABLED)),
-          emailEnabled: parseBool(getValue(SETTINGS_KEYS.EMAIL_ENABLED)),
-          oidcEnabled: parseBool(getValue(SETTINGS_KEYS.OIDC_ENABLED), true),
+          discordDigestEnabled: parseBool(getValue(SETTINGS.DISCORD_DIGEST_ENABLED)),
+          emailEnabled: parseBool(getValue(SETTINGS.EMAIL_ENABLED)),
+          oidcEnabled: parseBool(getValue(SETTINGS.OIDC_ENABLED), true),
           raw: fallbackRaw,
         });
       } catch (e) {

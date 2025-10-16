@@ -1,5 +1,3 @@
-// Auto-generated HttpClient - do not edit manually
-
 import { getStoredToken, readCsrfToken } from '../utils/storage';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';

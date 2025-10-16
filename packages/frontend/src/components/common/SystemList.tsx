@@ -1,9 +1,9 @@
 import React from 'react';
-import { Container, Typography, List } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
+import { Container, Typography, List, Button, ListItem, ListItemAvatar, ListItemText, Avatar } from '@mui/material';
 
 import { useSystemList } from '../../shared/hooks/useSystemList';
 import SystemSearch from './SystemSearch';
-import SystemListItem from './SystemListItem';
 import { ApiUser } from '@didhub/api-client';
 
 export interface SystemListProps {
@@ -32,7 +32,29 @@ export default function SystemList(props: SystemListProps) {
 
       <List>
         {systems.map((s) => (
-          <SystemListItem key={s.id} system={s} primary={primary} secondary={secondary} />
+          <ListItem
+            secondaryAction={
+              <Button component={RouterLink} to={`/did-system/${s.id}`}>
+                View
+              </Button>
+            }
+          >
+            <ListItemAvatar>
+              {typeof s.avatar === 'string' && s.avatar ? (
+                <Avatar src={`/uploads/${s.avatar}`} />
+              ) : (
+                <Avatar>
+                  {String((s.username || '').toString())
+                    .charAt(0)
+                    .toUpperCase()}
+                </Avatar>
+              )}
+            </ListItemAvatar>
+            <ListItemText
+              primary={primary ? primary(s) : s.username}
+            // TODO: Secondary
+            />
+          </ListItem>
         ))}
       </List>
     </>

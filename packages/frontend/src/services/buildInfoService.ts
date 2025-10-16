@@ -1,3 +1,5 @@
+import { apiClient } from '@didhub/api-client';
+
 export type BuildInfo = {
   server_version: string;
   frontend_version: string;
@@ -19,10 +21,12 @@ export type BuildInfo = {
 
 export async function fetchBuildInfo(): Promise<BuildInfo | null> {
   try {
-  const res = await fetch('/api/version');
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data as BuildInfo;
+    const response = await apiClient.http.request<BuildInfo>({
+      path: '/api/version',
+      method: 'GET',
+      auth: true
+    });
+    return response.data;
   } catch (e) {
     // swallow errors; build info is optional
     // eslint-disable-next-line no-console

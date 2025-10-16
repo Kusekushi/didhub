@@ -20,9 +20,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/PersonAddAlt1';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 // Prefer UI-facing shared types instead of importing generated-client types.
-import type { ApiUser, ApiAlter, ApiSystemDetail as ApiSubsystemOut } from '../../types/ui';
-type ApiRoutesAltersNamesItem = any;
-type ApiMembersOut = any;
 
 function parseRoles(raw: unknown): string[] {
   if (!raw) return [];
@@ -34,21 +31,23 @@ function parseRoles(raw: unknown): string[] {
       try {
         const parsed = JSON.parse(trimmed);
         if (Array.isArray(parsed)) return parsed.filter((r) => typeof r === 'string') as string[];
-      } catch {}
+      } catch { }
     }
     return trimmed.split(',').map((s) => s.trim()).filter(Boolean);
   }
   return [];
 }
-import { getSubsystemById, listSubsystems, getMembers, toggleLeader, updateSubsystem, toggleLeaderRaw } from '../../services/subsystemService';
+import { getSubsystemById, getMembers, updateSubsystem, toggleLeaderRaw } from '../../services/subsystemService';
 import { searchAlters, listAlters, getAlterById } from '../../services/alterService';
-type Subsystem = ApiSubsystemOut;
-type AlterName = ApiRoutesAltersNamesItem;
 
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { usePdf } from '../../shared/hooks/usePdf';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUtils';
+
+import { ApiSubsystemOut, ApiAlter, ApiMembersOut, ApiRoutesAltersNamesItem } from '@didhub/api-client';
+type Subsystem = ApiSubsystemOut;
+type AlterName = ApiRoutesAltersNamesItem;
 
 type AlterRecord = Record<string, any>;
 type AlterMember = AlterRecord & { roles?: string[] };
@@ -65,7 +64,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
   const nav = useNavigate();
   const [subsystem, setSubsystem] = useState<ApiSubsystemOut | null>(null);
   const [members, setMembers] = useState<AlterMember[]>([]);
-  const { user: me } = useAuth() as { user?: ApiUser };
+  const { user: me } = useAuth();
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -76,9 +75,9 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
   const subsystemOwnerId = normalizeEntityId(subsystemOwnerSource) ?? undefined;
   const canEdit = Boolean(
     me &&
-      subsystem &&
-      subsystemOwnerId != null &&
-      (me.is_admin || (me.id != null && normalizeEntityId(me.id) === normalizeEntityId(subsystemOwnerId))),
+    subsystem &&
+    subsystemOwnerId != null &&
+    (me.is_admin || (me.id != null && normalizeEntityId(me.id) === normalizeEntityId(subsystemOwnerId))),
   );
   // Member editing state
   const [memberBusy, setMemberBusy] = useState(false);
@@ -98,9 +97,9 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
           setMembers([]);
           return;
         }
-    // fetch subsystem first
-    const subsystemData = (await getSubsystemById(sid)) as Subsystem | null;
-    setSubsystem(subsystemData ?? null);
+        // fetch subsystem first
+        const subsystemData = (await getSubsystemById(sid)) as Subsystem | null;
+        setSubsystem(subsystemData ?? null);
         if (subsystemData) {
           setEditName(subsystemData.name ?? '');
           setEditDesc(subsystemData.description ?? '');
@@ -120,12 +119,12 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
       if (!addMemberOpen) return;
       setLoadingAlterNames(true);
       try {
-    const ownerId = subsystemOwnerId;
-    const nameParams: { q?: string; user_id?: EntityId } = {};
-    if (alterSearch) nameParams.q = alterSearch;
-    if (ownerId != null) nameParams.user_id = ownerId;
-    const response = (await searchAlters(nameParams)) ?? { items: [] };
-    const results = Array.isArray(response.items) ? (response.items as ApiRoutesAltersNamesItem[]) : [];
+        const ownerId = subsystemOwnerId;
+        const nameParams: { q?: string; user_id?: EntityId } = {};
+        if (alterSearch) nameParams.q = alterSearch;
+        if (ownerId != null) nameParams.user_id = ownerId;
+        const response = (await searchAlters(nameParams)) ?? { items: [] };
+        const results = Array.isArray(response.items) ? (response.items as ApiRoutesAltersNamesItem[]) : [];
         if (!active) return;
         const filtered = results.filter((item): item is AlterName => Boolean(item && item.name));
         setAlterOptions(filtered);
@@ -150,8 +149,8 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
   async function refreshMembers() {
     if (!sid) return;
     try {
-  const membersResp = (await getMembers(sid)) as ApiMembersOut | null;
-  const membersData = (membersResp as ApiMembersOut | undefined) ?? { alters: [] };
+      const membersResp = (await getMembers(sid)) as ApiMembersOut | null;
+      const membersData = (membersResp as ApiMembersOut | undefined) ?? { alters: [] };
       const rawMembers = Array.isArray(membersData.alters) ? membersData.alters : [];
       const membershipRows = rawMembers.map((value) => ({
         alterId: normalizeEntityId(value) ?? undefined,
@@ -173,8 +172,8 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
           const u = normalizeEntityId(uid);
           if (u) listParams.user_id = u;
         }
-  const listResponse: any = (await listAlters(listParams)) ?? { items: [] };
-  const alters = Array.isArray(listResponse.items) ? (listResponse.items as ApiAlter[]) : [];
+        const listResponse: any = (await listAlters(listParams)) ?? { items: [] };
+        const alters = Array.isArray(listResponse.items) ? (listResponse.items as ApiAlter[]) : [];
         alters
           .filter((al) => normalizeEntityId(al.subsystem) === normalizeEntityId(sid))
           .forEach((al) => {
@@ -210,7 +209,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
     try {
       const alterId = normalizeEntityId((selectedAlter as any).id);
       if (!alterId) throw new Error('Invalid alter id');
-  await toggleLeaderRaw(sid, { alter_id: alterId, add: true });
+      await toggleLeaderRaw(sid, { alter_id: alterId, add: true });
       // server side handles non-host roles via same endpoint (role param optional)
       await refreshMembers();
       setSelectedAlter(null);
@@ -228,7 +227,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
     setMemberBusy(true);
     try {
       for (const _roleName of roles) {
-  await toggleLeaderRaw(sid, { alter_id: String(alterId), add: false });
+        await toggleLeaderRaw(sid, { alter_id: String(alterId), add: false });
         // role param omitted; server will remove leader/role appropriately
       }
       await refreshMembers();
@@ -244,7 +243,7 @@ export default function SubsystemDetail(props: SubsystemDetailProps = {}) {
     if (!sid) return;
     setMemberBusy(true);
     try {
-  await toggleLeaderRaw(sid, { alter_id: String(alterId), add });
+      await toggleLeaderRaw(sid, { alter_id: String(alterId), add });
       await refreshMembers();
     } catch {
       // ignore

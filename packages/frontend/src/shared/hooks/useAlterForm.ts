@@ -74,12 +74,6 @@ const emptyAlter: AlterFormState = {
   is_merged: 0,
 };
 
-// adaptors: prefer service layer
-
-function isRelationshipType(value: unknown): value is RelationshipType {
-  return value === 'partner' || value === 'parent' || value === 'child';
-}
-
 /**
  * Hook for managing alter form state and operations
  */

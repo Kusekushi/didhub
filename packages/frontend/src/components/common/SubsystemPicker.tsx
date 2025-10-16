@@ -9,7 +9,7 @@ type Subsystem = {
   name?: string | null;
   [k: string]: any;
 };
-import { listSubsystems, createSubsystem, getSubsystemById } from '../../services/subsystemService';
+import { listSubsystems, createSubsystem } from '../../services/subsystemService';
 
 import InputPromptDialog from '../forms/InputPromptDialog';
 import { useAuth } from '../../shared/contexts/AuthContext';
@@ -26,7 +26,6 @@ export interface SubsystemPickerProps {
 export default function SubsystemPicker(props: SubsystemPickerProps) {
   const [options, setOptions] = useState<Subsystem[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [createDialog, setCreateDialog] = useState({ open: false, name: '' });
   const [createType, setCreateType] = useState('normal');
   const auth = useAuth();

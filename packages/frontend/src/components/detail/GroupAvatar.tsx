@@ -1,13 +1,12 @@
 import React from 'react';
 import { Avatar } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-// Local lightweight type to avoid importing generated runtime types during migration.
-type Group = any;
 
-import ThumbnailWithHover from '../../components/ui/ThumbnailWithHover';
+import ThumbnailWithHover from '../ui/ThumbnailWithHover';
+import { ApiGroupOut } from '@didhub/api-client';
 
 export interface GroupAvatarProps {
-  group: Group;
+  group: ApiGroupOut;
 }
 
 /**

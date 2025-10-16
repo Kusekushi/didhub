@@ -1,13 +1,8 @@
-import { apiClient, SETTINGS as SETTINGS_KEYS } from '@didhub/api-client';
-
-export const SETTINGS = SETTINGS_KEYS;
+import { apiClient } from '@didhub/api-client';
 
 export async function getSettings() {
-  const resp = await (apiClient.admin as any).get_settings();
-  return resp?.data ?? resp ?? null;
+  const resp = await apiClient.admin.get_settings({});
+  return resp?.data ?? null;
 }
 
-export default {
-  getSettings,
-  SETTINGS,
-};
+export default getSettings;

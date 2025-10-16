@@ -7,7 +7,7 @@ import { apiClient, ApiJsonValue } from '@didhub/api-client';
 export const alterApi = apiClient.alter;
 
 export async function createAlter(body: Record<string, unknown>) {
-  const resp = await apiClient.alter.post_alters({ body: body as ApiJsonValue });
+  const resp = await apiClient.alter.post_alters({ body });
   return resp.data ?? null;
 }
 

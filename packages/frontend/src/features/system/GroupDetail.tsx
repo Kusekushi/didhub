@@ -21,18 +21,16 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-// Avoid importing runtime types from the generated client during the migration.
-import type { ApiAlter } from '../../types/ui';
-type ApiGroupOut = any;
 import { getGroupById, updateGroup, getMembers } from '../../services/groupService';
 import { getAlterById as serviceGetAlterById } from '../../services/alterService';
 import { uploadFile } from '../../services/fileService';
 
 import logger from '../../shared/lib/logger';
 import { useAuth } from '../../shared/contexts/AuthContext';
-import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUtils';
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { usePdf } from '../../shared/hooks/usePdf';
+import { ApiAlter, ApiGroupOut, EntityId } from '@didhub/api-client';
 
 type LeaderOption = { id: string; name?: string | null } & Partial<Record<string, any>>;
 

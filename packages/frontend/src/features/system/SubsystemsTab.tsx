@@ -16,10 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-// Avoid importing generator runtime types during sweep
-import type { ApiUser } from '../../types/ui';
-type Subsystem = any;
-import { createSubsystem, listSubsystems, getSubsystemById, deleteSubsystem } from '../../services/subsystemService';
+import { createSubsystem, deleteSubsystem } from '../../services/subsystemService';
 
 import { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import { useSubsystemCreationState } from '../../shared/hooks/useSubsystemCreationState';
@@ -27,6 +24,7 @@ import { useSubsystemsData } from '../../shared/hooks/useSubsystemsData';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
+import { ApiSubsystemOut } from '@didhub/api-client';
 
 export interface SubsystemsTabProps {
   uid: string;
@@ -34,7 +32,7 @@ export interface SubsystemsTabProps {
 
 export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
   const nav = useNavigate();
-  const { user: me } = useAuth() as { user?: ApiUser };
+  const { user: me } = useAuth();
 
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
@@ -176,7 +174,7 @@ export default function SubsystemsTab({ uid }: SubsystemsTabProps) {
       )}
 
       <List>
-        {subsystemsData.items.map((s: Subsystem, idx: number) => (
+        {subsystemsData.items.map((s: ApiSubsystemOut, idx: number) => (
           <React.Fragment key={s.id}>
             <ListItem
               secondaryAction={

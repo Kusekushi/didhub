@@ -1,5 +1,5 @@
 import React from 'react';
-import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
+import { normalizeEntityId, RelationshipOption } from '../../shared/utils/alterFormUtils';
 import {
   TextField,
   Autocomplete,
@@ -15,15 +15,6 @@ import {
 } from '@mui/material';
 import { createFilterOptions, type AutocompleteRenderGetTagProps } from '@mui/material/Autocomplete';
 import DeleteIcon from '@mui/icons-material/Delete';
-import type { ApiAlter } from '../../types/ui';
-import {
-  RelationshipOption,
-  TagValue,
-  mapSelectionsToTagValues,
-  convertLabelsToIdentifiers,
-  mapToLabels,
-  stripTrailingId,
-} from './alterFormUtils';
 
 import RichEditor from '../common/RichEditor';
 import GroupPicker from '../common/GroupPicker';
@@ -32,6 +23,8 @@ import { StackItem } from '../common/StackItem';
 
 import { getAlterById } from '../../services/alterService';
 import { getRelationships } from '../../services/relationshipService';
+import { mapSelectionsToTagValues, TagValue, stripTrailingId, convertLabelsToIdentifiers, mapToLabels } from './alterFormUtils';
+import { ApiAlter } from '@didhub/api-client';
 
 function debugLog(...args: unknown[]) {
   console.debug('[AlterForm]', ...args);
@@ -156,7 +149,6 @@ export default function AlterFormFields(props: AlterFormFieldsProps) {
             const idv = normalizeEntityId((v as { id?: unknown }).id);
             return idv != null ? idv : null;
           }
-          // ignore numeric primitives — entity IDs are UUID strings
           return null;
         })
         .filter((x): x is string => Boolean(x));

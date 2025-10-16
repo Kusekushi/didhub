@@ -80,7 +80,6 @@ The generator writes a self-contained client under the output dir (typically `pa
 
 Highlights of the generated client:
 
-- An HttpClient wrapper with authentication and CSRF helpers used by the methods
 - Per-module API classes (AlterApi, UsersApi, etc.) with typed methods
 - Method signatures that prefer a single `request` object interface (Request/Response interfaces are generated per endpoint)
 

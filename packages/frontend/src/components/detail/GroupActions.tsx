@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
-// Local lightweight type to avoid importing generated runtime types during migration.
-type Group = any;
-import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import ConfirmDialog from '../ui/ConfirmDialog';
+import { ApiGroupOut } from '@didhub/api-client';
 
 export interface GroupActionsProps {
-  group: Group;
+  group: ApiGroupOut;
   canManage: boolean;
-  setEditingGroup: (group: Group | null) => void;
+  setEditingGroup: (group: ApiGroupOut | null) => void;
   setEditGroupOpen: (open: boolean) => void;
   onDelete: (groupId: number | string) => Promise<void>;
 }

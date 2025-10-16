@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
-import type { ApiUser } from '../../types/ui';
 
 function parseRoles(raw: unknown): string[] {
   if (!raw) return [];
@@ -35,15 +34,15 @@ function parseRoles(raw: unknown): string[] {
   }
 }
 import { deleteAlter } from '../../services/alterService';
-import { normalizeEntityId, type EntityId } from '../../shared/utils/alterFormUtils';
+import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
 import AlterFormDialog from '../../components/forms/AlterFormDialog';
 import ThumbnailWithHover from '../../components/ui/ThumbnailWithHover';
-import ActionButtons from '../../components/common/ActionButtons';
 import { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 import { useAltersData } from '../../shared/hooks/useAltersData';
 import { useAuth } from '../../shared/contexts/AuthContext';
+import { EntityId } from '@didhub/api-client';
 
 interface AltersTabProps {
   routeUid?: EntityId | null;
@@ -51,7 +50,7 @@ interface AltersTabProps {
 
 export default function AltersTab({ routeUid }: AltersTabProps) {
   const nav = useNavigate();
-  const { user: me } = useAuth() as { user?: ApiUser };
+  const { user: me } = useAuth();
 
   // Local state for snackbar
   const [snack, setSnack] = useState<SnackbarMessage>({ open: false, message: '', severity: 'success' });
@@ -104,25 +103,34 @@ export default function AltersTab({ routeUid }: AltersTabProps) {
         </div>
       )}
       <List>
-  {filteredItems.map((it: any, idx: number) => (
+        {filteredItems.map((it: any, idx: number) => (
           <React.Fragment key={it.id}>
             <ListItem
               alignItems="flex-start"
               disablePadding
               secondaryAction={
-                <ActionButtons
-                  onView={() => nav(`/detail/alter/${it.id}`)}
-                  onEdit={
-                    canManage
-                      ? () => {
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Button variant="outlined" size="small" onClick={() => nav(`/detail/alter/${it.id}`)}>
+                    View
+                  </Button>
+                  {canManage && (
+                    <Button variant="outlined" size="small" onClick={
+                      canManage
+                        ? () => {
                           setEditingAlter(it.id);
                           setEditOpen(true);
                         }
-                      : undefined
-                  }
-                  onDelete={canManage ? () => handleDelete(it.id) : undefined}
-                  canManage={canManage}
-                />
+                        : undefined
+                    }>
+                      Edit
+                    </Button>
+                  )}
+                  {canManage && (
+                    <Button variant="outlined" color="error" size="small" onClick={canManage ? () => handleDelete(it.id) : undefined}>
+                      Delete
+                    </Button>
+                  )}
+                </div>
               }
             >
               {Array.isArray(it.images) && it.images.length ? (

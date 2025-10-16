@@ -23,7 +23,6 @@ export default function GroupPicker(props: GroupPickerProps) {
   const multiple = props.multiple ?? false;
   const [options, setOptions] = useState<ApiGroupOut[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [createDialog, setCreateDialog] = useState({ open: false, name: '' });
   const auth = useAuth();
 

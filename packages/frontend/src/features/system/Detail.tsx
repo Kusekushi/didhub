@@ -1,20 +1,20 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Grid, Typography } from '@mui/material';
+import { Container, Grid, Paper, Typography } from '@mui/material';
 import { deleteAlterImage } from '../../services/alterService';
 
 const G: any = Grid;
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ImagesGallery from '../../components/common/ImagesGallery';
-import BasicInfoSection from '../../components/forms/BasicInfoSection';
-import WorkAffiliationsSection from '../../components/forms/WorkAffiliationsSection';
-import { ListsSection, NotesSection } from '../../components/common/DetailSections';
-import DetailHeader from '../../components/common/DetailHeader';
-import { renderEmbeds } from '../../shared/utils/detailUtils';
+import BasicInfoSection from '../../components/detail/BasicInfoSection';
+import WorkAffiliationsSection from '../../components/detail/WorkAffiliationsSection';
+import DetailHeader from '../../components/detail/DetailHeader';
+import { normalizeToArray, renderEmbeds } from '../../shared/utils/detailUtils';
 import { useAlterData } from '../../shared/hooks/useAlterData';
 import { useAlterLinks } from '../../shared/hooks/useAlterLinks';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import logger from '../../shared/lib/logger';
+import ReactMarkdown from 'react-markdown';
 
 export interface DetailProps {
   alterId?: string;
@@ -29,11 +29,6 @@ export default function Detail(props: DetailProps = {}): React.ReactElement {
   // Custom hooks
   const {
     alter,
-    groupObj,
-    affiliationGroup,
-    affiliationGroupsMap,
-    affiliationIdMap,
-    subsystemObj,
     loading,
     error,
     refetch,
@@ -54,7 +49,7 @@ export default function Detail(props: DetailProps = {}): React.ReactElement {
 
   return (
     <Container sx={{ mt: 4 }}>
-  <DetailHeader alter={alter as any} user={user ?? null} onAlterUpdate={refetch} onBack={() => nav(-1)} />
+      <DetailHeader alter={alter as any} user={user ?? null} onAlterUpdate={refetch} onBack={() => nav(-1)} />
 
       <G container spacing={2} sx={{ mt: 2 }}>
         <G item xs={12} md={6}>
@@ -64,10 +59,34 @@ export default function Detail(props: DetailProps = {}): React.ReactElement {
           <WorkAffiliationsSection alter={alter as any} />
         </G>
         <G item xs={12}>
-          <ListsSection alter={alter as any} />
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2">Lists</Typography>
+            <div>
+              <strong>Soul songs:</strong>{' '}
+              {(() => {
+                const items = normalizeToArray(alter.soul_songs);
+                return items.length ? items.join(', ') : '-';
+              })()}
+            </div>
+            <div>
+              <strong>Interests:</strong>{' '}
+              {(() => {
+                const items = normalizeToArray(alter.interests);
+                return items.length ? items.join(', ') : '-';
+              })()}
+            </div>
+            <div>
+              <strong>Triggers:</strong> {alter.triggers || '-'}
+            </div>
+          </Paper>
         </G>
         <G item xs={12}>
-          <NotesSection alter={alter} />
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2">Notes</Typography>
+            <div style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+              <ReactMarkdown>{alter.notes}</ReactMarkdown>
+            </div>
+          </Paper>
         </G>
       </G>
 

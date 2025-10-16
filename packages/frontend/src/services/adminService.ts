@@ -1,7 +1,6 @@
 import {
   AdminGetAuditRequest,
   ApiAuditLogResponse,
-  ApiJsonValue,
   apiClient,
   AdminGetOidcByIdSecretRequest,
   AdminPostOidcByIdSecretRequest,
@@ -34,32 +33,13 @@ import {
   AdminPostAdminUploadDirRequest,
   AdminPostAdminBackupRequest,
   AdminPostAdminRestoreRequest,
-  AdminGetUsersRequest as AdminGetUsersCountRequest,
-  AdminPostAuditPurgeRequest,
   ApiDecisionBody,
   ApiQueryRequest,
   ApiTriggerRequest,
-  ApiClearRunsBody,
-  ApiPurgeBody,
-  ApiUpsertBody,
-  ApiDigestResponse,
-  ApiUser,
   ReportGetPdfAlterByIdRequest,
   ReportGetPdfGroupByIdRequest,
   ReportGetPdfSubsystemByIdRequest,
 } from '@didhub/api-client';
-import { decompressSync } from 'fflate';
-
-// Local typed extension for non-generated admin helper methods
-type AdminExtras = {
-  resetUserPassword: (id: string, password: string) => Promise<unknown>;
-  disableUser: (id: string) => Promise<unknown>;
-  posts: (page: number, perPage: number) => Promise<unknown>;
-  postDiscordBirthdays: () => Promise<unknown>;
-  repostPost: (id: string) => Promise<unknown>;
-};
-
-const adminExt = apiClient.admin as unknown as (typeof apiClient.admin & AdminExtras);
 
 export async function getUploads(params: AdminGetUploadsRequest) {
   const req: AdminGetUploadsRequest = params;
@@ -111,14 +91,16 @@ export async function updateUser(id: string, payload: ApiUpdateUserPayload) {
 }
 
 export async function resetUserPassword(id: string, password: string) {
-  // some tests expect a simple object back; return whatever the generator returns
-  const resp = await adminExt.resetUserPassword(id, password);
-  return resp ?? null
+  // const resp = await adminExt.resetUserPassword(id, password);
+  // FIXME: Implement
+  return null
 }
 
 export async function disableUser(id: string) {
-  const resp = await adminExt.disableUser(id);
-  return resp ?? null
+  const body: ApiUpdateUserPayload = { is_approved: false };
+  const req: AdminPutUsersByIdRequest = { id, body };
+  const resp = await apiClient.admin.put_users_by_id(req);
+  return resp?.data ?? null
 }
 
 export async function createUser(payload: Record<string, unknown>) {
@@ -174,13 +156,14 @@ export async function getMetrics() {
 }
 
 export async function posts(page = 1, perPage = 20) {
-  const resp = await adminExt.posts(page, perPage);
+  const resp = await apiClient.post.get_posts({ offset: page, limit: perPage });
   return resp ?? null
 }
 
 export async function postDiscordBirthdays() {
-  const resp = await adminExt.postDiscordBirthdays();
-  return resp ?? null
+  // const resp = await adminExt.postDiscordBirthdays();
+  // FIXME: Implement
+  return null
 }
 
 export async function postCustomDigest(daysAhead: number) {
@@ -190,7 +173,7 @@ export async function postCustomDigest(daysAhead: number) {
 }
 
 export async function repostPost(id: string) {
-  const resp = await adminExt.repostPost(id);
+  const resp = await apiClient.post.post_posts_by_id_repost({ id, body: null });
   return resp ?? null
 }
 
@@ -233,7 +216,7 @@ export async function getSettings() {
 }
 
 export async function putSettings(payload: Record<string, unknown>) {
-  const req: AdminPutSettingsRequest = { body: payload as unknown as unknown as ApiJsonValue };
+  const req: AdminPutSettingsRequest = { body: payload };
   const resp = await apiClient.admin.put_settings(req);
   return resp?.data ?? null;
 }
@@ -330,8 +313,8 @@ export async function postAdminBackup(file?: File) {
     const binaryData = resp.data instanceof ArrayBuffer
       ? new Uint8Array(resp.data)
       : typeof resp.data === 'string'
-      ? new TextEncoder().encode(resp.data)
-      : new Uint8Array(resp.data as any);
+        ? new TextEncoder().encode(resp.data)
+        : new Uint8Array(resp.data as any);
 
     console.log('Force-handling response data as binary array:', binaryData);
 
@@ -370,7 +353,7 @@ export async function getAudit(params?: AdminGetAuditRequest): Promise<ApiAuditL
 }
 
 export async function exportAuditCsv() {
-  // Backend route not available; build CSV client-side from getAudit
+  // Build CSV client-side from getAudit
   const respTyped: ApiAuditLogResponse[] | null = await getAudit({ limit: 1000 });
   const rows = respTyped ?? [];
 
@@ -424,6 +407,6 @@ export async function exportAuditCsv() {
 }
 
 export async function clearAuditLogs() {
-  const resp = await apiClient.admin.post_audit_purge({ body: { } });
+  const resp = await apiClient.admin.post_audit_purge({ body: {} });
   return resp?.data ?? null
 }

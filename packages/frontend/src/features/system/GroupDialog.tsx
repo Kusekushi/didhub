@@ -10,13 +10,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-// Avoid importing runtime types from generated client during this migration sweep
-import type { AlterModel as Alter } from '../../types/ui';
-type Group = any;
 import { createGroup, updateGroup } from '../../services/groupService';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 
-// Use adapter services instead of calling the generated client directly
 import SigilUpload from '../../components/forms/SigilUpload';
 import { useAuth } from '../../shared/contexts/AuthContext';
 import { getEffectiveOwnerId } from '../../shared/utils/owner';
@@ -24,6 +20,7 @@ import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/Notif
 import { useGroupCreationState } from '../../shared/hooks/useGroupCreationState';
 import { useGroupEditingState } from '../../shared/hooks/useGroupEditingState';
 import { useAlterOptions } from '../../shared/hooks/useAlterOptions';
+import { ApiAlter, ApiGroupOut } from '@didhub/api-client';
 
 export type GroupDialogMode = 'create' | 'edit';
 
@@ -35,13 +32,13 @@ export interface GroupDialogProps {
   uploadFiles: (files: File[]) => Promise<string[]>;
   onCreated?: () => void;
   onUpdated?: () => void;
-  group?: Group; // For edit mode
+  group?: ApiGroupOut; // For edit mode
 }
 
-const leaderOptionLabel = (option: Alter | string | null): string => {
+const leaderOptionLabel = (option: ApiAlter | string | null): string => {
   if (!option) return '';
   if (typeof option === 'object') {
-    const alter = option as Alter;
+    const alter = option as ApiAlter;
     if (alter.name) return alter.name;
     if (alter.id !== undefined && alter.id !== null) return `#${alter.id}`;
     return '';
@@ -49,7 +46,7 @@ const leaderOptionLabel = (option: Alter | string | null): string => {
   return String(option);
 };
 
-const parseLeaderIds = (leaders: Group['leaders'] | string | null | undefined): string[] => {
+const parseLeaderIds = (leaders: ApiGroupOut['leaders'] | string | null | undefined): string[] => {
   const fromArray = (arr: unknown[]): string[] => {
     const seen = new Set<string>();
     const result: string[] = [];
@@ -85,23 +82,23 @@ const parseLeaderIds = (leaders: Group['leaders'] | string | null | undefined): 
   return [];
 };
 
-const toAlterOption = (id: string, options: Alter[]): Alter => {
+const toAlterOption = (id: string, options: ApiAlter[]): ApiAlter => {
   const match = options.find((option) => normalizeEntityId(option.id) === normalizeEntityId(id));
   if (match) return match;
   // create a synthetic Alter with a string id cast -- callers expect an object with an id and name
-  return { id, name: `#${id}` } as Alter;
+  return { id, name: `#${id}` } as ApiAlter;
 };
 
-const getLeadersFromGroup = (group: Group | null, options: Alter[]): Alter[] => {
+const getLeadersFromGroup = (group: ApiGroupOut | null, options: ApiAlter[]): ApiAlter[] => {
   if (!group) return [];
   return parseLeaderIds(group.leaders).map((id) => toAlterOption(id, options));
 };
 
-const mapLeadersToIds = (leaders: Array<Alter | string | number>): string[] => {
+const mapLeadersToIds = (leaders: Array<ApiAlter | string | number>): string[] => {
   const seen = new Set<string>();
   const result: string[] = [];
   leaders.forEach((leader) => {
-    const raw = typeof leader === 'object' ? (leader as Alter).id : leader;
+    const raw = typeof leader === 'object' ? (leader as ApiAlter).id : leader;
     const s = String(raw ?? '')
       .trim()
       .replace(/^#/u, '');
@@ -113,7 +110,7 @@ const mapLeadersToIds = (leaders: Array<Alter | string | number>): string[] => {
   return result;
 };
 
-const getSigilUrlFromGroup = (group: Group | null): string | null => {
+const getSigilUrlFromGroup = (group: ApiGroupOut | null): string | null => {
   if (!group) return null;
 
   const sigilValue = group.sigil;
@@ -164,7 +161,7 @@ export default function GroupDialog(props: GroupDialogProps) {
   // Initialize hooks for state management
   const creationState = useGroupCreationState();
   const editingState = useGroupEditingState();
-  const [editingGroup, setEditingGroup] = useState<Group | null>(props.group || null);
+  const [editingGroup, setEditingGroup] = useState<ApiGroupOut | null>(props.group || null);
   const [leaderQuery, setLeaderQuery] = useState('');
   const altersOptionsResult = useAlterOptions(props.uid, leaderQuery);
   const altersOptions = altersOptionsResult.altersOptions;
@@ -178,7 +175,7 @@ export default function GroupDialog(props: GroupDialogProps) {
     }
   }, [props.open, props.group, props.mode]);
 
-  const leaderValue: Alter[] = isCreate
+  const leaderValue: ApiAlter[] = isCreate
     ? creationState.newGroupLeaders
     : getLeadersFromGroup(editingGroup, altersOptions);
 
@@ -186,7 +183,7 @@ export default function GroupDialog(props: GroupDialogProps) {
   const sigilUploading = isCreate ? creationState.newGroupSigilUploading : editingState.editingGroupSigilUploading;
   const sigilDrag = isCreate ? creationState.newGroupSigilDrag : editingState.editingGroupSigilDrag;
 
-  const updateEditingGroup = (updater: (group: Group) => Group) => {
+  const updateEditingGroup = (updater: (group: ApiGroupOut) => ApiGroupOut) => {
     if (isCreate || !editingGroup) return;
     setEditingGroup(updater(editingGroup));
   };
@@ -214,7 +211,7 @@ export default function GroupDialog(props: GroupDialogProps) {
     }
   };
 
-  const handleLeaderChange = (_event: SyntheticEvent, value: Alter[]) => {
+  const handleLeaderChange = (_event: SyntheticEvent, value: ApiAlter[]) => {
     if (isCreate) {
       creationState.setNewGroupLeaders(value);
     } else {
@@ -330,10 +327,10 @@ export default function GroupDialog(props: GroupDialogProps) {
           leaders: mapLeadersToIds(creationState.newGroupLeaders || []),
         };
         if (owner) payload.owner_user_id = String(owner);
-  // Debug: log final payload being sent to API
-  // eslint-disable-next-line no-console
-  console.debug('[GroupDialog] create payload', payload);
-  await createGroup(payload as any);
+        // Debug: log final payload being sent to API
+        // eslint-disable-next-line no-console
+        console.debug('[GroupDialog] create payload', payload);
+        await createGroup(payload as any);
 
         // Allow parent refresh handler to complete before closing so callers (and tests) can rely on updated data
         try {
@@ -367,7 +364,7 @@ export default function GroupDialog(props: GroupDialogProps) {
       return;
     }
 
-      try {
+    try {
       const leadersPayload = mapLeadersToIds(leaderValue);
       await updateGroup(group.id!, {
         name: group.name,

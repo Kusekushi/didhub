@@ -9,9 +9,6 @@ export interface RelationshipOption {
   aliases: string[];
 }
 
-// Alias for entity IDs (UUID strings).
-export type EntityId = string;
-
 export interface RelationshipSources {
   partners?: unknown;
   parents?: unknown;

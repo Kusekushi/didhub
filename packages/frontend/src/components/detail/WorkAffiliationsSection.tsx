@@ -2,11 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { normalizeEntityId } from '../../shared/utils/alterFormUtils';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import type { ApiAlter } from '../../types/ui';
 import { useAffiliationResolution } from '../../shared/hooks/useAffiliationResolution';
 import { useGroupResolution, useSubsystemResolution } from '../../shared/hooks/useEntityResolution';
-import NotificationSnackbar, { SnackbarMessage } from '../../components/ui/NotificationSnackbar';
-import { ApiGroupOut } from '@didhub/api-client';
+import NotificationSnackbar, { SnackbarMessage } from '../ui/NotificationSnackbar';
+import { ApiAlter, ApiGroupOut } from '@didhub/api-client';
 
 export interface WorkAffiliationsSectionProps {
   alter: ApiAlter & {

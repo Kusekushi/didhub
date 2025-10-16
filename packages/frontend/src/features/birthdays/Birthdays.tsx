@@ -20,7 +20,6 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import type { ApiAlter, ApiSystemDetail } from '../../types/ui';
 import { listAlters } from '../../services/alterService';
 import { getSubsystemById } from '../../services/subsystemService';
 
@@ -36,6 +35,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from './utils';
+import { ApiAlter, ApiSystemDetail } from '@didhub/api-client';
 
 interface BirthdayEntry extends BirthdayLike {
   alter: ApiAlter;

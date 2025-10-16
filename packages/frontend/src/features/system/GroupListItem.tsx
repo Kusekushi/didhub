@@ -3,8 +3,8 @@ import { ListItem, ListItemText, ListItemAvatar, Divider } from '@mui/material';
 
 // Local lightweight type to avoid importing generated runtime types during migration.
 type Group = any;
-import GroupAvatar from './GroupAvatar';
-import GroupActions from './GroupActions';
+import GroupAvatar from '../../components/detail/GroupAvatar';
+import GroupActions from '../../components/detail/GroupActions';
 
 export interface GroupListItemProps {
   group: Group;

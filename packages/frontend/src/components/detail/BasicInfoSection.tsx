@@ -1,35 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Paper, Typography, Chip } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import type { ApiAlter } from '../../types/ui';
-
-function parseRoles(raw: unknown): string[] {
-  if (!raw) return [];
-  try {
-    if (Array.isArray(raw)) return raw.map((r) => String(r));
-    if (typeof raw === 'string') {
-      const s = raw.trim();
-      if (!s) return [];
-      if (s.startsWith('[') && s.endsWith(']')) {
-        const parsed = JSON.parse(s);
-        if (Array.isArray(parsed)) return parsed.map((r) => String(r));
-      }
-      return s.split(',').map((p) => p.trim()).filter(Boolean);
-    }
-    return [String(raw)];
-  } catch (e) {
-    return [];
-  }
-}
 import { useAlterLinks } from '../../shared/hooks/useAlterLinks';
 import { getUsersById } from '../../services/adminService';
-import { ApiPersonRelationship } from '@didhub/api-client';
+import { ApiAlter, ApiPersonRelationship, parseRoles } from '@didhub/api-client';
 
 type AlterWithRelationships = ApiAlter & {
   user_relationships?: ApiPersonRelationship[];
   system_roles?: unknown;
-  is_dormant?: boolean | null;
-  is_merged?: boolean | null;
+  is_dormant?: number | null;
+  is_merged?: number | null;
 };
 
 export interface BasicInfoSectionProps {

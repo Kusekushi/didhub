@@ -17,7 +17,6 @@ export default function ToolbarActions(props: ToolbarActionsProps) {
       <IconButton color="inherit" onClick={props.toggle} sx={{ mr: 1 }}>
         {props.mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
       </IconButton>
-      {/* Navigation is provided via AppProvider navigation and rendered in the sidebar */}
     </div>
   );
 }

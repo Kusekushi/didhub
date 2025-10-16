@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button, Avatar, Typography, TextField, type AlertColor } from '@mui/material';
-import * as userService from '../../services/userService';
-
-import type { SystemRequest } from '../../types/ui';
 
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
 import ThemeEditor from '../../features/settings/ThemeEditor';
 import { useAuth } from '../../shared/contexts/AuthContext';
+import { deleteMeAvatar, getMeRequestSystem, InProgressMeRequestSystem, postMeAvatar, postMeRequestSystem } from '../../services/userService';
 
 type SnackbarState = {
   open: boolean;
@@ -25,34 +23,31 @@ export default function UserSettings() {
   const [pwLoading, setPwLoading] = useState(false);
   const [pwMsg, setPwMsg] = useState<SnackbarState>({ open: false, text: '', severity: 'info' });
   const [msg, setMsg] = useState<SnackbarState>({ open: false, text: '', severity: 'info' });
-  const [myRequest, setMyRequest] = useState<SystemRequest | null>(null);
+  const [myRequest, setMyRequest] = useState<InProgressMeRequestSystem | null>(null);
 
   async function doUpload() {
     if (!file) return;
     setLoading(true);
     const body = new FormData();
     body.append('file', file);
-    const res = await userService.postMeAvatar(body);
+    const res = await postMeAvatar(body);
     setLoading(false);
-    // adapter returns the generated-client response object (or null)
     if (res && (res as any).ok) {
       await refetchUser();
       setMsg({ open: true, text: 'Avatar updated', severity: 'success' });
     } else {
-      const data = (res && (res as any).data) as any;
-      setMsg({ open: true, text: data?.message ?? data?.error ?? 'Avatar upload failed', severity: 'error' });
+      setMsg({ open: true, text: 'Avatar upload failed', severity: 'error' });
     }
   }
 
   async function doDelete() {
     setLoading(true);
-    const res = await userService.deleteMeAvatar();
+    const res = await deleteMeAvatar();
     setLoading(false);
-    if (res && (res as any).ok) {
+    if (res) {
       await refetchUser();
     } else {
-      const data = (res && (res as any).data) as any;
-      setMsg({ open: true, text: data?.message ?? data?.error ?? 'Avatar delete failed', severity: 'error' });
+      setMsg({ open: true, text: 'Avatar delete failed', severity: 'error' });
     }
   }
 
@@ -97,7 +92,7 @@ export default function UserSettings() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await userService.getMeRequestSystem();
+        const r = await getMeRequestSystem();
         setMyRequest(r ?? null);
       } catch (e) {
         setMyRequest(null);
@@ -171,14 +166,13 @@ export default function UserSettings() {
               try {
                 setLoading(true);
                 try {
-                  const res = await userService.postMeRequestSystem({});
-                  if (res && (res as any).ok && (res as any).data && typeof ((res as any).data as any).id !== 'undefined') {
+                  const res = await postMeRequestSystem({});
+                  if (res !== null && typeof res.id !== 'undefined') {
                     await refetchUser();
-                    setMyRequest((res as any).data as SystemRequest);
+                    setMyRequest(res);
                     setPwMsg({ open: true, text: 'System request submitted', severity: 'success' });
                   } else {
-                    const data = (res && (res as any).data) as any;
-                    setPwMsg({ open: true, text: data?.message ?? data?.error ?? 'Request failed', severity: 'error' });
+                    setPwMsg({ open: true, text: 'Request failed', severity: 'error' });
                   }
                 } catch (e) {
                   setPwMsg({ open: true, text: String(e || 'request failed'), severity: 'error' });

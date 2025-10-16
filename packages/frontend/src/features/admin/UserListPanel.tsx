@@ -30,7 +30,7 @@ import utc from 'dayjs/plugin/utc';
 
 dayjs.extend(utc);
 import NotificationSnackbar from '../../components/ui/NotificationSnackbar';
-import { ApiUser } from 'types/ui';
+import { ApiUser } from '@didhub/api-client';
 
 export default function UserListPanel() {
   const [users, setUsers] = useState<ApiUser[]>([]);
