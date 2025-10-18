@@ -13,4 +13,4 @@ pub mod reports;
 pub mod static_assets;
 pub mod systems;
 
-pub use health::{health, HealthResponse};
+pub use health::health;

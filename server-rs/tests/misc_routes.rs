@@ -27,6 +27,8 @@ async fn health_and_version_routes() {
     // health
     let resp = app.clone().oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(std::str::from_utf8(&body).unwrap(), "OK");
 
     // version (public root route)
     let resp2 = app.clone().oneshot(Request::get("/version").body(Body::empty()).unwrap()).await.unwrap();
