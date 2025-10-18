@@ -30,7 +30,7 @@
     "lint:ci": "pnpm --stream -r run lint:ci",
     "license-check": "pnpm licenses -P ls",
     "generate-licenses": "cd packages/frontend && pnpm exec license-checker --production --json > ../../static/licenses-frontend.json && cd ../../server-rs && cargo license --json --all-features > ../static/licenses-backend.json && cd .. && node scripts/copy-licenses.js",
-  "generate-api-client": "python \"utils/api_client_generator/main.py\" --server-root \"server-rs/didhub-server\" --output-dir \"packages/api-client/src\" && python .\\scripts\\generate_api_md.py",
+    "generate-api-client": "python \"utils/api_client_generator/main.py\" --server-root \"server-rs/didhub-server\" --output-dir \"packages/api-client/src\" && python ./scripts/generate_api_md.py",
     "bundle:release": "node scripts/bundle-release.mjs"
   },
   "devDependencies": {
