@@ -102,6 +102,7 @@ impl AppRouterBuilder {
 
         Router::new()
             .route("/health", axum::routing::get(routes::health))
+            .route("/version", axum::routing::get(crate::version::api_version_handler))
             .nest("/api", auth_routes)
             .nest("/api", protected_routes)
             .nest("/api", admin_routes)

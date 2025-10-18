@@ -28,7 +28,7 @@ async fn health_and_version_routes() {
     let resp = app.clone().oneshot(Request::get("/health").body(Body::empty()).unwrap()).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    // version (public under /api)
-    let resp2 = app.clone().oneshot(Request::get("/api/version").body(Body::empty()).unwrap()).await.unwrap();
+    // version (public root route)
+    let resp2 = app.clone().oneshot(Request::get("/version").body(Body::empty()).unwrap()).await.unwrap();
     assert_eq!(resp2.status(), StatusCode::OK);
 }

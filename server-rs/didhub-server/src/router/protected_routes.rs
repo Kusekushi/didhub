@@ -126,5 +126,7 @@ pub fn build_protected_routes(auth_state: &auth::AuthState) -> Router {
             "/pdf/subsystem/{id}",
             get(crate::routes::reports::pdf::export_subsystem),
         )
+        .route("/version", get(crate::version::version_handler))
+        .route("/version/{module}", get(crate::version::module_version_handler))
         .with_state(auth_state.clone())
 }

@@ -1,12 +1,6 @@
-use axum::Json;
+use axum::{extract::Path, Json};
+use didhub_error::AppError;
 use serde::Serialize;
-use std::sync::OnceLock;
-
-static VERSION: OnceLock<String> = OnceLock::new();
-
-fn app_version() -> &'static str {
-    VERSION.get_or_init(|| env!("CARGO_PKG_VERSION").to_string())
-}
 
 // If build.rs emitted versions.rs into OUT_DIR, include it to expose crate versions
 // The generated file defines constants like FRONTEND_VERSION, DB_VERSION, etc.
@@ -30,6 +24,11 @@ mod generated_versions {
 include!(concat!(env!("OUT_DIR"), "/versions.rs"));
 
 #[derive(Serialize)]
+pub struct ApiVersionResponse {
+    pub api_version: String,
+}
+
+#[derive(Serialize)]
 pub struct VersionResponse {
     pub server_version: String,
     pub frontend_version: String,
@@ -47,6 +46,18 @@ pub struct VersionResponse {
     pub git_commit: String,
     pub build_time: String,
     pub target: String,
+}
+
+#[derive(Serialize)]
+pub struct ModuleVersionResponse {
+    pub version: String,
+}
+
+pub async fn api_version_handler() -> Json<ApiVersionResponse> {
+    let resp = ApiVersionResponse {
+        api_version: SERVER_VERSION.to_string(),
+    };
+    Json(resp)
 }
 
 pub async fn version_handler() -> Json<VersionResponse> {
@@ -72,4 +83,24 @@ pub async fn version_handler() -> Json<VersionResponse> {
         target: TARGET_TRIPLE.to_string(),
     };
     Json(resp)
+}
+
+pub async fn module_version_handler(Path(module): Path<String>) -> Result<Json<ModuleVersionResponse>, AppError> {
+    let version = match module.as_str() {
+        "server" => SERVER_VERSION.to_string(),
+        "frontend" => FRONTEND_VERSION.to_string(),
+        "db" => DB_VERSION.to_string(),
+        "auth" => AUTH_VERSION.to_string(),
+        "cache" => CACHE_VERSION.to_string(),
+        "error" => ERROR_VERSION.to_string(),
+        "config" => CONFIG_VERSION.to_string(),
+        "oidc" => OIDC_VERSION.to_string(),
+        "metrics" => METRICS_VERSION.to_string(),
+        "housekeeping" => HOUSEKEEPING_VERSION.to_string(),
+        "middleware" => MIDDLEWARE_VERSION.to_string(),
+        "updater" => UPDATER_VERSION.to_string(),
+        "migrations" => MIGRATIONS_VERSION.to_string(),
+        _ => return Err(AppError::NotFound),
+    };
+    Ok(Json(ModuleVersionResponse { version }))
 }

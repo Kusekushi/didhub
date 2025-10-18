@@ -11,7 +11,6 @@ pub fn build_auth_routes(auth_state: &auth::AuthState) -> Router {
         .route("/auth/register", post(wrappers::register))
         .route("/auth/login", post(wrappers::login))
         .route("/auth/refresh", post(wrappers::refresh))
-        .route("/version", get(crate::version::version_handler))
         .route("/oidc", get(crate::routes::auth::oidc::public_providers))
         .route(
             "/oidc/{id}/authorize",
