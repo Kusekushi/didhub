@@ -83,6 +83,10 @@ pub fn build_admin_routes(auth_state: &auth::AuthState) -> Router {
         )
         .route("/audit", get(crate::routes::admin::audit::list_audit))
         .route(
+            "/audit/export/csv",
+            get(crate::routes::admin::audit::export_audit_csv),
+        )
+        .route(
             "/audit/purge",
             post(crate::routes::admin::audit::purge_audit),
         )

@@ -29,6 +29,7 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | PUT | `/alters/{id}/subsystems` | crate::routes::alters::set_alter_subsystem | id |
 | GET | `/assets/{path}` | crate::routes::static_assets::serve_asset | path |
 | GET | `/audit` | crate::routes::admin::audit::list_audit | action, user_id, from, to, limit, offset |
+| GET | `/audit/export/csv` | crate::routes::admin::audit::export_audit_csv | action, user_id, from, to, limit, offset |
 | POST | `/audit/purge` | crate::routes::admin::audit::purge_audit |  |
 | POST | `/auth/login` | wrappers::login |  |
 | POST | `/auth/refresh` | wrappers::refresh |  |
@@ -290,6 +291,23 @@ Base URL: `/api` prefix is used for JSON endpoints where applicable.
 | **GET** | crate::routes::admin::audit::list_audit |
 
 ### GET /audit parameters
+
+| name | in | required | type |
+| --- | --- | --- | --- |
+| action | query | False | string |
+| user_id | query | False | string |
+| from | query | False | string |
+| to | query | False | string |
+| limit | query | False | number |
+| offset | query | False | number |
+
+## /audit/export/csv
+
+| Method | Summary |
+| --- | --- |
+| **GET** | crate::routes::admin::audit::export_audit_csv |
+
+### GET /audit/export/csv parameters
 
 | name | in | required | type |
 | --- | --- | --- | --- |

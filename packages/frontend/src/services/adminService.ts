@@ -352,58 +352,38 @@ export async function getAudit(params?: AdminGetAuditRequest): Promise<ApiAuditL
   return resp?.data ?? null;
 }
 
-export async function exportAuditCsv() {
-  // Build CSV client-side from getAudit
-  const respTyped: ApiAuditLogResponse[] | null = await getAudit({ limit: 1000 });
-  const rows = respTyped ?? [];
+export async function exportAuditCsv(params?: { action?: string; user_id?: string; from?: string; to?: string; limit?: number; offset?: number }) {
+  const req = params ?? {};
+  const resp = await apiClient.admin.get_audit_export_csv(req);
 
-  // If no rows, return null
-  if (!rows || rows.length === 0) return null;
+  // The response should be a CSV string
+  if (resp.data) {
+    const csvContent = resp.data as string;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
-  // Determine CSV headers from keys of first row (preserve order)
-  const headers = Object.keys(rows[0]);
-
-  // Helper to escape CSV values
-  const esc = (val: unknown) => {
-    if (val === null || val === undefined) return '';
-    const s = typeof val === 'string' ? val : String(val);
-    // If contains quote, comma, or newline, wrap in quotes and escape quotes
-    if (/[",\n]/.test(s)) {
-      return '"' + s.replace(/"/g, '""') + '"';
+    // Try to trigger a download when running in browser
+    try {
+      if (typeof window !== 'undefined' && 'document' in window) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        a.href = url;
+        a.download = `didhub-audit-${ts}.csv`;
+        // Append, click, and remove to trigger
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        // Release object URL after a short delay
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
+    } catch (e) {
+      // ignore if not running in browser environment
     }
-    return s;
-  };
 
-  const lines = [] as string[];
-  lines.push(headers.join(','));
-  for (const r of rows) {
-    const line = headers.map((h) => esc((r as ApiAuditLogResponse)[h])).join(',');
-    lines.push(line);
+    return blob;
   }
 
-  const csv = lines.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-
-  // Try to trigger a download when running in browser
-  try {
-    if (typeof window !== 'undefined' && 'document' in window) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      a.href = url;
-      a.download = `didhub-audit-${ts}.csv`;
-      // Append, click, and remove to trigger
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Release object URL after a short delay
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    }
-  } catch (e) {
-    // ignore if not running in browser environment
-  }
-
-  return blob;
+  return null;
 }
 
 export async function clearAuditLogs() {

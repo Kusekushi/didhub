@@ -56,7 +56,7 @@ export default function AuditLogPanel(props: AuditLogPanelProps) {
         limit: 500,
         offset: 0,
       });
-      const items = (r && (r.data ?? r)) ?? [];
+      const items = r ?? [];
       const normalized: AuditLogEntry[] = Array.isArray(items)
         ? items.map((item: any, idx: number) => ({
             id: String(item.id ?? `entry-${idx}`),
@@ -115,11 +115,29 @@ export default function AuditLogPanel(props: AuditLogPanelProps) {
     load();
   };
 
+  const handleExportCsv = async () => {
+    try {
+      await adminService.exportAuditCsv({
+        action: filters.action || undefined,
+        user_id: filters.user_id || undefined,
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+        limit: 10000, // Export more records for CSV
+        offset: 0,
+      });
+    } catch (e) {
+      console.error('Failed to export audit CSV:', e);
+    }
+  };
+
   return (
     <div>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <Button onClick={load} variant="contained">
           Refresh
+        </Button>
+        <Button onClick={handleExportCsv} variant="outlined">
+          Export CSV
         </Button>
         <Button onClick={() => setShowFilters(!showFilters)} variant="outlined">
           {showFilters ? 'Hide Filters' : 'Show Filters'}

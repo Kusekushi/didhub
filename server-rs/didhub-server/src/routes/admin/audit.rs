@@ -1,5 +1,5 @@
 use anyhow::Result;
-use axum::{extract::Query, Extension, Json};
+use axum::{extract::Query, Extension, Json, response::Response};
 use didhub_db::models::AuditLog;
 use didhub_db::{common::CommonOperations, Db};
 use didhub_error::AppError;
@@ -141,4 +141,73 @@ pub async fn purge_audit_inner<DB: CommonOperations + Sync>(
 #[derive(Serialize)]
 pub struct PurgeAuditResponse {
     pub deleted: i64,
+}
+
+pub async fn export_audit_csv(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<CurrentUser>,
+    Query(p): Query<ListParams>,
+) -> Result<Response, AppError> {
+    if user.is_admin == 0 {
+        return Err(AppError::Forbidden);
+    }
+
+    // For CSV export, we want all matching records, so use a high limit
+    let limit = p.limit.unwrap_or(100000).clamp(1, 1000000);
+    let offset = p.offset.unwrap_or(0).max(0);
+
+    let rows = db
+        .list_audit(
+            p.action.as_deref(),
+            p.user_id.as_deref(),
+            p.from.as_deref(),
+            p.to.as_deref(),
+            limit,
+            offset,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!(target = "didhub_server", ?e, "db.list_audit failed");
+            AppError::Internal
+        })?;
+
+    // Generate CSV content
+    let mut csv_content = String::new();
+
+    // CSV header
+    csv_content.push_str("id,created_at,user_id,action,entity_type,entity_id,ip,metadata\n");
+
+    // CSV rows
+    for row in rows {
+        let metadata_str = row.metadata.unwrap_or_else(|| "null".to_string());
+        // Escape quotes and wrap in quotes if contains comma, quote, or newline
+        let escape_csv_field = |field: &str| -> String {
+            if field.contains(',') || field.contains('"') || field.contains('\n') || field.contains('\r') {
+                format!("\"{}\"", field.replace('"', "\"\""))
+            } else {
+                field.to_string()
+            }
+        };
+
+        csv_content.push_str(&format!(
+            "{},{},{},{},{},{},{},{}\n",
+            escape_csv_field(&row.id),
+            escape_csv_field(&row.created_at.unwrap_or_default()),
+            escape_csv_field(&row.user_id.unwrap_or_default()),
+            escape_csv_field(&row.action),
+            escape_csv_field(&row.entity_type.unwrap_or_default()),
+            escape_csv_field(&row.entity_id.unwrap_or_default()),
+            escape_csv_field(&row.ip.unwrap_or_default()),
+            escape_csv_field(&metadata_str)
+        ));
+    }
+
+    // Return CSV response
+    let response = Response::builder()
+        .header("Content-Type", "text/csv")
+        .header("Content-Disposition", "attachment; filename=\"audit_log.csv\"")
+        .body(csv_content.into())
+        .map_err(|_| AppError::Internal)?;
+
+    Ok(response)
 }
