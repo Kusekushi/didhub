@@ -190,9 +190,10 @@ pub fn normalize_image_list(raw: Option<&str>) -> Vec<String> {
             if trimmed.is_empty() {
                 return None;
             }
-            let normalized = if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-                trimmed.to_owned()
-            } else if let Some(rest) = trimmed.strip_prefix("/did-system/") {
+            if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+                return None;
+            }
+            let normalized = if let Some(rest) = trimmed.strip_prefix("/did-system/") {
                 format!("/uploads/{}", rest.trim_start_matches('/'))
             } else if let Some(rest) = trimmed.strip_prefix("/uploads/") {
                 format!("/uploads/{}", rest.trim_start_matches('/'))
