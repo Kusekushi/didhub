@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS {{ table.name }} (
+{%- for item in table.lines %}
+{{ item }}{% if not loop.last %},{% endif %}
+{%- endfor %}
+{%- if table.composite_pk %}
+, PRIMARY KEY ({{ table.composite_pk | join(', ') }})
+{%- endif %}
+{%- if table.table_suffix %}
+{{ table.table_suffix }}
+{%- endif %}
+){{ terminator }}

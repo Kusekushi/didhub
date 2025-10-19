@@ -1,0 +1,94 @@
+name: Code Check
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------------------------
+      # Setup Tools
+      # -------------------------------------------------------------------------
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      # -------------------------------------------------------------------------
+      # Caching
+      # -------------------------------------------------------------------------
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend -> target
+          cache-targets: true
+          cache-on-failure: true
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # -------------------------------------------------------------------------
+      # Install Dependencies
+      # -------------------------------------------------------------------------
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml jinja2
+
+      - name: Install frontend dependencies
+        run: pnpm install
+        working-directory: frontend
+
+      # -------------------------------------------------------------------------
+      # Code Generation (required for linting)
+      # -------------------------------------------------------------------------
+      - name: Run code generation
+        run: python build.py codegen all
+
+      # -------------------------------------------------------------------------
+      # Linting
+      # -------------------------------------------------------------------------
+      - name: Lint Rust
+        run: python build.py lint --rust --check
+
+      - name: Lint frontend
+        run: python build.py lint --frontend --check

@@ -1,0 +1,1 @@
+CREATE {% if index.unique %}UNIQUE {% endif %}INDEX {% if index.if_not_exists %}IF NOT EXISTS {% endif %}{{ index.name }} ON {{ index.body }}{{ terminator }}

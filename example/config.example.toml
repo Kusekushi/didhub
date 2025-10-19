@@ -1,0 +1,36 @@
+# config.example.toml
+
+[server]
+host = "0.0.0.0"
+port = 6000
+
+[logging]
+level = "info"
+json = true
+log_dir = "/var/log/didhub"
+
+[cors]
+allowed_origins = ["https://app.example.com"]
+allow_all_origins = false
+
+redis_url = "redis://redis:6379/0"
+
+[database]
+driver = "postgres"
+host = "db.example.internal"
+port = 5432
+database = "didhub"
+username = "didhub"
+password = "changeme"
+
+[uploads]
+directory = "/var/lib/didhub/uploads"
+
+[auto_update]
+enabled = true
+check_enabled = true
+repo = "https://github.com/yourorg/didhub"
+check_interval_hours = 24
+
+[auth]
+jwt_pem_path = "/etc/didhub/jwt_public.pem"

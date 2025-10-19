@@ -1,0 +1,2973 @@
+openapi: 3.0.3
+info:
+  title: DIDHub API
+  version: 0.1.0
+  description: >-
+    HTTP API surface for the DIDHub backend. This schema intentionally focuses on
+    contracts needed by the generator stubs and TypeScript client.
+servers:
+  - url: https://api.didhub.local
+    description: Placeholder server URL
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        perPage:
+          type: integer
+          minimum: 1
+          default: 20
+        total:
+          type: integer
+          minimum: 0
+      required:
+        - page
+        - perPage
+        - total
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type: string
+        isAdmin:
+          type: boolean
+        isSystem:
+          type: boolean
+        isApproved:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - username
+        - isAdmin
+        - isSystem
+        - isApproved
+        - createdAt
+        - updatedAt
+    PaginatedUsersResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    CreateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        display_name:
+          type: string
+        passwordHash:
+          type: string
+          description: SHA-256 hash of password (64 hex characters)
+          minLength: 64
+          maxLength: 64
+          pattern: "^[a-fA-F0-9]{64}$"
+        isAdmin:
+          type: boolean
+        isSystem:
+          type: boolean
+        isApproved:
+          type: boolean
+      required:
+        - username
+        - passwordHash
+    UpdateUserRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        isAdmin:
+          type: boolean
+        isSystem:
+          type: boolean
+        isApproved:
+          type: boolean
+      description: At least one field must be supplied.
+    UpdateUserPasswordRequest:
+      type: object
+      properties:
+        currentPasswordHash:
+          type: string
+          description: SHA-256 hash of current password (64 hex characters)
+          minLength: 64
+          maxLength: 64
+          pattern: "^[a-fA-F0-9]{64}$"
+        newPasswordHash:
+          type: string
+          description: SHA-256 hash of new password (64 hex characters)
+          minLength: 64
+          maxLength: 64
+          pattern: "^[a-fA-F0-9]{64}$"
+      required:
+        - newPasswordHash
+    Upload:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 0
+        createdBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        references:
+          type: integer
+          minimum: 0
+      required:
+        - id
+        - filename
+        - sizeBytes
+        - createdBy
+        - createdAt
+        - references
+    CreateUploadRequest:
+      type: object
+      properties:
+        filename:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 0
+        checksum:
+          type: string
+        storageId:
+          type: string
+      required:
+        - filename
+        - sizeBytes
+        - storageId
+    UploadListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Upload'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    SystemRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        message:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - userId
+        - status
+        - createdAt
+    SystemRequestListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SystemRequest'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    SystemRequestDecisionRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+        message:
+          type: string
+      required:
+        - decision
+    InstanceSetting:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - key
+        - value
+    InstanceSettingsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstanceSetting'
+      required:
+        - items
+    BulkInstanceSettingsRequest:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            type: string
+      required:
+        - keys
+    BulkInstanceSettingsResponse:
+      type: object
+      properties:
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstanceSetting'
+      required:
+        - values
+    UploadDirectoryReloadResponse:
+      type: object
+      properties:
+        reloadedAt:
+          type: string
+          format: date-time
+      required:
+        - reloadedAt
+    UpdateCheckResponse:
+      type: object
+      properties:
+        currentVersion:
+          type: string
+        latestVersion:
+          type: string
+        updateAvailable:
+          type: boolean
+      required:
+        - currentVersion
+        - latestVersion
+        - updateAvailable
+    UpdateRunResponse:
+      type: object
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        jobId:
+          type: string
+      required:
+        - startedAt
+        - jobId
+    AdminOverviewResponse:
+      type: object
+      properties:
+        pendingSystemRequests:
+          type: integer
+          minimum: 0
+        unapprovedUsers:
+          type: integer
+          minimum: 0
+      required:
+        - pendingSystemRequests
+        - unapprovedUsers
+    DatabaseQueryRequest:
+      type: object
+      properties:
+        table:
+          type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 500
+        offset:
+          type: integer
+          minimum: 0
+      required:
+        - table
+    DatabaseQueryResponse:
+      type: object
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      required:
+        - columns
+        - rows
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        category:
+          type: string
+        message:
+          type: string
+        actor:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - category
+        - message
+        - createdAt
+    PaginatedAuditLogResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    JobRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        jobName:
+          type: string
+        status:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - jobName
+        - status
+        - startedAt
+    PaginatedJobRunResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobRun'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    RestoreRequest:
+      type: object
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+      required:
+        - uploadId
+    FamilyTreeNode:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyTreeNode'
+      required:
+        - id
+        - name
+        - children
+    FamilyTreeResponse:
+      type: object
+      properties:
+        root:
+          $ref: '#/components/schemas/FamilyTreeNode'
+      required:
+        - root
+    AlterBirthday:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        birthday:
+          type: string
+          nullable: true
+        userId:
+          type: string
+          format: uuid
+      required:
+        - id
+        - name
+        - userId
+    AlterBirthdaysResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlterBirthday'
+      required:
+        - items
+    Alter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        pronouns:
+          type: string
+        description:
+          type: string
+        age:
+          type: string
+          description: Age of the alter
+        gender:
+          type: string
+          description: Gender identity of the alter
+        birthday:
+          type: string
+          description: Birthday of the alter
+        sexuality:
+          type: string
+          description: Sexual orientation of the alter
+        species:
+          type: string
+          description: Species of the alter
+        alterType:
+          type: string
+          description: Type of alter (e.g., fictive, introject, etc.)
+        job:
+          type: string
+          description: Occupation or role of the alter
+        weapon:
+          type: string
+          description: Associated weapon or tool
+        systemRoles:
+          type: array
+          items:
+            type: string
+          description: Roles within the system
+        isSystemHost:
+          type: boolean
+          description: Whether this alter is a system host
+        isDormant:
+          type: boolean
+          description: Whether the alter is dormant or dead
+        isMerged:
+          type: boolean
+          description: Whether the alter has merged with another
+        soulSongs:
+          type: array
+          items:
+            type: string
+          description: Songs associated with this alter
+        interests:
+          type: array
+          items:
+            type: string
+          description: Interests and hobbies
+        triggers:
+          type: array
+          items:
+            type: string
+          description: Trigger warnings
+        notes:
+          type: string
+          description: Long-form notes about the alter
+        primaryUploadId:
+          type: string
+          format: uuid
+          description: >-
+            Optional reference to the primary upload associated with this alter
+            (use GET /files/{fileId} to retrieve file data).
+        systemId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - systemId
+        - createdAt
+        - updatedAt
+    PaginatedAlterResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alter'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    CreateAlterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        pronouns:
+          type: string
+        description:
+          type: string
+        age:
+          type: string
+        gender:
+          type: string
+        birthday:
+          type: string
+        sexuality:
+          type: string
+        species:
+          type: string
+        alterType:
+          type: string
+        job:
+          type: string
+        weapon:
+          type: string
+        systemRoles:
+          type: array
+          items:
+            type: string
+        isSystemHost:
+          type: boolean
+        isDormant:
+          type: boolean
+        isMerged:
+          type: boolean
+        soulSongs:
+          type: array
+          items:
+            type: string
+        interests:
+          type: array
+          items:
+            type: string
+        triggers:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+      required:
+        - name
+    UpdateAlterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        pronouns:
+          type: string
+        description:
+          type: string
+        age:
+          type: string
+        gender:
+          type: string
+        birthday:
+          type: string
+        sexuality:
+          type: string
+        species:
+          type: string
+        alterType:
+          type: string
+        job:
+          type: string
+        weapon:
+          type: string
+        systemRoles:
+          type: array
+          items:
+            type: string
+        isSystemHost:
+          type: boolean
+        isDormant:
+          type: boolean
+        isMerged:
+          type: boolean
+        soulSongs:
+          type: array
+          items:
+            type: string
+        interests:
+          type: array
+          items:
+            type: string
+        triggers:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+            format: uuid
+    Affiliation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        sigil:
+          type: string
+          description: Stored file ID for the affiliation sigil image
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - createdAt
+    PaginatedAffiliationResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Affiliation'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    SetAffiliationsRequest:
+      type: object
+      properties:
+        affiliationIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - affiliationIds
+    CreateAffiliationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+      required:
+        - name
+    UpdateAffiliationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+      description: At least one field must be supplied.
+    AffiliationMemberRequest:
+      type: object
+      properties:
+        alterId:
+          type: string
+          format: uuid
+      required:
+        - alterId
+    UpdateAffiliationMemberRequest:
+      type: object
+      properties:
+        isLeader:
+          type: boolean
+    AffiliationMember:
+      type: object
+      properties:
+        alterId:
+          type: string
+          format: uuid
+        isLeader:
+          type: boolean
+        addedAt:
+          type: string
+          format: date-time
+      required:
+        - alterId
+        - isLeader
+        - addedAt
+    Subsystem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - createdAt
+    PaginatedSubsystemResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subsystem'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    UpdateSubsystemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+    SubsystemMemberRequest:
+      type: object
+      properties:
+        alterId:
+          type: string
+          format: uuid
+      required:
+        - alterId
+    UpdateSubsystemMemberRequest:
+      type: object
+      properties:
+        isHost:
+          type: boolean
+    SubsystemMember:
+      type: object
+      properties:
+        alterId:
+          type: string
+          format: uuid
+        isHost:
+          type: boolean
+        addedAt:
+          type: string
+          format: date-time
+      required:
+        - alterId
+        - isHost
+        - addedAt
+    Relationship:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        relationType:
+          type: string
+          description: Type of relationship (e.g., partner, parent, child, sibling, friend)
+        sideAUserId:
+          type: string
+          format: uuid
+          description: User ID on side A (if relationship involves a user/system)
+        sideAAlterId:
+          type: string
+          format: uuid
+          description: Alter ID on side A
+        sideBUserId:
+          type: string
+          format: uuid
+          description: User ID on side B (if relationship involves a user/system)
+        sideBAlterId:
+          type: string
+          format: uuid
+          description: Alter ID on side B
+        pastLife:
+          type: boolean
+          description: Whether this is a past-life relationship
+        createdBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - relationType
+        - createdAt
+    PaginatedRelationshipResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Relationship'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - items
+        - pagination
+    CreateRelationshipRequest:
+      type: object
+      properties:
+        relationType:
+          type: string
+          description: Type of relationship
+        sideAUserId:
+          type: string
+          format: uuid
+        sideAAlterId:
+          type: string
+          format: uuid
+        sideBUserId:
+          type: string
+          format: uuid
+        sideBAlterId:
+          type: string
+          format: uuid
+        pastLife:
+          type: boolean
+      required:
+        - relationType
+    UpdateRelationshipRequest:
+      type: object
+      properties:
+        relationType:
+          type: string
+        sideAUserId:
+          type: string
+          format: uuid
+        sideAAlterId:
+          type: string
+          format: uuid
+        sideBUserId:
+          type: string
+          format: uuid
+        sideBAlterId:
+          type: string
+          format: uuid
+        pastLife:
+          type: boolean
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        display_name:
+          type: string
+        about_me:
+          type: string
+        avatar:
+          type: string
+          format: uuid
+        bio:
+          type: string
+        timezone:
+          type: string
+        pronouns:
+          type: string
+      required:
+        - id
+        - username
+paths:
+  /users:
+    get:
+      tags: [Users]
+      summary: List users
+      operationId: getUsers
+      x-handler:
+        delegate: crate::handlers::users::list::list
+        passHeaders: true
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: perPage
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: username
+          schema:
+            type: string
+        - in: query
+          name: isAdmin
+          schema:
+            type: boolean
+        - in: query
+          name: isSystem
+          schema:
+            type: boolean
+        - in: query
+          name: isApproved
+          schema:
+            type: boolean
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsersResponse'
+      security:
+        - bearerAuth: []
+    post:
+      tags: [Users]
+      summary: Create user
+      operationId: createUser
+      x-handler:
+        delegate: crate::handlers::users::create::create
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /users/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Users]
+      summary: Get user by id
+      operationId: getUserById
+      x-handler:
+        delegate: crate::handlers::users::get::get
+        passHeaders: true
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+      security:
+        - bearerAuth: []
+    patch:
+      tags: [Users]
+      summary: Update user
+      operationId: updateUser
+      x-handler:
+        delegate: crate::handlers::users::update::update
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Users]
+      summary: Delete user
+      operationId: deleteUser
+      x-handler:
+        delegate: crate::handlers::users::delete::delete
+        passHeaders: true
+      responses:
+        '204':
+          description: User deleted
+      security:
+        - bearerAuth: []
+  /users/{userId}/password:
+    put:
+      tags: [Users]
+      summary: Update user password
+      operationId: updateUserPassword
+      x-handler:
+        delegate: crate::handlers::users::update_password::update_password
+        passHeaders: true
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserPasswordRequest'
+      responses:
+        '204':
+          description: Password updated
+      security:
+        - bearerAuth: []
+  /uploads:
+    post:
+      tags: [Uploads]
+      summary: Create upload
+      operationId: createUpload
+      x-handler:
+        delegate: crate::handlers::uploads::create::create
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUploadRequest'
+      responses:
+        '201':
+          description: Created upload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Upload'
+      security:
+        - bearerAuth: []
+    get:
+      tags: [Uploads]
+      summary: List uploads
+      operationId: listUploads
+      x-handler:
+        delegate: crate::handlers::uploads::list::list
+        passHeaders: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated uploads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadListResponse'
+      security:
+        - bearerAuth: []
+  /uploads/{uploadId}:
+    delete:
+      tags: [Uploads]
+      summary: Delete upload reference
+      operationId: deleteUpload
+      x-handler:
+        delegate: crate::handlers::uploads::delete::delete
+        passHeaders: true
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Upload reference removed
+      security:
+        - bearerAuth: []
+  /uploads/{uploadId}/force:
+    delete:
+      tags: [Uploads]
+      summary: Force delete upload
+      operationId: forceDeleteUpload
+      x-handler:
+        delegate: crate::handlers::uploads::force_delete::force_delete
+        passHeaders: true
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Upload removed from storage
+      security:
+        - bearerAuth: []
+  /files/{fileId}:
+    get:
+      tags: [Uploads]
+      summary: Serve stored file
+      operationId: serveStoredFile
+      x-handler:
+        delegate: crate::handlers::uploads::serve::serve_stored_file
+        passHeaders: true
+      parameters:
+        - name: w
+          in: query
+          description: Desired width in pixels for an image thumbnail. If provided, server will return a resized thumbnail (maintains aspect ratio).
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: h
+          in: query
+          description: Desired height in pixels for an image thumbnail. If provided with w, server will fit image into w x h preserving aspect ratio.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: File metadata (URL to fetch raw content)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  mime_type:
+                    type: string
+                  size:
+                    type: integer
+                required:
+                  - url
+      security:
+        - bearerAuth: []
+  /files:
+    get:
+      tags: [Uploads]
+      summary: Serve multiple stored files by ids
+      operationId: serveStoredFilesBatch
+      x-handler:
+        delegate: crate::handlers::uploads::serve_batch::serve_stored_files_batch
+        passHeaders: true
+      parameters:
+        - name: ids
+          in: query
+          description: Comma-separated list of file ids to retrieve
+          required: true
+          schema:
+            type: string
+        - name: w
+          in: query
+          description: Desired width in pixels for thumbnails returned in the batch. Optional.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: h
+          in: query
+          description: Desired height in pixels for thumbnails returned in the batch. Optional.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Array of file metadata objects (each contains a URL to fetch raw content)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    file_id:
+                      type: string
+                    url:
+                      type: string
+                    mime_type:
+                      type: string
+                    size:
+                      type: integer
+                  required:
+                    - file_id
+      security:
+        - bearerAuth: []
+  /files/content/{fileId}:
+    get:
+      tags: [Uploads]
+      summary: Serve raw stored file content (bytes)
+      operationId: serveStoredFileContent
+      x-handler:
+        delegate: crate::handlers::uploads::serve::serve_stored_file_content
+        passHeaders: true
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: w
+          in: query
+          description: Desired width in pixels for an image thumbnail. If provided, server will return a resized thumbnail (maintains aspect ratio).
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: h
+          in: query
+          description: Desired height in pixels for an image thumbnail. If provided with w, server will fit image into w x h preserving aspect ratio.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Raw file bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      security:
+        - bearerAuth: []
+  /system-requests:
+    get:
+      tags: [SystemRequests]
+      summary: List system requests
+      operationId: listSystemRequests
+      x-handler:
+        delegate: crate::handlers::system_requests::list::list
+        passHeaders: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated system requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemRequestListResponse'
+      security:
+        - bearerAuth: []
+  /system-requests/{requestId}/decision:
+    post:
+      tags: [SystemRequests]
+      summary: Decide system request
+      operationId: decideSystemRequest
+      x-handler:
+        delegate: crate::handlers::system_requests::decide::decide
+        passHeaders: true
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemRequestDecisionRequest'
+      responses:
+        '200':
+          description: Updated system request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemRequest'
+      security:
+        - bearerAuth: []
+  /instance/settings:
+    get:
+      tags: [InstanceSettings]
+      summary: List instance settings
+      operationId: listInstanceSettings
+      x-handler:
+        delegate: crate::handlers::instance_settings::list::list
+        passHeaders: true
+      responses:
+        '200':
+          description: Instance settings list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceSettingsResponse'
+      security:
+        - bearerAuth: []
+    put:
+      tags: [InstanceSettings]
+      summary: Bulk upsert instance settings
+      operationId: bulkSetInstanceSettings
+      x-handler:
+        delegate: crate::handlers::instance_settings::bulk_set::bulk_set
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceSettingsResponse'
+      responses:
+        '200':
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceSettingsResponse'
+      security:
+        - bearerAuth: []
+  /instance/settings/{key}:
+    get:
+      tags: [InstanceSettings]
+      summary: Get instance setting
+      operationId: getInstanceSetting
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      x-handler:
+        delegate: crate::handlers::instance_settings::get::get
+        passHeaders: true
+      responses:
+        '200':
+          description: Instance setting value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceSetting'
+    put:
+      tags: [InstanceSettings]
+      summary: Set instance setting
+      operationId: setInstanceSetting
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      x-handler:
+        delegate: crate::handlers::instance_settings::set::set
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceSetting'
+      responses:
+        '200':
+          description: Updated instance setting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceSetting'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [InstanceSettings]
+      summary: Delete instance setting
+      operationId: deleteInstanceSetting
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      x-handler:
+        delegate: crate::handlers::instance_settings::delete::delete
+        passHeaders: true
+      responses:
+        '204':
+          description: Setting deleted successfully
+      security:
+        - bearerAuth: []
+  /instance/settings/bulk-get:
+    post:
+      tags: [InstanceSettings]
+      summary: Bulk get instance settings
+      operationId: bulkGetInstanceSettings
+      x-handler:
+        delegate: crate::handlers::instance_settings::bulk_get::bulk_get
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkInstanceSettingsRequest'
+      responses:
+        '200':
+          description: Requested instance settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkInstanceSettingsResponse'
+  /admin/upload-directory/reload:
+    post:
+      tags: [Administration]
+      summary: Reload upload directory configuration
+      operationId: reloadUploadDirectory
+      x-handler:
+        delegate: crate::handlers::updates::reload_directory::reload_directory
+        passHeaders: true
+      responses:
+        '200':
+          description: Reload status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadDirectoryReloadResponse'
+      security:
+        - bearerAuth: []
+  /admin/update/check:
+    get:
+      tags: [Administration]
+      summary: Check for updates
+      operationId: checkForUpdates
+      x-handler:
+        delegate: crate::handlers::updates::check::check
+        passHeaders: true
+      responses:
+        '200':
+          description: Update check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateCheckResponse'
+      security:
+        - bearerAuth: []
+  /admin/update/run:
+    post:
+      tags: [Administration]
+      summary: Trigger update
+      operationId: runUpdater
+      x-handler:
+        delegate: crate::handlers::updates::run::run
+        passHeaders: true
+      responses:
+        '202':
+          description: Update triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateRunResponse'
+      security:
+        - bearerAuth: []
+  /admin/overview:
+    get:
+      tags: [Administration]
+      summary: Get admin overview statistics
+      operationId: getAdminOverview
+      x-handler:
+        delegate: crate::handlers::instance_settings::get_admin_overview::get_admin_overview
+        passHeaders: true
+      responses:
+        '200':
+          description: Admin overview statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOverviewResponse'
+      security:
+        - bearerAuth: []
+  /admin/db/query:
+    post:
+      tags: [Administration]
+      summary: Run database query
+      operationId: runDatabaseQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatabaseQueryRequest'
+      responses:
+        '200':
+          description: Query result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseQueryResponse'
+      security:
+        - bearerAuth: []
+  /admin/audit:
+    get:
+      tags: [Administration]
+      summary: List audit logs
+      operationId: listAuditLogs
+      x-handler:
+        delegate: crate::handlers::audit_logs::list::list
+        passHeaders: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Paginated audit logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogResponse'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Administration]
+      summary: Clear audit logs
+      operationId: clearAuditLogs
+      x-handler:
+        delegate: crate::handlers::audit_logs::clear::clear
+        passHeaders: true
+      responses:
+        '204':
+          description: Audit logs removed
+      security:
+        - bearerAuth: []
+  /admin/jobs/runs:
+    get:
+      tags: [Administration]
+      summary: List job runs
+      operationId: listJobRuns
+      x-handler:
+        delegate: crate::handlers::jobs::list::list_runs
+        passHeaders: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Paginated job runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedJobRunResponse'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Administration]
+      summary: Clear job runs
+      operationId: clearJobRuns
+      x-handler:
+        delegate: crate::handlers::jobs::clear::clear_runs
+        passHeaders: true
+      responses:
+        '204':
+          description: Job runs cleared
+      security:
+        - bearerAuth: []
+  /admin/jobs/{jobName}/run:
+    post:
+      tags: [Administration]
+      summary: Run job
+      operationId: runJob
+      x-handler:
+        delegate: crate::handlers::jobs::run::run
+        passHeaders: true
+      parameters:
+        - name: jobName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Job scheduled
+      security:
+        - bearerAuth: []
+  /admin/backup:
+    post:
+      tags: [Administration]
+      summary: Trigger backup
+      operationId: triggerBackup
+      x-handler:
+        delegate: crate::handlers::backups::run::run
+        passHeaders: true
+      responses:
+        '202':
+          description: Backup started
+      security:
+        - bearerAuth: []
+  /admin/restore:
+    post:
+      tags: [Administration]
+      summary: Restore backup
+      operationId: restoreBackup
+      x-handler:
+        delegate: crate::handlers::backups::restore::restore
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+      responses:
+        '202':
+          description: Restore initiated
+      security:
+        - bearerAuth: []
+  /systems/family-tree:
+    get:
+      tags: [Systems]
+      summary: Get family tree
+      operationId: getFamilyTree
+      x-handler:
+        delegate: crate::handlers::systems::family_tree::get
+        passHeaders: true
+      parameters:
+        - name: startId
+          in: query
+          schema:
+            type: string
+        - name: depth
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Family tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyTreeResponse'
+      security:
+        - bearerAuth: []
+  /alters:
+    get:
+      tags: [Alters]
+      summary: List alters
+      operationId: listAlters
+      x-handler:
+        delegate: crate::handlers::alters::list::list
+        passHeaders: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: subsystemId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Paginated alters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAlterResponse'
+      security:
+        - bearerAuth: []
+    post:
+      tags: [Alters]
+      summary: Create alter
+      operationId: createAlter
+      x-handler:
+        delegate: crate::handlers::alters::create::create
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlterRequest'
+      responses:
+        '201':
+          description: Created alter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alter'
+      security:
+        - bearerAuth: []
+  /alters/birthdays:
+    get:
+      tags: [Alters]
+      summary: List all alter birthdays
+      operationId: listAlterBirthdays
+      x-handler:
+        delegate: crate::handlers::alters::birthdays::list_birthdays
+        passHeaders: true
+      responses:
+        '200':
+          description: List of alter birthdays
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlterBirthday'
+      security:
+        - bearerAuth: []
+  /alters/{alterId}:
+    parameters:
+      - name: alterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Alters]
+      summary: Get alter
+      operationId: getAlter
+      x-handler:
+        delegate: crate::handlers::alters::get::get
+        passHeaders: true
+      responses:
+        '200':
+          description: Alter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alter'
+      security:
+        - bearerAuth: []
+    patch:
+      tags: [Alters]
+      summary: Update alter
+      operationId: updateAlter
+      x-handler:
+        delegate: crate::handlers::alters::update::update
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAlterRequest'
+      responses:
+        '200':
+          description: Updated alter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alter'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Alters]
+      summary: Delete alter
+      operationId: deleteAlter
+      x-handler:
+        delegate: crate::handlers::alters::delete::delete
+        passHeaders: true
+      responses:
+        '204':
+          description: Alter deleted
+      security:
+        - bearerAuth: []
+  /alters/{alterId}/image:
+    put:
+      tags: [Alters]
+      summary: Upload alter image(s)
+      operationId: uploadAlterImage
+      x-handler:
+        delegate: crate::handlers::alters::image::upload::upload
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  description: Single image upload (legacy format)
+                  properties:
+                    filename:
+                      type: string
+                    content:
+                      type: string
+                      description: Base64-encoded image content (with optional data URL prefix)
+                  required:
+                    - filename
+                    - content
+                - type: object
+                  description: Multiple image upload (new format)
+                  properties:
+                    images:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          filename:
+                            type: string
+                          content:
+                            type: string
+                            description: Base64-encoded image content (with optional data URL prefix)
+                        required:
+                          - filename
+                          - content
+                  required:
+                    - images
+      responses:
+        '200':
+          description: Image(s) uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadedIds:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+                  primaryUploadId:
+                    type: string
+                    format: uuid
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Alters]
+      summary: Delete all alter images
+      operationId: deleteAlterImage
+      x-handler:
+        delegate: crate::handlers::alters::image::delete::delete
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: All images removed
+      security:
+        - bearerAuth: []
+  /alters/{alterId}/image/{imageId}:
+    delete:
+      tags: [Alters]
+      summary: Delete a specific alter image
+      operationId: deleteAlterImageById
+      x-handler:
+        delegate: crate::handlers::alters::image::delete_one::delete_one
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Image removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  remainingImages:
+                    type: array
+                    items:
+                      type: string
+      security:
+        - bearerAuth: []
+  /alters/{alterId}/images/reorder:
+    post:
+      tags: [Alters]
+      summary: Reorder alter images
+      operationId: reorderAlterImages
+      x-handler:
+        delegate: crate::handlers::alters::image::reorder::reorder
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                imageIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Array of image IDs in desired order (first becomes primary)
+              required:
+                - imageIds
+      responses:
+        '200':
+          description: Images reordered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  imageIds:
+                    type: array
+                    items:
+                      type: string
+      security:
+        - bearerAuth: []
+  /alters/{alterId}/affiliations:
+    get:
+      tags: [Alters]
+      summary: Get alter affiliations
+      operationId: getAlterAffiliations
+      x-handler:
+        delegate: crate::handlers::alters::affiliations::get
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Affiliations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAffiliationResponse'
+      security:
+        - bearerAuth: []
+    put:
+      tags: [Alters]
+      summary: Set alter affiliations
+      operationId: setAlterAffiliations
+      x-handler:
+        delegate: crate::handlers::alters::affiliations::set
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAffiliationsRequest'
+      responses:
+        '200':
+          description: Updated affiliations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAffiliationResponse'
+      security:
+        - bearerAuth: []
+  /alters/{alterId}/affiliations/{affiliationId}:
+    delete:
+      tags: [Alters]
+      summary: Remove alter affiliation
+      operationId: removeAlterAffiliation
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Affiliation removed
+      security:
+        - bearerAuth: []
+  /affiliations/{affiliationId}/members:
+    get:
+      tags: [Affiliations]
+      summary: List affiliation members
+      operationId: listAffiliationMembers
+      x-handler:
+        delegate: crate::handlers::affiliations::members::list::list
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of affiliation members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AffiliationMember'
+      security:
+        - bearerAuth: []
+    post:
+      tags: [Affiliations]
+      summary: Add affiliation member
+      operationId: addAffiliationMember
+      x-handler:
+        delegate: crate::handlers::affiliations::members::add::add
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AffiliationMemberRequest'
+      responses:
+        '200':
+          description: Updated affiliation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Affiliation'
+      security:
+        - bearerAuth: []
+  /affiliations/{affiliationId}/members/{memberId}:
+    patch:
+      tags: [Affiliations]
+      summary: Update affiliation member (e.g., set leader status)
+      operationId: updateAffiliationMember
+      x-handler:
+        delegate: crate::handlers::affiliations::members::update::update
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAffiliationMemberRequest'
+      responses:
+        '200':
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AffiliationMember'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Affiliations]
+      summary: Remove affiliation member
+      operationId: removeAffiliationMember
+      x-handler:
+        delegate: crate::handlers::affiliations::members::remove::remove
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member removed
+      security:
+        - bearerAuth: []
+  /alters/{alterId}/subsystem:
+    get:
+      tags: [Alters]
+      summary: Get alter subsystem
+      operationId: getAlterSubsystem
+      x-handler:
+        delegate: crate::handlers::alters::subsystem::get
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Subsystem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subsystem'
+      security:
+        - bearerAuth: []
+    put:
+      tags: [Alters]
+      summary: Set alter subsystem
+      operationId: setAlterSubsystem
+      x-handler:
+        delegate: crate::handlers::alters::subsystem::set
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubsystemMemberRequest'
+      responses:
+        '200':
+          description: Updated subsystem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subsystem'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Alters]
+      summary: Remove alter subsystem
+      operationId: removeAlterSubsystem
+      x-handler:
+        delegate: crate::handlers::alters::subsystem::delete
+        passHeaders: true
+      parameters:
+        - name: alterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Subsystem cleared
+      security:
+        - bearerAuth: []
+  /affiliations:
+    get:
+      tags: [Affiliations]
+      summary: List affiliations
+      operationId: listAffiliations
+      x-handler:
+        delegate: crate::handlers::affiliations::list::list
+        passHeaders: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated affiliations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAffiliationResponse'
+      security:
+        - bearerAuth: []
+    post:
+      tags: [Affiliations]
+      summary: Create affiliation
+      operationId: createAffiliation
+      x-handler:
+        delegate: crate::handlers::affiliations::create::create
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAffiliationRequest'
+      responses:
+        '201':
+          description: Created affiliation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Affiliation'
+      security:
+        - bearerAuth: []
+  /affiliations/{affiliationId}:
+    get:
+      tags: [Affiliations]
+      summary: Get affiliation
+      operationId: getAffiliation
+      x-handler:
+        delegate: crate::handlers::affiliations::get::get
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Affiliation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Affiliation'
+      security:
+        - bearerAuth: []
+    patch:
+      tags: [Affiliations]
+      summary: Update affiliation
+      operationId: updateAffiliation
+      x-handler:
+        delegate: crate::handlers::affiliations::update::update
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAffiliationRequest'
+      responses:
+        '200':
+          description: Updated affiliation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Affiliation'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Affiliations]
+      summary: Delete affiliation
+      operationId: deleteAffiliation
+      x-handler:
+        delegate: crate::handlers::affiliations::delete::delete
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Affiliation deleted
+      security:
+        - bearerAuth: []
+  /affiliations/{affiliationId}/sigil:
+    put:
+      tags: [Affiliations]
+      summary: Upload affiliation sigil image
+      operationId: uploadAffiliationSigil
+      x-handler:
+        delegate: crate::handlers::affiliations::sigil::upload::upload
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: string
+                content:
+                  type: string
+                  description: Base64-encoded image content (with optional data URL prefix)
+              required:
+                - filename
+                - content
+      responses:
+        '200':
+          description: Sigil uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sigilId:
+                    type: string
+                    format: uuid
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Affiliations]
+      summary: Delete affiliation sigil image
+      operationId: deleteAffiliationSigil
+      x-handler:
+        delegate: crate::handlers::affiliations::sigil::delete::delete
+        passHeaders: true
+      parameters:
+        - name: affiliationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Sigil removed
+      security:
+        - bearerAuth: []
+  /relationships:
+    get:
+      tags: [Relationships]
+      summary: List relationships
+      operationId: listRelationships
+      x-handler:
+        delegate: crate::handlers::relationships::list::list
+        passHeaders: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: alterId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Relationships
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRelationshipResponse'
+      security:
+        - bearerAuth: []
+    post:
+      tags: [Relationships]
+      summary: Create relationship
+      operationId: createRelationship
+      x-handler:
+        delegate: crate::handlers::relationships::create::create
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRelationshipRequest'
+      responses:
+        '201':
+          description: Created relationship
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+      security:
+        - bearerAuth: []
+  /relationships/{relationshipId}:
+    parameters:
+      - name: relationshipId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Relationships]
+      summary: Update relationship
+      operationId: updateRelationship
+      x-handler:
+        delegate: crate::handlers::relationships::update::update
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRelationshipRequest'
+      responses:
+        '200':
+          description: Updated relationship
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relationship'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Relationships]
+      summary: Delete relationship
+      operationId: deleteRelationship
+      x-handler:
+        delegate: crate::handlers::relationships::delete::delete
+        passHeaders: true
+      responses:
+        '204':
+          description: Relationship deleted
+      security:
+        - bearerAuth: []
+  /subsystems:
+    get:
+      tags: [Subsystems]
+      summary: List subsystems
+      operationId: listSubsystems
+      x-handler:
+        delegate: crate::handlers::subsystems::list::list
+        passHeaders: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated subsystems
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSubsystemResponse'
+      security:
+        - bearerAuth: []
+    post:
+      tags: [Subsystems]
+      summary: Create subsystem
+      operationId: createSubsystem
+      x-handler:
+        delegate: crate::handlers::subsystems::create::create
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Subsystem'
+      responses:
+        '201':
+          description: Created subsystem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subsystem'
+      security:
+        - bearerAuth: []
+  /subsystems/{subsystemId}:
+    parameters:
+      - name: subsystemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Subsystems]
+      summary: Get subsystem
+      operationId: getSubsystem
+      x-handler:
+        delegate: crate::handlers::subsystems::get::get
+        passHeaders: true
+      responses:
+        '200':
+          description: Subsystem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subsystem'
+      security:
+        - bearerAuth: []
+    patch:
+      tags: [Subsystems]
+      summary: Update subsystem
+      operationId: updateSubsystem
+      x-handler:
+        delegate: crate::handlers::subsystems::update::update
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubsystemRequest'
+      responses:
+        '200':
+          description: Updated subsystem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subsystem'
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Subsystems]
+      summary: Delete subsystem
+      operationId: deleteSubsystem
+      x-handler:
+        delegate: crate::handlers::subsystems::delete::delete
+        passHeaders: true
+      responses:
+        '204':
+          description: Subsystem deleted
+      security:
+        - bearerAuth: []
+  /subsystems/{subsystemId}/members:
+    get:
+      x-handler:
+        delegate: crate::handlers::subsystems::members::list::list
+        passHeaders: true
+      tags: [Subsystems]
+      summary: List subsystem members
+      operationId: listSubsystemMembers
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of subsystem members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubsystemMember'
+      security:
+        - bearerAuth: []
+    post:
+      x-handler:
+        delegate: crate::handlers::subsystems::members::add::add
+        passHeaders: true
+      tags: [Subsystems]
+      summary: Add subsystem member
+      operationId: addSubsystemMember
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubsystemMemberRequest'
+      responses:
+        '200':
+          description: Updated subsystem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subsystem'
+      security:
+        - bearerAuth: []
+  /subsystems/{subsystemId}/members/{memberId}:
+    patch:
+      x-handler:
+        delegate: crate::handlers::subsystems::members::update::update
+        passHeaders: true
+      tags: [Subsystems]
+      summary: Update subsystem member (e.g., set host status)
+      operationId: updateSubsystemMember
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubsystemMemberRequest'
+      responses:
+        '200':
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubsystemMember'
+      security:
+        - bearerAuth: []
+    delete:
+      x-handler:
+        delegate: crate::handlers::subsystems::members::remove::remove
+        passHeaders: true
+      tags: [Subsystems]
+      summary: Remove subsystem member
+      operationId: removeSubsystemMember
+      parameters:
+        - name: subsystemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member removed
+      security:
+        - bearerAuth: []
+  /me/avatar:
+    put:
+      tags: [Profile]
+      summary: Set own avatar
+      operationId: setOwnAvatar
+      x-handler:
+        delegate: crate::handlers::users::own_avatar_set::own_avatar_set
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uploadId:
+                  type: string
+                  format: uuid
+              required:
+                - uploadId
+      responses:
+        '204':
+          description: Avatar updated
+      security:
+        - bearerAuth: []
+    delete:
+      tags: [Profile]
+      summary: Delete own avatar
+      operationId: deleteOwnAvatar
+      x-handler:
+        delegate: crate::handlers::users::own_avatar_delete::own_avatar_delete
+        passHeaders: true
+      responses:
+        '204':
+          description: Avatar removed
+      security:
+        - bearerAuth: []
+  /me/request_system:
+    post:
+      tags: [Profile]
+      summary: Request system account
+      operationId: meRequestSystem
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+      responses:
+        '201':
+          description: System request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemRequest'
+      security:
+        - bearerAuth: []
+  /me/profile:
+    get:
+      tags: [Profile]
+      summary: Get own profile
+      operationId: getOwnProfile
+      x-handler:
+        delegate: crate::handlers::users::own_profile_get::own_profile_get
+        passHeaders: true
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+      security:
+        - bearerAuth: []
+    put:
+      tags: [Profile]
+      summary: Update own profile
+      operationId: updateOwnProfile
+      x-handler:
+        delegate: crate::handlers::users::own_profile_update::own_profile_update
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profile'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+      security:
+        - bearerAuth: []
+security:
+  - bearerAuth: []

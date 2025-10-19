@@ -1,0 +1,45 @@
+# config.example.yaml - example for a production service using Postgres and JSON logging
+
+server:
+  host: "0.0.0.0"
+  port: 6000
+
+logging:
+  level: "info"        # supported: trace, debug, info, warn, error
+  json: true             # true => structured JSON logs with Chrono timestamps
+  log_dir: "/var/log/didhub"
+
+cors:
+  allowed_origins:
+    - "https://app.example.com"
+  allow_all_origins: false
+
+redis_url: "redis://redis:6379/0"
+
+database:
+  driver: "postgres"
+  host: "db.example.internal"
+  port: 5432
+  database: "didhub"
+  username: "didhub"
+  password: "changeme"
+  # ssl_mode: "require"   # optional
+
+uploads:
+  directory: "/var/lib/didhub/uploads"
+
+auto_update:
+  enabled: true
+  check_enabled: true
+  repo: "https://github.com/yourorg/didhub"
+  check_interval_hours: 24
+
+auth:
+  # Use one of these:
+  # jwt_pem: "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+  jwt_pem_path: "/etc/didhub/jwt_public.pem"
+  # or
+  # jwt_secret: "supersecret"
+
+# Optional: provision an initial admin user on first startup by setting the following env vars:
+# DIDHUB_ADMIN_USERNAME, DIDHUB_ADMIN_PASSWORD, DIDHUB_ADMIN_DISPLAY_NAME (optional). See ../backend/ADMIN_PROVISIONING.md

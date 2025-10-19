@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "didhub-migrations",
+    "didhub-db",
+    "didhub-db-connection",
+    "didhub-log-client",
+    "didhub-auth",
+    "didhub-job-queue",
+    "didhub-jobs",
+    "didhub-updates",
+    "didhub-backend",
+    "didhub-config",
+]

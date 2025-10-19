@@ -1,0 +1,10 @@
+pub mod list;
+pub mod get;
+pub mod create;
+pub mod update;
+pub mod delete;
+pub mod image;
+pub mod dto;
+pub mod birthdays;
+pub mod affiliations;
+pub mod subsystem;

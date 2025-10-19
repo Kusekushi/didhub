@@ -1,0 +1,10 @@
+[package]
+name = "didhub-migrations"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+sqlx = { version = "0.8", features = ["migrate", "macros"] }
+sqlx-macros = "0.8"
+tokio = { version = "1", features = ["rt"] }

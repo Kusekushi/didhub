@@ -1,0 +1,320 @@
+name: Package
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Wait for code-check to pass
+  code-check:
+    name: Code Check
+    uses: ./.github/workflows/code-check.yml
+
+  build-and-package:
+    name: Build & Package (${{ matrix.os }})
+    needs: code-check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact-name: didhub-linux-x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact-name: didhub-windows-x64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------------------------
+      # Setup Tools
+      # -------------------------------------------------------------------------
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      # -------------------------------------------------------------------------
+      # Caching
+      # -------------------------------------------------------------------------
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend -> target
+          cache-targets: true
+          cache-on-failure: true
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Cache Zig
+        uses: actions/cache@v4
+        with:
+          path: |
+            runtime_tools/log_collector/zig-cache
+            runtime_tools/log_analyzer/zig-cache
+            runtime_tools/config_generator/zig-cache
+          key: ${{ runner.os }}-zig-${{ hashFiles('runtime_tools/**/build.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-
+
+      - name: Cache cargo-binstall
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('.github/workflows/package.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bin-
+
+      # -------------------------------------------------------------------------
+      # Install Dependencies
+      # -------------------------------------------------------------------------
+      - name: Install cargo-binstall
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+        shell: bash
+
+      - name: Install cargo tools via binstall
+        run: cargo binstall --no-confirm cargo-sbom
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml jinja2
+
+      - name: Install frontend dependencies
+        run: pnpm install
+        working-directory: frontend
+
+      # -------------------------------------------------------------------------
+      # Code Generation
+      # -------------------------------------------------------------------------
+      - name: Run code generation
+        run: python build.py codegen all
+
+      # -------------------------------------------------------------------------
+      # Build
+      # -------------------------------------------------------------------------
+      - name: Build backend (release)
+        run: cargo build --manifest-path backend/Cargo.toml --release --target ${{ matrix.target }}
+
+      - name: Build frontend
+        run: pnpm build
+        working-directory: frontend/app
+
+      - name: Build runtime tools
+        shell: bash
+        run: |
+          for tool in log_collector log_analyzer config_generator; do
+            echo "Building $tool..."
+            cd runtime_tools/$tool
+            zig build --release=fast
+            cd ../..
+          done
+
+      # -------------------------------------------------------------------------
+      # Collect Runtime Documentation
+      # -------------------------------------------------------------------------
+      - name: Collect runtime documentation
+        shell: bash
+        run: |
+          mkdir -p package/docs
+          
+          # Copy main README
+          cp README.md package/docs/ || true
+          
+          # Copy backend documentation
+          mkdir -p package/docs/backend
+          cp backend/OPS_AUTH.md package/docs/backend/ || true
+          cp backend/ADMIN_PROVISIONING.md package/docs/backend/ || true
+          cp backend/didhub-config/README.md package/docs/backend/config.md || true
+          
+          # Copy example documentation
+          mkdir -p package/docs/examples
+          cp -r example/* package/docs/examples/ || true
+          
+          # Copy runtime tools documentation
+          mkdir -p package/docs/tools
+          cp runtime_tools/log_analyzer/README.md package/docs/tools/log_analyzer.md || true
+          cp runtime_tools/log_collector/README.md package/docs/tools/log_collector.md || true
+          cp runtime_tools/config_generator/README.md package/docs/tools/config_generator.md || true
+          
+          # Copy frontend documentation
+          mkdir -p package/docs/frontend
+          cp frontend/app/README.md package/docs/frontend/ || true
+
+      # -------------------------------------------------------------------------
+      # Prepare Package Artifacts
+      # -------------------------------------------------------------------------
+      - name: Prepare package directory
+        shell: bash
+        run: |
+          mkdir -p package/bin
+          mkdir -p package/tools
+          mkdir -p package/frontend
+
+      - name: Copy backend binary (Linux)
+        if: runner.os == 'Linux'
+        run: cp backend/target/${{ matrix.target }}/release/didhub-backend package/bin/
+
+      - name: Copy backend binary (Windows)
+        if: runner.os == 'Windows'
+        run: cp backend/target/${{ matrix.target }}/release/didhub-backend.exe package/bin/
+
+      - name: Copy runtime tools (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cp runtime_tools/log_collector/zig-out/bin/didhub-log-collector package/tools/
+          cp runtime_tools/log_analyzer/zig-out/bin/didhub-log-analyzer package/tools/
+          cp runtime_tools/config_generator/zig-out/bin/config-generator package/tools/
+
+      - name: Copy runtime tools (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cp runtime_tools/log_collector/zig-out/bin/didhub-log-collector.exe package/tools/ || true
+          cp runtime_tools/log_analyzer/zig-out/bin/didhub-log-analyzer.exe package/tools/ || true
+          cp runtime_tools/config_generator/zig-out/bin/config-generator.exe package/tools/ || true
+
+      - name: Copy frontend build
+        shell: bash
+        run: cp -r frontend/app/dist/* package/frontend/
+
+      - name: Copy example configs
+        shell: bash
+        run: |
+          mkdir -p package/config
+          cp example/config.example.yaml package/config/ || true
+          cp example/config.example.toml package/config/ || true
+          cp example/config.example.json package/config/ || true
+
+      # -------------------------------------------------------------------------
+      # Generate SBOM
+      # -------------------------------------------------------------------------
+      - name: Generate Rust SBOM
+        run: |
+          cd backend
+          cargo sbom --output-format spdx_json_2_3 > ../package/sbom-rust.spdx.json
+
+      - name: Generate frontend SBOM
+        shell: bash
+        run: |
+          cd frontend/app
+          npx @cyclonedx/cyclonedx-npm --output-file ../../package/sbom-frontend.cdx.json || true
+
+      - name: Copy LICENSE
+        shell: bash
+        run: cp LICENSE package/ || true
+
+      # -------------------------------------------------------------------------
+      # Create Package Archive
+      # -------------------------------------------------------------------------
+      - name: Create archive (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd package
+          tar -czvf ../${{ matrix.artifact-name }}.tar.gz .
+
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path package/* -DestinationPath ${{ matrix.artifact-name }}.zip
+
+      # -------------------------------------------------------------------------
+      # Upload Artifacts
+      # -------------------------------------------------------------------------
+      - name: Upload package artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-name }}.tar.gz
+          retention-days: 30
+
+      - name: Upload package artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-name }}.zip
+          retention-days: 30
+
+      - name: Upload documentation
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: package/docs/
+          retention-days: 30
+
+  # =============================================================================
+  # Release (only on tags)
+  # =============================================================================
+  release:
+    name: Create Release
+    needs: build-and-package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/didhub-linux-x64/*.tar.gz
+            artifacts/didhub-windows-x64/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}

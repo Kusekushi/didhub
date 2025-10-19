@@ -1,0 +1,3 @@
+# Shared dependencies for build tools
+PyYAML>=6.0
+Jinja2>=3.1

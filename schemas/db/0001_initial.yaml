@@ -1,0 +1,409 @@
+dialects:
+  sqlite:
+    output: ../../backend/didhub-migrations/src/migrations_sqlite/0001_initial.sql
+  postgres:
+    output: ../../backend/didhub-migrations/src/migrations_postgres/0001_initial.sql
+  mysql:
+    output: ../../backend/didhub-migrations/src/migrations_mysql/0001_initial.sql
+
+tables:
+  - name: users
+    columns:
+      - name: id
+        type: uuid
+        primary_key: true
+        nullable: false
+      - name: username
+        type: string
+        nullable: false
+        unique: true
+      - name: about_me
+        type: text
+      - name: password_hash
+        type: string
+        nullable: false
+      - name: avatar
+        type: string
+      - name: is_system
+        type: bool_flag
+        nullable: false
+        default: false
+        check: "is_system IN (0,1,2)"
+      - name: is_approved
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: must_change_password
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: is_active
+        type: bool_flag
+        nullable: false
+        default: true
+      - name: email_verified
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: last_login_at
+        type: timestamp
+      - name: display_name
+        type: string
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+      - name: updated_at
+        type: timestamp
+        nullable: false
+        default: now
+      - name: is_admin
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: roles
+        type: json_text
+        nullable: false
+        default: json_empty_array
+      - name: settings
+        type: json_text
+        nullable: false
+        default: json_empty_object
+
+  - name: alters
+    columns:
+      - name: id
+        type: uuid
+        primary_key: true
+        nullable: false
+      - name: user_id
+        type: uuid
+        nullable: false
+        references: users(id)
+        on_delete: CASCADE
+      - name: name
+        type: string
+        nullable: false
+      - name: description
+        type: text
+      - name: age
+        type: string
+      - name: gender
+        type: string
+      - name: pronouns
+        type: string
+      - name: birthday
+        type: timestamp
+      - name: sexuality
+        type: string
+      - name: species
+        type: string
+      - name: alter_type
+        type: string
+      - name: job
+        type: string
+      - name: weapon
+        type: string
+      - name: triggers
+        type: json_text
+        nullable: false
+        default: json_empty_array
+      - name: metadata
+        type: json_text
+        nullable: false
+        default: json_empty_object
+      - name: soul_songs
+        type: json_text
+        nullable: false
+        default: json_empty_array
+      - name: interests
+        type: json_text
+        nullable: false
+        default: json_empty_array
+      - name: notes
+        type: text
+      - name: images
+        type: json_text
+        nullable: false
+        default: json_empty_array
+      - name: system_roles
+        type: json_text
+        nullable: false
+        default: json_empty_array
+      - name: is_system_host
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: is_dormant
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: is_merged
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: owner_user_id
+        type: uuid
+        nullable: false
+        references: users(id)
+        on_delete: CASCADE
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+    indexes:
+      - name: idx_alters_user
+        columns: [user_id]
+      - name: idx_alters_name
+        columns: [name]
+
+  - name: affiliations
+    columns:
+      - name: id
+        type: uuid
+        primary_key: true
+        nullable: false
+      - name: name
+        type: string
+        nullable: false
+        unique: true
+      - name: description
+        type: string
+        nullable: true
+      - name: sigil
+        type: string
+        nullable: true
+      - name: owner_user_id
+        type: uuid
+        references: users(id)
+        on_delete: SET NULL
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+    indexes:
+      - name: idx_affiliation_owner
+        columns: [owner_user_id]
+
+  - name: affiliation_members
+    primary_key: [affiliation_id, alter_id]
+    columns:
+      - name: affiliation_id
+        type: uuid
+        nullable: false
+        references: affiliations(id)
+        on_delete: CASCADE
+      - name: alter_id
+        type: uuid
+        nullable: false
+        references: alters(id)
+        on_delete: CASCADE
+      - name: is_leader
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: added_at
+        type: timestamp
+        nullable: false
+        default: now
+    indexes:
+      - name: idx_affiliation_members_alter
+        columns: [alter_id]
+
+  - name: subsystems
+    columns:
+      - name: id
+        type: uuid
+        primary_key: true
+        nullable: false
+      - name: name
+        type: string
+        nullable: false
+        unique: true
+      - name: owner_user_id
+        type: uuid
+        references: users(id)
+        on_delete: SET NULL
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+    indexes:
+      - name: idx_subsystem_owner
+        columns: [owner_user_id]
+
+  - name: subsystem_members
+    primary_key: [subsystem_id, alter_id]
+    columns:
+      - name: subsystem_id
+        type: uuid
+        nullable: false
+        references: subsystems(id)
+        on_delete: CASCADE
+      - name: alter_id
+        type: uuid
+        nullable: false
+        references: alters(id)
+        on_delete: CASCADE
+        unique: true
+      - name: is_host
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: added_at
+        type: timestamp
+        nullable: false
+        default: now
+    indexes:
+      - name: idx_subsystem_members_alter
+        columns: [alter_id]
+
+  - name: pending_system_requests
+    columns:
+      - name: id
+        type: uuid
+        primary_key: true
+        nullable: false
+      - name: user_id
+        type: uuid
+        nullable: false
+        references: users(id)
+        on_delete: CASCADE
+        unique: true
+      - name: note
+        type: text
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+
+  - name: relationships
+    columns:
+      - name: id
+        type: uuid
+        primary_key: true
+        nullable: false
+      - name: type
+        type: string
+        nullable: false
+      - name: side_a_user_id
+        type: uuid
+        nullable: true
+        references: users(id)
+        on_delete: SET NULL
+      - name: side_a_alter_id
+        type: uuid
+        nullable: true
+        references: alters(id)
+        on_delete: SET NULL
+      - name: side_b_user_id
+        type: uuid
+        nullable: true
+        references: users(id)
+        on_delete: SET NULL
+      - name: side_b_alter_id
+        type: uuid
+        nullable: true
+        references: alters(id)
+        on_delete: SET NULL
+      - name: past_life
+        type: bool_flag
+        nullable: false
+        default: false
+      - name: created_by
+        type: uuid
+        nullable: true
+        references: users(id)
+        on_delete: SET NULL
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+    constraints:
+      - "CHECK (type IN ('parent','spouse'))"
+      - "CHECK ((side_a_user_id IS NOT NULL OR side_a_alter_id IS NOT NULL) AND NOT (side_a_user_id IS NOT NULL AND side_a_alter_id IS NOT NULL))"
+      - "CHECK ((side_b_user_id IS NOT NULL OR side_b_alter_id IS NOT NULL) AND NOT (side_b_user_id IS NOT NULL AND side_b_alter_id IS NOT NULL))"
+    indexes:
+      - name: uq_relationships_unique_sides
+        unique: true
+        expression: "relationships((CASE WHEN COALESCE(side_a_user_id, side_a_alter_id) <= COALESCE(side_b_user_id, side_b_alter_id) THEN COALESCE(side_a_user_id, side_a_alter_id) ELSE COALESCE(side_b_user_id, side_b_alter_id) END), (CASE WHEN COALESCE(side_a_user_id, side_a_alter_id) <= COALESCE(side_b_user_id, side_b_alter_id) THEN COALESCE(side_b_user_id, side_b_alter_id) ELSE COALESCE(side_a_user_id, side_a_alter_id) END), type)"
+    constraints:
+      - "CHECK (NOT (side_a_user_id IS NOT NULL AND side_b_user_id IS NOT NULL AND side_a_user_id = side_b_user_id))"
+      - "CHECK (NOT (side_a_alter_id IS NOT NULL AND side_b_alter_id IS NOT NULL AND side_a_alter_id = side_b_alter_id))"
+
+  - name: instance_settings
+    columns:
+      - name: key
+        type: string
+        nullable: false
+        unique: true
+      - name: value_type
+        type: string
+        nullable: false
+      - name: value_bool
+        type: bool_flag
+      - name: value_number
+        type: number
+      - name: value_string
+        type: string
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+      - name: updated_at
+        type: timestamp
+        nullable: false
+        default: now
+    constraints:
+      - "CHECK (value_type IN ('bool','number','string'))"
+      - "CHECK ((value_type = 'bool' AND value_bool IS NOT NULL AND value_number IS NULL AND value_string IS NULL) OR (value_type = 'number' AND value_number IS NOT NULL AND value_bool IS NULL AND value_string IS NULL) OR (value_type = 'string' AND value_string IS NOT NULL AND value_bool IS NULL AND value_number IS NULL))"
+
+  - name: stored_files
+    columns:
+      - name: id
+        type: uuid
+        primary_key: true
+        nullable: false
+      - name: file_hash
+        type: string
+        nullable: false
+        unique: true
+      - name: mime_type
+        type: string
+        nullable: true
+      - name: size
+        type: number
+        nullable: true
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+
+  - name: uploads
+    columns:
+      - name: id
+        type: uuid
+        primary_key: true
+        nullable: false
+      - name: stored_file_id
+        type: uuid
+        nullable: false
+        references: stored_files(id)
+        on_delete: RESTRICT
+      - name: stored_name
+        type: string
+        nullable: false
+      - name: uploaded_by
+        type: uuid
+        nullable: false
+        references: users(id)
+        on_delete: CASCADE
+      - name: created_at
+        type: timestamp
+        nullable: false
+        default: now
+    indexes:
+      - name: idx_uploads_uploaded_by
+        columns: [uploaded_by]
+      - name: idx_uploads_stored_file
+        columns: [stored_file_id]

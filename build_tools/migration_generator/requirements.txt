@@ -1,0 +1,3 @@
+# Dependencies for migration_generator
+# Core dependencies are in ../shared/requirements.txt
+-r ../shared/requirements.txt

@@ -1,0 +1,15 @@
+server:
+  host: "0.0.0.0"
+  port: 6000
+
+logging:
+  level: "debug"        # supported: trace, debug, info, warn, error
+
+cors:
+  allowed_origins:
+    - "https://localhost:5173"
+    - "http://localhost:5174"
+  allow_all_origins: true
+
+auth:
+  jwt_secret: "changeme"
