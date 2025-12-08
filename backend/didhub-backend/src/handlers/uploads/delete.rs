@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axum::extract::{Extension, Json, Path};
+use axum::extract::{Extension, Json, Path, Query as AxumQuery};
 use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
@@ -12,8 +12,9 @@ pub async fn delete(
     Extension(state): Extension<Arc<AppState>>,
     headers: axum::http::HeaderMap,
     Path(path): Path<HashMap<String, String>>,
+    query: Option<AxumQuery<HashMap<String, String>>>,
 ) -> Result<Json<Value>, ApiError> {
-    // RBAC: only admin or uploader may delete. Accept Authorization header or session cookie.
+    // RBAC: only admin or uploader may delete. For force delete, admin only.
     let auth = match crate::handlers::auth::utils::authenticate_optional(&state, &headers).await? {
         Some(a) => a,
         None => {
@@ -23,12 +24,15 @@ pub async fn delete(
         }
     };
 
+    let params = query.map(|q| q.0).unwrap_or_default();
+    let force = params.get("force").map(|s| s == "1" || s == "true").unwrap_or(false);
+
     state
         .audit_request(
             "DELETE",
             "/uploads/{id}",
             &path,
-            &HashMap::new(),
+            &params,
             &Value::Null,
         )
         .await?;
@@ -55,7 +59,12 @@ pub async fn delete(
             didhub_auth::AuthError::AuthenticationFailed,
         ));
     }
-    if !is_admin && !is_uploader {
+    if force && !is_admin {
+        return Err(ApiError::Authentication(
+            didhub_auth::AuthError::AuthenticationFailed,
+        ));
+    }
+    if !force && !is_admin && !is_uploader {
         return Err(ApiError::Authentication(
             didhub_auth::AuthError::AuthenticationFailed,
         ));
@@ -67,6 +76,24 @@ pub async fn delete(
     if affected == 0 {
         return Err(ApiError::not_found("upload not found"));
     }
+
+    if force {
+        let stored_file_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM uploads WHERE stored_file_id = ?")
+                .bind(existing.stored_file_id)
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(ApiError::from)?;
+
+        if stored_file_count == 0 {
+            sqlx::query("DELETE FROM stored_files WHERE id = ?")
+                .bind(existing.stored_file_id)
+                .execute(&mut *conn)
+                .await
+                .map_err(ApiError::from)?;
+        }
+    }
+
     Ok(Json(
         serde_json::to_value(serde_json::json!({ "deleted": true })).map_err(ApiError::from)?,
     ))

@@ -468,15 +468,6 @@ components:
         - id
         - name
         - userId
-    AlterBirthdaysResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/AlterBirthday'
-      required:
-        - items
     Alter:
       type: object
       properties:
@@ -1168,7 +1159,7 @@ paths:
   /uploads/{uploadId}:
     delete:
       tags: [Uploads]
-      summary: Delete upload reference
+      summary: Delete upload
       operationId: deleteUpload
       x-handler:
         delegate: crate::handlers::uploads::delete::delete
@@ -1180,29 +1171,16 @@ paths:
           schema:
             type: string
             format: uuid
-      responses:
-        '204':
-          description: Upload reference removed
-      security:
-        - bearerAuth: []
-  /uploads/{uploadId}/force:
-    delete:
-      tags: [Uploads]
-      summary: Force delete upload
-      operationId: forceDeleteUpload
-      x-handler:
-        delegate: crate::handlers::uploads::force_delete::force_delete
-        passHeaders: true
-      parameters:
-        - name: uploadId
-          in: path
-          required: true
+        - name: force
+          in: query
+          required: false
           schema:
-            type: string
-            format: uuid
+            type: boolean
+            default: false
+          description: Force deletion from storage
       responses:
         '204':
-          description: Upload removed from storage
+          description: Upload deleted
       security:
         - bearerAuth: []
   /files/{fileId}:
