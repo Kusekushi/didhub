@@ -50,12 +50,20 @@ components:
           type: string
         displayName:
           type: string
+        roles:
+          type: array
+          items:
+            type: string
+          description: User roles (e.g., "admin", "system", "user")
         isAdmin:
           type: boolean
+          description: Derived from roles array (contains "admin")
         isSystem:
           type: boolean
+          description: Derived from roles array (contains "system")
         isApproved:
           type: boolean
+          description: Derived from roles array (contains "user")
         createdAt:
           type: string
           format: date-time
@@ -65,6 +73,7 @@ components:
       required:
         - id
         - username
+        - roles
         - isAdmin
         - isSystem
         - isApproved
@@ -95,12 +104,11 @@ components:
           minLength: 64
           maxLength: 64
           pattern: "^[a-fA-F0-9]{64}$"
-        isAdmin:
-          type: boolean
-        isSystem:
-          type: boolean
-        isApproved:
-          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+          description: Roles to assign (e.g., ["admin", "system", "user"]). Admin-only.
       required:
         - username
         - passwordHash
@@ -109,12 +117,11 @@ components:
       properties:
         displayName:
           type: string
-        isAdmin:
-          type: boolean
-        isSystem:
-          type: boolean
-        isApproved:
-          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+          description: Roles to assign (e.g., ["admin", "system", "user"]). Admin-only.
       description: At least one field must be supplied.
     UpdateUserPasswordRequest:
       type: object

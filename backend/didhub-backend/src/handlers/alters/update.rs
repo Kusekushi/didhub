@@ -4,6 +4,7 @@ use std::sync::Arc;
 use axum::extract::{Extension, Json, Path};
 use serde_json::Value;
 
+use crate::handlers::utils::user_is_system;
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::alters as db_alters;
 use sqlx::types::Uuid as SqlxUuid;
@@ -64,7 +65,7 @@ pub async fn update(
             match didhub_db::generated::users::find_by_primary_key(&mut *conn, &uid).await {
                 Ok(opt_user) => match opt_user {
                     Some(user_row) => {
-                        if user_row.is_system == 0 {
+                        if !user_is_system(&user_row) {
                             return Err(ApiError::Authentication(
                                 didhub_auth::AuthError::AuthenticationFailed,
                             ));
@@ -77,7 +78,7 @@ pub async fn update(
                     }
                 },
                 Err(e) => {
-                    tracing::warn!(%e, "could not fetch user row to check system flag; allowing request (test or incomplete DB schema?)");
+                    tracing::warn!(%e, "could not fetch user row to check system role; allowing request (test or incomplete DB schema?)");
                     // allow through for tests that don't create users table or have differing schema
                 }
             }
@@ -198,7 +199,7 @@ pub async fn update(
         {
             Ok(opt_user) => match opt_user {
                 Some(user_row) => {
-                    if user_row.is_system == 0 {
+                    if !user_is_system(&user_row) {
                         return Err(ApiError::Authentication(
                             didhub_auth::AuthError::AuthenticationFailed,
                         ));
@@ -211,7 +212,7 @@ pub async fn update(
                 }
             },
             Err(e) => {
-                tracing::warn!(%e, "could not fetch user row to check system flag for owner update; allowing request (test or incomplete DB schema?)");
+                tracing::warn!(%e, "could not fetch user row to check system role for owner update; allowing request (test or incomplete DB schema?)");
             }
         }
         existing.owner_user_id = parsed_owner;

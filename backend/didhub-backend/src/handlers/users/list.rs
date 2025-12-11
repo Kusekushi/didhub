@@ -7,6 +7,13 @@ use serde_json::Value;
 use crate::{error::ApiError, handlers::utils::parse_positive_usize, state::AppState};
 use didhub_db::generated::users as db_users;
 
+/// Helper to check if a user has a specific role
+fn user_has_role(roles_json: &str, role: &str) -> bool {
+    serde_json::from_str::<Vec<String>>(roles_json)
+        .map(|roles| roles.iter().any(|r| r == role))
+        .unwrap_or(false)
+}
+
 /// List all users with optional filters and pagination
 pub async fn list(
     Extension(state): Extension<Arc<AppState>>,
@@ -25,6 +32,7 @@ pub async fn list(
 
     let search = query_params.get("search").map(|s| s.as_str());
     let username_filter = query_params.get("username").map(|s| s.as_str());
+    // Role-based filters (derived from roles JSON)
     let is_admin_filter = query_params
         .get("isAdmin")
         .and_then(|s| s.parse::<bool>().ok());
@@ -37,7 +45,7 @@ pub async fn list(
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
 
-    let mut query = "SELECT id, username, about_me, password_hash, avatar, is_system, is_approved, must_change_password, is_active, email_verified, last_login_at, display_name, created_at, updated_at, is_admin, roles, settings FROM users WHERE 1=1".to_string();
+    let mut query = "SELECT id, username, about_me, password_hash, avatar, must_change_password, last_login_at, display_name, created_at, updated_at, roles, settings FROM users WHERE 1=1".to_string();
     let mut params: Vec<String> = Vec::new();
 
     if let Some(search) = search {
@@ -52,27 +60,32 @@ pub async fn list(
         params.push(username.to_string());
     }
 
+    // Role-based filters use LIKE on the roles JSON column
     if let Some(is_admin) = is_admin_filter {
-        query.push_str(" AND is_admin = ?");
-        params.push(if is_admin { "1" } else { "0" }.to_string());
+        if is_admin {
+            query.push_str(" AND roles LIKE '%\"admin\"%'");
+        } else {
+            query.push_str(" AND roles NOT LIKE '%\"admin\"%'");
+        }
     }
 
     if let Some(is_system) = is_system_filter {
         if is_system {
-            query.push_str(" AND is_system = ?");
-            params.push("1".to_string());
+            query.push_str(" AND roles LIKE '%\"system\"%'");
         } else {
-            query.push_str(" AND is_system = ?");
-            params.push("0".to_string());
+            query.push_str(" AND roles NOT LIKE '%\"system\"%'");
         }
     }
 
     if let Some(is_approved) = is_approved_filter {
-        query.push_str(" AND is_approved = ?");
-        params.push(if is_approved { "1" } else { "0" }.to_string());
+        if is_approved {
+            query.push_str(" AND roles LIKE '%\"user\"%'");
+        } else {
+            query.push_str(" AND roles NOT LIKE '%\"user\"%'");
+        }
     }
 
-    let count_query = query.replace("SELECT id, username, about_me, password_hash, avatar, is_system, is_approved, must_change_password, is_active, email_verified, last_login_at, display_name, created_at, updated_at, is_admin, roles, settings", "SELECT COUNT(*)");
+    let count_query = query.replace("SELECT id, username, about_me, password_hash, avatar, must_change_password, last_login_at, display_name, created_at, updated_at, roles, settings", "SELECT COUNT(*)");
     let mut count_query_builder = sqlx::query_scalar(&count_query);
     for param in &params {
         count_query_builder = count_query_builder.bind(param);
@@ -98,13 +111,17 @@ pub async fn list(
     let users: Vec<Value> = rows
         .into_iter()
         .map(|row| {
+            let is_admin = user_has_role(&row.roles, "admin");
+            let is_system = user_has_role(&row.roles, "system");
+            let is_approved = user_has_role(&row.roles, "user");
             serde_json::json!({
                 "id": row.id,
                 "username": row.username,
                 "displayName": row.display_name,
-                "isAdmin": row.is_admin != 0,
-                "isSystem": row.is_system != 0,
-                "isApproved": row.is_approved != 0,
+                "isAdmin": is_admin,
+                "isSystem": is_system,
+                "isApproved": is_approved,
+                "roles": serde_json::from_str::<Vec<String>>(&row.roles).unwrap_or_default(),
                 "createdAt": row.created_at,
                 "updatedAt": row.updated_at
             })

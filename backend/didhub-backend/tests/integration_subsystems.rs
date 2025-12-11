@@ -19,8 +19,7 @@ async fn setup() -> (Arc<AppState>, sqlx::Pool<sqlx::Sqlite>) {
             id TEXT PRIMARY KEY,
             username TEXT NOT NULL,
             password_hash TEXT NOT NULL,
-            is_system INTEGER NOT NULL,
-            is_approved INTEGER NOT NULL,
+            roles TEXT NOT NULL,
             created_at TEXT NOT NULL
         )"#,
     )
@@ -67,23 +66,21 @@ async fn list_subsystems_filters_and_pagination() {
     let owner_a = Uuid::new_v4();
     let owner_b = Uuid::new_v4();
 
-    sqlx::query("INSERT INTO users (id, username, password_hash, is_system, is_approved, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    sqlx::query("INSERT INTO users (id, username, password_hash, roles, created_at) VALUES (?, ?, ?, ?, ?)")
         .bind(owner_a)
         .bind("owner_a")
         .bind("hash")
-        .bind(1)
-        .bind(1)
+        .bind("[\"system\", \"user\"]")
         .bind("2024-01-01T00:00:00Z")
         .execute(&pool)
         .await
         .expect("insert user a");
 
-    sqlx::query("INSERT INTO users (id, username, password_hash, is_system, is_approved, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    sqlx::query("INSERT INTO users (id, username, password_hash, roles, created_at) VALUES (?, ?, ?, ?, ?)")
         .bind(owner_b)
         .bind("owner_b")
         .bind("hash")
-        .bind(1)
-        .bind(1)
+        .bind("[\"system\", \"user\"]")
         .bind("2024-01-01T00:00:00Z")
         .execute(&pool)
         .await
@@ -118,7 +115,7 @@ async fn list_subsystems_filters_and_pagination() {
     query.insert("perPage".to_string(), "2".to_string());
     query.insert("page".to_string(), "1".to_string());
 
-    let res = subsystems::list_subsystems(
+    let res = subsystems::list::list(
         Extension(state.clone()),
         HeaderMap::new(),
         Some(axum::extract::Query(query.clone())),
@@ -138,7 +135,7 @@ async fn list_subsystems_filters_and_pagination() {
 
     // Page 2 should have the remaining 1 item
     query.insert("page".to_string(), "2".to_string());
-    let res2 = subsystems::list_subsystems(
+    let res2 = subsystems::list::list(
         Extension(state.clone()),
         HeaderMap::new(),
         Some(axum::extract::Query(query.clone())),
@@ -155,7 +152,7 @@ async fn list_subsystems_filters_and_pagination() {
     // Filter by owner_user_id = owner_a (should return 3 items total)
     let mut query_owner = HashMap::new();
     query_owner.insert("owner_user_id".to_string(), owner_a.to_string());
-    let res_owner = subsystems::list_subsystems(
+    let res_owner = subsystems::list::list(
         Extension(state.clone()),
         HeaderMap::new(),
         Some(axum::extract::Query(query_owner)),

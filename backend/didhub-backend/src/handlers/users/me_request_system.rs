@@ -10,6 +10,13 @@ use didhub_db::generated::{pending_system_requests as db_requests, users as db_u
 
 use crate::{error::ApiError, state::AppState};
 
+/// Helper to check if a user has a specific role
+fn user_has_role(roles_json: &str, role: &str) -> bool {
+    serde_json::from_str::<Vec<String>>(roles_json)
+        .map(|roles| roles.iter().any(|r| r == role))
+        .unwrap_or(false)
+}
+
 /// Request system account status for the current user
 pub async fn me_request_system(
     Extension(state): Extension<Arc<AppState>>,
@@ -48,13 +55,10 @@ pub async fn me_request_system(
         .await
         .map_err(ApiError::from)?;
     let user = user.ok_or_else(|| ApiError::not_found("user not found"))?;
-    if user.is_system == 1 {
+    
+    // Check if user already has 'system' role
+    if user_has_role(&user.roles, "system") {
         return Err(ApiError::bad_request("You are already a system account"));
-    }
-    if user.is_system == 2 {
-        return Err(ApiError::bad_request(
-            "Your previous system request was rejected. You cannot submit another request.",
-        ));
     }
 
     let now = Utc::now().to_rfc3339();

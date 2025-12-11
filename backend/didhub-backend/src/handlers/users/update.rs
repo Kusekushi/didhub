@@ -58,14 +58,11 @@ pub async fn update(
     if let Some(about) = dto.about_me {
         existing.about_me = Some(about);
     }
-    if let Some(is_admin) = dto.is_admin {
-        existing.is_admin = if is_admin { 1 } else { 0 };
-    }
-    if let Some(is_system) = dto.is_system {
-        existing.is_system = if is_system { 1 } else { 0 };
-    }
-    if let Some(is_approved) = dto.is_approved {
-        existing.is_approved = if is_approved { 1 } else { 0 };
+    // Only admins can update roles
+    if is_admin {
+        if let Some(roles) = dto.roles {
+            existing.roles = serde_json::to_string(&roles).unwrap_or_else(|_| "[]".to_string());
+        }
     }
 
     existing.updated_at = chrono::Utc::now().to_rfc3339();

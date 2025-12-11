@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use didhub_db::generated::{affiliations as db_affiliations, users as db_users};
 
-use crate::handlers::utils::affiliation_to_payload;
+use crate::handlers::utils::{affiliation_to_payload, user_is_system};
 use crate::{error::ApiError, state::AppState};
 
 pub async fn create(
@@ -27,7 +27,7 @@ pub async fn create(
         let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
         match db_users::find_by_primary_key(&mut *conn, &owner_user_id).await {
             Ok(Some(user_row)) => {
-                if user_row.is_system == 0 {
+                if !user_is_system(&user_row) {
                     return Err(ApiError::Authentication(
                         didhub_auth::AuthError::AuthenticationFailed,
                     ));

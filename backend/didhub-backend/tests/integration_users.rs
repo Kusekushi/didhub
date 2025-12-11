@@ -23,16 +23,11 @@ async fn users_crud_sqlite_in_memory() {
             about_me TEXT,
             password_hash TEXT NOT NULL,
             avatar TEXT,
-            is_system INTEGER NOT NULL,
-            is_approved INTEGER NOT NULL,
             must_change_password INTEGER NOT NULL,
-            is_active INTEGER NOT NULL,
-            email_verified INTEGER NOT NULL,
             last_login_at TEXT,
             display_name TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            is_admin INTEGER NOT NULL,
             roles TEXT NOT NULL,
             settings TEXT NOT NULL
         )"#,
@@ -69,9 +64,7 @@ async fn users_crud_sqlite_in_memory() {
         password_hash: "longpassword".into(),
         display_name: Some("inttest".to_string()),
         about_me: None,
-        is_admin: None,
-        is_system: None,
-        is_approved: None, // Should be ignored for non-admin requests
+        roles: None,
     };
     let body = serde_json::to_value(&dto).unwrap();
     let res = users::create_user(

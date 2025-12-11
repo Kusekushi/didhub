@@ -11,6 +11,13 @@ use serde_json::json;
 use crate::handlers::auth::utils::get_jwt_secret;
 use crate::{error::ApiError, state::AppState};
 
+/// Helper to check if a user has a specific role
+fn user_has_role(roles_json: &str, role: &str) -> bool {
+    serde_json::from_str::<Vec<String>>(roles_json)
+        .map(|roles| roles.iter().any(|r| r == role))
+        .unwrap_or(false)
+}
+
 /// POST /auth/login
 /// Accepts { email, password } and if valid issues an HttpOnly cookie with an HS256 JWT.
 pub async fn login(
@@ -29,7 +36,7 @@ pub async fn login(
 
     // Lookup user by username
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    let maybe = sqlx::query_as::<_, db_users::UsersRow>(r#"SELECT id, username, about_me, password_hash, avatar, is_system, is_approved, must_change_password, is_active, email_verified, last_login_at, display_name, created_at, updated_at, is_admin, roles, settings FROM users WHERE username = ?"#)
+    let maybe = sqlx::query_as::<_, db_users::UsersRow>(r#"SELECT id, username, about_me, password_hash, avatar, must_change_password, last_login_at, display_name, created_at, updated_at, roles, settings FROM users WHERE username = ?"#)
         .bind(&dto.username)
         .fetch_optional(&mut *conn)
         .await
@@ -48,8 +55,10 @@ pub async fn login(
     verify_result
         .map_err(|_| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
 
-    // Check if user is approved or admin
-    if user.is_approved == 0 && user.is_admin == 0 {
+    // Check if user is approved (has 'user' role) or is admin (admins bypass approval check)
+    let is_admin = user_has_role(&user.roles, "admin");
+    let is_approved = user_has_role(&user.roles, "user");
+    if !is_approved && !is_admin {
         return Err(ApiError::forbidden("Account awaiting approval"));
     }
 
@@ -62,16 +71,13 @@ pub async fn login(
         .await
         .map_err(ApiError::from)?;
 
-    // Build claims
+    // Build claims - scopes are derived from roles
     let exp = (Utc::now().timestamp() + 7 * 24 * 60 * 60) as usize; // 7 days expiry
-    let mut scopes = vec!["user"];
-    if user.is_admin == 1 {
-        scopes.push("admin");
-    }
+    let roles: Vec<String> = serde_json::from_str(&user.roles).unwrap_or_default();
     let claims = serde_json::json!({
         "sub": user.id.to_string(),
         "exp": exp,
-        "scopes": scopes
+        "scopes": roles
     });
 
     let token = encode(

@@ -77,7 +77,7 @@ pub async fn require_admin(state: &AppState, headers: &HeaderMap) -> Result<(), 
 }
 
 /// Authenticate using the provided optional Authorization header value or session cookie and ensure
-/// the authenticated user is approved and active. Admin scoped users bypass the
+/// the authenticated user is approved (has 'user' role). Admin scoped users bypass the
 /// approval check.
 pub async fn authenticate_and_require_approved(
     state: &AppState,
@@ -110,27 +110,14 @@ pub async fn authenticate_and_require_approved(
         .user_id
         .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
 
-    // Fetch user row to check flags. If the users table doesn't exist (tests may not create it),
-    // allow the request but log a warning. We avoid failing tests that only set up minimal tables.
-    let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    match didhub_db::generated::users::find_by_primary_key(&mut *conn, &user_id).await {
-        Ok(opt) => {
-            let user = opt.ok_or_else(|| {
-                debug!(user_id = %user_id, "user row missing during approval check");
-                ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed)
-            })?;
-            if user.is_active == 0 || user.is_approved == 0 {
-                debug!(user_id = %user_id, is_active = user.is_active, is_approved = user.is_approved, "user not active/approved");
-                return Err(ApiError::Authentication(
-                    didhub_auth::AuthError::AuthenticationFailed,
-                ));
-            }
-        }
-        Err(e) => {
-            tracing::warn!(%e, "could not fetch user row to check approval; allowing request (test or incomplete DB schema?)");
-            // Allow through to support lightweight tests that don't create the users table
-            return Ok(auth);
-        }
+    // Check that the user has the 'user' role (which means they're approved)
+    // The scopes in the auth context are derived from the user's roles at login time
+    let is_approved = auth.scopes.iter().any(|s| s == "user");
+    if !is_approved {
+        debug!(user_id = %user_id, "user not approved (missing 'user' role)");
+        return Err(ApiError::Authentication(
+            didhub_auth::AuthError::AuthenticationFailed,
+        ));
     }
 
     Ok(auth)

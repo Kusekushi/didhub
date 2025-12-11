@@ -22,9 +22,10 @@ pub async fn get_admin_overview(
             .await
             .map_err(ApiError::from)?;
 
-    // Count unapproved users (is_approved = 0)
+    // Count unapproved users (those without 'user' role in roles JSON)
+    // Users are approved if their roles array contains 'user'
     let unapproved_users: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE is_approved = 0")
+        sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE roles NOT LIKE '%\"user\"%'")
             .fetch_one(&mut *conn)
             .await
             .map_err(ApiError::from)?;

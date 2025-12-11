@@ -17,9 +17,8 @@ pub struct CreateUserDto {
     pub password_hash: String,
     pub display_name: Option<String>,
     pub about_me: Option<String>,
-    pub is_admin: Option<bool>,
-    pub is_system: Option<bool>,
-    pub is_approved: Option<bool>,
+    /// Roles to assign to the user (e.g., ["admin", "system", "user"])
+    pub roles: Option<Vec<String>>,
 }
 
 impl CreateUserDto {
@@ -63,9 +62,8 @@ impl CreateUserDto {
 pub struct UpdateUserDto {
     pub display_name: Option<String>,
     pub about_me: Option<String>,
-    pub is_admin: Option<bool>,
-    pub is_system: Option<bool>,
-    pub is_approved: Option<bool>,
+    /// Roles to assign to the user (e.g., ["admin", "system", "user"])
+    pub roles: Option<Vec<String>>,
 }
 
 impl UpdateUserDto {

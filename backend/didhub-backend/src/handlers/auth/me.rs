@@ -30,19 +30,23 @@ pub async fn me(
         ));
     }
 
-    // Fetch username, avatar, and system status from database
+    // Fetch username, avatar, and roles from database
     let user_id = auth
         .user_id
         .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    let row: (String, Option<String>, i32) =
-        sqlx::query_as("SELECT username, avatar, is_system FROM users WHERE id = ?")
+    let row: (String, Option<String>, String) =
+        sqlx::query_as("SELECT username, avatar, roles FROM users WHERE id = ?")
             .bind(user_id)
             .fetch_one(&mut *conn)
             .await
             .map_err(ApiError::from)?;
 
+    // Parse roles to check if user has 'system' role
+    let roles: Vec<String> = serde_json::from_str(&row.2).unwrap_or_default();
+    let is_system = roles.iter().any(|r| r == "system");
+
     Ok(Json(
-        json!({ "user_id": user_id, "username": row.0, "avatar": row.1, "isSystem": row.2 != 0, "scopes": auth.scopes }),
+        json!({ "user_id": user_id, "username": row.0, "avatar": row.1, "isSystem": is_system, "scopes": auth.scopes }),
     ))
 }

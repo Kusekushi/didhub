@@ -83,13 +83,23 @@ pub async fn decide(
         .map_err(ApiError::from)?;
     let mut user = existing.ok_or_else(|| ApiError::not_found("user not found"))?;
 
+    // Parse current roles
+    let mut roles: Vec<String> = serde_json::from_str(&user.roles).unwrap_or_default();
+
     match decision.as_str() {
         "approve" => {
-            user.is_system = 1;
+            // Add 'system' role if not already present
+            if !roles.iter().any(|r| r == "system") {
+                roles.push("system".to_string());
+            }
+            // Also add 'user' role to approve the user
+            if !roles.iter().any(|r| r == "user") {
+                roles.push("user".to_string());
+            }
         }
         "reject" | "deny" => {
-            // set to 2 to prevent new requests
-            user.is_system = 2;
+            // Remove 'system' role if present (user stays as regular user or unapproved)
+            roles.retain(|r| r != "system");
         }
         other => {
             return Err(ApiError::bad_request(format!(
@@ -98,6 +108,9 @@ pub async fn decide(
             )));
         }
     }
+
+    // Update roles
+    user.roles = serde_json::to_string(&roles).unwrap_or_else(|_| "[]".to_string());
 
     // Persist user update
     let affected = db_users::update_by_primary_key(&mut *conn, &user.id, &user)

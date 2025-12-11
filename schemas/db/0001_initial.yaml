@@ -24,24 +24,7 @@ tables:
         nullable: false
       - name: avatar
         type: string
-      - name: is_system
-        type: bool_flag
-        nullable: false
-        default: false
-        check: "is_system IN (0,1,2)"
-      - name: is_approved
-        type: bool_flag
-        nullable: false
-        default: false
       - name: must_change_password
-        type: bool_flag
-        nullable: false
-        default: false
-      - name: is_active
-        type: bool_flag
-        nullable: false
-        default: true
-      - name: email_verified
         type: bool_flag
         nullable: false
         default: false
@@ -57,10 +40,6 @@ tables:
         type: timestamp
         nullable: false
         default: now
-      - name: is_admin
-        type: bool_flag
-        nullable: false
-        default: false
       - name: roles
         type: json_text
         nullable: false

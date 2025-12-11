@@ -60,16 +60,11 @@ async fn owner_and_admin_can_modify_alter() {
             about_me TEXT,
             password_hash TEXT NOT NULL,
             avatar TEXT,
-            is_system INTEGER NOT NULL,
-            is_approved INTEGER NOT NULL,
             must_change_password INTEGER NOT NULL,
-            is_active INTEGER NOT NULL,
-            email_verified INTEGER NOT NULL,
             last_login_at TEXT,
             display_name TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            is_admin INTEGER NOT NULL,
             roles TEXT NOT NULL,
             settings TEXT NOT NULL
         )"#,
@@ -87,35 +82,30 @@ async fn owner_and_admin_can_modify_alter() {
         about_me: None,
         password_hash: "x".to_string(),
         avatar: None,
-        is_system: 1,
-        is_approved: 1,
         must_change_password: 0,
-        is_active: 1,
-        email_verified: 0,
         last_login_at: None,
         display_name: None,
         created_at: "now".to_string(),
         updated_at: "now".to_string(),
-        is_admin: 0,
-        roles: "[]".to_string(),
+        roles: "[\"system\", \"user\"]".to_string(),
         settings: "{}".to_string(),
     };
     didhub_db::generated::users::insert_user(&mut *insert_conn, &owner_row)
         .await
         .expect("insert owner user");
-    // debug: verify the user row exists and is_system value
-    if let Ok(row) = sqlx::query("SELECT id, is_system FROM users WHERE id = ?")
+    // debug: verify the user row exists and has system role
+    if let Ok(row) = sqlx::query("SELECT id, roles FROM users WHERE id = ?")
         .bind(owner_id)
         .fetch_one(&pool)
         .await
     {
         let id_val: String = row.try_get("id").unwrap_or_default();
-        let is_sys: i32 = row.try_get("is_system").unwrap_or(-1);
-        eprintln!("debug: user row in DB id={} is_system={}", id_val, is_sys);
+        let roles_val: String = row.try_get("roles").unwrap_or_default();
+        eprintln!("debug: user row in DB id={} roles={}", id_val, roles_val);
     } else {
         eprintln!("debug: failed to fetch inserted user row");
     }
-    // debug: use generated helper matching the handler (UsersRowIdType is String)
+    // debug: use generated helper matching the handler
     let mut conn = pool.acquire().await.expect("acquire");
     match didhub_db::generated::users::find_by_primary_key(
         &mut *conn,
@@ -125,8 +115,8 @@ async fn owner_and_admin_can_modify_alter() {
     {
         Ok(opt) => match opt {
             Some(r) => eprintln!(
-                "debug: generated helper returned user is_system={}",
-                r.is_system
+                "debug: generated helper returned user roles={}",
+                r.roles
             ),
             None => eprintln!("debug: generated helper returned None"),
         },

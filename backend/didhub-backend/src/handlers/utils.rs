@@ -1,6 +1,7 @@
 use crate::error::ApiError;
 use didhub_db::generated::affiliations as db_affiliations;
 use didhub_db::generated::alters as db_alters;
+use didhub_db::generated::users as db_users;
 use didhub_log_client::LogEntry;
 use serde_json::Map;
 use serde_json::{Value, json};
@@ -22,6 +23,18 @@ pub fn parse_positive_usize(
         }
         None => Ok(fallback),
     }
+}
+
+/// Check if a user has a specific role by parsing the roles JSON
+pub fn user_has_role(user: &db_users::UsersRow, role: &str) -> bool {
+    serde_json::from_str::<Vec<String>>(&user.roles)
+        .map(|roles| roles.iter().any(|r| r == role))
+        .unwrap_or(false)
+}
+
+/// Check if a user has the 'system' role
+pub fn user_is_system(user: &db_users::UsersRow) -> bool {
+    user_has_role(user, "system")
 }
 
 pub fn affiliation_to_payload(row: &db_affiliations::AffiliationsRow) -> Value {

@@ -19,7 +19,7 @@ async fn login_me_logout_flow() {
     let pool = create_pool(&cfg).await.expect("create pool");
     // Create users table similar to migrations (minimal)
     // Use BLOB for id so it stores UUID as 16-byte native value when uuid-native feature is active
-    sqlx::query(r#"CREATE TABLE users (id BLOB PRIMARY KEY, username TEXT, password_hash TEXT, is_system INTEGER, is_approved INTEGER, is_active INTEGER, created_at TEXT, updated_at TEXT, is_admin INTEGER, roles TEXT, settings TEXT, about_me TEXT, avatar TEXT, must_change_password INTEGER, email_verified INTEGER, last_login_at TEXT, display_name TEXT)"#)
+    sqlx::query(r#"CREATE TABLE users (id BLOB PRIMARY KEY, username TEXT, password_hash TEXT, created_at TEXT, updated_at TEXT, roles TEXT, settings TEXT, about_me TEXT, avatar TEXT, must_change_password INTEGER, last_login_at TEXT, display_name TEXT)"#)
         .execute(&pool)
         .await
         .expect("create table");
@@ -34,17 +34,13 @@ async fn login_me_logout_flow() {
         .to_string();
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now().to_rfc3339();
-    sqlx::query("INSERT INTO users (id, username, password_hash, is_system, is_approved, is_active, created_at, updated_at, is_admin, roles, settings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    sqlx::query("INSERT INTO users (id, username, password_hash, created_at, updated_at, roles, settings) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .bind(id)
         .bind("testuser")
         .bind(&password_hash)
-        .bind(0i32)
-        .bind(1i32)
-        .bind(1i32)
         .bind(&now)
         .bind(&now)
-        .bind(0i32)
-        .bind("[]")
+        .bind("[\"user\"]")
         .bind("{}")
         .execute(&pool)
         .await

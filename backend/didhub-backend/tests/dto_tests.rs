@@ -7,9 +7,7 @@ fn create_user_dto_validation() {
         password_hash: "hunter2abcd".to_string(),
         display_name: Some("Alice".to_string()),
         about_me: None,
-        is_admin: None,
-        is_system: None,
-        is_approved: None,
+        roles: None,
     };
     assert!(good.validate().is_ok());
 
@@ -18,9 +16,7 @@ fn create_user_dto_validation() {
         password_hash: "hunter2abcd".to_string(),
         display_name: None,
         about_me: None,
-        is_admin: None,
-        is_system: None,
-        is_approved: None,
+        roles: None,
     };
     assert!(good_no_display.validate().is_ok());
 
@@ -29,9 +25,7 @@ fn create_user_dto_validation() {
         password_hash: "longenough".to_string(),
         display_name: Some("Bob".to_string()),
         about_me: None,
-        is_admin: None,
-        is_system: None,
-        is_approved: None,
+        roles: None,
     };
     assert!(bad_username.validate().is_err());
 
@@ -40,9 +34,7 @@ fn create_user_dto_validation() {
         password_hash: "short".to_string(),
         display_name: Some("Bob".to_string()),
         about_me: None,
-        is_admin: None,
-        is_system: None,
-        is_approved: None,
+        roles: None,
     };
     assert!(short_pass.validate().is_err());
 
@@ -51,9 +43,7 @@ fn create_user_dto_validation() {
         password_hash: "longenough".to_string(),
         display_name: Some("   ".to_string()),
         about_me: None,
-        is_admin: None,
-        is_system: None,
-        is_approved: None,
+        roles: None,
     };
     assert!(empty_display.validate().is_err());
 }
@@ -63,9 +53,7 @@ fn update_user_dto_validation() {
     let dto = UpdateUserDto {
         display_name: None,
         about_me: None,
-        is_admin: None,
-        is_system: None,
-        is_approved: None,
+        roles: None,
     };
     assert!(dto.validate().is_ok());
 }

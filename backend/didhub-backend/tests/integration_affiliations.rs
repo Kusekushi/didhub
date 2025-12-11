@@ -26,16 +26,11 @@ async fn setup() -> TestContext {
             about_me TEXT,
             password_hash TEXT NOT NULL,
             avatar TEXT,
-            is_system INTEGER NOT NULL,
-            is_approved INTEGER NOT NULL,
             must_change_password INTEGER NOT NULL,
-            is_active INTEGER NOT NULL,
-            email_verified INTEGER NOT NULL,
             last_login_at TEXT,
             display_name TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            is_admin INTEGER NOT NULL,
             roles TEXT NOT NULL,
             settings TEXT NOT NULL
         )"#,
@@ -74,28 +69,23 @@ async fn setup() -> TestContext {
     let owner_id = Uuid::new_v4();
     sqlx::query(
         r#"INSERT INTO users (
-        id, username, about_me, password_hash, avatar,
-            is_system, is_approved, must_change_password, is_active,
-            email_verified, last_login_at, display_name, created_at,
-            updated_at, is_admin, roles, settings
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+            id, username, about_me, password_hash, avatar,
+            must_change_password,
+            last_login_at, display_name, created_at,
+            updated_at, roles, settings
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
     .bind(owner_id)
     .bind("system_user")
     .bind(None::<String>)
     .bind("hash")
     .bind(None::<String>)
-    .bind(1)
-    .bind(1)
     .bind(0)
-    .bind(1)
-    .bind(1)
     .bind(None::<String>)
     .bind(None::<String>)
     .bind("2024-01-01T00:00:00Z")
     .bind("2024-01-01T00:00:00Z")
-    .bind(0)
-    .bind("[]")
+    .bind("[\"system\", \"user\"]")
     .bind("{}")
     .execute(&pool)
     .await

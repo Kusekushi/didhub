@@ -33,16 +33,11 @@ async fn system_user_restrictions() {
             about_me TEXT,
             password_hash TEXT NOT NULL,
             avatar TEXT,
-            is_system INTEGER NOT NULL,
-            is_approved INTEGER NOT NULL,
             must_change_password INTEGER NOT NULL,
-            is_active INTEGER NOT NULL,
-            email_verified INTEGER NOT NULL,
             last_login_at TEXT,
             display_name TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            is_admin INTEGER NOT NULL,
             roles TEXT NOT NULL,
             settings TEXT NOT NULL
         )"#,
@@ -130,17 +125,12 @@ async fn system_user_restrictions() {
         about_me: None,
         password_hash: "x".to_string(),
         avatar: None,
-        is_system: 1,
-        is_approved: 1,
         must_change_password: 0,
-        is_active: 1,
-        email_verified: 0,
         last_login_at: None,
         display_name: None,
         created_at: "now".to_string(),
         updated_at: "now".to_string(),
-        is_admin: 0,
-        roles: "[]".to_string(),
+        roles: "[\"system\", \"user\"]".to_string(),
         settings: "{}".to_string(),
     };
     didhub_db::generated::users::insert_user(&mut *insert_conn, &system_row)
@@ -156,17 +146,12 @@ async fn system_user_restrictions() {
         about_me: None,
         password_hash: "x".to_string(),
         avatar: None,
-        is_system: 0,
-        is_approved: 1,
         must_change_password: 0,
-        is_active: 1,
-        email_verified: 0,
         last_login_at: None,
         display_name: None,
         created_at: "now".to_string(),
         updated_at: "now".to_string(),
-        is_admin: 0,
-        roles: "[]".to_string(),
+        roles: "[\"user\"]".to_string(),
         settings: "{}".to_string(),
     };
     didhub_db::generated::users::insert_user(&mut *insert_conn, &nonsys_row)
@@ -189,7 +174,7 @@ async fn system_user_restrictions() {
     let arc_state_nonsys = Arc::new(state_nonsys);
 
     let body = serde_json::json!({ "name": "ShouldFail" });
-    let res = alters::create_alter(
+    let res = alters::create::create(
         axum::Extension(arc_state_nonsys.clone()),
         auth_headers(),
         Some(axum::Json(body)),
@@ -214,7 +199,7 @@ async fn system_user_restrictions() {
     );
     let arc_state_admin = Arc::new(state_admin);
     let body_admin = serde_json::json!({ "user_id": nonsys_id, "name": "AdminShouldFail" });
-    let res_admin = alters::create_alter(
+    let res_admin = alters::create::create(
         axum::Extension(arc_state_admin.clone()),
         auth_headers(),
         Some(axum::Json(body_admin)),
@@ -227,7 +212,7 @@ async fn system_user_restrictions() {
 
     // 3) Admin creating an alter for a system user should succeed
     let body_admin_ok = serde_json::json!({ "user_id": system_id, "name": "AdminOk" });
-    let res_admin_ok = alters::create_alter(
+    let res_admin_ok = alters::create::create(
         axum::Extension(arc_state_admin.clone()),
         auth_headers(),
         Some(axum::Json(body_admin_ok)),
@@ -243,7 +228,7 @@ async fn system_user_restrictions() {
 
     // 4) Non-system user cannot create uploads
     let body_up = serde_json::json!({ "stored_file_id": "00000000-0000-0000-0000-000000000001", "stored_name": "file.txt" });
-    let res_up = uploads::create_upload(
+    let res_up = uploads::create::create(
         axum::Extension(arc_state_nonsys.clone()),
         auth_headers(),
         Some(axum::Json(body_up)),
@@ -257,7 +242,7 @@ async fn system_user_restrictions() {
     // 5) Admin can create relationship specifying system user ids, but not specifying nonsystem ids
     let rel_payload_fail =
         serde_json::json!({ "relation_type": "friend", "side_a_user_id": nonsys_id });
-    let rel_res_fail = relationships::create_relationship(
+    let rel_res_fail = relationships::create::create(
         axum::Extension(arc_state_admin.clone()),
         auth_headers(),
         Some(axum::Json(rel_payload_fail)),
@@ -270,7 +255,7 @@ async fn system_user_restrictions() {
 
     let rel_payload_ok =
         serde_json::json!({ "relation_type": "friend", "side_a_user_id": system_id });
-    let rel_res_ok = relationships::create_relationship(
+    let rel_res_ok = relationships::create::create(
         axum::Extension(arc_state_admin.clone()),
         auth_headers(),
         Some(axum::Json(rel_payload_ok)),

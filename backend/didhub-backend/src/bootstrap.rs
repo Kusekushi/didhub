@@ -18,10 +18,10 @@ pub async fn maybe_provision_admin(state: &AppState) -> anyhow::Result<()> {
     };
     let display_name = std::env::var("DIDHUB_ADMIN_DISPLAY_NAME").ok();
 
-    // Check if any admin exists
+    // Check if any admin exists (user with 'admin' role)
     let mut conn = state.db_pool.acquire().await?;
     let existing: Option<i64> =
-        sqlx::query_scalar("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1")
+        sqlx::query_scalar("SELECT 1 FROM users WHERE roles LIKE '%\"admin\"%' LIMIT 1")
             .fetch_optional(&mut *conn)
             .await?;
     if existing.is_some() {
@@ -40,17 +40,12 @@ pub async fn maybe_provision_admin(state: &AppState) -> anyhow::Result<()> {
         about_me: None,
         password_hash,
         avatar: None,
-        is_system: 1,
-        is_approved: 1,
         must_change_password: 1,
-        is_active: 1,
-        email_verified: 1,
         last_login_at: None,
         display_name,
         created_at: now.clone(),
         updated_at: now,
-        is_admin: 1,
-        roles: "[\"admin\"]".to_string(),
+        roles: "[\"admin\",\"system\",\"user\"]".to_string(),
         settings: "{}".to_string(),
     };
 

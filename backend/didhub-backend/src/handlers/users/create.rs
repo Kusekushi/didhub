@@ -46,35 +46,28 @@ pub async fn create(
     }
     .map_err(|e| ApiError::Unexpected(e.to_string()))?;
 
+    // Determine roles for the new user
+    let roles: Vec<String> = if is_admin_request {
+        // Admin can set roles via dto.roles
+        dto.roles.unwrap_or_default()
+    } else {
+        // Non-admin users start with no roles (awaiting approval)
+        vec![]
+    };
+    let roles_json = serde_json::to_string(&roles).unwrap_or_else(|_| "[]".to_string());
+
     let new_row = db_users::UsersRow {
         id: SqlxUuid::new_v4(),
         username: dto.username,
         about_me: dto.about_me,
         password_hash,
         avatar: None,
-        is_system: if is_admin_request && dto.is_system.unwrap_or(false) {
-            1
-        } else {
-            0
-        },
-        is_approved: if is_admin_request && dto.is_approved.unwrap_or(false) {
-            1
-        } else {
-            0
-        },
         must_change_password: 0,
-        is_active: 1,
-        email_verified: 0,
         last_login_at: None,
         display_name: dto.display_name,
         created_at: now.clone(),
         updated_at: now,
-        is_admin: if is_admin_request && dto.is_admin.unwrap_or(false) {
-            1
-        } else {
-            0
-        },
-        roles: "[]".to_string(),
+        roles: roles_json,
         settings: "{}".to_string(),
     };
 

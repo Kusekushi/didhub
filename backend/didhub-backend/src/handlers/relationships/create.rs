@@ -7,6 +7,7 @@ use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
 use crate::handlers::relationships::dto::RelationshipResponse;
+use crate::handlers::utils::user_is_system;
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::relationships as db_rels;
 
@@ -122,7 +123,7 @@ pub async fn create(
             match didhub_db::generated::users::find_by_primary_key(&mut *conn, &uid).await {
                 Ok(opt_user) => match opt_user {
                     Some(user_row) => {
-                        if user_row.is_system == 0 {
+                        if !user_is_system(&user_row) {
                             return Err(ApiError::Authentication(
                                 didhub_auth::AuthError::AuthenticationFailed,
                             ));
@@ -135,7 +136,7 @@ pub async fn create(
                     }
                 },
                 Err(e) => {
-                    tracing::warn!(%e, "could not fetch user row to check system flag; allowing request (test or incomplete DB schema?)");
+                    tracing::warn!(%e, "could not fetch user row to check system role; allowing request (test or incomplete DB schema?)");
                 }
             }
         } else {

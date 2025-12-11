@@ -16,3 +16,6 @@ serde = { version = "1", features = ["derive"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio"] }
 thiserror = "2"
 didhub-log-client = { path = "../didhub-log-client" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
