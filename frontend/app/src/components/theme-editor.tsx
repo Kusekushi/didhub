@@ -2,7 +2,7 @@
 
 // Comprehensive Theme Editor
 import { useState } from 'react'
-import { useTheme, type ThemeTokens } from '@/context/theme'
+import { useTheme } from '@/context/theme'
 import { AdvancedColorPicker } from './ui/advanced-color-picker'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -257,7 +257,8 @@ export default function ThemeEditor() {
   const [showAccessibility, setShowAccessibility] = useState(true)
 
   const readToken = (key: string) => {
-    return tokens?.[key as keyof ThemeTokens] || getComputedStyle(document.documentElement).getPropertyValue(`--${key}`).trim() || ''
+    const tokenValue = tokens ? (tokens as Record<string, string>)[key] : undefined
+    return tokenValue || getComputedStyle(document.documentElement).getPropertyValue(`--${key}`).trim() || ''
   }
 
   const handleImport = () => {

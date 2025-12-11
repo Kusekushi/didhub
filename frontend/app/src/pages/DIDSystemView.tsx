@@ -7,8 +7,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Trash2, Users, UserCheck, Network, Heart, Edit } from 'lucide-react'
-import AdvancedAffiliationForm from '@/components/AdvancedAffiliationForm'
-import AdvancedSubsystemForm from '@/components/AdvancedSubsystemForm'
 import { RELATIONSHIP_TYPES } from '@/lib/relationshipTypes'
 import { AdvancedRelationshipForm } from '@/components/AdvancedRelationshipForm'
 import { RelationshipEditForm, GroupedPartner } from '@/components/RelationshipEditForm'
@@ -41,34 +39,25 @@ export default function DIDSystemView() {
   const { isAdmin } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('alters')
 
-  // Shared state
   const [systems, setSystems] = useState<User[]>([])
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [selectedSystemId, setSelectedSystemId] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
-  // Alters state
   const [alters, setAlters] = useState<Alter[]>([])
   // Map of fileId -> url (from GET /files?ids=... or GET /files/{fileId}) for primary uploads
   const [fileDataMap, setFileDataMap] = useState<Record<string, string>>({})
   const [newAlterName, setNewAlterName] = useState('')
   const [creatingAlter, setCreatingAlter] = useState(false)
 
-  // Simple name-only creation state (like alters)
   const [newAffiliationName, setNewAffiliationName] = useState('')
   const [creatingAffiliation, setCreatingAffiliation] = useState(false)
   const [newSubsystemName, setNewSubsystemName] = useState('')
   const [creatingSubsystem, setCreatingSubsystem] = useState(false)
 
-  // Affiliations state
   const [affiliations, setAffiliations] = useState<Affiliation[]>([])
-  const [createAffiliationDialogOpen, setCreateAffiliationDialogOpen] = useState(false)
-
-  // Subsystems state
   const [subsystems, setSubsystems] = useState<Subsystem[]>([])
-  const [createSubsystemDialogOpen, setCreateSubsystemDialogOpen] = useState(false)
 
-  // Relationships state
   const [relationships, setRelationships] = useState<Relationship[]>([])
   const [createRelationshipDialogOpen, setCreateRelationshipDialogOpen] = useState(false)
   const [editingRelationship, setEditingRelationship] = useState<Relationship | null>(null)
@@ -86,7 +75,6 @@ export default function DIDSystemView() {
 
   const { show: showToast } = useToast()
 
-  // Check if user can edit this system (owner or admin)
   const canEditSystem = selectedSystemId === currentUser?.id || isAdmin
 
   const getInitials = (name: string) => {
@@ -243,7 +231,7 @@ export default function DIDSystemView() {
       const relationshipsResponse = await api.listRelationships<Relationship[]>({})
       const rels = Array.isArray(relationshipsResponse.data) ? relationshipsResponse.data : []
       setRelationships(rels)
-      
+
       // Find alters from other systems that we need to load for display
       const currentAlterIds = new Set(alters.map(a => a.id))
       const missingAlterIds = new Set<string>()
@@ -251,7 +239,7 @@ export default function DIDSystemView() {
       // Track user IDs that aren't in our systems list (likely non-system users)
       const systemUserIds = new Set(systems.map(s => s.id))
       const missingUserIds = new Set<string>()
-      
+
       for (const rel of rels) {
         if (rel.sideAAlterId && !currentAlterIds.has(rel.sideAAlterId)) {
           missingAlterIds.add(rel.sideAAlterId)
@@ -269,7 +257,7 @@ export default function DIDSystemView() {
           missingUserIds.add(rel.sideBUserId)
         }
       }
-      
+
       // Load alters from other systems
       if (otherSystemIds.size > 0) {
         const newRelatedAlters: Record<string, Alter> = { ...relatedAltersMap }
@@ -288,7 +276,7 @@ export default function DIDSystemView() {
         }
         setRelatedAltersMap(newRelatedAlters)
       }
-      
+
       // Load non-system users referenced in relationships
       if (missingUserIds.size > 0) {
         const newRelatedUsers: Record<string, User> = { ...relatedUsersMap }
@@ -336,8 +324,6 @@ export default function DIDSystemView() {
     }
   }
 
-  // Affiliation handlers handled via AdvancedAffiliationForm onSave callbacks
-
   const handleDeleteAffiliation = async (affiliationId: string) => {
     if (!confirm('Are you sure you want to delete this affiliation?')) return
 
@@ -356,8 +342,6 @@ export default function DIDSystemView() {
       })
     }
   }
-
-  // Subsystem handlers handled via AdvancedSubsystemForm onSave callbacks
 
   const handleDeleteSubsystem = async (subsystemId: string) => {
     if (!confirm('Are you sure you want to delete this subsystem?')) return
@@ -378,9 +362,6 @@ export default function DIDSystemView() {
     }
   }
 
-  // Relationship handlers
-
-  // Helper to create a relationship
   const createRelationshipEntry = async (data: CreateRelationshipRequest) => {
     // Build the request body with snake_case
     const body: Record<string, unknown> = {
@@ -391,7 +372,7 @@ export default function DIDSystemView() {
     if (data.sideAAlterId) body.side_a_alter_id = data.sideAAlterId
     if (data.sideBUserId) body.side_b_user_id = data.sideBUserId
     if (data.sideBAlterId) body.side_b_alter_id = data.sideBAlterId
-    
+
     // Create the relationship - the database handles uniqueness for bidirectional types
     await api.createRelationship({ body })
   }
@@ -425,7 +406,7 @@ export default function DIDSystemView() {
       if (data.sideAAlterId !== undefined) body.side_a_alter_id = data.sideAAlterId
       if (data.sideBUserId !== undefined) body.side_b_user_id = data.sideBUserId
       if (data.sideBAlterId !== undefined) body.side_b_alter_id = data.sideBAlterId
-      
+
       await api.updateRelationship({ path: { relationshipId }, body })
       loadRelationships()
       setEditingRelationship(null)
@@ -487,7 +468,7 @@ export default function DIDSystemView() {
   // Helper to render a linked alter name (with fallback to system link if alter not found)
   const renderAlterLink = (alterId: string | undefined, userId: string | undefined) => {
     if (!alterId && !userId) return <span className="text-muted-foreground">Unknown</span>
-    
+
     // First check current system's alters
     const alter = alters.find(a => a.id === alterId)
     if (alter) {
@@ -497,7 +478,7 @@ export default function DIDSystemView() {
         </Link>
       )
     }
-    
+
     // Then check the cached related alters from other systems
     const relatedAlter = alterId ? relatedAltersMap[alterId] : undefined
     if (relatedAlter) {
@@ -507,7 +488,7 @@ export default function DIDSystemView() {
         </Link>
       )
     }
-    
+
     // If we have a user ID but no alter info, check for the user
     if (userId) {
       // First check systems (system users)
@@ -519,7 +500,7 @@ export default function DIDSystemView() {
           </Link>
         )
       }
-      
+
       // Then check cached non-system users
       const nonSystemUser = relatedUsersMap[userId]
       if (nonSystemUser) {
@@ -529,10 +510,10 @@ export default function DIDSystemView() {
           </Link>
         )
       }
-      
+
       return <span className="text-muted-foreground">Unknown User</span>
     }
-    
+
     return <span className="text-muted-foreground">Unknown</span>
   }
 
@@ -545,24 +526,24 @@ export default function DIDSystemView() {
   // Filter relationships to only those involving alters from this system, and apply search filter
   const systemRelationships = relationships.filter(r => {
     const alterIds = alters.map(a => a.id)
-    const involvesSystemAlter = (r.sideAAlterId && alterIds.includes(r.sideAAlterId)) || 
-           (r.sideBAlterId && alterIds.includes(r.sideBAlterId))
-    
+    const involvesSystemAlter = (r.sideAAlterId && alterIds.includes(r.sideAAlterId)) ||
+      (r.sideBAlterId && alterIds.includes(r.sideBAlterId))
+
     if (!involvesSystemAlter) return false
-    
+
     // Apply search filter if present
     if (relationshipSearch.trim()) {
       const searchLower = relationshipSearch.toLowerCase().trim()
       const sideAName = getAlterName(r.sideAAlterId || '').toLowerCase()
       const sideBName = getAlterName(r.sideBAlterId || '').toLowerCase()
       const typeLabel = getRelationshipTypeLabel(r.relationType).toLowerCase()
-      
-      return sideAName.includes(searchLower) || 
-             sideBName.includes(searchLower) || 
-             typeLabel.includes(searchLower) ||
-             r.relationType.toLowerCase().includes(searchLower)
+
+      return sideAName.includes(searchLower) ||
+        sideBName.includes(searchLower) ||
+        typeLabel.includes(searchLower) ||
+        r.relationType.toLowerCase().includes(searchLower)
     }
-    
+
     return true
   })
 
@@ -612,12 +593,12 @@ export default function DIDSystemView() {
       if (MN_RELATIONSHIP_TYPES.includes(rel.relationType)) {
         const keyA = `fwd:${sideAId}:${rel.relationType}`
         const keyB = `fwd:${sideBId}:${rel.relationType}`
-        
+
         const existingGroup = groups.get(keyA) || groups.get(keyB)
-        
+
         if (existingGroup) {
           const anchorId = existingGroup.anchorId || existingGroup.anchorUserId
-          
+
           if (sideAId === anchorId) {
             const alreadyHas = existingGroup.partners.some(p => (p.alterId || p.userId) === sideBId)
             if (!alreadyHas) {
@@ -660,14 +641,14 @@ export default function DIDSystemView() {
         // For directional types, we can group in two ways:
         // 1. Forward (1-n): Same source → multiple targets (e.g., one parent has multiple children)
         // 2. Reverse (n-1): Multiple sources → same target (e.g., multiple parents for one child)
-        
+
         const keyForward = `fwd:${sideAId}:${rel.relationType}`  // Group by source (side A)
         const keyReverse = `rev:${sideBId}:${rel.relationType}`  // Group by target (side B)
-        
+
         // Check if we already have a group for this relationship
         const existingForward = groups.get(keyForward)
         const existingReverse = groups.get(keyReverse)
-        
+
         if (existingForward) {
           // Add to existing forward group (1-n)
           const alreadyHas = existingForward.partners.some(p => (p.alterId || p.userId) === sideBId)
@@ -714,13 +695,13 @@ export default function DIDSystemView() {
     // Post-process: Convert single-partner forward groups to reverse groups if there's a matching reverse pattern
     // This ensures n-1 relationships are properly grouped (e.g., 2 parents → 1 child)
     const forwardGroups = Array.from(groups.entries()).filter(([k]) => k.startsWith('fwd:'))
-    
+
     for (const [key, group] of forwardGroups) {
       if (group.partners.length === 1 && !MN_RELATIONSHIP_TYPES.includes(group.relationType)) {
         // Check if we should convert this to a reverse group
         const targetId = group.partners[0].alterId || group.partners[0].userId
         const reverseKey = `rev:${targetId}:${group.relationType}`
-        
+
         // Look for other forward groups that point to the same target
         let shouldConvert = false
         for (const [otherKey, otherGroup] of forwardGroups) {
@@ -732,7 +713,7 @@ export default function DIDSystemView() {
             }
           }
         }
-        
+
         if (shouldConvert) {
           // Create or add to reverse group
           let reverseGroup = groups.get(reverseKey)
@@ -749,7 +730,7 @@ export default function DIDSystemView() {
             }
             groups.set(reverseKey, reverseGroup)
           }
-          
+
           // Add the source as a partner
           const sourceId = group.anchorId || group.anchorUserId
           const alreadyHas = reverseGroup.partners.some(p => (p.alterId || p.userId) === sourceId)
@@ -761,7 +742,7 @@ export default function DIDSystemView() {
               relationship: group.partners[0].relationship,
             })
           }
-          
+
           // Remove the forward group
           groups.delete(key)
         }
@@ -803,8 +784,8 @@ export default function DIDSystemView() {
               {Array.isArray(alters) && alters.map((alter) => (
                 <li key={alter.id} className="p-4 bg-card rounded-md shadow-sm w-full">
                   <div className="flex items-center justify-between">
-                    <Link 
-                      to={`/alter/${alter.id}`} 
+                    <Link
+                      to={`/alter/${alter.id}`}
                       className="flex items-center flex-1 hover:bg-muted/50 rounded-md p-2 -m-2 transition-colors"
                     >
                       {/* Thumbnail / initials */}
@@ -852,32 +833,6 @@ export default function DIDSystemView() {
                     ? "Create your first alter to get started."
                     : "This system doesn't have any alters yet."}
                 </p>
-                {canEditSystem && (
-                  <form
-                    className="flex items-center gap-2 justify-center"
-                    onSubmit={async (e) => {
-                      e.preventDefault()
-                      const form = e.target as HTMLFormElement
-                      const nameInput = form.elements.namedItem('alterName') as HTMLInputElement
-                      const name = nameInput.value.trim()
-                      if (!name) return
-                      await api.createAlter({ body: { name, systemId: selectedSystemId } })
-                      nameInput.value = ''
-                      loadAlters()
-                      showToast({ title: 'Success', description: 'Alter created successfully' })
-                    }}
-                  >
-                    <Input
-                      name="alterName"
-                      placeholder="Enter alter name"
-                      className="w-48"
-                    />
-                    <Button type="submit">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create
-                    </Button>
-                  </form>
-                )}
               </div>
             )}
           </div>
@@ -907,7 +862,7 @@ export default function DIDSystemView() {
                 <li key={affiliation.id} className="p-4 bg-card rounded-md shadow-sm w-full">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <Link 
+                      <Link
                         to={`/affiliation/${affiliation.id}`}
                         className="text-lg font-semibold text-primary hover:underline"
                       >
@@ -951,38 +906,6 @@ export default function DIDSystemView() {
                     ? "Create your first affiliation to get started."
                     : "This system doesn't have any affiliations yet."}
                 </p>
-                {canEditSystem && (
-                  <Dialog open={createAffiliationDialogOpen} onOpenChange={setCreateAffiliationDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create Affiliation
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Create New Affiliation</DialogTitle>
-                        <DialogDescription>
-                          Fill in the details to create a new affiliation.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <AdvancedAffiliationForm
-                          mode="create"
-                          systems={systems}
-                          selectedSystemId={selectedSystemId}
-                          onCancel={() => setCreateAffiliationDialogOpen(false)}
-                          onSave={async (data: { name: string; description?: string; systemId?: string }) => {
-                            await api.createAffiliation({ body: { ...data, systemId: data.systemId || selectedSystemId } })
-                            setCreateAffiliationDialogOpen(false)
-                            loadAffiliations()
-                            showToast({ title: 'Success', description: 'Affiliation created successfully' })
-                          }}
-                        />
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
               </div>
             )}
           </div>
@@ -1012,7 +935,7 @@ export default function DIDSystemView() {
                 <li key={subsystem.id} className="p-4 bg-card rounded-md shadow-sm w-full">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <Link 
+                      <Link
                         to={`/subsystem/${subsystem.id}`}
                         className="text-lg font-semibold text-primary hover:underline"
                       >
@@ -1056,38 +979,6 @@ export default function DIDSystemView() {
                     ? "Create your first subsystem to get started."
                     : "This system doesn't have any subsystems yet."}
                 </p>
-                {canEditSystem && (
-                  <Dialog open={createSubsystemDialogOpen} onOpenChange={setCreateSubsystemDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create Subsystem
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Create New Subsystem</DialogTitle>
-                        <DialogDescription>
-                          Fill in the details to create a new subsystem.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <AdvancedSubsystemForm
-                          mode="create"
-                          systems={systems}
-                          selectedSystemId={selectedSystemId}
-                          onCancel={() => setCreateSubsystemDialogOpen(false)}
-                          onSave={async (data: { name: string; description?: string; systemId?: string }) => {
-                            await api.createSubsystem({ body: { ...data, systemId: data.systemId || selectedSystemId } })
-                            setCreateSubsystemDialogOpen(false)
-                            loadSubsystems()
-                            showToast({ title: 'Success', description: 'Subsystem created successfully' })
-                          }}
-                        />
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
               </div>
             )}
           </div>
@@ -1132,11 +1023,11 @@ export default function DIDSystemView() {
                         }
                         setCreateRelationshipDialogOpen(false)
                         loadRelationships()
-                        showToast({ 
-                          title: 'Success', 
-                          description: relationships.length > 1 
+                        showToast({
+                          title: 'Success',
+                          description: relationships.length > 1
                             ? `${relationships.length} relationships created successfully`
-                            : 'Relationship created successfully' 
+                            : 'Relationship created successfully'
                         })
                       }}
                     />
@@ -1195,10 +1086,10 @@ export default function DIDSystemView() {
                           // Compute all alter IDs already in relationships of this type with the anchor
                           const anchorId = editingGroup?.anchorId || editingRelationship.sideAAlterId
                           const partnerIds = new Set<string>()
-                          
+
                           // Include anchor
                           if (anchorId) partnerIds.add(anchorId)
-                          
+
                           // Include all partners in the group
                           if (editingGroup) {
                             editingGroup.partners.forEach(p => {
@@ -1209,7 +1100,7 @@ export default function DIDSystemView() {
                             if (editingRelationship.sideAAlterId) partnerIds.add(editingRelationship.sideAAlterId)
                             if (editingRelationship.sideBAlterId) partnerIds.add(editingRelationship.sideBAlterId)
                           }
-                          
+
                           return Array.from(partnerIds)
                         })()}
                         onAddPartners={async (newRelationships) => {
@@ -1262,7 +1153,7 @@ export default function DIDSystemView() {
                           if (editingGroup) {
                             relationshipsToDelete.push(...editingGroup.partners.map(p => p.id))
                           }
-                          
+
                           try {
                             for (const relId of relationshipsToDelete) {
                               await api.deleteRelationship({ path: { relationshipId: relId } })
@@ -1473,11 +1364,11 @@ export default function DIDSystemView() {
                               }
                               setCreateRelationshipDialogOpen(false)
                               loadRelationships()
-                              showToast({ 
-                                title: 'Success', 
-                                description: relationships.length > 1 
+                              showToast({
+                                title: 'Success',
+                                description: relationships.length > 1
                                   ? `${relationships.length} relationships created successfully`
-                                  : 'Relationship created successfully' 
+                                  : 'Relationship created successfully'
                               })
                             }}
                           />
@@ -1512,17 +1403,17 @@ export default function DIDSystemView() {
           {systems.length > 0 && (
             <Select value={selectedSystemId} onValueChange={(e) => setSelectedSystemId(e)}>
               <SelectTrigger>
-                  <SelectValue placeholder='Select DID-system' />
+                <SelectValue placeholder='Select DID-system' />
               </SelectTrigger>
               <SelectContent>
-                  <SelectGroup>
-                      <SelectLabel>DID-System</SelectLabel>
-                      {Array.isArray(systems) && systems.map((system) => (
-                        <SelectItem key={system.id} value={system.id}>
-                          {system.username}
-                        </SelectItem>
-                      ))}
-                  </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>DID-System</SelectLabel>
+                  {Array.isArray(systems) && systems.map((system) => (
+                    <SelectItem key={system.id} value={system.id}>
+                      {system.username}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           )}

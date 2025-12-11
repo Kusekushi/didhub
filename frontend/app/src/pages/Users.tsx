@@ -1,19 +1,15 @@
 import { useState, useEffect, useMemo } from 'react'
 import { User as UserIcon, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { User, PaginatedUsersResponse } from '@didhub/api'
+import { User } from '@didhub/api'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { useToast } from '@/context/ToastContext'
-import { useApi } from '@/context/ApiContext'
+import { useUsers } from '@/hooks/useUsers'
 
 export default function UsersPage() {
-  const api = useApi()
   const navigate = useNavigate()
-  const [systems, setSystems] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
+  const { users: systems, loading, loadUsers } = useUsers()
   const [searchTerm, setSearchTerm] = useState('')
-  const { show: showToast } = useToast()
 
   const filteredSystems = useMemo(() => {
     if (!searchTerm) return systems
@@ -27,21 +23,6 @@ export default function UsersPage() {
     loadUsers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const loadUsers = async () => {
-    try {
-      const response = await api.getUsers<PaginatedUsersResponse>()
-      setSystems(response.data.items)
-    } catch {
-      showToast({
-        title: 'Error',
-        description: 'Failed to load systems',
-        variant: 'error',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleUserClick = (user: User) => {
     if (user.isSystem) {

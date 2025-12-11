@@ -199,7 +199,7 @@ export default function AffiliationDetail() {
       if (affiliationData.sigil) {
         try {
           const fileResponse = await api.serveStoredFilesBatch({ query: { ids: [affiliationData.sigil] } })
-          const files = fileResponse.data as { id: string; url: string }[]
+          const files = fileResponse.data
           if (files && files.length > 0 && files[0].url) {
             setSigilUrl(files[0].url)
           }

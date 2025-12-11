@@ -8,12 +8,12 @@ import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ArrowLeft, Plus, Edit, Trash2, RefreshCw, Shield, User, CheckCircle, XCircle } from 'lucide-react'
-import { User as UserType, CreateUserRequest, UpdateUserRequest, UpdateUserPasswordRequest, PaginatedUsersResponse, createRegistrationPayload, createPasswordChangePayload } from '@didhub/api'
+import { User as UserType, CreateUserRequest, UpdateUserRequest, UpdateUserPasswordRequest, createRegistrationPayload, createPasswordChangePayload } from '@didhub/api'
+import { useUsers } from '@/hooks/useUsers'
 
 export default function AdminUsers() {
     const client = useApi()
-    const [users, setUsers] = useState<UserType[]>([])
-    const [loading, setLoading] = useState(true)
+    const { users, loading, loadUsers } = useUsers()
     const [creating, setCreating] = useState(false)
     const [updating, setUpdating] = useState<string | null>(null)
     const [deleting, setDeleting] = useState<string | null>(null)
@@ -43,18 +43,6 @@ export default function AdminUsers() {
     const [passwordUser, setPasswordUser] = useState<UserType | null>(null)
     const [newPassword, setNewPassword] = useState('')
 
-    const loadUsers = async () => {
-        try {
-            setLoading(true)
-            const response = await client.getUsers() as { data: PaginatedUsersResponse }
-            setUsers(response.data.items || [])
-        } catch (error) {
-            console.error('Failed to load users:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
-
     const createUser = async () => {
         try {
             setCreating(true)
@@ -76,7 +64,7 @@ export default function AdminUsers() {
 
             setCreateDialogOpen(false)
             setNewUser({ username: '', displayName: '', password: '', isAdmin: false, isApproved: true })
-            await loadUsers()
+            await loadUsers(false)
         } catch (error) {
             console.error('Failed to create user:', error)
         } finally {
@@ -109,7 +97,7 @@ export default function AdminUsers() {
 
             setEditDialogOpen(false)
             setEditingUser(null)
-            await loadUsers()
+            await loadUsers(false)
         } catch (error) {
             console.error('Failed to update user:', error)
         } finally {
@@ -142,7 +130,7 @@ export default function AdminUsers() {
         try {
             setDeleting(userId)
             await client.deleteUser({ path: { userId } })
-            await loadUsers()
+            await loadUsers(false)
         } catch (error) {
             console.error('Failed to delete user:', error)
         } finally {
@@ -168,7 +156,7 @@ export default function AdminUsers() {
     }
 
     useEffect(() => {
-        loadUsers()
+        loadUsers(false)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
