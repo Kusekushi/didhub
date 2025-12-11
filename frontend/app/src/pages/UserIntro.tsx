@@ -63,7 +63,7 @@ export default function UserIntro() {
         // Profile might not exist or might not be accessible
         console.log('Could not load profile:', error)
       }
-    } catch (error) {
+    } catch {
       showToast({
         title: 'Error',
         description: 'Failed to load user information',

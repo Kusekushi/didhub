@@ -52,7 +52,7 @@ export default function AdminDatabase() {
         body: request
       })
 
-      setQueryResult(response.data as DatabaseQueryResponse)
+      setQueryResult(response.data)
     } catch (error) {
       console.error('Failed to run database query:', error)
       setError(error instanceof Error ? error.message : 'Failed to run query')

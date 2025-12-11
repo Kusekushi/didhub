@@ -31,6 +31,26 @@ function BirthdayCalendar() {
   const apiClient = useApi()
   const { show: showToast } = useToast()
 
+  const calculateDaysUntilBirthday = (birthdayStr: string): number => {
+    const birthday = new Date(birthdayStr)
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    
+    // Create birthday for this year
+    const thisYearBirthday = new Date(currentYear, birthday.getMonth(), birthday.getDate())
+    
+    // If birthday has passed this year, move to next year
+    if (thisYearBirthday < today) {
+      thisYearBirthday.setFullYear(currentYear + 1)
+    }
+    
+    // Calculate difference in days
+    const diffTime = thisYearBirthday.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    return diffDays
+  }
+
   useEffect(() => {
     loadBirthdays()
   }, [])
@@ -78,31 +98,9 @@ function BirthdayCalendar() {
   }
 
   const getUpcomingBirthdays = (): AlterBirthday[] => {
-    const today = new Date()
-    const currentMonth = today.getMonth()
-    const currentDay = today.getDate()
-    
     return birthdays
-      .filter(b => b.birthday)
-      .map(birthday => {
-        const date = new Date(birthday.birthday!)
-        const bMonth = date.getMonth()
-        const bDay = date.getDate()
-        
-        let daysUntil = 0
-        if (bMonth > currentMonth || (bMonth === currentMonth && bDay >= currentDay)) {
-          const nextBirthday = new Date(currentYear, bMonth, bDay)
-          const now = new Date(currentYear, currentMonth, currentDay)
-          daysUntil = Math.floor((nextBirthday.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        } else {
-          const nextBirthday = new Date(currentYear + 1, bMonth, bDay)
-          const now = new Date(currentYear, currentMonth, currentDay)
-          daysUntil = Math.floor((nextBirthday.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        }
-        
-        return { ...birthday, daysUntil }
-      })
-      .sort((a: any, b: any) => a.daysUntil - b.daysUntil)
+      .filter(b => b.birthday !== null)
+      .sort((a, b) => calculateDaysUntilBirthday(a.birthday!) - calculateDaysUntilBirthday(b.birthday!))
       .slice(0, 5)
   }
 
@@ -257,14 +255,15 @@ function BirthdayCalendar() {
                 <p className="text-sm text-muted-foreground">No upcoming birthdays</p>
               ) : (
                 <div className="space-y-3">
-                  {upcomingBirthdays.map((birthday: any) => {
+                  {upcomingBirthdays.map((birthday: AlterBirthday) => {
                     const date = new Date(birthday.birthday!)
                     const dateStr = `${MONTHS[date.getMonth()]} ${date.getDate()}`
-                    const daysText = birthday.daysUntil === 0 
+                    const daysUntil = calculateDaysUntilBirthday(birthday.birthday!)
+                    const daysText = daysUntil === 0 
                       ? 'Today!' 
-                      : birthday.daysUntil === 1 
+                      : daysUntil === 1 
                         ? 'Tomorrow' 
-                        : `In ${birthday.daysUntil} days`
+                        : `In ${daysUntil} days`
                     
                     return (
                       <Link
@@ -278,7 +277,7 @@ function BirthdayCalendar() {
                             <div className="text-sm text-muted-foreground">{dateStr}</div>
                           </div>
                           <div className={`text-xs font-medium px-2 py-1 rounded ${
-                            birthday.daysUntil === 0 
+                            daysUntil === 0 
                               ? 'bg-primary text-primary-foreground' 
                               : 'bg-muted text-muted-foreground'
                           }`}>

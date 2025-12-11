@@ -29,10 +29,9 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
   async function loadAvatarDataUrl(avatarId: string) {
     try {
       const response = await apiClient.serveStoredFile({ path: { fileId: avatarId } })
-      const data = response.data
       // API now returns a metadata object with a `url` pointing to the raw content endpoint.
       // Use that `url` as the image src so the browser can request the bytes directly.
-      setAvatarDataUrl(data.url)
+      setAvatarDataUrl(response.data.url)
     } catch (e) {
       console.warn('Failed to load avatar:', e)
       setAvatarDataUrl(null)

@@ -56,7 +56,7 @@ export default function AppLayout() {
                     // Use the current open state to pick which CSS token represents the
                     // visible rail width. Prefer the sidebar wrapper since the provider
                     // sets the CSS variables there.
-                    const wrapper = document.querySelector('[data-slot="sidebar-wrapper"]') as HTMLElement | null
+                    const wrapper = document.querySelector('[data-slot="sidebar-wrapper"]')
                     const varName = open ? "--sidebar-width" : "--sidebar-width-icon"
                     const computed = wrapper
                         ? getComputedStyle(wrapper).getPropertyValue(varName)
@@ -78,8 +78,8 @@ export default function AppLayout() {
                     // elements (container or gap). Measuring after RAF ensures we see
                     // the post-transition geometry.
                     if (px === null) {
-                        const el = document.querySelector('[data-slot="sidebar-container"]') as HTMLElement | null
-                        const gap = document.querySelector('[data-slot="sidebar-gap"]') as HTMLElement | null
+                        const el = document.querySelector('[data-slot="sidebar-container"]')
+                        const gap = document.querySelector('[data-slot="sidebar-gap"]')
                         let rect: DOMRect | null = null
                         if (el) rect = el.getBoundingClientRect()
                         if ((!rect || rect.width === 0) && gap) rect = gap.getBoundingClientRect()

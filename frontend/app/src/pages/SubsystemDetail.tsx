@@ -185,7 +185,7 @@ export default function SubsystemDetail() {
       if (subsystemData.systemId) {
         try {
           const systemResponse = await api.getUserById({ path: { id: subsystemData.systemId } })
-          setSystem(systemResponse.data as User)
+          setSystem(systemResponse.data)
         } catch {
           // System user not available
         }

@@ -543,6 +543,12 @@ components:
         notes:
           type: string
           description: Long-form notes about the alter
+        images:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of upload IDs for images associated with this alter
         primaryUploadId:
           type: string
           format: uuid
@@ -947,6 +953,91 @@ components:
       required:
         - id
         - username
+    FileMetadata:
+      type: object
+      properties:
+        url:
+          type: string
+        mime_type:
+          type: string
+        size:
+          type: integer
+      required:
+        - url
+    FileMetadataBatch:
+      type: array
+      items:
+        type: object
+        properties:
+          file_id:
+            type: string
+          url:
+            type: string
+          mime_type:
+            type: string
+          size:
+            type: integer
+        required:
+          - file_id
+    DeleteAlterImageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        remainingImages:
+          type: array
+          items:
+            type: string
+    ReorderAlterImagesRequest:
+      type: object
+      properties:
+        imageIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of image IDs in desired order (first becomes primary)
+      required:
+        - imageIds
+    ReorderAlterImagesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        imageIds:
+          type: array
+          items:
+            type: string
+    UploadSigilRequest:
+      type: object
+      properties:
+        filename:
+          type: string
+        content:
+          type: string
+          description: Base64-encoded image content (with optional data URL prefix)
+      required:
+        - filename
+        - content
+    UploadSigilResponse:
+      type: object
+      properties:
+        sigilId:
+          type: string
+          format: uuid
+    SetAvatarRequest:
+      type: object
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+      required:
+        - uploadId
+    RequestSystemRequest:
+      type: object
+      properties:
+        note:
+          type: string
 paths:
   /users:
     get:
@@ -1225,16 +1316,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  url:
-                    type: string
-                  mime_type:
-                    type: string
-                  size:
-                    type: integer
-                required:
-                  - url
+                $ref: '#/components/schemas/FileMetadata'
       security:
         - bearerAuth: []
   /files:
@@ -1272,20 +1354,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    file_id:
-                      type: string
-                    url:
-                      type: string
-                    mime_type:
-                      type: string
-                    size:
-                      type: integer
-                  required:
-                    - file_id
+                $ref: '#/components/schemas/FileMetadataBatch'
       security:
         - bearerAuth: []
   /files/content/{fileId}:
@@ -2017,14 +2086,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  remainingImages:
-                    type: array
-                    items:
-                      type: string
+                $ref: '#/components/schemas/DeleteAlterImageResponse'
       security:
         - bearerAuth: []
   /alters/{alterId}/images/reorder:
@@ -2047,30 +2109,14 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                imageIds:
-                  type: array
-                  items:
-                    type: string
-                    format: uuid
-                  description: Array of image IDs in desired order (first becomes primary)
-              required:
-                - imageIds
+              $ref: '#/components/schemas/ReorderAlterImagesRequest'
       responses:
         '200':
           description: Images reordered
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  imageIds:
-                    type: array
-                    items:
-                      type: string
+                $ref: '#/components/schemas/ReorderAlterImagesResponse'
       security:
         - bearerAuth: []
   /alters/{alterId}/affiliations:
@@ -2483,27 +2529,14 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                filename:
-                  type: string
-                content:
-                  type: string
-                  description: Base64-encoded image content (with optional data URL prefix)
-              required:
-                - filename
-                - content
+              $ref: '#/components/schemas/UploadSigilRequest'
       responses:
         '200':
           description: Sigil uploaded
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  sigilId:
-                    type: string
-                    format: uuid
+                $ref: '#/components/schemas/UploadSigilResponse'
       security:
         - bearerAuth: []
     delete:
@@ -2868,13 +2901,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                uploadId:
-                  type: string
-                  format: uuid
-              required:
-                - uploadId
+              $ref: '#/components/schemas/SetAvatarRequest'
       responses:
         '204':
           description: Avatar updated
@@ -2902,10 +2929,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                note:
-                  type: string
+              $ref: '#/components/schemas/RequestSystemRequest'
       responses:
         '201':
           description: System request created

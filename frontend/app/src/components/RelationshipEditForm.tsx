@@ -43,7 +43,7 @@ interface RelationshipEditFormProps {
   /** Callback when relationship is updated */
   onSave: (data: UpdateRelationshipRequest) => Promise<void>
   /** Callback when user wants to remove a partner (by relationship id) */
-  onRemoveParticipant: (side: "A" | "B") => Promise<void>
+  onRemoveParticipant: () => Promise<void>
   /** Callback when user wants to remove a specific partner from the group (by relationship id) */
   onRemovePartner?: (relationshipId: string) => Promise<void>
   /** Callback when user wants to add more partners to expand to 1-n */
@@ -436,7 +436,7 @@ export function RelationshipEditForm({
                         onClick={async () => {
                           setLoading(true)
                           try {
-                            await onRemoveParticipant('B')
+                            await onRemoveParticipant()
                           } finally {
                             setLoading(false)
                             setRemovingSide(null)

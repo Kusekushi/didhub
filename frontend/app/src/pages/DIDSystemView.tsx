@@ -442,7 +442,7 @@ export default function DIDSystemView() {
     }
   }
 
-  const handleRemoveParticipant = async (relationshipId: string, _side: 'A' | 'B') => {
+  const handleRemoveParticipant = async (relationshipId: string) => {
     // Removing a participant from a relationship means deleting the relationship entry
     // The database stores bidirectional relationships as a single entry, so just delete it
     try {
@@ -613,7 +613,7 @@ export default function DIDSystemView() {
         const keyA = `fwd:${sideAId}:${rel.relationType}`
         const keyB = `fwd:${sideBId}:${rel.relationType}`
         
-        let existingGroup = groups.get(keyA) || groups.get(keyB)
+        const existingGroup = groups.get(keyA) || groups.get(keyB)
         
         if (existingGroup) {
           const anchorId = existingGroup.anchorId || existingGroup.anchorUserId
@@ -665,8 +665,8 @@ export default function DIDSystemView() {
         const keyReverse = `rev:${sideBId}:${rel.relationType}`  // Group by target (side B)
         
         // Check if we already have a group for this relationship
-        let existingForward = groups.get(keyForward)
-        let existingReverse = groups.get(keyReverse)
+        const existingForward = groups.get(keyForward)
+        const existingReverse = groups.get(keyReverse)
         
         if (existingForward) {
           // Add to existing forward group (1-n)
@@ -1227,8 +1227,8 @@ export default function DIDSystemView() {
                         onSave={async (data) => {
                           await handleUpdateRelationship(editingRelationship.id, data)
                         }}
-                        onRemoveParticipant={async (side) => {
-                          await handleRemoveParticipant(editingRelationship.id, side)
+                        onRemoveParticipant={async () => {
+                          await handleRemoveParticipant(editingRelationship.id)
                         }}
                         onRemovePartner={async (relationshipId) => {
                           try {

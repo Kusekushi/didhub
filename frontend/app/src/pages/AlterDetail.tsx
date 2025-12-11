@@ -219,15 +219,12 @@ interface EditableDateProps {
   editingField: EditableField | null
   editValue: string
   saving: boolean
-  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>
   onEditValueChange: (value: string) => void
-  onKeyDown: (e: KeyboardEvent) => void
   onSave: () => void
   onCancel: () => void
   onStartEditing: (field: EditableField) => void
 }
 
-// Editable date field component - defined outside to maintain stable identity
 function EditableDate({
   field,
   label,
@@ -236,9 +233,7 @@ function EditableDate({
   editingField,
   editValue,
   saving,
-  inputRef,
   onEditValueChange,
-  onKeyDown,
   onSave,
   onCancel,
   onStartEditing
@@ -443,14 +438,14 @@ export default function AlterDetail() {
     setLoading(true)
     try {
       const response = await api.getAlter({ path: { alterId } })
-      const alterData = response.data as Alter
+      const alterData = response.data
       setAlter(alterData)
       
       // Load system info
       if (alterData.systemId) {
         try {
           const systemResponse = await api.getUserById({ path: { id: alterData.systemId } })
-          setSystem(systemResponse.data as User)
+          setSystem(systemResponse.data)
         } catch {
           // System user not available
         }
@@ -472,15 +467,11 @@ export default function AlterDetail() {
       }
 
       // Load all images from the images array
-      if ((alterData as any).images) {
+      if (alterData.images) {
         try {
-          const imagesArray = typeof (alterData as any).images === 'string' 
-            ? JSON.parse((alterData as any).images) 
-            : (alterData as any).images
-          
-          if (Array.isArray(imagesArray) && imagesArray.length > 0) {
+          if (Array.isArray(alterData.images) && alterData.images.length > 0) {
             // Convert array to comma-separated string as expected by the API
-            const idsString = imagesArray.join(',')
+            const idsString = alterData.images.join(',')
             const fileResponse = await api.serveStoredFilesBatch({ query: { ids: idsString } })
             const files = fileResponse.data as Array<{ file_id: string; url: string }>
             if (files && files.length > 0) {
@@ -518,10 +509,8 @@ export default function AlterDetail() {
       let relationshipList: Relationship[] = []
       if (Array.isArray(data)) {
         relationshipList = data
-      } else if ((data as any).items) {
-        relationshipList = (data as any).items || []
-      } else if ((data as any).data) {
-        relationshipList = (data as any).data || []
+      } else if (response.data.items.length !== 0) {
+        relationshipList = response.data.items || []
       }
       setRelationships(relationshipList)
 
@@ -542,7 +531,7 @@ export default function AlterDetail() {
         for (const id of alterIds) {
           try {
             const alterResponse = await api.getAlter({ path: { alterId: id } })
-            alterMap[id] = alterResponse.data as Alter
+            alterMap[id] = alterResponse.data
           } catch {
             // Skip if alter not accessible
           }
@@ -556,7 +545,7 @@ export default function AlterDetail() {
         for (const id of userIds) {
           try {
             const userResponse = await api.getUserById({ path: { id } })
-            userMap[id] = userResponse.data as User
+            userMap[id] = userResponse.data
           } catch {
             // Skip if user not accessible
           }
@@ -578,8 +567,7 @@ export default function AlterDetail() {
       const response = await api.getAlterAffiliations({ 
         path: { alterId } 
       })
-      const data = response.data as { data: Affiliation[]; total: number }
-      setAffiliations(data.data || [])
+      setAffiliations(response.data.items || [])
     } catch (err) {
       console.error('Failed to load affiliations:', err)
       // Don't show error toast - affiliations are optional
@@ -595,8 +583,8 @@ export default function AlterDetail() {
       const response = await api.getAlterSubsystem({ 
         path: { alterId } 
       })
-      setSubsystem(response.data as Subsystem)
-    } catch (err) {
+      setSubsystem(response.data)
+    } catch {
       // Not an error if no subsystem - it's optional
       setSubsystem(null)
     } finally {
@@ -713,27 +701,6 @@ export default function AlterDetail() {
     }
   }
 
-  const handleSetAsPrimary = async (imageId: string) => {
-    if (!alter) return
-
-    try {
-      // Move the selected image to the front
-      const currentImages = allImages.map(img => img.id)
-      const newOrder = [imageId, ...currentImages.filter(id => id !== imageId)]
-      
-      await api.reorderAlterImages({
-        path: { alterId: alter.id },
-        body: { imageIds: newOrder }
-      })
-      
-      // Reload to show new order
-      await loadAlter()
-      showToast({ title: 'Success', description: 'Primary image updated' })
-    } catch {
-      showToast({ title: 'Error', description: 'Failed to update primary image', variant: 'error' })
-    }
-  }
-
   const openReorderDialog = () => {
     setReorderImages([...allImages])
     setReorderDialogOpen(true)
@@ -783,7 +750,7 @@ export default function AlterDetail() {
     // Get current value
     let currentValue = ''
     if (field === 'systemRoles' || field === 'soulSongs' || field === 'interests' || field === 'triggers') {
-      const arr = alter[field] as string[] | undefined
+      const arr = alter[field]
       currentValue = arr?.join(', ') || ''
     } else {
       currentValue = (alter[field] as string) || ''

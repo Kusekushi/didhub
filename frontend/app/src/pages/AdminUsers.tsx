@@ -60,11 +60,19 @@ export default function AdminUsers() {
             setCreating(true)
             const payload = await createRegistrationPayload(newUser.username, newUser.password, { displayName: newUser.displayName })
             // add optional backend fields not included by createRegistrationPayload
-            const payloadAny = payload as any
-            payloadAny.is_admin = newUser.isAdmin
-            payloadAny.is_approved = newUser.isApproved
+            const roles: string[] = []
+            if (newUser.isApproved) {
+                roles.push('user')
+            }
+            if (newUser.isAdmin) {
+                roles.push('admin')
+            }
+            const createPayload: CreateUserRequest = {
+                ...payload,
+                roles
+            }
 
-            await client.createUser({ body: payload as CreateUserRequest })
+            await client.createUser({ body: createPayload })
 
             setCreateDialogOpen(false)
             setNewUser({ username: '', displayName: '', password: '', isAdmin: false, isApproved: true })
@@ -81,13 +89,21 @@ export default function AdminUsers() {
 
         try {
             setUpdating(editingUser.id)
+            const roles: string[] = []
+            if (editForm.isApproved) {
+                roles.push('user')
+            }
+            if (editForm.isAdmin) {
+                roles.push('admin')
+            }
+            if (editForm.isSystem) {
+                roles.push('system')
+            }
             await client.updateUser({
                 path: { userId: editingUser.id },
                 body: {
                     display_name: editForm.displayName || undefined,
-                    is_admin: editForm.isAdmin,
-                    is_system: editForm.isSystem,
-                    is_approved: editForm.isApproved
+                    roles
                 } as UpdateUserRequest
             })
 

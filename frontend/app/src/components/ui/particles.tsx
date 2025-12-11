@@ -108,7 +108,7 @@ export const Particles: React.FC<ParticlesProps> = ({
 
     const handleResize = () => {
       if (resizeTimeout.current) {
-        clearTimeout(resizeTimeout.current as ReturnType<typeof setTimeout>)
+        clearTimeout(resizeTimeout.current)
       }
       resizeTimeout.current = setTimeout(() => {
         initCanvas()
@@ -122,7 +122,7 @@ export const Particles: React.FC<ParticlesProps> = ({
         window.cancelAnimationFrame(rafID.current)
       }
       if (resizeTimeout.current) {
-        clearTimeout(resizeTimeout.current as ReturnType<typeof setTimeout>)
+        clearTimeout(resizeTimeout.current)
       }
       window.removeEventListener("resize", handleResize)
     }

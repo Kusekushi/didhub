@@ -75,7 +75,11 @@ type ThemeTokens = {
   'animation-easing': string
 }
 
-export type { ThemeTokens }
+type ImportedThemeData = {
+  theme?: Theme
+  tokens?: Partial<ThemeTokens>
+  presets?: Record<string, Partial<ThemeTokens>>
+}
 
 type ThemeContextType = {
   theme: Theme
@@ -110,7 +114,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [tokens, setTokens] = useState<Partial<ThemeTokens>>(() => {
     try {
       const raw = localStorage.getItem("theme_tokens")
-      return raw ? JSON.parse(raw) : {}
+      return raw ? JSON.parse(raw) as Partial<ThemeTokens> : {}
     } catch {
       return {}
     }
@@ -119,7 +123,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [presets, setPresets] = useState<Record<string, Partial<ThemeTokens>>>(() => {
     try {
       const raw = localStorage.getItem("theme_presets")
-      return raw ? JSON.parse(raw) : {}
+      return raw ? JSON.parse(raw) as Record<string, Partial<ThemeTokens>> : {}
     } catch {
       return {}
     }
@@ -233,14 +237,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   function importTheme(themeData: string): boolean {
     try {
-      const data = JSON.parse(themeData)
+      const data = JSON.parse(themeData) as ImportedThemeData
       if (data.theme && (data.theme === 'light' || data.theme === 'dark')) {
         setTheme(data.theme)
       }
-      if (data.tokens && typeof data.tokens === 'object') {
+      if (data.tokens && typeof data.tokens === 'object' && data.tokens !== null) {
         setTokens(data.tokens)
       }
-      if (data.presets && typeof data.presets === 'object') {
+      if (data.presets && typeof data.presets === 'object' && data.presets !== null) {
         setPresets(data.presets)
       }
       return true

@@ -189,16 +189,16 @@ export default function AffiliationDetail() {
       if (affiliationData.systemId) {
         try {
           const systemResponse = await api.getUserById({ path: { id: affiliationData.systemId } })
-          setSystem(systemResponse.data as User)
+          setSystem(systemResponse.data)
         } catch {
           // System user not available
         }
       }
 
       // Load sigil if available
-      if ((affiliationData as any).sigil) {
+      if (affiliationData.sigil) {
         try {
-          const fileResponse = await api.serveStoredFilesBatch({ query: { ids: [(affiliationData as any).sigil] } })
+          const fileResponse = await api.serveStoredFilesBatch({ query: { ids: [affiliationData.sigil] } })
           const files = fileResponse.data as { id: string; url: string }[]
           if (files && files.length > 0 && files[0].url) {
             setSigilUrl(files[0].url)
@@ -369,7 +369,7 @@ export default function AffiliationDetail() {
     setEditValue('')
   }
 
-  const handleSigilUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSigilUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !affiliation) return
 
@@ -417,7 +417,7 @@ export default function AffiliationDetail() {
   }
 
   const handleDeleteSigil = async () => {
-    if (!affiliation || !(affiliation as any).sigil) return
+    if (!affiliation || !(affiliation.sigil)) return
     if (!confirm('Are you sure you want to remove this sigil?')) return
 
     try {

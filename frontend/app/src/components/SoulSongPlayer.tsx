@@ -1,4 +1,4 @@
-import { Music, ExternalLink, Youtube } from 'lucide-react'
+import { Music, ExternalLink } from 'lucide-react'
 
 interface SoulSongPlayerProps {
   songs: string[] | undefined
@@ -95,11 +95,10 @@ function SongPlayerItem({ song }: SongPlayerItemProps) {
       {song.spotifyId && song.spotifyType && (
         <div className="w-full max-w-sm">
           <iframe
-            className="rounded-lg"
+            className="rounded-lg border-0"
             src={`https://open.spotify.com/embed/${song.spotifyType}/${song.spotifyId}?utm_source=generator&theme=0`}
             width="100%"
             height={song.spotifyType === 'track' ? 152 : 352}
-            frameBorder="0"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
             title={`Spotify: ${song.original}`}
@@ -116,7 +115,9 @@ function SongPlayerItem({ song }: SongPlayerItemProps) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline"
           >
-            <Youtube className="w-3 h-3" />
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
             Search YouTube
             <ExternalLink className="w-3 h-3" />
           </a>

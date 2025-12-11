@@ -1023,7 +1023,7 @@ export default function FamilyTreeView() {
     return () => {
       d3.select(svgElement).selectAll('*').remove()
     }
-  }, [nodes, links, startId])
+  }, [nodes, links, startId, selectedRelationTypes])
 
   return (
     <div className="space-y-4">

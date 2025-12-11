@@ -170,6 +170,45 @@ def infer_return_type(details: dict[str, Any]) -> str:
     return "Result<Json<Value>, ApiError>"
 
 
+def _render_inline_ts_type(schema: dict[str, Any], schemas: dict[str, Any]) -> str:
+    """Render an inline TypeScript type from an OpenAPI schema."""
+    schema_type = schema.get("type")
+    if schema_type == "string":
+        return "string"
+    elif schema_type in ("integer", "number"):
+        return "number"
+    elif schema_type == "boolean":
+        return "boolean"
+    elif schema_type == "array":
+        items = schema.get("items", {})
+        if isinstance(items, dict):
+            item_ref = items.get("$ref")
+            if item_ref:
+                resolved = _resolve_local_ref(item_ref, schemas)
+                if resolved:
+                    item_name = item_ref.split("/")[-1]
+                    return f"Types.{item_name}[]"
+            item_type = _render_inline_ts_type(items, schemas)
+            return f"{item_type}[]"
+        return "any[]"
+    elif schema_type == "object":
+        properties = schema.get("properties", {})
+        required = set(schema.get("required", []))
+        if not properties:
+            return "{}"
+        
+        prop_parts = []
+        for prop_name, prop_schema in properties.items():
+            if isinstance(prop_schema, dict):
+                prop_type = _render_inline_ts_type(prop_schema, schemas)
+                optional = "?" if prop_name not in required else ""
+                prop_parts.append(f"{prop_name}{optional}: {prop_type}")
+        
+        return f"{{ {', '.join(prop_parts)} }}"
+    else:
+        return "any"
+
+
 def infer_ts_return_type(details: dict[str, Any], schemas: dict[str, Any]) -> str:
     """Infer the TypeScript return type from OpenAPI response definitions."""
     responses = details.get("responses", {})
@@ -214,16 +253,13 @@ def infer_ts_return_type(details: dict[str, Any], schemas: dict[str, Any]) -> st
                             if resolved:
                                 item_name = item_ref.split("/")[-1]
                                 return f"Types.{item_name}[]"
-                        item_type = items.get("type")
-                        if item_type == "string":
-                            return "string[]"
-                        elif item_type in ("integer", "number"):
-                            return "number[]"
-                        elif item_type == "boolean":
-                            return "boolean[]"
+                        # Use _render_inline_ts_type for inline item schemas
+                        item_type = _render_inline_ts_type(items, schemas)
+                        return f"{item_type}[]"
                     return "any[]"
                 elif schema_type == "object":
-                    return "any"
+                    # Generate inline interface for object schemas
+                    return _render_inline_ts_type(schema, schemas)
 
     return "unknown"
 

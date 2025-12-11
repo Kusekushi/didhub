@@ -19,7 +19,7 @@ export default function LoginPage() {
     const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
     const next = searchParams.get('next') || '/'
     // prefer a location.state.from (set by ProtectedRoute) over ?next
-    const from = (location.state as { from?: { pathname: string } })?.from?.pathname as string | undefined
+    const from = (location.state as { from?: { pathname: string } })?.from?.pathname
     const target = from || next || '/'
 
     function validate() {
