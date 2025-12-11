@@ -8,7 +8,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Select, SelectItem } from './ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Separator } from './ui/separator'
 import { Badge } from './ui/badge'
 import {
@@ -429,12 +429,16 @@ export default function ThemeEditor() {
                   <div key={key} className="space-y-2">
                     <Label className="text-xs">{label}</Label>
                     <Select value={readToken(key)} onValueChange={(e) => setToken(key, e)}>
-                      <SelectItem value="">Select font family</SelectItem>
-                      {fontFamilies.map((font) => (
-                        <SelectItem key={font} value={font}>
-                          {font.split(',')[0]}
-                        </SelectItem>
-                      ))}
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select font family" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fontFamilies.map((font) => (
+                          <SelectItem key={font} value={font}>
+                            {font.split(',')[0]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </div>
                 ))}
