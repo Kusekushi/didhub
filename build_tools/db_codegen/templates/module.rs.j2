@@ -97,3 +97,79 @@ where
     Ok(result.rows_affected())
 }
 {% endif %}
+{% for method in finder_methods %}
+{% if method.column %}
+pub async fn {{ method.name }}<'e, E>(
+    executor: E,
+    value: &{{ method.column.resolved_base_type }},
+) -> Result<Vec<{{ struct_name }}>, sqlx::Error>
+where
+    E: Executor<'e, Database = DbBackend>,
+{
+    sqlx::query_as::<_, {{ struct_name }}>({{ method.select_sql }})
+        .bind(value)
+        .fetch_all(executor)
+        .await
+}
+
+pub async fn {{ method.name|replace("find_by_", "find_first_by_") }}<'e, E>(
+    executor: E,
+    value: &{{ method.column.resolved_base_type }},
+) -> Result<Option<{{ struct_name }}>, sqlx::Error>
+where
+    E: Executor<'e, Database = DbBackend>,
+{
+    sqlx::query_as::<_, {{ struct_name }}>({{ method.select_sql }})
+        .bind(value)
+        .fetch_optional(executor)
+        .await
+}
+{% else %}
+pub async fn {{ method.name }}<'e, E>(executor: E) -> Result<Vec<{{ struct_name }}>, sqlx::Error>
+where
+    E: Executor<'e, Database = DbBackend>,
+{
+    sqlx::query_as::<_, {{ struct_name }}>({{ method.select_sql }})
+        .fetch_all(executor)
+        .await
+}
+{% endif %}
+{% endfor %}
+{% if finder_methods %}
+// Repository methods for common query patterns
+{% if has_created_at_index %}
+pub async fn list_ordered_by_created_at_desc<'e, E>(executor: E) -> Result<Vec<{{ struct_name }}>, sqlx::Error>
+where
+    E: Executor<'e, Database = DbBackend>,
+{
+    sqlx::query_as::<_, {{ struct_name }}>({{ select_ordered_by_created_at_desc }})
+        .fetch_all(executor)
+        .await
+}
+
+pub async fn list_paginated_ordered_by_created_at_desc<'e, E>(
+    executor: E,
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<{{ struct_name }}>, sqlx::Error>
+where
+    E: Executor<'e, Database = DbBackend>,
+{
+    sqlx::query_as::<_, {{ struct_name }}>({{ select_paginated_ordered_by_created_at_desc }})
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(executor)
+        .await
+}
+{% endif %}
+{% if has_name_index %}
+pub async fn list_ordered_by_name<'e, E>(executor: E) -> Result<Vec<{{ struct_name }}>, sqlx::Error>
+where
+    E: Executor<'e, Database = DbBackend>,
+{
+    sqlx::query_as::<_, {{ struct_name }}>({{ select_ordered_by_name }})
+        .fetch_all(executor)
+        .await
+}
+{% endif %}
+{% endif %}

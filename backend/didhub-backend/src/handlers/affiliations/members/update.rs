@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use didhub_db::generated::affiliations as db_affiliations;
+use didhub_db::custom::affiliation_members as db_affiliation_members_custom;
 
 use crate::{error::ApiError, state::AppState};
 
@@ -77,20 +78,15 @@ pub async fn update(
     }
 
     // Fetch and return the updated member
-    let member: Option<(Uuid, i64, String)> = sqlx::query_as(
-        "SELECT alter_id, is_leader, added_at FROM affiliation_members WHERE affiliation_id = ? AND alter_id = ?"
-    )
-        .bind(affiliation_id)
-        .bind(member_id)
-        .fetch_optional(&mut *conn)
+    let member = db_affiliation_members_custom::find_by_affiliation_id_and_alter_id(&mut *conn, &affiliation_id, &member_id)
         .await
         .map_err(ApiError::from)?;
 
     match member {
-        Some((alter_id, is_leader, added_at)) => Ok(Json(json!({
-            "alterId": alter_id,
-            "isLeader": is_leader != 0,
-            "addedAt": added_at
+        Some(member_row) => Ok(Json(json!({
+            "alterId": member_row.alter_id,
+            "isLeader": member_row.is_leader != 0,
+            "addedAt": member_row.added_at
         }))),
         None => Err(ApiError::not_found("member not found")),
     }

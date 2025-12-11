@@ -64,14 +64,9 @@ pub async fn list(
         .map_err(ApiError::from)?;
 
     // Get paginated results
-    let data_query = "SELECT id, user_id, note, created_at FROM pending_system_requests ORDER BY created_at DESC LIMIT ? OFFSET ?";
-    let rows: Vec<db_requests::PendingSystemRequestsRow> =
-        sqlx::query_as::<_, db_requests::PendingSystemRequestsRow>(data_query)
-            .bind(per_page as i32)
-            .bind(offset as i32)
-            .fetch_all(&mut *conn)
-            .await
-            .map_err(ApiError::from)?;
+    let rows = db_requests::list_paginated_ordered_by_created_at_desc(&mut *conn, per_page as i64, offset as i64)
+        .await
+        .map_err(ApiError::from)?;
 
     // Transform to API format - all pending requests have status "pending"
     let items: Vec<Value> = rows

@@ -8,6 +8,7 @@ use sqlx::Acquire;
 use uuid::Uuid;
 
 use didhub_db::generated::alters as db_alters;
+use didhub_db::custom::affiliation_members::{self as db_affiliation_members_custom};
 
 use crate::{error::ApiError, state::AppState};
 
@@ -44,30 +45,20 @@ pub async fn get(
         .ok_or_else(|| ApiError::not_found("alter not found"))?;
 
     // Query the affiliation_members table to get all affiliations for this alter
-    let rows: Vec<(Uuid, String, Option<String>, Option<String>, i64, String)> = sqlx::query_as(
-        r#"
-        SELECT a.id, a.name, a.description, a.sigil, am.is_leader, am.added_at
-        FROM affiliations a
-        INNER JOIN affiliation_members am ON a.id = am.affiliation_id
-        WHERE am.alter_id = ?
-        ORDER BY a.name
-        "#,
-    )
-    .bind(alter_id)
-    .fetch_all(&mut *conn)
-    .await
-    .map_err(ApiError::from)?;
+    let affiliations = db_affiliation_members_custom::find_affiliations_for_alter(&mut *conn, &alter_id)
+        .await
+        .map_err(ApiError::from)?;
 
-    let affiliations: Vec<Value> = rows
+    let affiliations: Vec<Value> = affiliations
         .into_iter()
-        .map(|(id, name, description, sigil, is_leader, added_at)| {
+        .map(|affiliation| {
             json!({
-                "id": id.to_string(),
-                "name": name,
-                "description": description,
-                "sigil": sigil,
-                "isLeader": is_leader != 0,
-                "addedAt": added_at
+                "id": affiliation.id.to_string(),
+                "name": affiliation.name,
+                "description": affiliation.description,
+                "sigil": affiliation.sigil,
+                "isLeader": affiliation.is_leader != 0,
+                "addedAt": affiliation.added_at
             })
         })
         .collect();

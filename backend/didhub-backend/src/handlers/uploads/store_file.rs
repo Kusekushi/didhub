@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use sqlx::types::Uuid as SqlxUuid;
 
 use crate::error::ApiError;
-use didhub_db::generated::stored_files as db_stored_files;
+use didhub_db::generated::stored_files::{self as db_stored_files, find_first_by_file_hash};
 
 /// Result of storing a file, indicating whether it was newly stored or deduplicated
 pub struct StoredFileResult {
@@ -44,13 +44,9 @@ pub async fn store_file_with_deduplication(
     let hash_hex = hex::encode(digest);
 
     // Check if file with same hash already exists
-    let existing_file: Option<db_stored_files::StoredFilesRow> = sqlx::query_as(
-        "SELECT id, file_hash, mime_type, size, created_at FROM stored_files WHERE file_hash = ?",
-    )
-    .bind(&hash_hex)
-    .fetch_optional(&mut **conn)
-    .await
-    .map_err(ApiError::from)?;
+    let existing_file = find_first_by_file_hash(&mut **conn, &hash_hex)
+        .await
+        .map_err(ApiError::from)?;
 
     if let Some(existing) = existing_file {
         // File with same hash exists, reuse it (deduplication)

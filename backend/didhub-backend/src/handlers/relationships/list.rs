@@ -25,7 +25,7 @@ pub async fn list(
         )
         .await?;
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    let rows = db_rels::list_all(&mut *conn)
+    let rows = db_rels::list_ordered_by_created_at_desc(&mut *conn)
         .await
         .map_err(ApiError::from)?;
     let responses: Vec<RelationshipResponse> = rows.into_iter().map(Into::into).collect();

@@ -36,9 +36,7 @@ pub async fn login(
 
     // Lookup user by username
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    let maybe = sqlx::query_as::<_, db_users::UsersRow>(r#"SELECT id, username, about_me, password_hash, avatar, must_change_password, last_login_at, display_name, created_at, updated_at, roles, settings FROM users WHERE username = ?"#)
-        .bind(&dto.username)
-        .fetch_optional(&mut *conn)
+    let maybe = db_users::find_first_by_username(&mut *conn, &dto.username)
         .await
         .map_err(ApiError::from)?;
     let user = maybe

@@ -48,6 +48,9 @@ tables:
         type: json_text
         nullable: false
         default: json_empty_object
+    indexes:
+      - name: idx_users_created_at
+        columns: [created_at]
 
   - name: alters
     columns:
@@ -135,6 +138,8 @@ tables:
         columns: [user_id]
       - name: idx_alters_name
         columns: [name]
+      - name: idx_alters_birthday
+        columns: [birthday]
 
   - name: affiliations
     columns:
@@ -188,6 +193,8 @@ tables:
     indexes:
       - name: idx_affiliation_members_alter
         columns: [alter_id]
+      - name: idx_affiliation_members_affiliation
+        columns: [affiliation_id]
 
   - name: subsystems
     columns:
@@ -210,6 +217,8 @@ tables:
     indexes:
       - name: idx_subsystem_owner
         columns: [owner_user_id]
+      - name: idx_subsystems_created_at
+        columns: [created_at]
 
   - name: subsystem_members
     primary_key: [subsystem_id, alter_id]
@@ -236,6 +245,8 @@ tables:
     indexes:
       - name: idx_subsystem_members_alter
         columns: [alter_id]
+      - name: idx_subsystem_members_subsystem
+        columns: [subsystem_id]
 
   - name: pending_system_requests
     columns:
@@ -255,6 +266,9 @@ tables:
         type: timestamp
         nullable: false
         default: now
+    indexes:
+      - name: idx_pending_system_requests_created_at
+        columns: [created_at]
 
   - name: relationships
     columns:
@@ -306,6 +320,18 @@ tables:
       - name: uq_relationships_unique_sides
         unique: true
         expression: "relationships((CASE WHEN COALESCE(side_a_user_id, side_a_alter_id) <= COALESCE(side_b_user_id, side_b_alter_id) THEN COALESCE(side_a_user_id, side_a_alter_id) ELSE COALESCE(side_b_user_id, side_b_alter_id) END), (CASE WHEN COALESCE(side_a_user_id, side_a_alter_id) <= COALESCE(side_b_user_id, side_b_alter_id) THEN COALESCE(side_b_user_id, side_b_alter_id) ELSE COALESCE(side_a_user_id, side_a_alter_id) END), type)"
+      - name: idx_relationships_side_a_user
+        columns: [side_a_user_id]
+      - name: idx_relationships_side_a_alter
+        columns: [side_a_alter_id]
+      - name: idx_relationships_side_b_user
+        columns: [side_b_user_id]
+      - name: idx_relationships_side_b_alter
+        columns: [side_b_alter_id]
+      - name: idx_relationships_created_by
+        columns: [created_by]
+      - name: idx_relationships_created_at
+        columns: [created_at]
     constraints:
       - "CHECK (NOT (side_a_user_id IS NOT NULL AND side_b_user_id IS NOT NULL AND side_a_user_id = side_b_user_id))"
       - "CHECK (NOT (side_a_alter_id IS NOT NULL AND side_b_alter_id IS NOT NULL AND side_a_alter_id = side_b_alter_id))"

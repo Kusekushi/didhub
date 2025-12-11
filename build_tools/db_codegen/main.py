@@ -247,6 +247,44 @@ def _determine_primary_keys(
     return [k for k in keys if not (k in seen or seen.add(k))]  # type: ignore[func-returns-value]
 
 
+def _extract_indexes(table: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract index definitions and unique constraints from table."""
+    indexes = table.get("indexes", [])
+    if not isinstance(indexes, list):
+        indexes = []
+    
+    # Also generate finders for unique columns
+    raw_columns = table.get("columns", [])
+    for col in raw_columns:
+        if col.get("unique", False):
+            col_name = col["name"]
+            # Check if we already have an index for this column
+            has_index = any(
+                idx.get("columns") == [col_name] or 
+                (isinstance(idx.get("columns"), list) and idx.get("columns") == [col_name])
+                for idx in indexes
+            )
+            if not has_index:
+                indexes.append({
+                    "name": f"unique_{col_name}",
+                    "columns": [col_name],
+                    "unique": True
+                })
+    
+    return indexes
+
+
+def _extract_foreign_keys(columns: Sequence[Column]) -> list[dict[str, Any]]:
+    """Extract foreign key relationships from columns."""
+    fks = []
+    for col in columns:
+        # We need to look at the original column definition to get references
+        # This is a bit hacky since we don't have access to the raw column here
+        # For now, we'll skip this and focus on indexes
+        pass
+    return fks
+
+
 def _render_table_module(
     table: dict[str, Any],
     output_dir: Path,
@@ -263,6 +301,7 @@ def _render_table_module(
     
     columns, aliases = _build_columns(table, struct_name, schema_path)
     primary_keys = _determine_primary_keys(table, columns)
+    indexes = _extract_indexes(table)
     
     needs_uuid = bool(aliases)
     
@@ -307,6 +346,75 @@ def _render_table_module(
     insert_function_name = f"insert_{singular_module}" if singular_module else "insert_row"
     insert_alias_distinct = insert_function_name != "insert_row"
     
+    # Process indexes for finder methods
+    finder_methods = []
+    for index in indexes:
+        index_columns = index.get("columns", [])
+        if len(index_columns) == 1:  # Only handle single-column indexes for now
+            col_name = index_columns[0]
+            column = next((col for col in columns if col.name == col_name), None)
+            if column:
+                finder_name = f"find_by_{column.field_name}"
+                select_sql = f"SELECT {column_list} FROM {table_name} WHERE {col_name} = ?"
+                finder_methods.append({
+                    "name": finder_name,
+                    "column": column,
+                    "select_sql": _quote(select_sql),
+                })
+    
+    # Generate additional repository SQL literals
+    has_created_at_index = any(
+        index.get("columns") == ["created_at"] 
+        for index in indexes 
+        if isinstance(index.get("columns"), list)
+    )
+    has_name_index = any(
+        index.get("columns") == ["name"] 
+        for index in indexes 
+        if isinstance(index.get("columns"), list)
+    )
+    
+    # Generate combined filter+order methods
+    combined_methods = []
+    
+    # Check for user_id + name combination (for alters table)
+    has_user_id_index = any(
+        index.get("columns") == ["user_id"] 
+        for index in indexes 
+        if isinstance(index.get("columns"), list)
+    )
+    if has_user_id_index and has_name_index:
+        user_id_column = next((col for col in columns if col.name == "user_id"), None)
+        if user_id_column:
+            select_sql = f"SELECT {column_list} FROM {table_name} WHERE user_id = ? ORDER BY name"
+            combined_methods.append({
+                "name": "find_by_user_id_ordered_by_name",
+                "column": user_id_column,
+                "select_sql": _quote(select_sql),
+            })
+    
+    # Check for birthday + name combination (for alters table)
+    has_birthday_index = any(
+        index.get("columns") == ["birthday"] 
+        for index in indexes 
+        if isinstance(index.get("columns"), list)
+    )
+    if has_birthday_index and has_name_index:
+        # For birthday filtering, we want WHERE birthday IS NOT NULL
+        select_sql = f"SELECT {column_list} FROM {table_name} WHERE birthday IS NOT NULL ORDER BY name"
+        combined_methods.append({
+            "name": "find_with_birthdays_ordered_by_name",
+            "column": None,  # No parameter for this method
+            "select_sql": _quote(select_sql),
+        })
+    
+    # Add combined methods to finder_methods
+    finder_methods.extend(combined_methods)
+    
+    select_ordered_by_created_at_desc = _quote(f"SELECT {column_list} FROM {table_name} ORDER BY created_at DESC") if has_created_at_index else None
+    select_paginated_ordered_by_created_at_desc = _quote(f"SELECT {column_list} FROM {table_name} ORDER BY created_at DESC LIMIT ? OFFSET ?") if has_created_at_index else None
+    select_ordered_by_name = _quote(f"SELECT {column_list} FROM {table_name} ORDER BY name") if has_name_index else None
+    
     rendered = ctx.module_template.render(
         struct_name=struct_name,
         columns=columns,
@@ -326,6 +434,12 @@ def _render_table_module(
         updatable_columns=updatable_columns,
         has_update_by_pk=update_by_pk_literal is not None,
         update_by_pk_literal=update_by_pk_literal,
+        finder_methods=finder_methods,
+        has_created_at_index=has_created_at_index,
+        has_name_index=has_name_index,
+        select_ordered_by_created_at_desc=select_ordered_by_created_at_desc,
+        select_paginated_ordered_by_created_at_desc=select_paginated_ordered_by_created_at_desc,
+        select_ordered_by_name=select_ordered_by_name,
     )
     
     output_path = output_dir / f"{module_name}.rs"

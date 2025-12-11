@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::subsystems as db_subsystems;
+use didhub_db::custom::subsystem_members as db_subsystem_members_custom;
 
 pub async fn update(
     Extension(state): Extension<Arc<AppState>>,
@@ -78,20 +79,15 @@ pub async fn update(
         .map_err(ApiError::from)?;
     }
 
-    let member: Option<(Uuid, i64, String)> = sqlx::query_as(
-        "SELECT alter_id, is_host, added_at FROM subsystem_members WHERE subsystem_id = ? AND alter_id = ?"
-    )
-        .bind(subsystem_id)
-        .bind(member_id)
-        .fetch_optional(&mut *conn)
+    let member = db_subsystem_members_custom::find_by_subsystem_id_and_alter_id(&mut *conn, &subsystem_id, &member_id)
         .await
         .map_err(ApiError::from)?;
 
     match member {
-        Some((alter_id, is_host, added_at)) => Ok(Json(json!({
-            "alterId": alter_id,
-            "isHost": is_host != 0,
-            "addedAt": added_at
+        Some(member_row) => Ok(Json(json!({
+            "alterId": member_row.alter_id,
+            "isHost": member_row.is_host != 0,
+            "addedAt": member_row.added_at
         }))),
         None => Err(ApiError::not_found("member not found")),
     }

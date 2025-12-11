@@ -37,12 +37,9 @@ pub async fn list_birthdays(
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
 
     // Get all alters with birthdays
-    let rows: Vec<db_alters::AltersRow> = sqlx::query_as::<_, db_alters::AltersRow>(
-        "SELECT id, user_id, name, description, age, gender, pronouns, birthday, sexuality, species, alter_type, job, weapon, triggers, metadata, soul_songs, interests, notes, images, system_roles, is_system_host, is_dormant, is_merged, owner_user_id, created_at FROM alters WHERE birthday IS NOT NULL ORDER BY name"
-    )
-    .fetch_all(&mut *conn)
-    .await
-    .map_err(ApiError::from)?;
+    let rows: Vec<db_alters::AltersRow> = db_alters::find_with_birthdays_ordered_by_name(&mut *conn)
+        .await
+        .map_err(ApiError::from)?;
 
     // Convert rows to simplified birthday objects
     let birthdays: Vec<AlterBirthday> = rows

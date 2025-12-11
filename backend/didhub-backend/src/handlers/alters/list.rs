@@ -34,13 +34,9 @@ pub async fn list(
     let rows: Vec<db_alters::AltersRow> = if let Some(system_id_str) = system_id_filter {
         let system_id = SqlxUuid::parse_str(system_id_str)
             .map_err(|_| ApiError::bad_request("invalid systemId"))?;
-        sqlx::query_as::<_, db_alters::AltersRow>(
-            "SELECT id, user_id, name, description, age, gender, pronouns, birthday, sexuality, species, alter_type, job, weapon, triggers, metadata, soul_songs, interests, notes, images, system_roles, is_system_host, is_dormant, is_merged, owner_user_id, created_at FROM alters WHERE user_id = ? ORDER BY name"
-        )
-        .bind(system_id)
-        .fetch_all(&mut *conn)
-        .await
-        .map_err(ApiError::from)?
+        db_alters::find_by_user_id_ordered_by_name(&mut *conn, &system_id)
+            .await
+            .map_err(ApiError::from)?
     } else {
         db_alters::list_all(&mut *conn)
             .await

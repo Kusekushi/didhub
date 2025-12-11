@@ -37,13 +37,9 @@ pub async fn me_request_system(
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
 
-    let existing_request: Option<db_requests::PendingSystemRequestsRow> = sqlx::query_as(
-        "SELECT id, user_id, note, created_at FROM pending_system_requests WHERE user_id = ?",
-    )
-    .bind(user_id)
-    .fetch_optional(&mut *conn)
-    .await
-    .map_err(ApiError::from)?;
+    let existing_request = db_requests::find_first_by_user_id(&mut *conn, &user_id)
+        .await
+        .map_err(ApiError::from)?;
 
     if existing_request.is_some() {
         return Err(ApiError::bad_request(

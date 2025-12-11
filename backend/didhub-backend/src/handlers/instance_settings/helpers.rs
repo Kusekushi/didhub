@@ -1,5 +1,5 @@
 use chrono::Utc;
-use didhub_db::generated::instance_settings::InstanceSettingsRow;
+use didhub_db::generated::instance_settings::{InstanceSettingsRow, find_first_by_key};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::pool::PoolConnection;
@@ -96,13 +96,9 @@ pub async fn upsert_instance_setting(
     let parsed = parse_value(raw_value);
     let now = Utc::now().to_rfc3339();
 
-    let existing = sqlx::query_as::<_, InstanceSettingsRow>(
-        "SELECT key, value_type, value_bool, value_number, value_string, created_at, updated_at FROM instance_settings WHERE key = ?",
-    )
-    .bind(key)
-    .fetch_optional(conn.as_mut())
-    .await
-    .map_err(ApiError::from)?;
+    let existing = find_first_by_key(conn.as_mut(), &key.to_string())
+        .await
+        .map_err(ApiError::from)?;
 
     if let Some(mut row) = existing {
         sqlx::query(
@@ -157,13 +153,9 @@ pub async fn fetch_instance_setting(
     conn: &mut PoolConnection<didhub_db::DbBackend>,
     key: &str,
 ) -> Result<Option<InstanceSettingsRow>, ApiError> {
-    let row = sqlx::query_as::<_, InstanceSettingsRow>(
-        "SELECT key, value_type, value_bool, value_number, value_string, created_at, updated_at FROM instance_settings WHERE key = ?",
-    )
-    .bind(key)
-    .fetch_optional(conn.as_mut())
-    .await
-    .map_err(ApiError::from)?;
+    let row = find_first_by_key(conn.as_mut(), &key.to_string())
+        .await
+        .map_err(ApiError::from)?;
 
     Ok(row)
 }

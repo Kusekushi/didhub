@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use didhub_db::generated::affiliations as db_affiliations;
+use didhub_db::generated::affiliation_members::find_by_affiliation_id;
 
 use crate::{error::ApiError, state::AppState};
 
@@ -45,21 +46,17 @@ pub async fn list(
     let _ = &affiliation;
 
     // Query the affiliation_members table
-    let members: Vec<(Uuid, i64, String)> = sqlx::query_as(
-        "SELECT alter_id, is_leader, added_at FROM affiliation_members WHERE affiliation_id = ?",
-    )
-    .bind(affiliation_id)
-    .fetch_all(&mut *conn)
-    .await
-    .map_err(ApiError::from)?;
+    let members = find_by_affiliation_id(&mut *conn, &affiliation_id)
+        .await
+        .map_err(ApiError::from)?;
 
     let result: Vec<Value> = members
         .into_iter()
-        .map(|(alter_id, is_leader, added_at)| {
+        .map(|member| {
             json!({
-                "alterId": alter_id,
-                "isLeader": is_leader != 0,
-                "addedAt": added_at
+                "alterId": member.alter_id,
+                "isLeader": member.is_leader != 0,
+                "addedAt": member.added_at
             })
         })
         .collect();

@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::subsystems as db_subsystems;
+use didhub_db::generated::subsystem_members as db_subsystem_members;
 
 pub async fn list(
     Extension(state): Extension<Arc<AppState>>,
@@ -42,21 +43,17 @@ pub async fn list(
 
     let _ = &subsystem;
 
-    let members: Vec<(Uuid, i64, String)> = sqlx::query_as(
-        "SELECT alter_id, is_host, added_at FROM subsystem_members WHERE subsystem_id = ?",
-    )
-    .bind(subsystem_id)
-    .fetch_all(&mut *conn)
-    .await
-    .map_err(ApiError::from)?;
+    let members = db_subsystem_members::find_by_subsystem_id(&mut *conn, &subsystem_id)
+        .await
+        .map_err(ApiError::from)?;
 
     let result: Vec<Value> = members
         .into_iter()
-        .map(|(alter_id, is_host, added_at)| {
+        .map(|member| {
             json!({
-                "alterId": alter_id,
-                "isHost": is_host != 0,
-                "addedAt": added_at
+                "alterId": member.alter_id,
+                "isHost": member.is_host != 0,
+                "addedAt": member.added_at
             })
         })
         .collect();

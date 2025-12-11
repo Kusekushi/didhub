@@ -22,5 +22,6 @@ pub type DbBackend = sqlx::MySql;
 pub type DbBackend = sqlx::Sqlite;
 
 pub mod generated;
+pub mod custom;
 
 pub use didhub_db_connection::{create_pool, DbConnectionConfig, DbConnectionError, DbPool};

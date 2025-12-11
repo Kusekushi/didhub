@@ -8,6 +8,7 @@ use sqlx::Acquire;
 use uuid::Uuid;
 
 use didhub_db::generated::alters as db_alters;
+use didhub_db::custom::subsystem_members;
 
 use crate::{error::ApiError, state::AppState};
 
@@ -44,25 +45,16 @@ pub async fn get(
         .ok_or_else(|| ApiError::not_found("alter not found"))?;
 
     // Query the subsystem_members table to get the subsystem for this alter
-    let result: Option<(Uuid, String, i64, String)> = sqlx::query_as(
-        r#"
-        SELECT s.id, s.name, sm.is_host, sm.added_at
-        FROM subsystems s
-        INNER JOIN subsystem_members sm ON s.id = sm.subsystem_id
-        WHERE sm.alter_id = ?
-        "#,
-    )
-    .bind(alter_id)
-    .fetch_optional(&mut *conn)
-    .await
-    .map_err(ApiError::from)?;
+    let result = subsystem_members::find_subsystem_for_alter(&mut *conn, &alter_id)
+        .await
+        .map_err(ApiError::from)?;
 
-    if let Some((id, name, is_host, added_at)) = result {
+    if let Some(subsystem_info) = result {
         Ok(Json(json!({
-            "id": id.to_string(),
-            "name": name,
-            "isHost": is_host != 0,
-            "addedAt": added_at
+            "id": subsystem_info.id.to_string(),
+            "name": subsystem_info.name,
+            "isHost": subsystem_info.is_host != 0,
+            "addedAt": subsystem_info.added_at
         })))
     } else {
         // No subsystem found for this alter - return null or empty object

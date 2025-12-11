@@ -6,6 +6,7 @@ use axum::response::Json;
 use serde_json::json;
 
 use crate::{error::ApiError, handlers::auth::utils::extract_auth_token, state::AppState};
+use didhub_db::custom::users as db_users_custom;
 
 /// GET /auth/me
 /// Inspect the didhub_session cookie and return basic user info if valid.
@@ -34,12 +35,10 @@ pub async fn me(
         .user_id
         .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    let row: (String, Option<String>, String) =
-        sqlx::query_as("SELECT username, avatar, roles FROM users WHERE id = ?")
-            .bind(user_id)
-            .fetch_one(&mut *conn)
-            .await
-            .map_err(ApiError::from)?;
+    let row = db_users_custom::find_by_id_partial(&mut *conn, &user_id)
+        .await
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
 
     // Parse roles to check if user has 'system' role
     let roles: Vec<String> = serde_json::from_str(&row.2).unwrap_or_default();
