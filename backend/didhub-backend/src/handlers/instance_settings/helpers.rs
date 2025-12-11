@@ -1,5 +1,5 @@
 use chrono::Utc;
-use didhub_db::generated::instance_settings::{InstanceSettingsRow, find_first_by_key};
+use didhub_db::generated::instance_settings::{find_first_by_key, InstanceSettingsRow};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::pool::PoolConnection;

@@ -66,7 +66,7 @@ pub mod affiliation_members {
             INNER JOIN affiliation_members am ON a.id = am.affiliation_id
             WHERE am.alter_id = ?
             ORDER BY a.name
-            "#
+            "#,
         )
         .bind(alter_id)
         .fetch_all(executor)
@@ -116,7 +116,7 @@ pub mod subsystem_members {
             FROM subsystems s
             INNER JOIN subsystem_members sm ON s.id = sm.subsystem_id
             WHERE sm.alter_id = ?
-            "#
+            "#,
         )
         .bind(alter_id)
         .fetch_optional(executor)

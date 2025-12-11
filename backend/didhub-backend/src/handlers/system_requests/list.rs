@@ -64,9 +64,13 @@ pub async fn list(
         .map_err(ApiError::from)?;
 
     // Get paginated results
-    let rows = db_requests::list_paginated_ordered_by_created_at_desc(&mut *conn, per_page as i64, offset as i64)
-        .await
-        .map_err(ApiError::from)?;
+    let rows = db_requests::list_paginated_ordered_by_created_at_desc(
+        &mut *conn,
+        per_page as i64,
+        offset as i64,
+    )
+    .await
+    .map_err(ApiError::from)?;
 
     // Transform to API format - all pending requests have status "pending"
     let items: Vec<Value> = rows

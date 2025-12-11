@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Calendar as CalendarIcon, Cake, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useApi } from '@/context/ApiContext'
 import { useToast } from '@/context/ToastContext'
@@ -51,11 +51,7 @@ function BirthdayCalendar() {
     return diffDays
   }
 
-  useEffect(() => {
-    loadBirthdays()
-  }, [])
-
-  const loadBirthdays = async () => {
+  const loadBirthdays = useCallback(async () => {
     try {
       setLoading(true)
       const response = await apiClient.listAlterBirthdays()
@@ -66,7 +62,11 @@ function BirthdayCalendar() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [apiClient, showToast])
+
+  useEffect(() => {
+    loadBirthdays()
+  }, [loadBirthdays])
 
   const organizeBirthdaysByDate = (): BirthdayByDate => {
     const organized: BirthdayByDate = {}

@@ -61,9 +61,9 @@ pub async fn create(
         .and_then(|v| v.as_str())
         .and_then(|s| SqlxUuid::parse_str(s).ok());
 
-    let owner_user_id: SqlxUuid = if is_admin && payload_user_id.is_some() {
+    let owner_user_id: SqlxUuid = if let Some(target_user_id) = payload_user_id.filter(|_| is_admin)
+    {
         // Admin is specifying a target system - use that
-        let target_user_id = payload_user_id.unwrap();
         // Validate the target user is a system user
         let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
         match didhub_db::generated::users::find_by_primary_key(&mut *conn, &target_user_id).await {

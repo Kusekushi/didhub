@@ -17,9 +17,7 @@ pub async fn list(
     crate::handlers::auth::utils::require_admin(&state, &headers).await?;
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    let rows = list_all(&mut *conn)
-        .await
-        .map_err(ApiError::from)?;
+    let rows = list_all(&mut *conn).await.map_err(ApiError::from)?;
 
     let items: Vec<Value> = rows.into_iter().map(row_to_setting).collect();
     Ok(Json(json!({ "items": items })))

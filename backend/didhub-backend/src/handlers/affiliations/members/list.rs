@@ -6,8 +6,8 @@ use axum::http::HeaderMap;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use didhub_db::generated::affiliations as db_affiliations;
 use didhub_db::generated::affiliation_members::find_by_affiliation_id;
+use didhub_db::generated::affiliations as db_affiliations;
 
 use crate::{error::ApiError, state::AppState};
 

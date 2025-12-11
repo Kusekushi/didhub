@@ -198,7 +198,7 @@ export default function AdminDatabase() {
                         <TableRow key={rowIndex}>
                         {queryResult.columns.map((column, colIndex) => (
                           <TableCell key={colIndex} className="font-mono text-xs max-w-xs truncate">
-                            {String((row as Record<string, unknown>)[column] || '')}
+                            {String((row as Record<string, string | number | boolean | null>)[column] || '')}
                           </TableCell>
                         ))}
                         </TableRow>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { useApi } from "@/context/ApiContext"
@@ -18,15 +18,7 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    if (user?.avatar) {
-      loadAvatarDataUrl(user.avatar)
-    } else {
-      setAvatarDataUrl(null)
-    }
-  }, [user?.avatar])
-
-  async function loadAvatarDataUrl(avatarId: string) {
+  const loadAvatarDataUrl = useCallback(async (avatarId: string) => {
     try {
       const response = await apiClient.serveStoredFile({ path: { fileId: avatarId } })
       // API now returns a metadata object with a `url` pointing to the raw content endpoint.
@@ -36,7 +28,15 @@ export default function UserMenu({ compact = false }: UserMenuProps) {
       console.warn('Failed to load avatar:', e)
       setAvatarDataUrl(null)
     }
-  }
+  }, [apiClient])
+
+  useEffect(() => {
+    if (user?.avatar) {
+      loadAvatarDataUrl(user.avatar)
+    } else {
+      setAvatarDataUrl(null)
+    }
+  }, [user?.avatar, loadAvatarDataUrl])
 
   async function onLogout() {
     try {

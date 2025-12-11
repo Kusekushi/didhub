@@ -7,8 +7,8 @@ use serde_json::{json, Value};
 use sqlx::Acquire;
 use uuid::Uuid;
 
-use didhub_db::generated::alters as db_alters;
 use didhub_db::custom::affiliation_members::{self as db_affiliation_members_custom};
+use didhub_db::generated::alters as db_alters;
 
 use crate::{error::ApiError, state::AppState};
 
@@ -45,9 +45,10 @@ pub async fn get(
         .ok_or_else(|| ApiError::not_found("alter not found"))?;
 
     // Query the affiliation_members table to get all affiliations for this alter
-    let affiliations = db_affiliation_members_custom::find_affiliations_for_alter(&mut *conn, &alter_id)
-        .await
-        .map_err(ApiError::from)?;
+    let affiliations =
+        db_affiliation_members_custom::find_affiliations_for_alter(&mut *conn, &alter_id)
+            .await
+            .map_err(ApiError::from)?;
 
     let affiliations: Vec<Value> = affiliations
         .into_iter()

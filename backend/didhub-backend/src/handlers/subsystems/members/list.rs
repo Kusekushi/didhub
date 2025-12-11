@@ -8,8 +8,8 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
-use didhub_db::generated::subsystems as db_subsystems;
 use didhub_db::generated::subsystem_members as db_subsystem_members;
+use didhub_db::generated::subsystems as db_subsystems;
 
 pub async fn list(
     Extension(state): Extension<Arc<AppState>>,

@@ -75,11 +75,11 @@ describe('Login redirect', () => {
 
     // fill and submit form
   const usernameInput = screen.getByLabelText(/username/i)
-  const passwordInput = container.querySelector('input#password') as HTMLInputElement
+  const passwordInput = container.querySelector('input#password')
   fireEvent.change(usernameInput, { target: { value: 'testuser' } })
   fireEvent.change(passwordInput, { target: { value: 'password123' } })
   const form = container.querySelector('form')
-  const submit = form!.querySelector('button[type="submit"]') as HTMLButtonElement
+  const submit = form.querySelector('button[type="submit"]')
   fireEvent.click(submit)
 
     await waitFor(() => expect(screen.getByText('PROTECTED')).toBeDefined())
@@ -103,11 +103,11 @@ describe('Login redirect', () => {
     )
 
     const usernameInput = screen.getByLabelText(/username/i)
-    const passwordInput = container.querySelector('input#password') as HTMLInputElement
+    const passwordInput = container.querySelector('input#password')
     fireEvent.change(usernameInput, { target: { value: 'testuser' } })
     fireEvent.change(passwordInput, { target: { value: 'password123' } })
   const form = container.querySelector('form')
-  const submit = form!.querySelector('button[type="submit"]') as HTMLButtonElement
+  const submit = form.querySelector('button[type="submit"]')
   fireEvent.click(submit)
 
     await waitFor(() => expect(screen.getByText('HOME')).toBeDefined())

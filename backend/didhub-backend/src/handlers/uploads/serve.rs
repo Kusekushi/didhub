@@ -121,64 +121,60 @@ pub async fn serve_stored_file_content(
         .unwrap_or_else(|| "application/octet-stream".to_string());
 
     // Only resize if both w and h are explicitly provided
-    if mime_type.starts_with("image/") && opt_w.is_some() && opt_h.is_some() {
-        let tw = opt_w.unwrap();
-        let th = opt_h.unwrap();
-        let mut thumbs_dir = std::path::PathBuf::from(&uploads_dir);
-        thumbs_dir.push("thumbnails");
-        if let Err(e) = tokio::fs::create_dir_all(&thumbs_dir).await {
-            tracing::warn!(%e, "failed to create thumbnails dir");
-        }
-        let thumb_name = format!("{file_id}_{}x{}.jpg", tw, th);
-        let mut thumb_path = thumbs_dir.clone();
-        thumb_path.push(&thumb_name);
-
-        if thumb_path.exists() {
-            let content = tokio::fs::read(&thumb_path)
-                .await
-                .map_err(|e| ApiError::Unexpected(format!("failed to read thumbnail: {e}")))?;
-            let resp = Response::builder()
-                .status(axum::http::StatusCode::OK)
-                .header("content-type", "image/jpeg")
-                .body(Body::from(content))
-                .map_err(|e| ApiError::Unexpected(format!("failed to build response: {e}")))?;
-            return Ok(resp);
-        }
-
-        let content = tokio::fs::read(&file_path)
-            .await
-            .map_err(|e| ApiError::Unexpected(format!("failed to read file: {e}")))?;
-        if let Ok(img) = image::load_from_memory(&content) {
-            let thumb = img.resize(tw, th, image::imageops::FilterType::Lanczos3);
-            let mut buf: Vec<u8> = Vec::new();
-            if thumb
-                .write_to(
-                    &mut std::io::Cursor::new(&mut buf),
-                    image::ImageFormat::Jpeg,
-                )
-                .is_ok()
-            {
-                if let Err(e) = tokio::fs::write(&thumb_path, &buf).await {
-                    tracing::warn!(%e, "failed to write thumbnail to disk");
+    if mime_type.starts_with("image/") {
+        if let Some(tw) = opt_w {
+            if let Some(th) = opt_h {
+                let mut thumbs_dir = std::path::PathBuf::from(&uploads_dir);
+                thumbs_dir.push("thumbnails");
+                if let Err(e) = tokio::fs::create_dir_all(&thumbs_dir).await {
+                    tracing::warn!(%e, "failed to create thumbnails dir");
                 }
-                let resp = Response::builder()
-                    .status(axum::http::StatusCode::OK)
-                    .header("content-type", "image/jpeg")
-                    .body(Body::from(buf))
-                    .map_err(|e| ApiError::Unexpected(format!("failed to build response: {e}")))?;
-                return Ok(resp);
+                let thumb_name = format!("{file_id}_{}x{}.jpg", tw, th);
+                let mut thumb_path = thumbs_dir.clone();
+                thumb_path.push(&thumb_name);
+
+                if thumb_path.exists() {
+                    let content = tokio::fs::read(&thumb_path).await.map_err(|e| {
+                        ApiError::Unexpected(format!("failed to read thumbnail: {e}"))
+                    })?;
+                    let resp = Response::builder()
+                        .status(axum::http::StatusCode::OK)
+                        .header("content-type", "image/jpeg")
+                        .body(Body::from(content))
+                        .map_err(|e| {
+                            ApiError::Unexpected(format!("failed to build response: {e}"))
+                        })?;
+                    return Ok(resp);
+                }
+
+                let content = tokio::fs::read(&file_path)
+                    .await
+                    .map_err(|e| ApiError::Unexpected(format!("failed to read file: {e}")))?;
+                if let Ok(img) = image::load_from_memory(&content) {
+                    let thumb = img.resize(tw, th, image::imageops::FilterType::Lanczos3);
+                    let mut buf: Vec<u8> = Vec::new();
+                    if thumb
+                        .write_to(
+                            &mut std::io::Cursor::new(&mut buf),
+                            image::ImageFormat::Jpeg,
+                        )
+                        .is_ok()
+                    {
+                        if let Err(e) = tokio::fs::write(&thumb_path, &buf).await {
+                            tracing::warn!(%e, "failed to write thumbnail to disk");
+                        }
+                        let resp = Response::builder()
+                            .status(axum::http::StatusCode::OK)
+                            .header("content-type", "image/jpeg")
+                            .body(Body::from(buf))
+                            .map_err(|e| {
+                                ApiError::Unexpected(format!("failed to build response: {e}"))
+                            })?;
+                        return Ok(resp);
+                    }
+                }
             }
         }
-
-        let content = tokio::fs::read(&file_path)
-            .await
-            .map_err(|e| ApiError::Unexpected(format!("failed to read file: {e}")))?;
-        let resp = Response::builder()
-            .status(axum::http::StatusCode::OK)
-            .header("content-type", mime_type.clone())
-            .body(Body::from(content))
-            .map_err(|e| ApiError::Unexpected(format!("failed to build response: {e}")))?;
-        return Ok(resp);
     }
 
     let content = tokio::fs::read(&file_path)

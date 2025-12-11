@@ -1012,7 +1012,7 @@ export default function FamilyTreeView() {
         const translateX = fullWidth / 2 - scale * x
         const translateY = fullHeight / 2 - scale * y
         svg.transition().duration(500).call(
-          zoom.transform,
+          zoom.transform.bind(zoom),
           d3.zoomIdentity.translate(translateX, translateY).scale(scale)
         )
       } catch {

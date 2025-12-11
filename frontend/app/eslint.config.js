@@ -17,7 +17,9 @@ export default defineConfig(
       ecmaVersion: 2020,
       globals: globals.browser,
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['src/__tests__/login-redirect.test.tsx', 'src/__tests__/user-menu.test.tsx'],
+        },
       },
     },
     plugins: {
@@ -33,6 +35,15 @@ export default defineConfig(
       "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/no-floating-promises": "off",
       "@typescript-eslint/no-misused-promises": "off",
+    },
+  },
+  {
+    files: ['src/__tests__/**/*.tsx', 'src/__tests__/**/*.ts'],
+    rules: {
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-base-to-string": "off",
+      "@typescript-eslint/require-await": "off",
     },
   },
 )

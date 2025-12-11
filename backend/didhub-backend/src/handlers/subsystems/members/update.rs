@@ -8,8 +8,8 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
-use didhub_db::generated::subsystems as db_subsystems;
 use didhub_db::custom::subsystem_members as db_subsystem_members_custom;
+use didhub_db::generated::subsystems as db_subsystems;
 
 pub async fn update(
     Extension(state): Extension<Arc<AppState>>,
@@ -79,9 +79,13 @@ pub async fn update(
         .map_err(ApiError::from)?;
     }
 
-    let member = db_subsystem_members_custom::find_by_subsystem_id_and_alter_id(&mut *conn, &subsystem_id, &member_id)
-        .await
-        .map_err(ApiError::from)?;
+    let member = db_subsystem_members_custom::find_by_subsystem_id_and_alter_id(
+        &mut *conn,
+        &subsystem_id,
+        &member_id,
+    )
+    .await
+    .map_err(ApiError::from)?;
 
     match member {
         Some(member_row) => Ok(Json(json!({

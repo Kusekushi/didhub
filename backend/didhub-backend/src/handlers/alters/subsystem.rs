@@ -7,8 +7,8 @@ use serde_json::{json, Value};
 use sqlx::Acquire;
 use uuid::Uuid;
 
-use didhub_db::generated::alters as db_alters;
 use didhub_db::custom::subsystem_members;
+use didhub_db::generated::alters as db_alters;
 
 use crate::{error::ApiError, state::AppState};
 

@@ -6,8 +6,8 @@ use axum::http::HeaderMap;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use didhub_db::generated::affiliations as db_affiliations;
 use didhub_db::custom::affiliation_members as db_affiliation_members_custom;
+use didhub_db::generated::affiliations as db_affiliations;
 
 use crate::{error::ApiError, state::AppState};
 
@@ -78,9 +78,13 @@ pub async fn update(
     }
 
     // Fetch and return the updated member
-    let member = db_affiliation_members_custom::find_by_affiliation_id_and_alter_id(&mut *conn, &affiliation_id, &member_id)
-        .await
-        .map_err(ApiError::from)?;
+    let member = db_affiliation_members_custom::find_by_affiliation_id_and_alter_id(
+        &mut *conn,
+        &affiliation_id,
+        &member_id,
+    )
+    .await
+    .map_err(ApiError::from)?;
 
     match member {
         Some(member_row) => Ok(Json(json!({
