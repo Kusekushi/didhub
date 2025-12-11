@@ -154,7 +154,7 @@ def cmd_codegen(args: list[str]) -> int:
     # Generator configs: (module_name, default_args_factory)
     # default_args_factory returns args to use when no extra_args provided
     root = Path(__file__).parent.parent
-    schemas_dir = root / "backend" / "didhub-migrations" / "schemas"
+    schemas_dir = root / "schemas" / "db"
     
     def migrations_default_args() -> list[str]:
         """Get all schema YAML files for migration generator."""
