@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ApiProvider } from '@/context/ApiContext'
 
 // Mock useAuth to supply a user with an avatar id
 vi.mock('@/context/AuthContext', () => ({
@@ -30,12 +31,12 @@ describe('UserMenu avatar loading', () => {
     global.fetch = vi.fn((input: RequestInfo) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (url.includes('/api/files/')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ url: '/api/files/content/11111111-1111-1111-1111-111111111111' }),
-        } as Response)
+        return Promise.resolve(new Response(JSON.stringify({ url: '/api/files/content/11111111-1111-1111-1111-111111111111' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }))
       }
-      return Promise.resolve({ ok: false } as Response)
+      return Promise.resolve(new Response(null, { status: 404 }))
     }) as typeof fetch
   })
 
@@ -44,7 +45,7 @@ describe('UserMenu avatar loading', () => {
   })
 
   it('renders avatar img with src from files metadata url', async () => {
-    render(<UserMenu compact={true} />)
+    render(<ApiProvider><UserMenu compact={true} /></ApiProvider>)
 
     // The component shows an <img alt="avatar"> when avatar data is available
     const img = await screen.findByAltText('avatar')

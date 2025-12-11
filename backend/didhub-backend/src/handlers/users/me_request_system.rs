@@ -55,7 +55,7 @@ pub async fn me_request_system(
         .await
         .map_err(ApiError::from)?;
     let user = user.ok_or_else(|| ApiError::not_found("user not found"))?;
-    
+
     // Check if user already has 'system' role
     if user_has_role(&user.roles, "system") {
         return Err(ApiError::bad_request("You are already a system account"));

@@ -6,9 +6,9 @@ use axum::http::HeaderMap;
 use serde_json::Value;
 use uuid::Uuid;
 
-use didhub_db::generated::affiliations as db_affiliations;
 use crate::handlers::utils::affiliation_to_payload;
 use crate::{error::ApiError, state::AppState};
+use didhub_db::generated::affiliations as db_affiliations;
 
 pub async fn get(
     Extension(_state): Extension<Arc<AppState>>,

@@ -56,12 +56,11 @@ pub async fn reorder(
     }
 
     // Validate that all provided IDs exist in the current images array
-    let current_images: Vec<String> =
-        serde_json::from_str(&alter.images).unwrap_or_default();
-    
+    let current_images: Vec<String> = serde_json::from_str(&alter.images).unwrap_or_default();
+
     for id in &new_order {
         if !current_images.contains(id) {
-            return Err(ApiError::bad_request(&format!(
+            return Err(ApiError::bad_request(format!(
                 "image id {} not found in current images",
                 id
             )));

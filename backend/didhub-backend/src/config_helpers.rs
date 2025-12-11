@@ -34,7 +34,10 @@ pub fn parse_bind_address(host: &str, port: u16) -> SocketAddr {
     host.parse::<IpAddr>()
         .map(|ip| SocketAddr::new(ip, port))
         .or_else(|_| host.parse::<SocketAddr>())
-        .or_else(|_| host.parse::<Ipv6Addr>().map(|ip| SocketAddr::new(IpAddr::V6(ip), port)))
+        .or_else(|_| {
+            host.parse::<Ipv6Addr>()
+                .map(|ip| SocketAddr::new(IpAddr::V6(ip), port))
+        })
         .unwrap_or_else(|_| SocketAddr::from(([0, 0, 0, 0], port)))
 }
 

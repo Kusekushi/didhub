@@ -5,7 +5,7 @@ use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
-use didhub_backend::handlers::alters;
+use didhub_backend::generated::routes::{create_alter, update_alter};
 use didhub_backend::state::AppState;
 
 #[tokio::test]
@@ -73,7 +73,7 @@ async fn alters_rbac_denied_for_non_owner() {
 
     let owner_id = "00000000-0000-0000-0000-000000000010";
     let body = serde_json::json!({ "user_id": owner_id, "name": "OwnerAlter" });
-    let res = alters::create_alter(
+    let res = create_alter(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         Some(axum::Json(body)),
@@ -113,7 +113,7 @@ async fn alters_rbac_denied_for_non_owner() {
     path.insert("alterId".to_string(), id.clone());
     let update_body = serde_json::json!({ "name": "HackerName" });
 
-    let result = alters::update_alter(
+    let result = update_alter(
         axum::Extension(arc_state2.clone()),
         headers2,
         axum::extract::Path(path.clone()),

@@ -19,8 +19,8 @@ pub const AutoUpdateConfig = struct {
         return default;
     }
 
-    pub fn deinit(self: *AutoUpdateConfig) void {
-        _ = self; // No dynamic allocation yet
+    pub fn deinit(self: *AutoUpdateConfig, allocator: std.mem.Allocator) void {
+        if (self.repo) |repo| allocator.free(repo);
     }
 
     pub fn clone(self: AutoUpdateConfig, allocator: std.mem.Allocator) !AutoUpdateConfig {

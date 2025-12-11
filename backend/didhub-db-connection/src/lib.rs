@@ -2,9 +2,9 @@ pub mod config;
 pub mod error;
 pub mod logger;
 pub mod pool;
-pub mod utils;
 #[cfg(test)]
 mod test;
+pub mod utils;
 
 // Re-exports for public API
 pub use config::DbConnectionConfig;

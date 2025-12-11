@@ -36,10 +36,18 @@ pub async fn run(
         }),
     );
 
-    let result = state.job_queue.enqueue(job_request).await.map_err(ApiError::from)?;
+    let result = state
+        .job_queue
+        .enqueue(job_request)
+        .await
+        .map_err(ApiError::from)?;
 
     // Execute the update action (in a real implementation, this would be async)
-    state.updates.execute(action).await.map_err(ApiError::from)?;
+    state
+        .updates
+        .execute(action)
+        .await
+        .map_err(ApiError::from)?;
 
     tracing::info!(job_id = %result.job_id, "update job enqueued");
 

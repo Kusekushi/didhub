@@ -23,9 +23,7 @@ pub fn get_jwt_secret() -> Result<String, ApiError> {
     let cfg = didhub_config::load_config::<&std::path::Path>(None)
         .map_err(|e| ApiError::Unexpected(e.to_string()))?;
     cfg.auth.jwt_secret.ok_or_else(|| {
-        ApiError::not_implemented(
-            "server not configured for HS256 signing (jwt_secret missing)",
-        )
+        ApiError::not_implemented("server not configured for HS256 signing (jwt_secret missing)")
     })
 }
 
@@ -37,10 +35,7 @@ pub const SESSION_COOKIE_NAME: &str = "didhub_session";
 /// Returns the token in "Bearer <token>" format for use with the authenticator.
 pub fn extract_auth_token(headers: &HeaderMap) -> Option<String> {
     // First try Authorization header
-    if let Some(auth_header) = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-    {
+    if let Some(auth_header) = headers.get("authorization").and_then(|v| v.to_str().ok()) {
         return Some(auth_header.to_string());
     }
 

@@ -52,10 +52,7 @@ impl JobQueueState {
 
     /// Iterate over all runs in reverse order (most recent first).
     fn iter_recent(&self) -> impl Iterator<Item = &JobRun> {
-        self.order
-            .iter()
-            .rev()
-            .filter_map(|id| self.runs.get(id))
+        self.order.iter().rev().filter_map(|id| self.runs.get(id))
     }
 
     /// Count runs, optionally filtered by job name.
@@ -84,7 +81,10 @@ impl fmt::Debug for JobQueueClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("JobQueueClient")
             .field("state", &"<RwLock<JobQueueState>>")
-            .field("executors", &"<RwLock<HashMap<String, Arc<dyn JobExecutor>>>>")
+            .field(
+                "executors",
+                &"<RwLock<HashMap<String, Arc<dyn JobExecutor>>>>",
+            )
             .finish()
     }
 }

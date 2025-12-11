@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axum::Json;
 use axum::body::Body;
 use axum::extract::{Extension, Path, Query};
 use axum::http::HeaderMap;
 use axum::response::Response;
+use axum::Json;
 use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
@@ -152,7 +152,10 @@ pub async fn serve_stored_file_content(
             let thumb = img.resize(tw, th, image::imageops::FilterType::Lanczos3);
             let mut buf: Vec<u8> = Vec::new();
             if thumb
-                .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Jpeg)
+                .write_to(
+                    &mut std::io::Cursor::new(&mut buf),
+                    image::ImageFormat::Jpeg,
+                )
                 .is_ok()
             {
                 if let Err(e) = tokio::fs::write(&thumb_path, &buf).await {

@@ -17,10 +17,11 @@ pub async fn update(
     body: Option<Json<Value>>,
 ) -> Result<Json<Value>, ApiError> {
     // Only affiliation owner or admin can update member status
-    let auth = crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let user_id = auth.user_id.ok_or_else(|| {
-        ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed)
-    })?;
+    let auth =
+        crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
+    let user_id = auth
+        .user_id
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
 
     state
@@ -42,8 +43,8 @@ pub async fn update(
     let member_id_str = path
         .get("memberId")
         .ok_or_else(|| ApiError::bad_request("missing memberId"))?;
-    let member_id = Uuid::parse_str(member_id_str)
-        .map_err(|_| ApiError::bad_request("invalid memberId"))?;
+    let member_id =
+        Uuid::parse_str(member_id_str).map_err(|_| ApiError::bad_request("invalid memberId"))?;
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
 
@@ -61,10 +62,7 @@ pub async fn update(
     }
 
     // Get the payload
-    let payload = body
-        .as_ref()
-        .map(|b| b.0.clone())
-        .unwrap_or(Value::Null);
+    let payload = body.as_ref().map(|b| b.0.clone()).unwrap_or(Value::Null);
 
     // Update isLeader if provided
     if let Some(is_leader) = payload.get("isLeader").and_then(|v| v.as_bool()) {

@@ -71,7 +71,7 @@ async fn login_me_logout_flow() {
     let body = Some(axum::Json(
         serde_json::json!({"username":"testuser","password":"secret123"}),
     ));
-    let resp = auth::login(ext.clone(), body).await.expect("login");
+    let resp = auth::login::login(ext.clone(), body).await.expect("login");
     // Expect 200 and Set-Cookie header present
     let headers = resp.headers();
     assert!(headers.get(&axum::http::header::SET_COOKIE).is_some());

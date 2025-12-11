@@ -4,7 +4,7 @@ use didhub_db::generated::alters as db_alters;
 use didhub_db::generated::users as db_users;
 use didhub_log_client::LogEntry;
 use serde_json::Map;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 pub fn parse_positive_usize(
     raw: Option<&String>,
@@ -87,7 +87,10 @@ pub fn audit_entry_to_value(entry: LogEntry) -> Value {
 /// Helper to parse JSON string fields into arrays for the alter response.
 /// This handles system_roles, soul_songs, interests, and triggers which are
 /// stored as JSON strings in the database but should be returned as arrays.
-pub fn parse_json_array_fields(obj: &mut serde_json::Map<String, Value>, row: &db_alters::AltersRow) {
+pub fn parse_json_array_fields(
+    obj: &mut serde_json::Map<String, Value>,
+    row: &db_alters::AltersRow,
+) {
     // Parse and replace JSON string fields with actual arrays
     let json_fields = [
         ("system_roles", &row.system_roles),

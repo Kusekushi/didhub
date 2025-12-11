@@ -54,7 +54,7 @@ async fn uploads_crud_sqlite_in_memory() {
 
     // create upload
     let body = serde_json::json!({ "stored_file_id": "00000000-0000-0000-0000-000000000001", "stored_name": "file.txt", "uploaded_by": "00000000-0000-0000-0000-000000000001" });
-    let res = uploads::create_upload(
+    let res = uploads::create::create(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         Some(axum::Json(body)),
@@ -71,7 +71,7 @@ async fn uploads_crud_sqlite_in_memory() {
     // get upload
     let mut path = HashMap::new();
     path.insert("uploadId".to_string(), id.clone());
-    let res = uploads::get_upload_by_id(
+    let res = uploads::get::get(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path.clone()),
@@ -85,10 +85,11 @@ async fn uploads_crud_sqlite_in_memory() {
     );
 
     // delete upload
-    let res = uploads::delete_upload(
+    let res = uploads::delete::delete(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path),
+        None,
     )
     .await
     .expect("delete");

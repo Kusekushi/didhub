@@ -16,9 +16,8 @@ pub async fn refresh(
     Extension(state): Extension<Arc<AppState>>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let bearer = extract_auth_token(&headers).ok_or_else(|| {
-        ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed)
-    })?;
+    let bearer = extract_auth_token(&headers)
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
 
     // Authenticate using existing authenticator
     let auth = state

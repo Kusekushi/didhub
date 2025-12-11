@@ -5,7 +5,7 @@ use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
-use didhub_backend::handlers::alters;
+use didhub_backend::generated::routes::{create_alter, delete_alter, update_alter};
 use didhub_backend::state::AppState;
 use sqlx::Row;
 use uuid::Uuid;
@@ -114,10 +114,7 @@ async fn owner_and_admin_can_modify_alter() {
     .await
     {
         Ok(opt) => match opt {
-            Some(r) => eprintln!(
-                "debug: generated helper returned user roles={}",
-                r.roles
-            ),
+            Some(r) => eprintln!("debug: generated helper returned user roles={}", r.roles),
             None => eprintln!("debug: generated helper returned None"),
         },
         Err(e) => eprintln!("debug: generated helper returned Err: {:?}", e),
@@ -143,7 +140,7 @@ async fn owner_and_admin_can_modify_alter() {
     );
 
     let body = serde_json::json!({ "user_id": owner_id, "name": "OwnerAlter" });
-    let res = alters::create_alter(
+    let res = create_alter(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         Some(axum::Json(body)),
@@ -165,7 +162,7 @@ async fn owner_and_admin_can_modify_alter() {
     path.insert("alterId".to_string(), id.clone());
     let update_body = serde_json::json!({ "name": "OwnerUpdatedName" });
 
-    let update_res = alters::update_alter(
+    let update_res = update_alter(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path.clone()),
@@ -198,7 +195,7 @@ async fn owner_and_admin_can_modify_alter() {
         axum::http::HeaderValue::from_static("Bearer test-token"),
     );
 
-    let delete_res = alters::delete_alter(
+    let delete_res = delete_alter(
         axum::Extension(arc_state2.clone()),
         headers2,
         axum::extract::Path(path.clone()),

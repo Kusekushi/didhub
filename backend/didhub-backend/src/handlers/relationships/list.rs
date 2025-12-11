@@ -29,5 +29,7 @@ pub async fn list(
         .await
         .map_err(ApiError::from)?;
     let responses: Vec<RelationshipResponse> = rows.into_iter().map(Into::into).collect();
-    Ok(Json(serde_json::to_value(&responses).map_err(ApiError::from)?))
+    Ok(Json(
+        serde_json::to_value(&responses).map_err(ApiError::from)?,
+    ))
 }

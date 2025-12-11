@@ -5,7 +5,13 @@ use std::sync::Arc as StdArc;
 use axum::{extract::Path, http::HeaderMap, Json};
 use chrono::Utc;
 use didhub_auth::{AuthenticatorTrait, TestAuthenticator};
-use didhub_backend::{handlers::instance_settings, state::AppState};
+use didhub_backend::{
+    generated::routes::{
+        bulk_get_instance_settings, bulk_set_instance_settings, get_instance_setting,
+        list_instance_settings, set_instance_setting,
+    },
+    state::AppState,
+};
 use didhub_db::{create_pool, DbConnectionConfig, DbPool};
 use didhub_job_queue::JobQueueClient;
 use didhub_log_client::LogToolClient;
@@ -102,12 +108,10 @@ async fn list_instance_settings_returns_all() {
         .await
         .unwrap();
 
-    let response = instance_settings::list_instance_settings(
-        axum::extract::Extension(ctx.state.clone()),
-        admin_headers(),
-    )
-    .await
-    .unwrap();
+    let response =
+        list_instance_settings(axum::extract::Extension(ctx.state.clone()), admin_headers())
+            .await
+            .unwrap();
 
     let body = response.0;
     let items = body.get("items").and_then(|v| v.as_array()).unwrap();
@@ -137,7 +141,7 @@ async fn set_instance_setting_upserts_value() {
         "value": "help@example.com"
     });
 
-    let result = instance_settings::set_instance_setting(
+    let result = set_instance_setting(
         axum::extract::Extension(ctx.state.clone()),
         headers.clone(),
         Path(HashMap::from([(
@@ -156,7 +160,7 @@ async fn set_instance_setting_upserts_value() {
         "value": "helpdesk@example.com"
     });
 
-    let updated = instance_settings::set_instance_setting(
+    let updated = set_instance_setting(
         axum::extract::Extension(ctx.state.clone()),
         headers,
         Path(HashMap::from([(
@@ -192,7 +196,7 @@ async fn bulk_set_instance_settings_parses_types() {
         ]
     });
 
-    let response = instance_settings::bulk_set_instance_settings(
+    let response = bulk_set_instance_settings(
         axum::extract::Extension(ctx.state.clone()),
         admin_headers(),
         Some(Json(body)),
@@ -266,7 +270,7 @@ async fn bulk_get_instance_settings_returns_requested_keys() {
 
     let body = json!({ "keys": ["featureFlag", "missing", "welcomeMessage"] });
 
-    let response = instance_settings::bulk_get_instance_settings(
+    let response = bulk_get_instance_settings(
         axum::extract::Extension(ctx.state.clone()),
         admin_headers(),
         Some(Json(body)),
@@ -303,7 +307,7 @@ async fn get_instance_setting_returns_value() {
         .await
         .unwrap();
 
-    let response = instance_settings::get_instance_setting(
+    let response = get_instance_setting(
         axum::extract::Extension(ctx.state.clone()),
         admin_headers(),
         Path(HashMap::from([("key".to_string(), "maxUsers".to_string())])),

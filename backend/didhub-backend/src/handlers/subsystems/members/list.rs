@@ -43,12 +43,12 @@ pub async fn list(
     let _ = &subsystem;
 
     let members: Vec<(Uuid, i64, String)> = sqlx::query_as(
-        "SELECT alter_id, is_host, added_at FROM subsystem_members WHERE subsystem_id = ?"
+        "SELECT alter_id, is_host, added_at FROM subsystem_members WHERE subsystem_id = ?",
     )
-        .bind(subsystem_id)
-        .fetch_all(&mut *conn)
-        .await
-        .map_err(ApiError::from)?;
+    .bind(subsystem_id)
+    .fetch_all(&mut *conn)
+    .await
+    .map_err(ApiError::from)?;
 
     let result: Vec<Value> = members
         .into_iter()

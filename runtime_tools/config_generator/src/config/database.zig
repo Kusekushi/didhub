@@ -23,12 +23,23 @@ pub const DatabaseConfig = struct {
     };
 
     pub fn init(allocator: std.mem.Allocator) !DatabaseConfig {
-        _ = allocator; // Not used for now
-        return default;
+        return DatabaseConfig{
+            .driver = try allocator.dupe(u8, "sqlite"),
+            .path = try allocator.dupe(u8, "didhub.sqlite"),
+            .host = null,
+            .port = null,
+            .database = null,
+            .username = null,
+            .password = null,
+            .ssl_mode = null,
+        };
     }
 
-    pub fn deinit(self: *DatabaseConfig) void {
-        _ = self; // No dynamic allocation yet
+    pub fn deinit(self: *DatabaseConfig, allocator: std.mem.Allocator) void {
+        allocator.free(self.driver);
+        if (self.path) |path| allocator.free(path);
+        if (self.host) |host| allocator.free(host);
+        if (self.database) |db| allocator.free(db);
     }
 
     pub fn clone(self: DatabaseConfig, allocator: std.mem.Allocator) !DatabaseConfig {

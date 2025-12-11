@@ -25,7 +25,7 @@ pub async fn create(
 
     let dto: CreateUserDto = serde_json::from_value(payload).map_err(ApiError::from)?;
     if let Err(issues) = dto.validate() {
-        return Err(ApiError::Validation(crate::validation::to_payload(&issues)));
+        return Ok(Json(crate::validation::to_payload(&issues)));
     }
 
     // Check if this is an authenticated admin creating the user

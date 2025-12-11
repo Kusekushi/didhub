@@ -15,28 +15,22 @@ pub async fn list(
 ) -> Result<Json<Value>, ApiError> {
     // Only approved users (or admin) may list alters
     crate::handlers::auth::utils::authenticate_and_require_approved(&state, &_headers).await?;
-    
+
     let params = query.map(|q| q.0).unwrap_or_default();
-    
+
     state
-        .audit_request(
-            "GET",
-            "/alters",
-            &HashMap::new(),
-            &params,
-            &Value::Null,
-        )
+        .audit_request("GET", "/alters", &HashMap::new(), &params, &Value::Null)
         .await?;
-    
+
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    
+
     // Check for systemId filter (maps to user_id in the database)
     let system_id_filter = params
         .get("systemId")
         .or_else(|| params.get("system_id"))
         .or_else(|| params.get("userId"))
         .or_else(|| params.get("user_id"));
-    
+
     let rows: Vec<db_alters::AltersRow> = if let Some(system_id_str) = system_id_filter {
         let system_id = SqlxUuid::parse_str(system_id_str)
             .map_err(|_| ApiError::bad_request("invalid systemId"))?;
@@ -52,7 +46,7 @@ pub async fn list(
             .await
             .map_err(ApiError::from)?
     };
-    
+
     // Convert rows to JSON and inject primaryUploadId from the images field if present
     let mut values = Vec::with_capacity(rows.len());
     for row in rows.into_iter() {

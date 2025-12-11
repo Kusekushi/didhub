@@ -1,12 +1,16 @@
-use serde_json::{Value, json};
-use axum::{Extension, Json};
+use crate::{
+    error::ApiError,
+    handlers::utils::{affiliation_to_payload, parse_positive_usize},
+    state::AppState,
+};
 use axum::extract::Query as AxumQuery;
-use uuid::Uuid;
-use std::sync::Arc;
-use crate::{error::ApiError, handlers::utils::{affiliation_to_payload, parse_positive_usize}, state::AppState};
 use axum::http::HeaderMap;
-use std::collections::HashMap;
+use axum::{Extension, Json};
 use didhub_db::generated::affiliations as db_affiliations;
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::sync::Arc;
+use uuid::Uuid;
 
 pub async fn list(
     Extension(_state): Extension<Arc<AppState>>,
@@ -38,13 +42,13 @@ pub async fn list(
             Some(s.to_lowercase())
         }
     });
-    
+
     // Check for systemId filter (maps to owner_user_id in the database)
     let system_id_filter = params
         .get("systemId")
         .or_else(|| params.get("system_id"))
         .or_else(|| params.get("owner_user_id"));
-    
+
     let parsed_system_id: Option<Uuid> = if let Some(sid) = system_id_filter {
         Some(Uuid::parse_str(sid).map_err(|_| ApiError::bad_request("invalid systemId"))?)
     } else {
@@ -55,14 +59,14 @@ pub async fn list(
 
     // Build WHERE clause conditions
     let mut where_conditions: Vec<String> = Vec::new();
-    
+
     if search_opt.is_some() {
         where_conditions.push("(LOWER(name) LIKE ? OR LOWER(description) LIKE ?)".to_string());
     }
     if parsed_system_id.is_some() {
         where_conditions.push("owner_user_id = ?".to_string());
     }
-    
+
     let where_clause = if where_conditions.is_empty() {
         String::new()
     } else {
@@ -72,7 +76,7 @@ pub async fn list(
     // Build count query
     let count_sql = format!("SELECT COUNT(*) FROM affiliations {}", where_clause);
     let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
-    
+
     // Bind parameters in order
     if let Some(search) = &search_opt {
         let like = format!("%{}%", search);
@@ -81,7 +85,7 @@ pub async fn list(
     if let Some(sid) = &parsed_system_id {
         count_query = count_query.bind(*sid);
     }
-    
+
     let total: i64 = count_query
         .fetch_one(&mut *conn)
         .await
@@ -95,7 +99,7 @@ pub async fn list(
         where_clause
     );
     let mut data_query = sqlx::query_as::<_, db_affiliations::AffiliationsRow>(&data_sql);
-    
+
     // Bind parameters in order
     if let Some(search) = &search_opt {
         let like = format!("%{}%", search);
@@ -105,7 +109,7 @@ pub async fn list(
         data_query = data_query.bind(*sid);
     }
     data_query = data_query.bind(per_page as i64).bind(offset as i64);
-    
+
     let rows: Vec<db_affiliations::AffiliationsRow> = data_query
         .fetch_all(&mut *conn)
         .await

@@ -100,7 +100,8 @@ pub async fn serve_stored_files_batch(
                                 }
 
                                 if let Ok(img) = image::load_from_memory(&content) {
-                                    let thumb = img.resize(tw, th, image::imageops::FilterType::Lanczos3);
+                                    let thumb =
+                                        img.resize(tw, th, image::imageops::FilterType::Lanczos3);
                                     let mut buf: Vec<u8> = Vec::new();
                                     if thumb
                                         .write_to(

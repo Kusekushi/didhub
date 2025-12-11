@@ -1,17 +1,17 @@
-use didhub_backend::handlers::alters_dto::UpdateAlterDto;
+use didhub_backend::handlers::alters::dto::UpdateAlter;
 use didhub_backend::handlers::relationships::dto::UpdateRelationshipDto;
 
 #[test]
 fn update_alter_dto_valid_and_invalid() {
     // valid minimal name
-    let dto = UpdateAlterDto {
+    let dto = UpdateAlter {
         name: Some("Alice".to_string()),
         ..Default::default()
     };
     assert!(dto.validate().is_ok());
 
     // name with control char -> invalid
-    let dto = UpdateAlterDto {
+    let dto = UpdateAlter {
         name: Some("Bad\nName".to_string()),
         ..Default::default()
     };
@@ -19,7 +19,7 @@ fn update_alter_dto_valid_and_invalid() {
 
     // name too long
     let long_name = "a".repeat(201);
-    let dto = UpdateAlterDto {
+    let dto = UpdateAlter {
         name: Some(long_name),
         ..Default::default()
     };
@@ -27,7 +27,7 @@ fn update_alter_dto_valid_and_invalid() {
 
     // description too long
     let long_desc = "d".repeat(2001);
-    let dto = UpdateAlterDto {
+    let dto = UpdateAlter {
         description: Some(long_desc),
         ..Default::default()
     };
@@ -35,14 +35,14 @@ fn update_alter_dto_valid_and_invalid() {
 
     // notes too long
     let long_notes = "n".repeat(5001);
-    let dto = UpdateAlterDto {
+    let dto = UpdateAlter {
         notes: Some(long_notes),
         ..Default::default()
     };
     assert!(dto.validate().is_err());
 
     // invalid owner_user_id
-    let dto = UpdateAlterDto {
+    let dto = UpdateAlter {
         owner_user_id: Some("not-a-uuid".to_string()),
         ..Default::default()
     };
@@ -58,6 +58,7 @@ fn update_relationship_dto_valid_and_invalid() {
         side_a_alter_id: None,
         side_b_user_id: None,
         side_b_alter_id: None,
+        past_life: None,
     };
     assert!(dto.validate().is_ok());
 
@@ -68,6 +69,7 @@ fn update_relationship_dto_valid_and_invalid() {
         side_a_alter_id: None,
         side_b_user_id: None,
         side_b_alter_id: None,
+        past_life: None,
     };
     assert!(dto.validate().is_err());
 
@@ -78,6 +80,7 @@ fn update_relationship_dto_valid_and_invalid() {
         side_a_alter_id: None,
         side_b_user_id: None,
         side_b_alter_id: None,
+        past_life: None,
     };
     assert!(dto.validate().is_err());
 
@@ -89,6 +92,7 @@ fn update_relationship_dto_valid_and_invalid() {
         side_a_alter_id: None,
         side_b_user_id: None,
         side_b_alter_id: None,
+        past_life: None,
     };
     assert!(dto.validate().is_err());
 
@@ -99,6 +103,7 @@ fn update_relationship_dto_valid_and_invalid() {
         side_a_alter_id: None,
         side_b_user_id: None,
         side_b_alter_id: None,
+        past_life: None,
     };
     assert!(dto.validate().is_err());
 }

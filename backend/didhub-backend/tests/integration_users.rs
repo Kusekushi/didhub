@@ -5,7 +5,7 @@ use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
-use didhub_backend::handlers::users;
+use didhub_backend::generated::routes::{create_user, delete_user, get_user_by_id, update_user};
 use didhub_backend::handlers::users::dto::CreateUserDto;
 use didhub_backend::state::AppState;
 
@@ -67,7 +67,7 @@ async fn users_crud_sqlite_in_memory() {
         roles: None,
     };
     let body = serde_json::to_value(&dto).unwrap();
-    let res = users::create_user(
+    let res = create_user(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         Some(axum::Json(body)),
@@ -87,7 +87,7 @@ async fn users_crud_sqlite_in_memory() {
         m.insert("userId".to_string(), id.clone());
         m
     };
-    let res = users::get_user_by_id(
+    let res = get_user_by_id(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path.clone()),
@@ -102,7 +102,7 @@ async fn users_crud_sqlite_in_memory() {
 
     // Update user display name
     let update_body = serde_json::json!({ "display_name": "Updated" });
-    let res = users::update_user(
+    let res = update_user(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path.clone()),
@@ -117,7 +117,7 @@ async fn users_crud_sqlite_in_memory() {
     );
 
     // Delete user (TestAuthenticator has admin scope)
-    let res = users::delete_user(
+    let res = delete_user(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path),

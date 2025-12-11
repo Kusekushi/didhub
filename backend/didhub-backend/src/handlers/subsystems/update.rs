@@ -17,7 +17,8 @@ pub async fn update(
     _body: Option<Json<Value>>,
 ) -> Result<Json<Value>, ApiError> {
     // Admin-only: accept Authorization header or session cookie
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&_state, &_headers).await? {
+    let auth = match crate::handlers::auth::utils::authenticate_optional(&_state, &_headers).await?
+    {
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(

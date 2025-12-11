@@ -142,12 +142,12 @@ pub async fn upload(
     let mut updated_alter = alter;
     let mut images_vec: Vec<String> =
         serde_json::from_str(&updated_alter.images).unwrap_or_default();
-    
+
     // Insert new images at the beginning (in order)
     for (i, id) in uploaded_ids.iter().enumerate() {
         images_vec.insert(i, id.clone());
     }
-    
+
     updated_alter.images = serde_json::to_string(&images_vec).unwrap_or_else(|_| "[]".to_string());
     db_alters::update_by_primary_key(&mut *conn, &alter_id, &updated_alter)
         .await
@@ -155,6 +155,6 @@ pub async fn upload(
 
     Ok(Json(serde_json::json!({
         "uploadedIds": uploaded_ids,
-        "primaryUploadId": uploaded_ids.first().map(|s| s.clone())
+        "primaryUploadId": uploaded_ids.first().cloned()
     })))
 }

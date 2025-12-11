@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::rate_limiter::RateLimiterManager;
 use axum::middleware::Next;
 use axum::{
-    body::Body, extract::Extension, extract::DefaultBodyLimit, http::Request, http::StatusCode, middleware,
-    response::IntoResponse, routing::get, Router,
+    body::Body, extract::DefaultBodyLimit, extract::Extension, http::Request, http::StatusCode,
+    middleware, response::IntoResponse, routing::get, Router,
 };
 use std::convert::Infallible;
 use tower_http::services::ServeDir;
@@ -53,7 +53,10 @@ pub fn build_router_with_limiter(state: Arc<AppState>, limiter: RateLimiterManag
             "/auth/login",
             axum::routing::post(crate::handlers::auth::login::login),
         )
-        .route("/auth/me", axum::routing::get(crate::handlers::auth::me::me))
+        .route(
+            "/auth/me",
+            axum::routing::get(crate::handlers::auth::me::me),
+        )
         .route(
             "/auth/logout",
             axum::routing::post(crate::handlers::auth::logout::logout),
@@ -121,8 +124,9 @@ pub fn build_router_with_limiter(state: Arc<AppState>, limiter: RateLimiterManag
         .layer(Extension(state));
 
     // Serve static files from the "static" directory for non-API routes
-    let static_service = ServeDir::new("static").fallback(ServeDir::new("static").append_index_html_on_directories(true));
-    
+    let static_service = ServeDir::new("static")
+        .fallback(ServeDir::new("static").append_index_html_on_directories(true));
+
     Router::new()
         .nest("/api", router)
         .fallback_service(static_service)

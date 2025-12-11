@@ -13,9 +13,8 @@ pub async fn me(
     Extension(state): Extension<Arc<AppState>>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let bearer = extract_auth_token(&headers).ok_or_else(|| {
-        ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed)
-    })?;
+    let bearer = extract_auth_token(&headers)
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
 
     // Verify via configured authenticator (which supports HS256/RS256 verification)
     let auth = state

@@ -5,7 +5,7 @@ use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
-use didhub_backend::handlers::relationships;
+use didhub_backend::generated::routes::{create_relationship, update_relationship};
 use didhub_backend::state::AppState;
 
 #[tokio::test]
@@ -49,7 +49,7 @@ async fn relationships_rbac_denied_for_non_creator() {
     let arc_state = Arc::new(state);
 
     let body = serde_json::json!({ "relation_type": "friend", "side_a_user_id": "00000000-0000-0000-0000-000000000002", "side_b_user_id": "00000000-0000-0000-0000-000000000003", "created_by": "00000000-0000-0000-0000-000000000020" });
-    let res = relationships::create_relationship(
+    let res = create_relationship(
         axum::Extension(arc_state.clone()),
         axum::http::HeaderMap::new(),
         Some(axum::Json(body)),
@@ -81,7 +81,7 @@ async fn relationships_rbac_denied_for_non_creator() {
     path.insert("relationshipId".to_string(), id.clone());
     let update_body = serde_json::json!({ "type": "enemy" });
 
-    let result = relationships::update_relationship(
+    let result = update_relationship(
         axum::Extension(arc_state2.clone()),
         axum::http::HeaderMap::new(),
         axum::extract::Path(path.clone()),

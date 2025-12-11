@@ -36,7 +36,9 @@ pub async fn get_by_id(
     match opt {
         Some(row) => {
             let response: RelationshipResponse = row.into();
-            Ok(Json(serde_json::to_value(&response).map_err(ApiError::from)?))
+            Ok(Json(
+                serde_json::to_value(&response).map_err(ApiError::from)?,
+            ))
         }
         None => Err(ApiError::not_found("relationship not found")),
     }

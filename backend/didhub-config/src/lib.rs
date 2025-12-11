@@ -587,9 +587,7 @@ fn apply_env_overrides(cfg: &mut Config) -> Result<(), ConfigError> {
 pub fn validate_config(cfg: &Config) -> Result<(), ConfigError> {
     // server port range
     if cfg.server.port == 0 {
-        return Err(ConfigError::Validation(
-            "server.port must be > 0".into(),
-        ));
+        return Err(ConfigError::Validation("server.port must be > 0".into()));
     }
     // validate server.host: allow IPs or simple hostname pattern
     // Use pre-compiled regex for better performance

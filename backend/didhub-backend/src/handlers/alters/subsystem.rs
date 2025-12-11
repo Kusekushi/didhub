@@ -22,8 +22,8 @@ pub async fn get(
     let alter_id_str = path
         .get("alterId")
         .ok_or_else(|| ApiError::bad_request("missing alterId"))?;
-    let alter_id = Uuid::parse_str(alter_id_str)
-        .map_err(|_| ApiError::bad_request("invalid alterId"))?;
+    let alter_id =
+        Uuid::parse_str(alter_id_str).map_err(|_| ApiError::bad_request("invalid alterId"))?;
 
     state
         .audit_request(
@@ -50,9 +50,9 @@ pub async fn get(
         FROM subsystems s
         INNER JOIN subsystem_members sm ON s.id = sm.subsystem_id
         WHERE sm.alter_id = ?
-        "#
+        "#,
     )
-    .bind(&alter_id)
+    .bind(alter_id)
     .fetch_optional(&mut *conn)
     .await
     .map_err(ApiError::from)?;
@@ -82,8 +82,8 @@ pub async fn set(
     let alter_id_str = path
         .get("alterId")
         .ok_or_else(|| ApiError::bad_request("missing alterId"))?;
-    let alter_id = Uuid::parse_str(alter_id_str)
-        .map_err(|_| ApiError::bad_request("invalid alterId"))?;
+    let alter_id =
+        Uuid::parse_str(alter_id_str).map_err(|_| ApiError::bad_request("invalid alterId"))?;
 
     let payload = body
         .as_ref()
@@ -127,7 +127,7 @@ pub async fn set(
 
     // Remove existing subsystem membership for this alter (since alter_id is unique)
     sqlx::query("DELETE FROM subsystem_members WHERE alter_id = ?")
-        .bind(&alter_id)
+        .bind(alter_id)
         .execute(&mut *tx)
         .await
         .map_err(ApiError::from)?;
@@ -136,8 +136,8 @@ pub async fn set(
     sqlx::query(
         "INSERT INTO subsystem_members (subsystem_id, alter_id, is_host, added_at) VALUES (?, ?, ?, datetime('now'))"
     )
-    .bind(&subsystem_id)
-    .bind(&alter_id)
+    .bind(subsystem_id)
+    .bind(alter_id)
     .bind(if is_host { 1 } else { 0 })
     .execute(&mut *tx)
     .await
@@ -160,8 +160,8 @@ pub async fn delete(
     let alter_id_str = path
         .get("alterId")
         .ok_or_else(|| ApiError::bad_request("missing alterId"))?;
-    let alter_id = Uuid::parse_str(alter_id_str)
-        .map_err(|_| ApiError::bad_request("invalid alterId"))?;
+    let alter_id =
+        Uuid::parse_str(alter_id_str).map_err(|_| ApiError::bad_request("invalid alterId"))?;
 
     state
         .audit_request(
@@ -183,7 +183,7 @@ pub async fn delete(
 
     // Remove subsystem membership for this alter
     sqlx::query("DELETE FROM subsystem_members WHERE alter_id = ?")
-        .bind(&alter_id)
+        .bind(alter_id)
         .execute(&mut *conn)
         .await
         .map_err(ApiError::from)?;

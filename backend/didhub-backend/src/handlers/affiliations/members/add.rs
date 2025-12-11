@@ -7,7 +7,9 @@ use chrono::Utc;
 use serde_json::Value;
 use uuid::Uuid;
 
-use didhub_db::generated::{affiliations as db_affiliations, alters as db_alters, users as db_users};
+use didhub_db::generated::{
+    affiliations as db_affiliations, alters as db_alters, users as db_users,
+};
 
 use crate::handlers::utils::{affiliation_to_payload, user_is_system};
 use crate::{error::ApiError, state::AppState};

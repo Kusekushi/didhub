@@ -2,7 +2,8 @@ use std::sync::Arc;
 use tracing_subscriber::prelude::*;
 
 /// Type alias for the reload handle returned by tracing initialization.
-pub type ReloadHandle = Arc<dyn Fn(tracing_subscriber::EnvFilter) -> Result<(), String> + Send + Sync>;
+pub type ReloadHandle =
+    Arc<dyn Fn(tracing_subscriber::EnvFilter) -> Result<(), String> + Send + Sync>;
 
 /// Initialize tracing from configuration.
 ///

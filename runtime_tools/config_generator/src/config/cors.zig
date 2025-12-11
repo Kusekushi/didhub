@@ -19,6 +19,9 @@ pub const CorsConfig = struct {
     }
 
     pub fn deinit(self: *CorsConfig, allocator: std.mem.Allocator) void {
+        for (self.allowed_origins.items) |origin| {
+            allocator.free(origin);
+        }
         self.allowed_origins.deinit(allocator);
     }
 

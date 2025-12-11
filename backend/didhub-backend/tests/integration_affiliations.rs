@@ -3,7 +3,14 @@ use std::sync::Arc;
 
 use axum::{extract::Extension, http::HeaderMap, Json};
 use didhub_auth::TestAuthenticator;
-use didhub_backend::{handlers::affiliations, state::AppState};
+use didhub_backend::{
+    generated::routes::{
+        add_affiliation_member, create_affiliation, delete_affiliation, remove_affiliation_member,
+        update_affiliation,
+    },
+    handlers::affiliations::list,
+    state::AppState,
+};
 use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_log_client::LogToolClient;
 use serde_json::{json, Value};
@@ -66,6 +73,40 @@ async fn setup() -> TestContext {
     .await
     .expect("create affiliation_members table");
 
+    sqlx::query(
+        r#"CREATE TABLE alters (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            age TEXT,
+            gender TEXT,
+            pronouns TEXT,
+            birthday TEXT,
+            sexuality TEXT,
+            species TEXT,
+            alter_type TEXT,
+            job TEXT,
+            weapon TEXT,
+            triggers TEXT NOT NULL DEFAULT '[]',
+            metadata TEXT NOT NULL DEFAULT '{}',
+            soul_songs TEXT NOT NULL DEFAULT '[]',
+            interests TEXT NOT NULL DEFAULT '[]',
+            notes TEXT,
+            images TEXT NOT NULL DEFAULT '[]',
+            system_roles TEXT NOT NULL DEFAULT '[]',
+            is_system_host INTEGER NOT NULL DEFAULT 0,
+            is_dormant INTEGER NOT NULL DEFAULT 0,
+            is_merged INTEGER NOT NULL DEFAULT 0,
+            owner_user_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await
+    .expect("create alters table");
+
     let owner_id = Uuid::new_v4();
     sqlx::query(
         r#"INSERT INTO users (
@@ -120,7 +161,7 @@ async fn create_sample_affiliation(state: Arc<AppState>) -> (Uuid, Value) {
         "description": "Shared interests and support"
     });
 
-    let response = affiliations::create_affiliation(
+    let response = create_affiliation(
         Extension(state.clone()),
         HeaderMap::new(),
         Some(Json(payload)),
@@ -173,7 +214,7 @@ async fn update_affiliation_as_owner() {
     path.insert("affiliationId".to_string(), affiliation_id.to_string());
     let payload = json!({ "name": "Updated", "description": "New details" });
 
-    let response = affiliations::update_affiliation(
+    let response = update_affiliation(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         axum::extract::Path(path.clone()),
@@ -206,10 +247,25 @@ async fn delete_affiliation_removes_members() {
     let (affiliation_id, _) = create_sample_affiliation(ctx.state.clone()).await;
 
     let alter_id = Uuid::new_v4();
+
+    // Insert the alter
+    sqlx::query(
+        r#"INSERT INTO alters (id, user_id, owner_user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"#,
+    )
+    .bind(alter_id)
+    .bind(ctx.owner_id)
+    .bind(ctx.owner_id)
+    .bind("Test Alter")
+    .bind("2024-01-01T00:00:00Z")
+    .bind("2024-01-01T00:00:00Z")
+    .execute(&ctx.pool)
+    .await
+    .expect("insert alter");
+
     let mut path = HashMap::new();
     path.insert("affiliationId".to_string(), affiliation_id.to_string());
 
-    let _ = affiliations::add_affiliation_member(
+    let _ = add_affiliation_member(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         axum::extract::Path(path.clone()),
@@ -226,7 +282,7 @@ async fn delete_affiliation_removes_members() {
             .expect("count members");
     assert_eq!(count.0, 1);
 
-    let _ = affiliations::delete_affiliation(
+    let _ = delete_affiliation(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         axum::extract::Path(path.clone()),
@@ -256,10 +312,24 @@ async fn add_and_remove_affiliation_member() {
     let (affiliation_id, _) = create_sample_affiliation(ctx.state.clone()).await;
     let alter_id = Uuid::new_v4();
 
+    // Insert the alter
+    sqlx::query(
+        r#"INSERT INTO alters (id, user_id, owner_user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"#,
+    )
+    .bind(alter_id)
+    .bind(ctx.owner_id)
+    .bind(ctx.owner_id)
+    .bind("Test Alter")
+    .bind("2024-01-01T00:00:00Z")
+    .bind("2024-01-01T00:00:00Z")
+    .execute(&ctx.pool)
+    .await
+    .expect("insert alter");
+
     let mut path = HashMap::new();
     path.insert("affiliationId".to_string(), affiliation_id.to_string());
 
-    let response = affiliations::add_affiliation_member(
+    let response = add_affiliation_member(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         axum::extract::Path(path.clone()),
@@ -285,7 +355,7 @@ async fn add_and_remove_affiliation_member() {
     .expect("member exists");
     assert_eq!(member_count.0, 1);
 
-    let duplicate = affiliations::add_affiliation_member(
+    let duplicate = add_affiliation_member(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         axum::extract::Path(path.clone()),
@@ -294,7 +364,7 @@ async fn add_and_remove_affiliation_member() {
     .await;
     assert!(duplicate.is_err(), "adding duplicate member should fail");
 
-    let _ = affiliations::remove_affiliation_member(
+    let _ = remove_affiliation_member(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         axum::extract::Path({
@@ -316,7 +386,7 @@ async fn add_and_remove_affiliation_member() {
     .expect("member removed");
     assert_eq!(remaining.0, 0);
 
-    let removal_missing = affiliations::remove_affiliation_member(
+    let removal_missing = remove_affiliation_member(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         axum::extract::Path({
@@ -348,7 +418,7 @@ async fn list_affiliations_pagination_and_search_case_insensitive() {
 
     for name in &names {
         let payload = json!({ "name": name, "description": "desc"});
-        let _ = affiliations::create_affiliation(
+        let _ = create_affiliation(
             Extension(ctx.state.clone()),
             HeaderMap::new(),
             Some(Json(payload)),
@@ -362,7 +432,7 @@ async fn list_affiliations_pagination_and_search_case_insensitive() {
     query.insert("page".to_string(), "1".to_string());
     query.insert("perPage".to_string(), "2".to_string());
 
-    let response = affiliations::list_affiliations(
+    let response = list::list(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         Some(axum::extract::Query(query.clone())),
@@ -387,7 +457,7 @@ async fn list_affiliations_pagination_and_search_case_insensitive() {
     let mut q2 = HashMap::new();
     q2.insert("search".to_string(), "BETA".to_string());
 
-    let resp2 = affiliations::list_affiliations(
+    let resp2 = list::list(
         Extension(ctx.state.clone()),
         HeaderMap::new(),
         Some(axum::extract::Query(q2)),

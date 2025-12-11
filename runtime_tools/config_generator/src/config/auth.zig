@@ -17,8 +17,10 @@ pub const AuthConfig = struct {
         return default;
     }
 
-    pub fn deinit(self: *AuthConfig) void {
-        _ = self; // No dynamic allocation yet
+    pub fn deinit(self: *AuthConfig, allocator: std.mem.Allocator) void {
+        if (self.jwt_pem) |pem| allocator.free(pem);
+        if (self.jwt_pem_path) |path| allocator.free(path);
+        if (self.jwt_secret) |secret| allocator.free(secret);
     }
 
     pub fn clone(self: AuthConfig, allocator: std.mem.Allocator) !AuthConfig {

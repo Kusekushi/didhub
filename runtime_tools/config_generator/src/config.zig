@@ -41,14 +41,14 @@ pub const Config = struct {
     }
 
     pub fn deinit(self: *Config) void {
-        self.server.deinit();
-        self.logging.deinit();
+        self.server.deinit(self.allocator);
+        self.logging.deinit(self.allocator);
         self.cors.deinit(self.allocator);
-        self.database.deinit();
-        self.uploads.deinit();
-        self.auto_update.deinit();
+        self.database.deinit(self.allocator);
+        self.uploads.deinit(self.allocator);
+        self.auto_update.deinit(self.allocator);
         self.rate_limit.deinit(self.allocator);
-        self.auth.deinit();
+        self.auth.deinit(self.allocator);
 
         if (self.redis_url) |url| {
             self.allocator.free(url);

@@ -9,12 +9,13 @@ pub const UploadsConfig = struct {
     };
 
     pub fn init(allocator: std.mem.Allocator) !UploadsConfig {
-        _ = allocator; // Not used for now
-        return default;
+        return UploadsConfig{
+            .directory = try allocator.dupe(u8, "./uploads"),
+        };
     }
 
-    pub fn deinit(self: *UploadsConfig) void {
-        _ = self; // No dynamic allocation yet
+    pub fn deinit(self: *UploadsConfig, allocator: std.mem.Allocator) void {
+        allocator.free(self.directory);
     }
 
     pub fn clone(self: UploadsConfig, allocator: std.mem.Allocator) !UploadsConfig {

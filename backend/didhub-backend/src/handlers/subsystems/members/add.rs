@@ -9,7 +9,9 @@ use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
 use crate::{error::ApiError, state::AppState};
-use didhub_db::generated::{alters as db_alters, subsystem_members as db_members, subsystems as db_subsystems};
+use didhub_db::generated::{
+    alters as db_alters, subsystem_members as db_members, subsystems as db_subsystems,
+};
 
 pub async fn add(
     Extension(_state): Extension<Arc<AppState>>,
@@ -18,7 +20,8 @@ pub async fn add(
     _body: Option<Json<Value>>,
 ) -> Result<Json<Value>, ApiError> {
     // Admin-only: accept Authorization header or session cookie
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&_state, &_headers).await? {
+    let auth = match crate::handlers::auth::utils::authenticate_optional(&_state, &_headers).await?
+    {
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(
@@ -57,8 +60,8 @@ pub async fn add(
             .ok_or_else(|| ApiError::bad_request("missing alterId"))?,
     )
     .map_err(ApiError::from)?;
-    let alter_id = SqlxUuid::parse_str(&alter_id_str)
-        .map_err(|_| ApiError::bad_request("invalid alterId"))?;
+    let alter_id =
+        SqlxUuid::parse_str(&alter_id_str).map_err(|_| ApiError::bad_request("invalid alterId"))?;
 
     let subsystem_id_str = _path
         .0

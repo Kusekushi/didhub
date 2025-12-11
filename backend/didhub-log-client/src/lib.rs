@@ -381,7 +381,7 @@ fn parse_status_records(stdout: &str) -> Result<Vec<StatusRecord>, LogClientErro
         }
 
         let mut parts = trimmed.split('\t');
-        let category_str = parts.next().ok_or_else(|| {
+        let category_str = parts.next().ok_or({
             LogClientError::UnexpectedOutput(Cow::Borrowed("missing category column"))
         })?;
         let category = LogCategory::from_str(category_str)?;

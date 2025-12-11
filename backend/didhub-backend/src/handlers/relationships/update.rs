@@ -113,14 +113,12 @@ pub async fn update(
     }
     if let Some(s) = dto.side_a_user_id {
         existing.side_a_user_id = Some(
-            SqlxUuid::parse_str(&s)
-                .map_err(|_| ApiError::bad_request("invalid side_a_user_id"))?,
+            SqlxUuid::parse_str(&s).map_err(|_| ApiError::bad_request("invalid side_a_user_id"))?,
         );
     }
     if let Some(s) = dto.side_b_user_id {
         existing.side_b_user_id = Some(
-            SqlxUuid::parse_str(&s)
-                .map_err(|_| ApiError::bad_request("invalid side_b_user_id"))?,
+            SqlxUuid::parse_str(&s).map_err(|_| ApiError::bad_request("invalid side_b_user_id"))?,
         );
     }
     if let Some(s) = dto.side_a_alter_id {

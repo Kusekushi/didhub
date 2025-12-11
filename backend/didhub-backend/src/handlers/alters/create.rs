@@ -53,14 +53,14 @@ pub async fn create(
 
     // Determine owner_user_id: prefer authenticated user; allow admin to supply a user_id/systemId in payload
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
-    
+
     // Check if admin is trying to create for a different system (via user_id or systemId in payload)
     let payload_user_id: Option<SqlxUuid> = payload
         .get("user_id")
         .or_else(|| payload.get("systemId"))
         .and_then(|v| v.as_str())
         .and_then(|s| SqlxUuid::parse_str(s).ok());
-    
+
     let owner_user_id: SqlxUuid = if is_admin && payload_user_id.is_some() {
         // Admin is specifying a target system - use that
         let target_user_id = payload_user_id.unwrap();

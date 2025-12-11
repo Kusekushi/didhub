@@ -41,15 +41,16 @@ pub async fn update_password(
         .0
         .clone();
 
-    let new_pass_hash: String = if let Some(hash) = payload.get("newPasswordHash").and_then(|v| v.as_str()) {
-        hash.to_string()
-    } else if let Some(pass) = payload.get("newPassword").and_then(|v| v.as_str()) {
-        pass.to_string()
-    } else if let Some(pass) = payload.get("password").and_then(|v| v.as_str()) {
-        pass.to_string()
-    } else {
-        return Err(ApiError::bad_request("missing newPasswordHash"));
-    };
+    let new_pass_hash: String =
+        if let Some(hash) = payload.get("newPasswordHash").and_then(|v| v.as_str()) {
+            hash.to_string()
+        } else if let Some(pass) = payload.get("newPassword").and_then(|v| v.as_str()) {
+            pass.to_string()
+        } else if let Some(pass) = payload.get("password").and_then(|v| v.as_str()) {
+            pass.to_string()
+        } else {
+            return Err(ApiError::bad_request("missing newPasswordHash"));
+        };
 
     if didhub_auth::is_client_hash(&new_pass_hash) {
         // Valid SHA-256 hash format

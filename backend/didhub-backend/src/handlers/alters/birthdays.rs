@@ -23,7 +23,7 @@ pub async fn list_birthdays(
 ) -> Result<Json<Value>, ApiError> {
     // Only approved users (or admin) may access birthdays
     crate::handlers::auth::utils::authenticate_and_require_approved(&state, &_headers).await?;
-    
+
     state
         .audit_request(
             "GET",
@@ -33,9 +33,9 @@ pub async fn list_birthdays(
             &Value::Null,
         )
         .await?;
-    
+
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-    
+
     // Get all alters with birthdays
     let rows: Vec<db_alters::AltersRow> = sqlx::query_as::<_, db_alters::AltersRow>(
         "SELECT id, user_id, name, description, age, gender, pronouns, birthday, sexuality, species, alter_type, job, weapon, triggers, metadata, soul_songs, interests, notes, images, system_roles, is_system_host, is_dormant, is_merged, owner_user_id, created_at FROM alters WHERE birthday IS NOT NULL ORDER BY name"
@@ -43,7 +43,7 @@ pub async fn list_birthdays(
     .fetch_all(&mut *conn)
     .await
     .map_err(ApiError::from)?;
-    
+
     // Convert rows to simplified birthday objects
     let birthdays: Vec<AlterBirthday> = rows
         .into_iter()
@@ -54,6 +54,8 @@ pub async fn list_birthdays(
             user_id: row.user_id.to_string(),
         })
         .collect();
-    
-    Ok(Json(serde_json::to_value(birthdays).map_err(ApiError::from)?))
+
+    Ok(Json(
+        serde_json::to_value(birthdays).map_err(ApiError::from)?,
+    ))
 }

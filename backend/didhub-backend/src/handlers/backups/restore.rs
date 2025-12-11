@@ -28,7 +28,7 @@ pub async fn restore(
     let payload_value = body
         .map(|json| json.0)
         .ok_or_else(|| ApiError::bad_request("missing request body"))?;
-    
+
     let request: RestoreRequest = serde_json::from_value(payload_value)
         .map_err(|e| ApiError::bad_request(format!("invalid request body: {}", e)))?;
 
@@ -49,7 +49,11 @@ pub async fn restore(
         }),
     );
 
-    let result = state.job_queue.enqueue(job_request).await.map_err(ApiError::from)?;
+    let result = state
+        .job_queue
+        .enqueue(job_request)
+        .await
+        .map_err(ApiError::from)?;
 
     // Log the restore attempt
     tracing::info!(

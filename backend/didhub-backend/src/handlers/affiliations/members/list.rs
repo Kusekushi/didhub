@@ -46,12 +46,12 @@ pub async fn list(
 
     // Query the affiliation_members table
     let members: Vec<(Uuid, i64, String)> = sqlx::query_as(
-        "SELECT alter_id, is_leader, added_at FROM affiliation_members WHERE affiliation_id = ?"
+        "SELECT alter_id, is_leader, added_at FROM affiliation_members WHERE affiliation_id = ?",
     )
-        .bind(affiliation_id)
-        .fetch_all(&mut *conn)
-        .await
-        .map_err(ApiError::from)?;
+    .bind(affiliation_id)
+    .fetch_all(&mut *conn)
+    .await
+    .map_err(ApiError::from)?;
 
     let result: Vec<Value> = members
         .into_iter()

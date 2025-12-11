@@ -6,7 +6,9 @@ use std::sync::{Arc, OnceLock};
 use axum::{extract::Extension, extract::Query, http::HeaderMap};
 use chrono::{Duration, Utc};
 use didhub_auth::{AuthenticatorTrait, TestAuthenticator};
-use didhub_backend::{handlers::audit_logs, state::AppState};
+use didhub_backend::{
+    generated::routes::clear_audit_logs, handlers::audit_logs::list, state::AppState,
+};
 use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_job_queue::JobQueueClient;
 use didhub_log_client::{LogCategory, LogToolClient};
@@ -278,7 +280,7 @@ async fn list_audit_logs_returns_entries() {
     let mut query_params = HashMap::new();
     query_params.insert("perPage".to_string(), "10".to_string());
 
-    let response = audit_logs::list_audit_logs(
+    let response = list::list(
         Extension(state.clone()),
         auth_headers(),
         Some(Query(query_params)),
@@ -345,7 +347,7 @@ async fn list_audit_logs_supports_pagination() {
     query_params.insert("perPage".to_string(), "2".to_string());
     query_params.insert("page".to_string(), "2".to_string());
 
-    let response = audit_logs::list_audit_logs(
+    let response = list::list(
         Extension(state.clone()),
         auth_headers(),
         Some(Query(query_params)),
@@ -390,7 +392,7 @@ async fn clear_audit_logs_removes_all_entries() {
 
     seed_audit_entries(&storage, &[("cleanup target", "system")]);
 
-    let response = audit_logs::clear_audit_logs(Extension(state.clone()), auth_headers())
+    let response = clear_audit_logs(Extension(state.clone()), auth_headers())
         .await
         .expect("clear audit logs");
 
@@ -411,7 +413,7 @@ async fn clear_audit_logs_removes_all_entries() {
     let mut query_params = HashMap::new();
     query_params.insert("perPage".to_string(), "5".to_string());
 
-    let list_after_clear = audit_logs::list_audit_logs(
+    let list_after_clear = list::list(
         Extension(state.clone()),
         auth_headers(),
         Some(Query(query_params)),

@@ -20,9 +20,16 @@ impl std::fmt::Display for DbConnectionErrorKind {
         match self {
             Self::MissingEnvVar(var) => write!(f, "environment variable {var} is missing"),
             Self::EmptyDatabaseUrl => write!(f, "database url cannot be empty"),
-            Self::InvalidUnicode(var) => write!(f, "environment variable {var} contains invalid unicode"),
-            Self::InvalidNumber { var, source } => write!(f, "failed to parse numeric environment variable {var}: {source}"),
-            Self::InvalidBoolean { var, value } => write!(f, "invalid boolean value '{value}' for {var}"),
+            Self::InvalidUnicode(var) => {
+                write!(f, "environment variable {var} contains invalid unicode")
+            }
+            Self::InvalidNumber { var, source } => write!(
+                f,
+                "failed to parse numeric environment variable {var}: {source}"
+            ),
+            Self::InvalidBoolean { var, value } => {
+                write!(f, "invalid boolean value '{value}' for {var}")
+            }
             Self::FileCreation(msg) => write!(f, "file/directory creation error: {msg}"),
             Self::Sqlx(err) => write!(f, "{err}"),
         }

@@ -11,12 +11,14 @@ pub const LoggingConfig = struct {
     };
 
     pub fn init(allocator: std.mem.Allocator) !LoggingConfig {
-        _ = allocator; // Not used for now
-        return default;
+        return LoggingConfig{
+            .level = try allocator.dupe(u8, "info"),
+            .json = false,
+        };
     }
 
-    pub fn deinit(self: *LoggingConfig) void {
-        _ = self; // No dynamic allocation yet
+    pub fn deinit(self: *LoggingConfig, allocator: std.mem.Allocator) void {
+        allocator.free(self.level);
     }
 
     pub fn clone(self: LoggingConfig, allocator: std.mem.Allocator) !LoggingConfig {

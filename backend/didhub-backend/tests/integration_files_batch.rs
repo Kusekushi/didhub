@@ -87,7 +87,7 @@ async fn batch_files_happy_path_creates_thumbnail_and_returns_url() {
     // Call batch handler
     let mut qmap = HashMap::new();
     qmap.insert("ids".to_string(), file_id_s.clone());
-    let res = uploads::serve_stored_files_batch(
+    let res = uploads::serve_batch::serve_stored_files_batch(
         axum::Extension(arc_state.clone()),
         axum::http::HeaderMap::new(),
         Some(Query(qmap)),
@@ -155,7 +155,7 @@ async fn batch_files_missing_file_returns_error_entry() {
     let missing_s = missing.to_string();
     let mut qmap = HashMap::new();
     qmap.insert("ids".to_string(), missing_s.clone());
-    let res = uploads::serve_stored_files_batch(
+    let res = uploads::serve_batch::serve_stored_files_batch(
         axum::Extension(arc_state.clone()),
         axum::http::HeaderMap::new(),
         Some(Query(qmap)),

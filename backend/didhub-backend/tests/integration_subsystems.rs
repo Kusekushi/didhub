@@ -66,25 +66,29 @@ async fn list_subsystems_filters_and_pagination() {
     let owner_a = Uuid::new_v4();
     let owner_b = Uuid::new_v4();
 
-    sqlx::query("INSERT INTO users (id, username, password_hash, roles, created_at) VALUES (?, ?, ?, ?, ?)")
-        .bind(owner_a)
-        .bind("owner_a")
-        .bind("hash")
-        .bind("[\"system\", \"user\"]")
-        .bind("2024-01-01T00:00:00Z")
-        .execute(&pool)
-        .await
-        .expect("insert user a");
+    sqlx::query(
+        "INSERT INTO users (id, username, password_hash, roles, created_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(owner_a)
+    .bind("owner_a")
+    .bind("hash")
+    .bind("[\"system\", \"user\"]")
+    .bind("2024-01-01T00:00:00Z")
+    .execute(&pool)
+    .await
+    .expect("insert user a");
 
-    sqlx::query("INSERT INTO users (id, username, password_hash, roles, created_at) VALUES (?, ?, ?, ?, ?)")
-        .bind(owner_b)
-        .bind("owner_b")
-        .bind("hash")
-        .bind("[\"system\", \"user\"]")
-        .bind("2024-01-01T00:00:00Z")
-        .execute(&pool)
-        .await
-        .expect("insert user b");
+    sqlx::query(
+        "INSERT INTO users (id, username, password_hash, roles, created_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(owner_b)
+    .bind("owner_b")
+    .bind("hash")
+    .bind("[\"system\", \"user\"]")
+    .bind("2024-01-01T00:00:00Z")
+    .execute(&pool)
+    .await
+    .expect("insert user b");
 
     // Insert subsystems: some matching "alpha" and owner_a, others different
     let now = "2024-01-01T00:00:00Z".to_string();

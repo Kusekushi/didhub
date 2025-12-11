@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use sha2::{Digest, Sha256};
 use sqlx::types::Uuid as SqlxUuid;
 
-use didhub_db::generated::stored_files as db_stored_files;
 use crate::error::ApiError;
+use didhub_db::generated::stored_files as db_stored_files;
 
 /// Result of storing a file, indicating whether it was newly stored or deduplicated
 pub struct StoredFileResult {
@@ -16,7 +16,7 @@ pub struct StoredFileResult {
 }
 
 /// Store a file with deduplication based on hash.
-/// 
+///
 /// This function:
 /// 1. Computes the SHA256 hash of the file content
 /// 2. Checks if a file with the same hash already exists in the database
@@ -45,7 +45,7 @@ pub async fn store_file_with_deduplication(
 
     // Check if file with same hash already exists
     let existing_file: Option<db_stored_files::StoredFilesRow> = sqlx::query_as(
-        "SELECT id, file_hash, mime_type, size, created_at FROM stored_files WHERE file_hash = ?"
+        "SELECT id, file_hash, mime_type, size, created_at FROM stored_files WHERE file_hash = ?",
     )
     .bind(&hash_hex)
     .fetch_optional(&mut **conn)
@@ -63,8 +63,9 @@ pub async fn store_file_with_deduplication(
     // New file, store it
     let mut path = PathBuf::from(uploads_dir);
     if !path.exists() {
-        fs::create_dir_all(&path)
-            .map_err(|e| ApiError::Unexpected(format!("failed to create uploads directory: {e}")))?;
+        fs::create_dir_all(&path).map_err(|e| {
+            ApiError::Unexpected(format!("failed to create uploads directory: {e}"))
+        })?;
     }
 
     let new_stored_file_id: SqlxUuid = SqlxUuid::new_v4();
@@ -86,7 +87,7 @@ pub async fn store_file_with_deduplication(
         size: Some(bytes.len() as f64),
         created_at: now,
     };
-    
+
     db_stored_files::insert_stored_file(&mut **conn, &stored_row)
         .await
         .map_err(ApiError::from)?;

@@ -5,7 +5,9 @@ use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
-use didhub_backend::handlers::relationships;
+use didhub_backend::generated::routes::{
+    create_relationship, delete_relationship, update_relationship,
+};
 use didhub_backend::state::AppState;
 
 #[tokio::test]
@@ -57,7 +59,7 @@ async fn owner_and_admin_can_modify_relationship() {
     );
 
     let body = serde_json::json!({ "side_a_user_id": owner_id, "side_b_user_id": "00000000-0000-0000-0000-000000000031", "relation_type": "friend", "created_by": owner_id });
-    let res = relationships::create_relationship(
+    let res = create_relationship(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         Some(axum::Json(body)),
@@ -76,7 +78,7 @@ async fn owner_and_admin_can_modify_relationship() {
     path.insert("relationshipId".to_string(), id.clone());
     let update_body = serde_json::json!({ "type": "partner" });
 
-    let update_res = relationships::update_relationship(
+    let update_res = update_relationship(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path.clone()),
@@ -106,7 +108,7 @@ async fn owner_and_admin_can_modify_relationship() {
         axum::http::HeaderValue::from_static("Bearer test-token"),
     );
 
-    let delete_res = relationships::delete_relationship(
+    let delete_res = delete_relationship(
         axum::Extension(arc_state2.clone()),
         headers2,
         axum::extract::Path(path.clone()),

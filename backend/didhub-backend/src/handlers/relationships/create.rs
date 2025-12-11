@@ -50,14 +50,19 @@ pub async fn create(
             let s: String = serde_json::from_value(v).map_err(ApiError::from)?;
             let parsed = SqlxUuid::parse_str(&s)
                 .map_err(|_| ApiError::bad_request("invalid side_a_user_id"))?;
-            // Verify the user exists
+            // Verify the user exists and is system user
             let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
             match didhub_db::generated::users::find_by_primary_key(&mut *conn, &parsed).await {
-                Ok(opt_user) => {
-                    if opt_user.is_none() {
+                Ok(opt_user) => match opt_user {
+                    Some(user_row) => {
+                        if !user_is_system(&user_row) {
+                            return Err(ApiError::bad_request("cannot reference non-system user"));
+                        }
+                    }
+                    None => {
                         return Err(ApiError::not_found("side_a_user_id user not found"));
                     }
-                }
+                },
                 Err(e) => {
                     tracing::warn!(%e, "could not fetch user row; allowing request (test or incomplete DB schema?)");
                 }
@@ -81,14 +86,19 @@ pub async fn create(
             let s: String = serde_json::from_value(v).map_err(ApiError::from)?;
             let parsed = SqlxUuid::parse_str(&s)
                 .map_err(|_| ApiError::bad_request("invalid side_b_user_id"))?;
-            // Verify the user exists
+            // Verify the user exists and is system user
             let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
             match didhub_db::generated::users::find_by_primary_key(&mut *conn, &parsed).await {
-                Ok(opt_user) => {
-                    if opt_user.is_none() {
+                Ok(opt_user) => match opt_user {
+                    Some(user_row) => {
+                        if !user_is_system(&user_row) {
+                            return Err(ApiError::bad_request("cannot reference non-system user"));
+                        }
+                    }
+                    None => {
                         return Err(ApiError::not_found("side_b_user_id user not found"));
                     }
-                }
+                },
                 Err(e) => {
                     tracing::warn!(%e, "could not fetch user row; allowing request (test or incomplete DB schema?)");
                 }

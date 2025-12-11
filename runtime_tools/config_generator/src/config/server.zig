@@ -11,12 +11,14 @@ pub const ServerConfig = struct {
     };
 
     pub fn init(allocator: std.mem.Allocator) !ServerConfig {
-        _ = allocator; // Not used for now, but kept for consistency
-        return default;
+        return ServerConfig{
+            .host = try allocator.dupe(u8, "0.0.0.0"),
+            .port = 6000,
+        };
     }
 
-    pub fn deinit(self: *ServerConfig) void {
-        _ = self; // No dynamic allocation yet
+    pub fn deinit(self: *ServerConfig, allocator: std.mem.Allocator) void {
+        allocator.free(self.host);
     }
 
     pub fn clone(self: ServerConfig, allocator: std.mem.Allocator) !ServerConfig {

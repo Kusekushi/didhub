@@ -51,10 +51,10 @@ pub async fn delete_one(
     let mut updated_alter = alter;
     let mut images_vec: Vec<String> =
         serde_json::from_str(&updated_alter.images).unwrap_or_default();
-    
+
     let image_id_string = image_id.to_string();
     images_vec.retain(|id| id != &image_id_string);
-    
+
     updated_alter.images = serde_json::to_string(&images_vec).unwrap_or_else(|_| "[]".to_string());
     db_alters::update_by_primary_key(&mut *conn, &alter_id, &updated_alter)
         .await

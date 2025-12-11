@@ -48,11 +48,15 @@ pub async fn create_pool_with_logging(
     config: &DbConnectionConfig,
     logger: &ConnectionLogger,
 ) -> Result<DbPool, DbConnectionError> {
-    logger.log_attempt(config).map_err(DbConnectionError::LogClient)?;
+    logger
+        .log_attempt(config)
+        .map_err(DbConnectionError::LogClient)?;
 
     match create_pool_inner(config).await {
         Ok(pool) => {
-            logger.log_success(config).map_err(DbConnectionError::LogClient)?;
+            logger
+                .log_success(config)
+                .map_err(DbConnectionError::LogClient)?;
             Ok(pool)
         }
         Err(err) => {
@@ -109,7 +113,10 @@ fn ensure_sqlite_db_file_exists(database_url: &str) -> Result<(), DbConnectionEr
         // Treat in-memory DSNs as non-file backends using precompiled patterns.
         let url_bytes = url.as_bytes();
         for &pattern in SQLITE_MEMORY_PATTERNS {
-            if url_bytes.windows(pattern.len()).any(|w| w.eq_ignore_ascii_case(pattern)) {
+            if url_bytes
+                .windows(pattern.len())
+                .any(|w| w.eq_ignore_ascii_case(pattern))
+            {
                 return None;
             }
         }
@@ -146,7 +153,10 @@ fn ensure_sqlite_db_file_exists(database_url: &str) -> Result<(), DbConnectionEr
     };
 
     let db_path = Path::new(clean_path);
-    if let Some(parent) = db_path.parent().filter(|p| !p.as_os_str().is_empty() && !p.exists()) {
+    if let Some(parent) = db_path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty() && !p.exists())
+    {
         create_dir_all(parent).map_err(|e| {
             DbConnectionError::FileCreation(format!(
                 "failed to create parent directory '{}': {e}",
@@ -171,7 +181,4 @@ fn ensure_sqlite_db_file_exists(database_url: &str) -> Result<(), DbConnectionEr
 
 #[cfg(feature = "sqlite")]
 // SQLite memory database patterns for efficient checking
-pub const SQLITE_MEMORY_PATTERNS: &[&[u8]] = &[
-    b":memory:",
-    b"mode=memory",
-];
+pub const SQLITE_MEMORY_PATTERNS: &[&[u8]] = &[b":memory:", b"mode=memory"];

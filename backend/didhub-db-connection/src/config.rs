@@ -107,10 +107,7 @@ impl DbConnectionConfig {
 
     #[inline]
     pub fn idle_timeout(&self) -> Option<Duration> {
-        match self.idle_timeout_secs {
-            Some(secs) => Some(Duration::from_secs(secs)),
-            None => None,
-        }
+        self.idle_timeout_secs.map(Duration::from_secs)
     }
 }
 
@@ -132,7 +129,7 @@ where
 {
     // Use stack-allocated buffer for most common variable names
     let mut var_name_buf = [0u8; 64];
-    let var_name = if prefix.len() + suffix.len() + 1 <= var_name_buf.len() {
+    let var_name = if prefix.len() + suffix.len() < var_name_buf.len() {
         let len = prefix.len() + 1 + suffix.len();
         var_name_buf[..prefix.len()].copy_from_slice(prefix.as_bytes());
         var_name_buf[prefix.len()] = b'_';
@@ -149,10 +146,12 @@ where
             if trimmed.is_empty() {
                 Ok(None)
             } else {
-                parser(trimmed).map(Some).map_err(|e| DbConnectionError::InvalidNumber {
-                    var: var_name.to_owned(),
-                    source: e.into(),
-                })
+                parser(trimmed)
+                    .map(Some)
+                    .map_err(|e| DbConnectionError::InvalidNumber {
+                        var: var_name.to_owned(),
+                        source: e.into(),
+                    })
             }
         }
         Err(VarError::NotPresent) => Ok(None),
@@ -176,10 +175,12 @@ where
             if trimmed.is_empty() {
                 Ok(None)
             } else {
-                parser(trimmed).map(Some).map_err(|e| DbConnectionError::InvalidNumber {
-                    var: var_name,
-                    source: e.into(),
-                })
+                parser(trimmed)
+                    .map(Some)
+                    .map_err(|e| DbConnectionError::InvalidNumber {
+                        var: var_name,
+                        source: e.into(),
+                    })
             }
         }
         Err(VarError::NotPresent) => Ok(None),
@@ -190,7 +191,7 @@ where
 fn maybe_parse_bool(prefix: &str, suffix: &str) -> Result<Option<bool>, DbConnectionError> {
     // Use stack-allocated buffer for most common variable names
     let mut var_name_buf = [0u8; 64];
-    let var_name = if prefix.len() + suffix.len() + 1 <= var_name_buf.len() {
+    let var_name = if prefix.len() + suffix.len() < var_name_buf.len() {
         let len = prefix.len() + 1 + suffix.len();
         var_name_buf[..prefix.len()].copy_from_slice(prefix.as_bytes());
         var_name_buf[prefix.len()] = b'_';
@@ -222,7 +223,10 @@ fn maybe_parse_bool(prefix: &str, suffix: &str) -> Result<Option<bool>, DbConnec
 }
 
 #[cold]
-fn maybe_parse_bool_heap_fallback(prefix: &str, suffix: &str) -> Result<Option<bool>, DbConnectionError> {
+fn maybe_parse_bool_heap_fallback(
+    prefix: &str,
+    suffix: &str,
+) -> Result<Option<bool>, DbConnectionError> {
     let var_name = format!("{prefix}_{suffix}");
     match env::var(&var_name) {
         Ok(value) => {

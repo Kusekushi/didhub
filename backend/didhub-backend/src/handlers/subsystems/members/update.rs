@@ -17,10 +17,11 @@ pub async fn update(
     body: Option<Json<Value>>,
 ) -> Result<Json<Value>, ApiError> {
     // Only system owner or admin can update member status
-    let auth = crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let user_id = auth.user_id.ok_or_else(|| {
-        ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed)
-    })?;
+    let auth =
+        crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
+    let user_id = auth
+        .user_id
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
 
     state
@@ -42,8 +43,8 @@ pub async fn update(
     let member_id_str = path
         .get("memberId")
         .ok_or_else(|| ApiError::bad_request("missing memberId"))?;
-    let member_id = Uuid::parse_str(member_id_str)
-        .map_err(|_| ApiError::bad_request("invalid memberId"))?;
+    let member_id =
+        Uuid::parse_str(member_id_str).map_err(|_| ApiError::bad_request("invalid memberId"))?;
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
 
@@ -62,20 +63,19 @@ pub async fn update(
         }
     }
 
-    let payload = body
-        .as_ref()
-        .map(|b| b.0.clone())
-        .unwrap_or(Value::Null);
+    let payload = body.as_ref().map(|b| b.0.clone()).unwrap_or(Value::Null);
 
     if let Some(is_host) = payload.get("isHost").and_then(|v| v.as_bool()) {
         let is_host_val: i32 = if is_host { 1 } else { 0 };
-        sqlx::query("UPDATE subsystem_members SET is_host = ? WHERE subsystem_id = ? AND alter_id = ?")
-            .bind(is_host_val)
-            .bind(subsystem_id)
-            .bind(member_id)
-            .execute(&mut *conn)
-            .await
-            .map_err(ApiError::from)?;
+        sqlx::query(
+            "UPDATE subsystem_members SET is_host = ? WHERE subsystem_id = ? AND alter_id = ?",
+        )
+        .bind(is_host_val)
+        .bind(subsystem_id)
+        .bind(member_id)
+        .execute(&mut *conn)
+        .await
+        .map_err(ApiError::from)?;
     }
 
     let member: Option<(Uuid, i64, String)> = sqlx::query_as(

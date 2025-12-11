@@ -26,7 +26,11 @@ pub async fn run(
         }),
     );
 
-    let result = state.job_queue.enqueue(job_request).await.map_err(ApiError::from)?;
+    let result = state
+        .job_queue
+        .enqueue(job_request)
+        .await
+        .map_err(ApiError::from)?;
 
     // For SQLite, we can create an actual backup file
     // For other databases, this would trigger appropriate backup procedures

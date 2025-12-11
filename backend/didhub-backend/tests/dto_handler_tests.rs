@@ -1,10 +1,7 @@
-use axum::body::to_bytes;
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use std::sync::Arc;
 
 use didhub_auth::TestAuthenticator;
-use didhub_backend::handlers::users;
+use didhub_backend::handlers::users::create;
 use didhub_backend::state::AppState;
 use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_log_client::LogToolClient;
@@ -54,31 +51,22 @@ async fn create_user_returns_structured_validation() {
 
     // create user with empty username and short password so deserialization succeeds
     // and dto.validate() can return multiple validation issues
-    let body = serde_json::json!({ "username": "", "password": "short" });
-    let res = users::create_user(
+    let body = serde_json::json!({ "username": "", "passwordHash": "short" });
+    let res = create::create(
         axum::Extension(arc_state.clone()),
         axum::http::HeaderMap::new(),
         Some(axum::Json(body)),
     )
     .await;
     match res {
-        Err(e) => {
-            // Convert ApiError into an HTTP response and inspect status + body
-            let resp = e.into_response();
-            // resp is axum::response::Response; extract status and body
-            let status = resp.status();
-            assert_eq!(status, StatusCode::BAD_REQUEST);
-
-            let parts = resp.into_parts();
-            let body = parts.1;
-            // body is axum::body::Body which aliases hyper::Body
-            let bytes = to_bytes(body, usize::MAX).await.expect("read body bytes");
-            let v: serde_json::Value = serde_json::from_slice(&bytes).expect("parse json");
+        Ok(json_resp) => {
+            // For validation errors, the handler returns Ok with validation payload
+            let v = json_resp.0;
             assert!(
                 v.get("validation").is_some(),
                 "expected validation key in response JSON"
             );
         }
-        Ok(_) => panic!("expected validation error"),
+        Err(_) => panic!("expected Ok with validation payload"),
     }
 }

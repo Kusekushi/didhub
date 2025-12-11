@@ -110,7 +110,10 @@ fn reload_authenticator(new: &didhub_config::Config, state: &AppState) {
     }
 }
 
-async fn reload_rate_limiter(new: &didhub_config::Config, shared_limiter: &RwLock<RateLimiterManager>) {
+async fn reload_rate_limiter(
+    new: &didhub_config::Config,
+    shared_limiter: &RwLock<RateLimiterManager>,
+) {
     let new_limiter = RateLimiterManager::from_config(
         new.rate_limit.enabled,
         new.rate_limit.per_ip,

@@ -5,7 +5,7 @@ use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
-use didhub_backend::handlers::alters;
+use didhub_backend::generated::routes::{create_alter, delete_alter, get_alter, update_alter};
 use didhub_backend::state::AppState;
 
 #[tokio::test]
@@ -73,7 +73,7 @@ async fn alters_crud_sqlite_in_memory() {
     // create alter
     let user_id = "00000000-0000-0000-0000-000000000002";
     let body = serde_json::json!({ "user_id": user_id, "name": "AlterName" });
-    let res = alters::create_alter(
+    let res = create_alter(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         Some(axum::Json(body)),
@@ -90,7 +90,7 @@ async fn alters_crud_sqlite_in_memory() {
     // get
     let mut path = HashMap::new();
     path.insert("alterId".to_string(), id.clone());
-    let res = alters::get_alter_by_id(
+    let res = get_alter(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path.clone()),
@@ -102,7 +102,7 @@ async fn alters_crud_sqlite_in_memory() {
 
     // update
     let update_body = serde_json::json!({ "name": "UpdatedName" });
-    let res = alters::update_alter(
+    let res = update_alter(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path.clone()),
@@ -117,7 +117,7 @@ async fn alters_crud_sqlite_in_memory() {
     );
 
     // delete
-    let res = alters::delete_alter(
+    let res = delete_alter(
         axum::Extension(arc_state.clone()),
         headers.clone(),
         axum::extract::Path(path),

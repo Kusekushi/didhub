@@ -30,8 +30,8 @@ pub async fn maybe_provision_admin(state: &AppState) -> anyhow::Result<()> {
     }
 
     // Hash password using didhub_auth
-    let password_hash = didhub_auth::hash_password(&password)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let password_hash =
+        didhub_auth::hash_password(&password).map_err(|e| anyhow::anyhow!("{}", e))?;
 
     let now = chrono::Utc::now().to_rfc3339();
     let new_row = db_users::UsersRow {

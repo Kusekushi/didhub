@@ -25,7 +25,10 @@ pub async fn list_runs(
     let job_name_filter = params.get("jobName").map(|s| s.as_str());
 
     let total = state.job_queue.count_runs(job_name_filter).await;
-    let runs = state.job_queue.list_runs(job_name_filter, per_page, offset).await;
+    let runs = state
+        .job_queue
+        .list_runs(job_name_filter, per_page, offset)
+        .await;
 
     let items: Vec<Value> = runs
         .into_iter()

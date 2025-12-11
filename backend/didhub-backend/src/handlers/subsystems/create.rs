@@ -17,7 +17,8 @@ pub async fn create(
     _body: Option<Json<Value>>,
 ) -> Result<Json<Value>, ApiError> {
     // Admin-only: accept Authorization header or session cookie
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&_state, &_headers).await? {
+    let auth = match crate::handlers::auth::utils::authenticate_optional(&_state, &_headers).await?
+    {
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(
@@ -61,7 +62,10 @@ pub async fn create(
         .or_else(|| payload.get("systemId"))
     {
         let s: String = serde_json::from_value(owner_val.clone()).map_err(ApiError::from)?;
-        Some(SqlxUuid::parse_str(&s).map_err(|_| ApiError::bad_request("invalid owner_user_id or systemId"))?)
+        Some(
+            SqlxUuid::parse_str(&s)
+                .map_err(|_| ApiError::bad_request("invalid owner_user_id or systemId"))?,
+        )
     } else {
         None
     };

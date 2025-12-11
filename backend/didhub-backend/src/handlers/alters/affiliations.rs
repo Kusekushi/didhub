@@ -22,8 +22,8 @@ pub async fn get(
     let alter_id_str = path
         .get("alterId")
         .ok_or_else(|| ApiError::bad_request("missing alterId"))?;
-    let alter_id = Uuid::parse_str(alter_id_str)
-        .map_err(|_| ApiError::bad_request("invalid alterId"))?;
+    let alter_id =
+        Uuid::parse_str(alter_id_str).map_err(|_| ApiError::bad_request("invalid alterId"))?;
 
     state
         .audit_request(
@@ -51,9 +51,9 @@ pub async fn get(
         INNER JOIN affiliation_members am ON a.id = am.affiliation_id
         WHERE am.alter_id = ?
         ORDER BY a.name
-        "#
+        "#,
     )
-    .bind(&alter_id)
+    .bind(alter_id)
     .fetch_all(&mut *conn)
     .await
     .map_err(ApiError::from)?;
@@ -90,8 +90,8 @@ pub async fn set(
     let alter_id_str = path
         .get("alterId")
         .ok_or_else(|| ApiError::bad_request("missing alterId"))?;
-    let alter_id = Uuid::parse_str(alter_id_str)
-        .map_err(|_| ApiError::bad_request("invalid alterId"))?;
+    let alter_id =
+        Uuid::parse_str(alter_id_str).map_err(|_| ApiError::bad_request("invalid alterId"))?;
 
     let payload = body
         .as_ref()
@@ -138,7 +138,7 @@ pub async fn set(
 
     // Remove all existing affiliations for this alter
     sqlx::query("DELETE FROM affiliation_members WHERE alter_id = ?")
-        .bind(&alter_id)
+        .bind(alter_id)
         .execute(&mut *tx)
         .await
         .map_err(ApiError::from)?;
@@ -149,7 +149,7 @@ pub async fn set(
             "INSERT INTO affiliation_members (affiliation_id, alter_id, is_leader, added_at) VALUES (?, ?, 0, datetime('now'))"
         )
         .bind(affiliation_id)
-        .bind(&alter_id)
+        .bind(alter_id)
         .execute(&mut *tx)
         .await
         .map_err(ApiError::from)?;

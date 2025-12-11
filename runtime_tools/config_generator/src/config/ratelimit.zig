@@ -20,9 +20,9 @@ pub const RateLimitConfig = struct {
 
     pub fn init(allocator: std.mem.Allocator) !RateLimitConfig {
         var exempt_paths = std.ArrayList([]const u8).initCapacity(allocator, 3) catch return error.OutOfMemory;
-        exempt_paths.appendAssumeCapacity("/health");
-        exempt_paths.appendAssumeCapacity("/ready");
-        exempt_paths.appendAssumeCapacity("/csrf-token");
+        try exempt_paths.append(allocator, try allocator.dupe(u8, "/health"));
+        try exempt_paths.append(allocator, try allocator.dupe(u8, "/ready"));
+        try exempt_paths.append(allocator, try allocator.dupe(u8, "/csrf-token"));
 
         return RateLimitConfig{
             .enabled = false,
@@ -35,6 +35,9 @@ pub const RateLimitConfig = struct {
     }
 
     pub fn deinit(self: *RateLimitConfig, allocator: std.mem.Allocator) void {
+        for (self.exempt_paths.items) |path| {
+            allocator.free(path);
+        }
         self.exempt_paths.deinit(allocator);
     }
 

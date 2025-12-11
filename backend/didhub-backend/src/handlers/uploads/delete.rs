@@ -25,16 +25,13 @@ pub async fn delete(
     };
 
     let params = query.map(|q| q.0).unwrap_or_default();
-    let force = params.get("force").map(|s| s == "1" || s == "true").unwrap_or(false);
+    let force = params
+        .get("force")
+        .map(|s| s == "1" || s == "true")
+        .unwrap_or(false);
 
     state
-        .audit_request(
-            "DELETE",
-            "/uploads/{id}",
-            &path,
-            &params,
-            &Value::Null,
-        )
+        .audit_request("DELETE", "/uploads/{id}", &path, &params, &Value::Null)
         .await?;
     let id_str = path
         .get("uploadId")

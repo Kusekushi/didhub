@@ -108,10 +108,7 @@ impl UpdateCoordinator {
         })?;
 
         // Find the latest non-prerelease, non-draft release
-        let latest = releases
-            .into_iter()
-            .filter(|r| !r.prerelease && !r.draft)
-            .next();
+        let latest = releases.into_iter().find(|r| !r.prerelease && !r.draft);
 
         let latest_version = match latest {
             Some(release) => {

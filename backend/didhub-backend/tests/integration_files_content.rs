@@ -92,7 +92,7 @@ async fn get_file_content_returns_200_and_content_type() {
         m
     };
 
-    let resp = uploads::serve_stored_file_content(
+    let resp = uploads::serve::serve_stored_file_content(
         axum::Extension(arc_state.clone()),
         HeaderMap::new(),
         Path(path_map),
