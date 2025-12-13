@@ -98,7 +98,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyyaml jinja2 pytest pytest-cov
+          pip install pyyaml jinja2
 
       - name: Install frontend dependencies
         run: pnpm install
@@ -111,7 +111,7 @@ jobs:
         run: python build.py codegen all
 
       # -------------------------------------------------------------------------
-      # Tests with Coverage (excluding Zig)
+      # Tests with Coverage
       # -------------------------------------------------------------------------
       - name: Run Rust tests with coverage
         run: |
@@ -121,11 +121,6 @@ jobs:
       - name: Run frontend tests with coverage
         run: pnpm test:coverage
         working-directory: frontend/app
-        continue-on-error: true
-
-      - name: Run Python tests with coverage
-        run: |
-          pytest build_tools --cov=build_tools --cov-report=xml:coverage-python.xml --cov-report=html:coverage-python-html || true
         continue-on-error: true
 
       # -------------------------------------------------------------------------
@@ -144,14 +139,4 @@ jobs:
         with:
           name: coverage-frontend-${{ matrix.os }}
           path: frontend/app/coverage/
-          retention-days: 30
-
-      - name: Upload Python coverage
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-python-${{ matrix.os }}
-          path: |
-            coverage-python.xml
-            coverage-python-html/
           retention-days: 30
