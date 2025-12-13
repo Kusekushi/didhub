@@ -177,6 +177,38 @@ class TestRunZigTests:
             assert result.passed == 2
             assert result.failed == 1
 
+    @patch("build_tools.run_tests.run_command")
+    @patch("shutil.which")
+    def test_run_zig_tests_coverage_no_kcov(self, mock_which, mock_run_command):
+        mock_which.side_effect = lambda cmd: cmd == "zig"
+        mock_run_command.return_value = MagicMock()
+
+        with patch("builtins.print"):
+            result = run_zig_tests(coverage=True)
+
+        assert result.name == "Zig"
+        assert result.success is True
+        assert result.passed == 3  # Tools exist
+        assert result.failed == 0  # Since no tools exist in test
+
+    @patch("build_tools.run_tests.run_command")
+    @patch("shutil.which")
+    @patch("build_tools.run_tests.RUNTIME_TOOLS_DIR")
+    def test_run_zig_tests_with_coverage(self, mock_runtime_dir, mock_which, mock_run_command):
+        mock_which.side_effect = lambda cmd: cmd in ["zig", "kcov"]
+        mock_runtime_dir.__truediv__ = lambda self, x: Path(f"/runtime/{x}")
+        mock_run_command.return_value = MagicMock()
+
+        original_exists = Path.exists
+        Path.exists = lambda self: str(self).startswith("/runtime")
+        try:
+            result = run_zig_tests(coverage=True)
+        finally:
+            Path.exists = original_exists
+
+        assert result.name == "Zig"
+        assert result.success is True
+        assert result.passed == 3
 
 class TestRunPythonTests:
     @patch("subprocess.run")
