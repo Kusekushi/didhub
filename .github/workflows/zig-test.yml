@@ -32,8 +32,37 @@ jobs:
         with:
           version: 0.15.2
 
+      - name: Install coverage tools (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y kcov lcov
+
       # -------------------------------------------------------------------------
       # Run Zig Tests
       # -------------------------------------------------------------------------
       - name: Run Zig tests
-        run: python build.py test --zig
+        run: python build.py test --zig ${{ runner.os == 'Linux' && '--zig-coverage' || '' }}
+
+      - name: Generate Zig coverage report
+        if: runner.os == 'Linux'
+        run: |
+          echo "Zig Coverage Summary:"
+          lcov --summary coverage/zig-coverage.lcov
+          echo "Generating HTML coverage report..."
+          genhtml coverage/zig-coverage.lcov -o coverage/zig-html --title "Zig Runtime Tools Coverage"
+
+      - name: Upload coverage HTML report
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: zig-coverage-html
+          path: coverage/zig-html/
+
+      - name: Upload coverage to Codecov
+        if: runner.os == 'Linux'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/zig-coverage.lcov
+          flags: zig
+          name: Zig Coverage

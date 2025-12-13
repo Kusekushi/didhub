@@ -134,7 +134,7 @@ def run_frontend_tests(
         return TestResult("Frontend", success=False, failed=1, duration=duration)
 
 
-def run_zig_tests(*, verbose: bool = False) -> TestResult:
+def run_zig_tests(*, verbose: bool = False, coverage: bool = False) -> TestResult:
     """Run Zig tests for runtime tools."""
     print("\n" + "=" * 40)
     print("Running Zig runtime tools tests...")
@@ -147,6 +147,11 @@ def run_zig_tests(*, verbose: bool = False) -> TestResult:
         print("Warning: zig is not installed. Skipping Zig tests.")
         return TestResult("Zig", success=True, skipped=1)
 
+    # Check if kcov is available for coverage
+    if coverage and not shutil.which("kcov"):
+        print("Warning: kcov is not installed. Skipping Zig coverage.")
+        coverage = False
+
     # Tools with test steps
     zig_tools = [
         ("config_generator", RUNTIME_TOOLS_DIR / "config_generator"),
@@ -155,13 +160,23 @@ def run_zig_tests(*, verbose: bool = False) -> TestResult:
     ]
 
     total_failed = 0
+    total_attempted = 0
+    coverage_dirs = []
     for name, tool_dir in zig_tools:
         if not tool_dir.exists():
             print(f"Warning: {name} directory not found: {tool_dir}")
             continue
 
+        total_attempted += 1
+
         print(f"\nTesting {name}...")
-        command = ["zig", "build", "test"]
+        if coverage:
+            coverage_dir = Path("coverage") / "zig" / name
+            coverage_dir.mkdir(parents=True, exist_ok=True)
+            coverage_dirs.append(coverage_dir)
+            command = ["kcov", "--include-pattern=src/", str(coverage_dir), "zig", "build", "test"]
+        else:
+            command = ["zig", "build", "test"]
         if verbose:
             command.append("--verbose")
 
@@ -170,11 +185,34 @@ def run_zig_tests(*, verbose: bool = False) -> TestResult:
         except subprocess.CalledProcessError:
             total_failed += 1
 
+    # If coverage, combine lcov files
+    if coverage and coverage_dirs:
+        print("\nCombining Zig coverage reports...")
+        combined_lcov = Path("coverage") / "zig-coverage.lcov"
+        combined_lcov.parent.mkdir(parents=True, exist_ok=True)
+        first = True
+        for cov_dir in coverage_dirs:
+            lcov_file = cov_dir / "lcov.info"
+            if lcov_file.exists():
+                if first:
+                    # Copy first
+                    shutil.copy(lcov_file, combined_lcov)
+                    first = False
+                else:
+                    # Append
+                    with open(combined_lcov, "a") as out:
+                        with open(lcov_file) as f:
+                            out.write(f.read())
+        if not first:
+            print(f"Combined coverage report saved to {combined_lcov}")
+        else:
+            print("No coverage reports found to combine.")
+
     duration = time.perf_counter() - start
     return TestResult(
         "Zig",
         success=total_failed == 0,
-        passed=len(zig_tools) - total_failed,
+        passed=total_attempted - total_failed,
         failed=total_failed,
         duration=duration,
     )
@@ -239,6 +277,11 @@ def main() -> None:
         help="Only run Zig runtime tools tests",
     )
     parser.add_argument(
+        "--zig-coverage",
+        action="store_true",
+        help="Collect coverage for Zig tests",
+    )
+    parser.add_argument(
         "--filter",
         "-f",
         type=str,
@@ -295,7 +338,7 @@ def main() -> None:
         results.append(run_python_tests(verbose=args.verbose))
 
     if args.zig or test_all:
-        results.append(run_zig_tests(verbose=args.verbose))
+        results.append(run_zig_tests(verbose=args.verbose, coverage=args.zig_coverage))
 
     total_duration = time.perf_counter() - total_start
 
