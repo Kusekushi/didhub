@@ -1,0 +1,39 @@
+name: Zig Test
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  zig-test:
+    name: Zig Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------------------------
+      # Setup Tools
+      # -------------------------------------------------------------------------
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      # -------------------------------------------------------------------------
+      # Run Zig Tests
+      # -------------------------------------------------------------------------
+      - name: Run Zig tests
+        run: python build.py test --zig

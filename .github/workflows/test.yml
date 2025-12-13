@@ -111,7 +111,7 @@ jobs:
         run: python build.py codegen all
 
       # -------------------------------------------------------------------------
-      # Tests with Coverage
+      # Tests with Coverage (excluding Zig)
       # -------------------------------------------------------------------------
       - name: Run Rust tests with coverage
         run: |
