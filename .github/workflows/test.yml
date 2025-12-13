@@ -76,24 +76,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Cache cargo-binstall
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin
-          key: ${{ runner.os }}-cargo-bin-${{ hashFiles('.github/workflows/test.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-bin-
-
       # -------------------------------------------------------------------------
       # Install Dependencies
       # -------------------------------------------------------------------------
-      - name: Install cargo-binstall
-        run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-        shell: bash
-
-      - name: Install cargo-llvm-cov
-        run: cargo binstall --no-confirm cargo-llvm-cov
+      - uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Install Python dependencies
         run: |
