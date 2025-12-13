@@ -29,6 +29,7 @@ RUNTIME_TOOLS_DIR = ROOT / "runtime_tools"
 @dataclass
 class LintResult:
     """Result of a lint operation."""
+
     name: str
     success: bool
     fixed: int = 0
@@ -64,16 +65,20 @@ def lint_rust(*, fix: bool = True) -> LintResult:
     print("\n" + "=" * 40)
     print("Linting Rust code...")
     print("=" * 40)
-    
+
     errors = 0
-    
+
     # Run clippy
     try:
         clippy_cmd = [
-            "cargo", "clippy",
-            "--manifest-path", str(BACKEND_DIR / "Cargo.toml"),
+            "cargo",
+            "clippy",
+            "--manifest-path",
+            str(BACKEND_DIR / "Cargo.toml"),
             "--all-targets",
-            "--", "-D", "warnings",
+            "--",
+            "-D",
+            "warnings",
         ]
         if fix:
             clippy_cmd.insert(2, "--fix")
@@ -81,16 +86,22 @@ def lint_rust(*, fix: bool = True) -> LintResult:
         run_command(clippy_cmd, check=True)
     except subprocess.CalledProcessError:
         errors += 1
-    
+
     # Run fmt
     try:
-        fmt_cmd = ["cargo", "fmt", "--manifest-path", str(BACKEND_DIR / "Cargo.toml"), "--all"]
+        fmt_cmd = [
+            "cargo",
+            "fmt",
+            "--manifest-path",
+            str(BACKEND_DIR / "Cargo.toml"),
+            "--all",
+        ]
         if not fix:
             fmt_cmd.append("--check")
         run_command(fmt_cmd, check=True)
     except subprocess.CalledProcessError:
         errors += 1
-    
+
     return LintResult("Rust", success=errors == 0, errors=errors)
 
 
@@ -99,11 +110,11 @@ def lint_frontend(*, fix: bool = True) -> LintResult:
     print("\n" + "=" * 40)
     print("Linting frontend code...")
     print("=" * 40)
-    
+
     if not FRONTEND_APP_DIR.exists():
         print(f"Warning: Frontend directory not found: {FRONTEND_APP_DIR}")
         return LintResult("Frontend", success=True)
-    
+
     try:
         cmd = ["pnpm", "lint"]
         if fix:
@@ -119,10 +130,10 @@ def lint_python(*, fix: bool = True) -> LintResult:
     print("\n" + "=" * 40)
     print("Linting Python code...")
     print("=" * 40)
-    
+
     errors = 0
     fixed = 0
-    
+
     # Check if ruff is available
     try:
         subprocess.run(
@@ -134,10 +145,17 @@ def lint_python(*, fix: bool = True) -> LintResult:
         print("Warning: ruff is not installed. Skipping Python linting.")
         print("Install with: pip install ruff")
         return LintResult("Python", success=True)
-    
+
     # Run ruff check
     try:
-        check_cmd = [sys.executable, "-m", "ruff", "check", str(BUILD_TOOLS_DIR)]
+        check_cmd = [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            str(BUILD_TOOLS_DIR),
+            str(ROOT / "build.py"),
+        ]
         if fix:
             check_cmd.append("--fix")
         result = run_command(check_cmd, check=False, capture=True)
@@ -147,16 +165,23 @@ def lint_python(*, fix: bool = True) -> LintResult:
                 print(result.stdout)
     except subprocess.CalledProcessError:
         errors += 1
-    
+
     # Run ruff format
     try:
-        format_cmd = [sys.executable, "-m", "ruff", "format", str(BUILD_TOOLS_DIR)]
+        format_cmd = [
+            sys.executable,
+            "-m",
+            "ruff",
+            "format",
+            str(BUILD_TOOLS_DIR),
+            str(ROOT / "build.py"),
+        ]
         if not fix:
             format_cmd.append("--check")
         run_command(format_cmd, check=True)
     except subprocess.CalledProcessError:
         errors += 1
-    
+
     return LintResult("Python", success=errors == 0, errors=errors, fixed=fixed)
 
 
@@ -165,11 +190,11 @@ def lint_zig(*, fix: bool = True) -> LintResult:
     print("\n" + "=" * 40)
     print("Linting Zig code...")
     print("=" * 40)
-    
+
     if not RUNTIME_TOOLS_DIR.exists():
         print(f"Warning: Runtime tools directory not found: {RUNTIME_TOOLS_DIR}")
         return LintResult("Zig", success=True)
-    
+
     # Check if zig is available
     try:
         subprocess.run(
@@ -181,9 +206,9 @@ def lint_zig(*, fix: bool = True) -> LintResult:
         print("Warning: zig is not installed. Skipping Zig linting.")
         print("Install Zig from https://ziglang.org/download/")
         return LintResult("Zig", success=True)
-    
+
     errors = 0
-    
+
     # Run zig fmt on each runtime tool
     for tool_dir in RUNTIME_TOOLS_DIR.iterdir():
         if tool_dir.is_dir() and (tool_dir / "build.zig").exists():
@@ -195,7 +220,7 @@ def lint_zig(*, fix: bool = True) -> LintResult:
                 run_command(fmt_cmd, check=True)
             except subprocess.CalledProcessError:
                 errors += 1
-    
+
     return LintResult("Zig", success=errors == 0, errors=errors)
 
 
@@ -250,7 +275,7 @@ def main() -> None:
     print("\n" + "=" * 40)
     print("Lint Summary")
     print("=" * 40)
-    
+
     all_success = True
     for result in results:
         status = "[OK]" if result.success else "[FAIL]"

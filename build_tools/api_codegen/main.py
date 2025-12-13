@@ -17,7 +17,7 @@ import sys
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Dict, Final, List, Optional
 
 import yaml
 from jinja2 import Environment, FileSystemLoader
@@ -26,9 +26,9 @@ from jinja2 import Environment, FileSystemLoader
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # HTTP methods supported in OpenAPI
-HTTP_METHODS: Final[frozenset[str]] = frozenset({
-    "get", "post", "put", "patch", "delete", "options", "head"
-})
+HTTP_METHODS: Final[frozenset[str]] = frozenset(
+    {"get", "post", "put", "patch", "delete", "options", "head"}
+)
 
 # Mapping from HTTP methods to Axum routing methods
 ROUTING_METHODS: Final[dict[str, str]] = {
@@ -45,6 +45,7 @@ ROUTING_METHODS: Final[dict[str, str]] = {
 @dataclass(frozen=True, slots=True)
 class Operation:
     """Represents an API operation from OpenAPI spec."""
+
     path: str
     method: str
     handler_name: str
@@ -62,6 +63,7 @@ class Operation:
 @dataclass(slots=True)
 class RouteGroup:
     """Group of operations sharing the same path."""
+
     path: str
     axum_path: str
     operations: list[Operation]
@@ -79,10 +81,11 @@ class RouteGroup:
 @dataclass
 class GeneratorContext:
     """Context for code generation with cached resources."""
+
     template_env: Environment = field(init=False)
     _backend_template: Any = field(init=False)
     _frontend_template: Any = field(init=False)
-    
+
     def __post_init__(self) -> None:
         templates_dir = Path(__file__).parent / "templates"
         self.template_env = Environment(
@@ -93,13 +96,17 @@ class GeneratorContext:
             auto_reload=False,  # Disable auto-reload for performance
         )
         # Pre-compile templates
-        self._backend_template = self.template_env.get_template("backend_routes.rs.jinja")
-        self._frontend_template = self.template_env.get_template("frontend_client.ts.jinja")
-    
+        self._backend_template = self.template_env.get_template(
+            "backend_routes.rs.jinja"
+        )
+        self._frontend_template = self.template_env.get_template(
+            "frontend_client.ts.jinja"
+        )
+
     @property
     def backend_template(self):
         return self._backend_template
-    
+
     @property
     def frontend_template(self):
         return self._frontend_template
@@ -112,7 +119,7 @@ _external_url_cache: dict[str, dict[str, Any]] = {}
 
 def load_spec(path: Path) -> dict[str, Any]:
     """Load an OpenAPI spec from a file.
-    
+
     Supports both YAML and JSON formats.
     """
     raw = path.read_text(encoding="utf-8")
@@ -196,14 +203,14 @@ def _render_inline_ts_type(schema: dict[str, Any], schemas: dict[str, Any]) -> s
         required = set(schema.get("required", []))
         if not properties:
             return "{}"
-        
+
         prop_parts = []
         for prop_name, prop_schema in properties.items():
             if isinstance(prop_schema, dict):
                 prop_type = _render_inline_ts_type(prop_schema, schemas)
                 optional = "?" if prop_name not in required else ""
                 prop_parts.append(f"{prop_name}{optional}: {prop_type}")
-        
+
         return f"{{ {', '.join(prop_parts)} }}"
     else:
         return "any"
@@ -275,7 +282,7 @@ def _ensure_unique(base: str, used: dict[str, int]) -> str:
 
 def build_operations(spec: dict[str, Any], schemas: dict[str, Any]) -> list[Operation]:
     """Build Operation objects from an OpenAPI spec.
-    
+
     Extracts all operations from paths and returns them sorted by path and method.
     """
     result: list[Operation] = []
@@ -297,8 +304,14 @@ def build_operations(spec: dict[str, Any], schemas: dict[str, Any]) -> list[Oper
             has_query = any(param.get("in") == "query" for param in params)
             has_body = "requestBody" in details
 
-            raw_operation_id = details.get("operationId") or details.get("summary") or f"{method}_{path}"
-            handler_slug = slugify(raw_operation_id, fallback=f"{method}_operation").replace("__", "_")
+            raw_operation_id = (
+                details.get("operationId")
+                or details.get("summary")
+                or f"{method}_{path}"
+            )
+            handler_slug = slugify(
+                raw_operation_id, fallback=f"{method}_operation"
+            ).replace("__", "_")
             handler_name = _ensure_unique(handler_slug, used_handlers)
 
             summary = details.get("summary", "").strip()
@@ -314,7 +327,9 @@ def build_operations(spec: dict[str, Any], schemas: dict[str, Any]) -> list[Oper
                 target = handler_meta.get("delegate") or handler_meta.get("target")
                 if target is not None:
                     delegate_target = str(target)
-                pass_headers = handler_meta.get("passHeaders") or handler_meta.get("needsHeaders")
+                pass_headers = handler_meta.get("passHeaders") or handler_meta.get(
+                    "needsHeaders"
+                )
                 if pass_headers is not None:
                     needs_headers = bool(pass_headers)
 
@@ -334,20 +349,22 @@ def build_operations(spec: dict[str, Any], schemas: dict[str, Any]) -> list[Oper
             rust_return_type = infer_return_type(details)
             ts_return_type = infer_ts_return_type(details, schemas)
 
-            result.append(Operation(
-                path=path,
-                method=method,
-                handler_name=handler_name,
-                method_name=to_camel_case(handler_name),
-                summary=summary,
-                has_path_params=has_path,
-                has_query_params=has_query,
-                has_body=has_body,
-                needs_headers=needs_headers,
-                delegate_target=delegate_target,
-                rust_return_type=rust_return_type,
-                ts_return_type=ts_return_type,
-            ))
+            result.append(
+                Operation(
+                    path=path,
+                    method=method,
+                    handler_name=handler_name,
+                    method_name=to_camel_case(handler_name),
+                    summary=summary,
+                    has_path_params=has_path,
+                    has_query_params=has_query,
+                    has_body=has_body,
+                    needs_headers=needs_headers,
+                    delegate_target=delegate_target,
+                    rust_return_type=rust_return_type,
+                    ts_return_type=ts_return_type,
+                )
+            )
 
     result.sort(key=lambda op: (op.path, op.method))
     return result
@@ -395,13 +412,16 @@ def render_backend(
     use_query = any(op.has_query_params for op in operations)
     use_json = any(op.has_body for op in operations)
     use_response = any("Response" in op.rust_return_type for op in operations)
-    
+
     return ctx.backend_template.render(
         operations=operations,
-        routes=[{
-            "axum_path": group.axum_path,
-            "method_chain": group.method_chain,
-        } for group in routes],
+        routes=[
+            {
+                "axum_path": group.axum_path,
+                "method_chain": group.method_chain,
+            }
+            for group in routes
+        ],
         routing_imports=collect_routing_imports(routes),
         use_header_map=use_header_map,
         use_path=use_path,
@@ -415,7 +435,7 @@ def render_backend(
 def _render_ts_types(schemas: dict[str, Any]) -> str:
     """Render simple TypeScript types from OpenAPI schemas (best-effort)."""
     out_lines: list[str] = []
-    
+
     for name, schema in schemas.items():
         schema_type = schema.get("type")
         if schema_type == "object":
@@ -434,8 +454,10 @@ def _render_ts_types(schemas: dict[str, Any]) -> str:
                     items = prop.get("items", {})
                     itype = items.get("type", "any")
                     ts_type = (
-                        "string" if itype == "string"
-                        else "number" if itype in ("integer", "number")
+                        "string"
+                        if itype == "string"
+                        else "number"
+                        if itype in ("integer", "number")
                         else "any"
                     ) + "[]"
                 else:
@@ -447,13 +469,15 @@ def _render_ts_types(schemas: dict[str, Any]) -> str:
         else:
             # Fallback: export a type alias
             ts_equiv = (
-                "string" if schema_type == "string"
-                else "number" if schema_type in ("integer", "number")
+                "string"
+                if schema_type == "string"
+                else "number"
+                if schema_type in ("integer", "number")
                 else "any"
             )
             out_lines.append(f"export type {name} = {ts_equiv};")
             out_lines.append("")
-    
+
     return "\n".join(out_lines)
 
 
@@ -467,14 +491,17 @@ def render_frontend(
     types_block = _render_ts_types(schemas) if schemas else ""
 
     return ctx.frontend_template.render(
-        operations=[{
-            "method": op.method,
-            "path": op.path,
-            "method_name": op.method_name,
-            "summary": op.summary,
-            "has_body": op.has_body,
-            "ts_return_type": op.ts_return_type,
-        } for op in operations],
+        operations=[
+            {
+                "method": op.method,
+                "path": op.path,
+                "method_name": op.method_name,
+                "summary": op.summary,
+                "has_body": op.has_body,
+                "ts_return_type": op.ts_return_type,
+            }
+            for op in operations
+        ],
         types=types_block,
     )
 
@@ -489,26 +516,28 @@ def _resolve_local_ref(ref: str, schemas: dict[str, Any]) -> dict[str, Any] | No
 
 def _fetch_remote_url(url: str) -> dict[str, Any] | None:
     """Fetch and cache a remote JSON/YAML document by URL.
-    
+
     Uses urllib3 Retry via requests.adapters.HTTPAdapter.
     """
     if url in _external_url_cache:
         return _external_url_cache[url]
-    
+
     try:
         import requests
         from requests.adapters import HTTPAdapter
         from urllib3.util.retry import Retry
 
         session = requests.Session()
-        retries = Retry(total=3, backoff_factor=0.5, status_forcelist=(500, 502, 503, 504))
+        retries = Retry(
+            total=3, backoff_factor=0.5, status_forcelist=(500, 502, 503, 504)
+        )
         adapter = HTTPAdapter(max_retries=retries)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
 
         resp = session.get(url, timeout=5)
         resp.raise_for_status()
-        
+
         try:
             data = resp.json()
         except Exception:
@@ -519,7 +548,7 @@ def _fetch_remote_url(url: str) -> dict[str, Any] | None:
             return data
     except Exception:
         pass
-    
+
     return None
 
 
@@ -528,16 +557,20 @@ def _load_external_file(file_path: Path) -> dict[str, Any] | None:
     key = str(file_path.resolve())
     if key in _external_file_cache:
         return _external_file_cache[key]
-    
+
     try:
         raw = file_path.read_text(encoding="utf-8")
-        data = yaml.safe_load(raw) if file_path.suffix.lower() in {".yml", ".yaml"} else json.loads(raw)
+        data = (
+            yaml.safe_load(raw)
+            if file_path.suffix.lower() in {".yml", ".yaml"}
+            else json.loads(raw)
+        )
         if isinstance(data, dict):
             _external_file_cache[key] = data
             return data
     except Exception:
         pass
-    
+
     return None
 
 
@@ -553,7 +586,7 @@ def _resolve_ref_general_impl(
       - external file refs: 'models.yaml#/components/schemas/Name'
       - relative paths: './models.yaml#/components/schemas/Name'
       - fragment-only refs (treated as local)
-      
+
     Returns the referenced schema dict or None.
     """
     # Local fragment
@@ -563,7 +596,7 @@ def _resolve_ref_general_impl(
     # If ref contains a fragment referring to components/schemas
     if "#/components/schemas/" in ref:
         file_part, name = ref.split("#/components/schemas/", 1)
-        
+
         # If no file part, fallback to local
         if not file_part:
             return _resolve_local_ref(ref, schemas)
@@ -582,17 +615,17 @@ def _resolve_ref_general_impl(
             try:
                 from urllib.parse import urlparse
                 from urllib.request import url2pathname
-                
+
                 parsed = urlparse(file_part)
-                path_str = url2pathname(parsed.path or '')
+                path_str = url2pathname(parsed.path or "")
                 if parsed.netloc and not path_str.startswith(parsed.netloc):
                     path_str = parsed.netloc + path_str
                 if not path_str:
-                    path_str = file_part[len('file://'):]
+                    path_str = file_part[len("file://") :]
                 file_path = Path(path_str).resolve()
             except Exception:
                 return None
-            
+
             data = _load_external_file(file_path)
             if not data:
                 return None
@@ -627,7 +660,9 @@ def resolve_ref_general(
         specs = maybe_spec_or_base
         components = specs.get("components", {}) or {}
         schemas = components.get("schemas", {}) or {}
-        base = Path(base_path) if isinstance(base_path, str) else Path(__file__).resolve()
+        base = (
+            Path(base_path) if isinstance(base_path, str) else Path(__file__).resolve()
+        )
         return _resolve_ref_general_impl(ref, base, schemas)
 
     try:
@@ -641,7 +676,7 @@ def resolve_ref_general(
 def _topo_sort_types(schemas: dict[str, Any]) -> list[str]:
     """Topologically sort types based on $ref dependencies."""
     deps: dict[str, set[str]] = {name: set() for name in schemas.keys()}
-    
+
     def collect_refs(sch: Any, target_name: str) -> None:
         if not isinstance(sch, dict):
             return
@@ -656,14 +691,14 @@ def _topo_sort_types(schemas: dict[str, Any]) -> list[str]:
                 for it in v:
                     if isinstance(it, dict):
                         collect_refs(it, target_name)
-    
+
     for name, schema in schemas.items():
         collect_refs(schema, name)
-    
+
     ordered: list[str] = []
     temporary: set[str] = set()
     permanent: set[str] = set()
-    
+
     def visit(n: str) -> None:
         if n in permanent:
             return
@@ -675,7 +710,7 @@ def _topo_sort_types(schemas: dict[str, Any]) -> list[str]:
                 visit(d)
         permanent.add(n)
         ordered.append(n)
-    
+
     for n in schemas.keys():
         visit(n)
     return ordered
@@ -685,7 +720,9 @@ def _topo_sort_types(schemas: dict[str, Any]) -> list[str]:
 topo_sort_types = _topo_sort_types
 
 
-def render_frontend_types(components_or_spec: Dict, out_path: Optional[str] = None) -> str:
+def render_frontend_types(
+    components_or_spec: Dict, out_path: Optional[str] = None
+) -> str:
     """Render a dedicated TypeScript types file from components.schemas.
 
     This is a conservative, best-effort renderer that resolves local $ref
@@ -759,12 +796,20 @@ def render_frontend_types(components_or_spec: Dict, out_path: Optional[str] = No
                     non_object_types.append(ts_for_schema(part))
 
             if merged_props and not non_object_types:
-                merged = {"type": "object", "properties": merged_props, "required": merged_required}
+                merged = {
+                    "type": "object",
+                    "properties": merged_props,
+                    "required": merged_required,
+                }
                 return ts_for_schema(merged)
             # fallback: if non-object types exist, form a union with object shape if present
             parts_ts: List[str] = []
             if merged_props:
-                merged = {"type": "object", "properties": merged_props, "required": merged_required}
+                merged = {
+                    "type": "object",
+                    "properties": merged_props,
+                    "required": merged_required,
+                }
                 parts_ts.append(ts_for_schema(merged))
             parts_ts.extend([t for t in non_object_types if t])
             return " | ".join(parts_ts) if parts_ts else "any"
@@ -772,7 +817,7 @@ def render_frontend_types(components_or_spec: Dict, out_path: Optional[str] = No
         t = schema.get("type")
         if t == "object":
             props = schema.get("properties", {}) or {}
-            lines = ["{" ]
+            lines = ["{"]
             required = set(schema.get("required", []))
             for pname, pdef in props.items():
                 ptype = ts_for_schema(pdef)
@@ -795,11 +840,18 @@ def render_frontend_types(components_or_spec: Dict, out_path: Optional[str] = No
             return "boolean"
         return "any"
 
-    out_lines: List[str] = ["// Auto-generated TypeScript types from OpenAPI components.schemas", ""]
+    out_lines: List[str] = [
+        "// Auto-generated TypeScript types from OpenAPI components.schemas",
+        "",
+    ]
     # Always include a standard ValidationPayload type used by the backend for structured validation errors
-    out_lines.append("export interface ValidationIssue { code: string; message: string; }")
+    out_lines.append(
+        "export interface ValidationIssue { code: string; message: string; }"
+    )
     out_lines.append("")
-    out_lines.append("export type ValidationPayload = { validation: { [field: string]: ValidationIssue } };")
+    out_lines.append(
+        "export type ValidationPayload = { validation: { [field: string]: ValidationIssue } };"
+    )
     out_lines.append("")
     order = topo_sort_types(schemas)
     for name in order:
@@ -808,7 +860,9 @@ def render_frontend_types(components_or_spec: Dict, out_path: Optional[str] = No
         if isinstance(schema, dict) and "$ref" in schema:
             ref = schema["$ref"]
             # try to resolve external refs to inline simple types
-            resolved = resolve_ref_general(ref, Path(__file__).resolve(), schemas) or resolve_ref_to_schema(ref)
+            resolved = resolve_ref_general(
+                ref, Path(__file__).resolve(), schemas
+            ) or resolve_ref_to_schema(ref)
             if resolved and isinstance(resolved, dict):
                 # if resolved is a simple non-object, inline its TS
                 if resolved.get("type") and resolved.get("type") != "object":
@@ -836,20 +890,22 @@ def render_frontend_types(components_or_spec: Dict, out_path: Optional[str] = No
                         # try to find a tag value that maps to this ref
                         tag = None
                         for tag_val, mref in mapping.items():
-                            if mref == refpath or mref.endswith('/' + refname):
+                            if mref == refpath or mref.endswith("/" + refname):
                                 tag = tag_val
                                 break
                         if tag:
                             # produce discriminated intersection: {propName: "tag"} & RefType
-                            parts.append(f"{{ {prop_name}: \"{tag}\" }} & {refname}")
+                            parts.append(f'{{ {prop_name}: "{tag}" }} & {refname}')
                             continue
                     parts.append(refname)
                 else:
                     parts.append(ts_for_schema(v))
-            out_lines.append(f"export type {name} = { ' | '.join(parts) }")
+            out_lines.append(f"export type {name} = {' | '.join(parts)}")
         elif "enum" in schema:
             vals = schema.get("enum", [])
-            out_lines.append(f"export type {name} = { ' | '.join([f'\"{v}\"' for v in vals]) }")
+            out_lines.append(
+                f"export type {name} = {' | '.join([f'"{v}"' for v in vals])}"
+            )
         else:
             out_lines.append(f"export type {name} = {ts_for_schema(schema)}")
         out_lines.append("")
@@ -859,10 +915,30 @@ def render_frontend_types(components_or_spec: Dict, out_path: Optional[str] = No
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--spec", default=Path("schemas/api/openapi.yaml"), type=Path, help="Path to the OpenAPI specification (JSON or YAML)")
-    parser.add_argument("--backend", default=Path("backend/didhub-backend/src/generated/routes.rs"), type=Path, help="Output path for backend routes file")
-    parser.add_argument("--frontend", default=Path("frontend/api/src/client.ts"), type=Path, help="Output path for the frontend API client")
-    parser.add_argument("--frontend-types", default=Path("frontend/api/src/types.ts"), type=Path, help="Output path for frontend TypeScript types")
+    parser.add_argument(
+        "--spec",
+        default=Path("schemas/api/openapi.yaml"),
+        type=Path,
+        help="Path to the OpenAPI specification (JSON or YAML)",
+    )
+    parser.add_argument(
+        "--backend",
+        default=Path("backend/didhub-backend/src/generated/routes.rs"),
+        type=Path,
+        help="Output path for backend routes file",
+    )
+    parser.add_argument(
+        "--frontend",
+        default=Path("frontend/api/src/client.ts"),
+        type=Path,
+        help="Output path for the frontend API client",
+    )
+    parser.add_argument(
+        "--frontend-types",
+        default=Path("frontend/api/src/types.ts"),
+        type=Path,
+        help="Output path for frontend TypeScript types",
+    )
     args = parser.parse_args()
 
     spec = load_spec(args.spec)
@@ -886,7 +962,10 @@ def main() -> None:
 
     # Write the mod.rs file for the generated module
     mod_file = args.backend.parent / "mod.rs"
-    mod_file.write_text("// Auto-generated by build_tools/api_codegen. Do not edit manually.\n#![cfg_attr(rustfmt, rustfmt_skip)]\n\npub mod routes;\n", encoding="utf-8")
+    mod_file.write_text(
+        "// Auto-generated by build_tools/api_codegen. Do not edit manually.\n#![cfg_attr(rustfmt, rustfmt_skip)]\n\npub mod routes;\n",
+        encoding="utf-8",
+    )
 
     # Write frontend client and types into frontend/api/src
     frontend_src = Path("frontend/api/src")

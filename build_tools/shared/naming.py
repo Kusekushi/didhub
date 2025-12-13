@@ -4,47 +4,49 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-RUST_KEYWORDS: frozenset[str] = frozenset({
-    "as",
-    "async",
-    "await",
-    "break",
-    "const",
-    "continue",
-    "crate",
-    "dyn",
-    "else",
-    "enum",
-    "extern",
-    "false",
-    "fn",
-    "for",
-    "if",
-    "impl",
-    "in",
-    "let",
-    "loop",
-    "match",
-    "mod",
-    "move",
-    "mut",
-    "pub",
-    "ref",
-    "return",
-    "self",
-    "Self",
-    "static",
-    "struct",
-    "super",
-    "trait",
-    "true",
-    "type",
-    "union",
-    "unsafe",
-    "use",
-    "where",
-    "while",
-})
+RUST_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "as",
+        "async",
+        "await",
+        "break",
+        "const",
+        "continue",
+        "crate",
+        "dyn",
+        "else",
+        "enum",
+        "extern",
+        "false",
+        "fn",
+        "for",
+        "if",
+        "impl",
+        "in",
+        "let",
+        "loop",
+        "match",
+        "mod",
+        "move",
+        "mut",
+        "pub",
+        "ref",
+        "return",
+        "self",
+        "Self",
+        "static",
+        "struct",
+        "super",
+        "trait",
+        "true",
+        "type",
+        "union",
+        "unsafe",
+        "use",
+        "where",
+        "while",
+    }
+)
 
 # Common irregular plurals
 _IRREGULAR_PLURALS: dict[str, str] = {
@@ -69,7 +71,7 @@ _IRREGULAR_PLURALS: dict[str, str] = {
 @lru_cache(maxsize=1024)
 def singularize(name: str) -> str:
     """Convert a plural word to singular form.
-    
+
     Uses caching for repeated calls with the same input.
     """
     # Check irregular plurals first
@@ -80,7 +82,7 @@ def singularize(name: str) -> str:
         if name[0].isupper():
             return singular.capitalize()
         return singular
-    
+
     # Apply rules in order of specificity
     if name.endswith("ies") and len(name) > 3:
         return name[:-3] + "y"
@@ -102,9 +104,9 @@ def singularize(name: str) -> str:
 @lru_cache(maxsize=1024)
 def to_pascal_case(value: str) -> str:
     """Convert a string to PascalCase.
-    
+
     Uses caching for repeated calls with the same input.
-    
+
     Examples:
         >>> to_pascal_case("hello_world")
         'HelloWorld'
@@ -115,8 +117,9 @@ def to_pascal_case(value: str) -> str:
     """
     # Handle already camelCase/PascalCase by inserting underscores before caps
     import re
-    value = re.sub(r'([a-z])([A-Z])', r'\1_\2', value)
-    
+
+    value = re.sub(r"([a-z])([A-Z])", r"\1_\2", value)
+
     parts = [part for part in value.replace("-", "_").split("_") if part]
     return "".join(part.capitalize() for part in parts)
 
@@ -124,9 +127,9 @@ def to_pascal_case(value: str) -> str:
 @lru_cache(maxsize=1024)
 def to_snake_case(value: str) -> str:
     """Convert a string to snake_case.
-    
+
     Uses caching for repeated calls with the same input.
-    
+
     Examples:
         >>> to_snake_case("HelloWorld")
         'hello_world'
@@ -134,18 +137,19 @@ def to_snake_case(value: str) -> str:
         'hello_world'
     """
     import re
+
     # Insert underscore before uppercase letters
-    value = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', value)
+    value = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
     # Replace hyphens and multiple underscores
     value = value.replace("-", "_")
-    value = re.sub(r'_+', '_', value)
+    value = re.sub(r"_+", "_", value)
     return value.lower().strip("_")
 
 
 @lru_cache(maxsize=1024)
 def sanitize_module_name(value: str) -> str:
     """Sanitize a value for use as a Rust module name.
-    
+
     Uses caching for repeated calls with the same input.
     """
     return value.lower().replace("-", "_")
@@ -154,7 +158,7 @@ def sanitize_module_name(value: str) -> str:
 @lru_cache(maxsize=1024)
 def sanitize_field_name(value: str) -> str:
     """Sanitize a value for use as a Rust field name.
-    
+
     Uses caching for repeated calls with the same input.
     """
     sanitized = value.replace("-", "_")

@@ -30,14 +30,23 @@ CLEAN_DIRS: list[tuple[Path, str]] = [
     (ROOT / "runtime_tools" / "log_analyzer" / "zig-out", "Log analyzer build"),
     (ROOT / "runtime_tools" / "log_analyzer" / "zig-cache", "Log analyzer cache"),
     (ROOT / "runtime_tools" / "config_generator" / "zig-out", "Config generator build"),
-    (ROOT / "runtime_tools" / "config_generator" / "zig-cache", "Config generator cache"),
+    (
+        ROOT / "runtime_tools" / "config_generator" / "zig-cache",
+        "Config generator cache",
+    ),
 ]
 
 # Generated code directories (cleaned only with --generated flag)
 GENERATED_DIRS: list[tuple[Path, str]] = [
-    (ROOT / "backend" / "didhub-backend" / "src" / "generated", "Backend generated routes"),
+    (
+        ROOT / "backend" / "didhub-backend" / "src" / "generated",
+        "Backend generated routes",
+    ),
     (ROOT / "backend" / "didhub-db" / "src" / "generated", "Database generated code"),
-    (ROOT / "backend" / "didhub-migrations" / "src" / "generated", "Generated migrations"),
+    (
+        ROOT / "backend" / "didhub-migrations" / "src" / "generated",
+        "Generated migrations",
+    ),
     (ROOT / "frontend" / "api" / "src", "Frontend API client"),
 ]
 
@@ -83,7 +92,7 @@ def clean_directory(path: Path, description: str, *, dry_run: bool = False) -> i
     """Clean a directory, returning bytes freed."""
     if not path.exists():
         return 0
-    
+
     size = get_dir_size(path)
     if dry_run:
         print(f"  Would remove: {path} ({description}) - {format_size(size)}")
@@ -97,7 +106,7 @@ def clean_file(path: Path, *, dry_run: bool = False) -> int:
     """Clean a file, returning bytes freed."""
     if not path.exists():
         return 0
-    
+
     size = path.stat().st_size
     if dry_run:
         print(f"  Would remove: {path} - {format_size(size)}")
@@ -137,7 +146,7 @@ def main() -> None:
     print("\nCleaning Python caches...")
     for pycache in find_pycache_dirs(ROOT / "build_tools"):
         total_freed += clean_directory(pycache, "__pycache__", dry_run=args.dry_run)
-    
+
     for pyc in find_pyc_files(ROOT / "build_tools"):
         total_freed += clean_file(pyc, dry_run=args.dry_run)
 
@@ -148,7 +157,7 @@ def main() -> None:
 
     action = "Would free" if args.dry_run else "Freed"
     print(f"\n{action}: {format_size(total_freed)}")
-    
+
     if args.dry_run:
         print("\nRun without --dry-run to actually clean.")
 

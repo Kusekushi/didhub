@@ -25,41 +25,49 @@ FRONTEND_APP_DIR = ROOT / "frontend" / "app"
 
 class ServerProcess:
     """Manages a subprocess with proper signal handling."""
-    
-    def __init__(self, name: str, command: list[str], cwd: Path, env: dict[str, str] | None = None):
+
+    def __init__(
+        self,
+        name: str,
+        command: list[str],
+        cwd: Path,
+        env: dict[str, str] | None = None,
+    ):
         self.name = name
         self.command = command
         self.cwd = cwd
         self.env = {**os.environ, **(env or {})}
         self.process: subprocess.Popen | None = None
         self._stopped = threading.Event()
-    
+
     def start(self) -> None:
         """Start the subprocess."""
         print(f"[{self.name}] Starting: {' '.join(self.command)}")
         print(f"[{self.name}] Working directory: {self.cwd}")
-        
+
         # On Windows, resolve the executable path to handle .cmd/.bat files
         resolved_cmd = list(self.command)
         if sys.platform == "win32" and self.command:
             resolved = shutil.which(self.command[0])
             if resolved:
                 resolved_cmd[0] = resolved
-        
+
         try:
             self.process = subprocess.Popen(
                 resolved_cmd,
                 cwd=self.cwd,
                 env=self.env,
                 # Use CREATE_NEW_PROCESS_GROUP on Windows for proper signal handling
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                if sys.platform == "win32"
+                else 0,
             )
         except FileNotFoundError as e:
             print(f"[{self.name}] Error: Command not found - {e.filename}")
             print(f"[{self.name}] Make sure the required tools are installed.")
             self._stopped.set()
             return
-        
+
         # Wait for process to complete
         try:
             self.process.wait()
@@ -67,7 +75,7 @@ class ServerProcess:
             pass
         finally:
             self._stopped.set()
-    
+
     def stop(self) -> None:
         """Stop the subprocess gracefully."""
         if self.process and self.process.poll() is None:
@@ -81,7 +89,7 @@ class ServerProcess:
             except subprocess.TimeoutExpired:
                 print(f"[{self.name}] Force killing...")
                 self.process.kill()
-    
+
     def wait(self) -> None:
         """Wait for the process to stop."""
         self._stopped.wait()
@@ -107,7 +115,7 @@ def start_rust_server(config_path: Path | None = None) -> ServerProcess:
         command = ["cargo", "watch", "-x", f"run -- -c {config_path}"]
     else:
         command = ["cargo", "watch", "-x", "run"]
-    
+
     return ServerProcess(
         name="Backend",
         command=command,
@@ -141,7 +149,8 @@ def main() -> NoReturn:
         help="Only start the frontend dev server",
     )
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         type=Path,
         help="Path to config file for the backend",
     )
@@ -176,7 +185,7 @@ def main() -> NoReturn:
             threads.append(thread)
 
         print("\nDevelopment servers started. Press Ctrl+C to stop.\n")
-        
+
         # Wait for any server to exit
         for server in servers:
             server.wait()

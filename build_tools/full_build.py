@@ -41,6 +41,7 @@ RUNTIME_TOOLS = [
 @dataclass
 class BuildStep:
     """Represents a build step with timing."""
+
     name: str
     action: Callable[[], None]
     enabled: bool = True
@@ -48,6 +49,7 @@ class BuildStep:
 
 class BuildError(Exception):
     """Raised when a build step fails."""
+
     pass
 
 
@@ -91,12 +93,15 @@ def generate_migrations() -> None:
 
 def generate_db_code() -> None:
     """Generate Rust database code from schemas."""
-    run_command([
-        sys.executable,
-        str(DB_CODEGEN_SCRIPT),
-        str(SCHEMA_DIR),
-        "--crate-dir", str(DB_CRATE_DIR),
-    ])
+    run_command(
+        [
+            sys.executable,
+            str(DB_CODEGEN_SCRIPT),
+            str(SCHEMA_DIR),
+            "--crate-dir",
+            str(DB_CRATE_DIR),
+        ]
+    )
 
 
 def generate_api_code() -> None:
@@ -121,14 +126,14 @@ def build_runtime_tools(*, release: bool = False) -> None:
         if not tool_dir.exists():
             print(f"Warning: Runtime tool directory not found: {tool_dir}")
             continue
-        
+
         if not (tool_dir / "build.zig").exists():
             continue
-        
+
         command = ["zig", "build"]
         if release:
             command.append("--release=fast")
-        
+
         print(f"\nBuilding {tool_dir.name}...")
         run_command(command, cwd=tool_dir)
 
@@ -138,11 +143,11 @@ def build_frontend() -> None:
     if not FRONTEND_DIR.exists():
         print(f"Warning: Frontend directory not found: {FRONTEND_DIR}")
         return
-    
+
     # Install dependencies if needed
     if not (FRONTEND_DIR / "node_modules").exists():
         run_command(["pnpm", "install"], cwd=FRONTEND_DIR)
-    
+
     run_command(["pnpm", "build"], cwd=FRONTEND_DIR)
 
 
@@ -150,15 +155,15 @@ def run_build_steps(steps: list[BuildStep], *, verbose: bool = False) -> None:
     """Execute build steps with timing."""
     total_start = time.perf_counter()
     results: list[tuple[str, float, bool]] = []
-    
+
     for step in steps:
         if not step.enabled:
             continue
-        
+
         print(f"\n{'=' * 60}")
         print(f"Step: {step.name}")
-        print('=' * 60)
-        
+        print("=" * 60)
+
         step_start = time.perf_counter()
         try:
             step.action()
@@ -171,12 +176,12 @@ def run_build_steps(steps: list[BuildStep], *, verbose: bool = False) -> None:
             print(f"\n[FAIL] {step.name} failed after {elapsed:.2f}s")
             print(f"Error: {e}")
             raise SystemExit(1)
-    
+
     total_elapsed = time.perf_counter() - total_start
-    
+
     print(f"\n{'=' * 60}")
     print("Build Summary")
-    print('=' * 60)
+    print("=" * 60)
     for name, elapsed, success in results:
         status = "[OK]" if success else "[FAIL]"
         print(f"  {status} {name}: {elapsed:.2f}s")
@@ -214,16 +219,21 @@ def main() -> None:
         help="Skip building runtime tools",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Show verbose output",
     )
     args = parser.parse_args()
 
     steps = [
-        BuildStep("Generate Migrations", generate_migrations, enabled=not args.skip_codegen),
+        BuildStep(
+            "Generate Migrations", generate_migrations, enabled=not args.skip_codegen
+        ),
         BuildStep("Generate DB Code", generate_db_code, enabled=not args.skip_codegen),
-        BuildStep("Generate API Code", generate_api_code, enabled=not args.skip_codegen),
+        BuildStep(
+            "Generate API Code", generate_api_code, enabled=not args.skip_codegen
+        ),
         BuildStep(
             "Build Rust Backend",
             lambda: build_rust(release=args.release, check_only=args.check),

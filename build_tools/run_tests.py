@@ -32,6 +32,7 @@ RUNTIME_TOOLS_DIR = ROOT / "runtime_tools"
 @dataclass
 class TestResult:
     """Result of a test run."""
+
     name: str
     success: bool
     passed: int = 0
@@ -74,23 +75,25 @@ def run_rust_tests(
     print("\n" + "=" * 40)
     print("Running Rust tests...")
     print("=" * 40)
-    
+
     start = time.perf_counter()
-    
+
     command = [
-        "cargo", "test",
-        "--manifest-path", str(BACKEND_DIR / "Cargo.toml"),
+        "cargo",
+        "test",
+        "--manifest-path",
+        str(BACKEND_DIR / "Cargo.toml"),
     ]
-    
+
     if release:
         command.append("--release")
-    
+
     if filter_pattern:
         command.extend(["--", filter_pattern])
-    
+
     if verbose:
         command.append("--nocapture")
-    
+
     try:
         run_command(command, check=True, env={"RUST_BACKTRACE": "1"})
         duration = time.perf_counter() - start
@@ -109,19 +112,19 @@ def run_frontend_tests(
     print("\n" + "=" * 40)
     print("Running frontend tests...")
     print("=" * 40)
-    
+
     if not FRONTEND_APP_DIR.exists():
         print(f"Warning: Frontend directory not found: {FRONTEND_APP_DIR}")
         return TestResult("Frontend", success=True)
-    
+
     start = time.perf_counter()
-    
+
     command = ["pnpm", "test"]
     if watch:
         command.append("--watch")
     if coverage:
         command.append("--coverage")
-    
+
     try:
         run_command(command, cwd=FRONTEND_APP_DIR, check=True)
         duration = time.perf_counter() - start
@@ -136,37 +139,37 @@ def run_zig_tests(*, verbose: bool = False) -> TestResult:
     print("\n" + "=" * 40)
     print("Running Zig runtime tools tests...")
     print("=" * 40)
-    
+
     start = time.perf_counter()
-    
+
     # Check if zig is available
     if not shutil.which("zig"):
         print("Warning: zig is not installed. Skipping Zig tests.")
         return TestResult("Zig", success=True, skipped=1)
-    
+
     # Tools with test steps
     zig_tools = [
         ("config_generator", RUNTIME_TOOLS_DIR / "config_generator"),
         ("log_analyzer", RUNTIME_TOOLS_DIR / "log_analyzer"),
         ("log_collector", RUNTIME_TOOLS_DIR / "log_collector"),
     ]
-    
+
     total_failed = 0
     for name, tool_dir in zig_tools:
         if not tool_dir.exists():
             print(f"Warning: {name} directory not found: {tool_dir}")
             continue
-        
+
         print(f"\nTesting {name}...")
         command = ["zig", "build", "test"]
         if verbose:
             command.append("--verbose")
-        
+
         try:
             run_command(command, cwd=tool_dir, check=True)
         except subprocess.CalledProcessError:
             total_failed += 1
-    
+
     duration = time.perf_counter() - start
     return TestResult(
         "Zig",
@@ -182,9 +185,9 @@ def run_python_tests(*, verbose: bool = False) -> TestResult:
     print("\n" + "=" * 40)
     print("Running Python tests...")
     print("=" * 40)
-    
+
     start = time.perf_counter()
-    
+
     # Check if pytest is available
     try:
         subprocess.run(
@@ -196,11 +199,11 @@ def run_python_tests(*, verbose: bool = False) -> TestResult:
         print("Warning: pytest is not installed. Skipping Python tests.")
         print("Install with: pip install pytest")
         return TestResult("Python", success=True, skipped=1)
-    
+
     command = [sys.executable, "-m", "pytest", str(BUILD_TOOLS_DIR)]
     if verbose:
         command.append("-v")
-    
+
     try:
         run_command(command, check=True)
         duration = time.perf_counter() - start
@@ -236,7 +239,8 @@ def main() -> None:
         help="Only run Zig runtime tools tests",
     )
     parser.add_argument(
-        "--filter", "-f",
+        "--filter",
+        "-f",
         type=str,
         help="Filter pattern for Rust tests",
     )
@@ -251,12 +255,14 @@ def main() -> None:
         help="Collect coverage for frontend tests",
     )
     parser.add_argument(
-        "--watch", "-w",
+        "--watch",
+        "-w",
         action="store_true",
         help="Watch mode for frontend tests",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Verbose output",
     )
@@ -264,26 +270,30 @@ def main() -> None:
 
     # If no specific target, test all
     test_all = not any([args.rust, args.frontend, args.python, args.zig])
-    
+
     results: list[TestResult] = []
     total_start = time.perf_counter()
 
     if args.rust or test_all:
-        results.append(run_rust_tests(
-            filter_pattern=args.filter,
-            release=args.release,
-            verbose=args.verbose,
-        ))
-    
+        results.append(
+            run_rust_tests(
+                filter_pattern=args.filter,
+                release=args.release,
+                verbose=args.verbose,
+            )
+        )
+
     if args.frontend or test_all:
-        results.append(run_frontend_tests(
-            watch=args.watch,
-            coverage=args.coverage,
-        ))
-    
+        results.append(
+            run_frontend_tests(
+                watch=args.watch,
+                coverage=args.coverage,
+            )
+        )
+
     if args.python or test_all:
         results.append(run_python_tests(verbose=args.verbose))
-    
+
     if args.zig or test_all:
         results.append(run_zig_tests(verbose=args.verbose))
 
@@ -293,7 +303,7 @@ def main() -> None:
     print("\n" + "=" * 40)
     print("Test Summary")
     print("=" * 40)
-    
+
     all_success = True
     for result in results:
         status = "[OK]" if result.success else "[FAIL]"

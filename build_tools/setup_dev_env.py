@@ -30,6 +30,7 @@ EXAMPLE_CONFIG_DIR = ROOT / "example"
 @dataclass
 class ToolCheck:
     """Result of a tool availability check."""
+
     name: str
     command: str
     available: bool
@@ -50,7 +51,11 @@ def check_tool(name: str, command: str, *, required: bool = True) -> ToolCheck:
             # Extract first line of version output
             version = result.stdout.strip().split("\n")[0]
             return ToolCheck(name, command, True, version, required)
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+    except (
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+    ):
         pass
     return ToolCheck(name, command, False, "", required)
 
@@ -83,7 +88,7 @@ def check_all_tools() -> list[ToolCheck]:
     """Check all required and optional tools."""
     print("\nChecking required tools...")
     print("=" * 40)
-    
+
     tools = [
         check_tool("Rust/Cargo", "cargo", required=True),
         check_tool("pnpm", "pnpm", required=True),
@@ -93,7 +98,7 @@ def check_all_tools() -> list[ToolCheck]:
         check_tool("Git", "git", required=True),
         check_tool("pre-commit", "pre-commit", required=False),
     ]
-    
+
     for tool in tools:
         if tool.available:
             print(f"  [OK] {tool.name}: {tool.version}")
@@ -101,7 +106,7 @@ def check_all_tools() -> list[ToolCheck]:
             marker = "[FAIL]" if tool.required else "[--]"
             status = "NOT FOUND" if tool.required else "not found (optional)"
             print(f"  {marker} {tool.name}: {status}")
-    
+
     return tools
 
 
@@ -110,12 +115,16 @@ def install_rust_deps() -> bool:
     print("\n" + "=" * 40)
     print("Installing Rust dependencies...")
     print("=" * 40)
-    
+
     # Just build to fetch deps
-    return run_command([
-        "cargo", "fetch",
-        "--manifest-path", str(BACKEND_DIR / "Cargo.toml"),
-    ])
+    return run_command(
+        [
+            "cargo",
+            "fetch",
+            "--manifest-path",
+            str(BACKEND_DIR / "Cargo.toml"),
+        ]
+    )
 
 
 def install_frontend_deps() -> bool:
@@ -123,11 +132,11 @@ def install_frontend_deps() -> bool:
     print("\n" + "=" * 40)
     print("Installing frontend dependencies...")
     print("=" * 40)
-    
+
     if not FRONTEND_DIR.exists():
         print(f"Warning: Frontend directory not found: {FRONTEND_DIR}")
         return True
-    
+
     return run_command(["pnpm", "install"], cwd=FRONTEND_DIR)
 
 
@@ -136,14 +145,14 @@ def install_python_deps() -> bool:
     print("\n" + "=" * 40)
     print("Installing Python dependencies...")
     print("=" * 40)
-    
+
     success = True
     requirements_files = list(BUILD_TOOLS_DIR.rglob("requirements.txt"))
-    
+
     if not requirements_files:
         print("No requirements.txt files found.")
         return True
-    
+
     # Collect all requirements
     all_packages: set[str] = set()
     for req_file in requirements_files:
@@ -152,19 +161,24 @@ def install_python_deps() -> bool:
                 line = line.strip()
                 if line and not line.startswith("#"):
                     all_packages.add(line)
-    
+
     if all_packages:
         print(f"Installing: {', '.join(sorted(all_packages))}")
-        success = run_command([
-            sys.executable, "-m", "pip", "install",
-            *sorted(all_packages),
-        ])
-    
+        success = run_command(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                *sorted(all_packages),
+            ]
+        )
+
     # Also install dev dependencies
     dev_packages = ["pytest", "ruff"]
     print(f"\nInstalling dev tools: {', '.join(dev_packages)}")
     run_command([sys.executable, "-m", "pip", "install", *dev_packages], check=False)
-    
+
     return success
 
 
@@ -173,19 +187,19 @@ def setup_precommit() -> bool:
     print("\n" + "=" * 40)
     print("Setting up pre-commit hooks...")
     print("=" * 40)
-    
+
     config_file = ROOT / ".pre-commit-config.yaml"
     if not config_file.exists():
         print("No .pre-commit-config.yaml found. Skipping.")
         return True
-    
+
     # Check if pre-commit is installed
     try:
         subprocess.run(["pre-commit", "--version"], capture_output=True, check=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("pre-commit not installed. Installing...")
         run_command([sys.executable, "-m", "pip", "install", "pre-commit"])
-    
+
     return run_command(["pre-commit", "install"])
 
 
@@ -194,27 +208,27 @@ def setup_configs() -> bool:
     print("\n" + "=" * 40)
     print("Setting up configuration files...")
     print("=" * 40)
-    
+
     if not EXAMPLE_CONFIG_DIR.exists():
         print("No example config directory found.")
         return True
-    
+
     copied = 0
     for example_file in EXAMPLE_CONFIG_DIR.glob("config.example.*"):
         # Convert config.example.yaml -> config.yaml
         dest_name = example_file.name.replace(".example", "")
         dest = ROOT / dest_name
-        
+
         if not dest.exists():
             shutil.copy(example_file, dest)
             print(f"  Copied: {example_file.name} -> {dest_name}")
             copied += 1
         else:
             print(f"  Exists: {dest_name} (skipped)")
-    
+
     if copied == 0:
         print("  No new config files copied.")
-    
+
     return True
 
 
@@ -223,12 +237,12 @@ def install_cargo_tools() -> bool:
     print("\n" + "=" * 40)
     print("Installing Cargo tools...")
     print("=" * 40)
-    
+
     tools = [
         ("cargo-watch", "cargo install cargo-watch"),
         ("cargo-tarpaulin", "cargo install cargo-tarpaulin"),
     ]
-    
+
     for name, install_cmd in tools:
         # Check if already installed
         result = subprocess.run(
@@ -240,7 +254,7 @@ def install_cargo_tools() -> bool:
         else:
             print(f"  Installing {name}...")
             run_command(install_cmd.split(), check=False)
-    
+
     return True
 
 
@@ -282,7 +296,7 @@ def main() -> None:
     args = parser.parse_args()
 
     tools = check_all_tools()
-    
+
     # Check for missing required tools
     missing_required = [t for t in tools if t.required and not t.available]
     if missing_required:

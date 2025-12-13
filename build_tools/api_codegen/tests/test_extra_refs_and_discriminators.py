@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from build_tools.api_codegen import main as gen
 
@@ -7,17 +6,21 @@ from build_tools.api_codegen import main as gen
 def test_json_external_ref_resolution(tmp_path):
     # create an external JSON file with a schema
     external = tmp_path / "external.json"
-    external.write_text(json.dumps({
-        "components": {
-            "schemas": {
-                "ExternalType": {
-                    "type": "object",
-                    "properties": {"x": {"type": "string"}},
-                    "required": ["x"]
+    external.write_text(
+        json.dumps(
+            {
+                "components": {
+                    "schemas": {
+                        "ExternalType": {
+                            "type": "object",
+                            "properties": {"x": {"type": "string"}},
+                            "required": ["x"],
+                        }
+                    }
                 }
             }
-        }
-    }))
+        )
+    )
 
     spec = {
         "openapi": "3.0.0",
@@ -25,12 +28,18 @@ def test_json_external_ref_resolution(tmp_path):
         "paths": {},
         "components": {
             "schemas": {
-                "Wrapper": {"$ref": f"file://{external.as_posix()}#/components/schemas/ExternalType"}
+                "Wrapper": {
+                    "$ref": f"file://{external.as_posix()}#/components/schemas/ExternalType"
+                }
             }
-        }
+        },
     }
 
-    schema = gen.resolve_ref_general(spec["components"]["schemas"]["Wrapper"].get("$ref"), spec, base_path=str(tmp_path))
+    schema = gen.resolve_ref_general(
+        spec["components"]["schemas"]["Wrapper"].get("$ref"),
+        spec,
+        base_path=str(tmp_path),
+    )
     assert schema is not None
     assert schema.get("type") == "object"
     assert "x" in schema.get("properties", {})
@@ -46,9 +55,14 @@ def test_implicit_discriminator_inference():
             "schemas": {
                 "Cat": {"type": "object", "properties": {"meow": {"type": "boolean"}}},
                 "Dog": {"type": "object", "properties": {"bark": {"type": "boolean"}}},
-                "Pet": {"oneOf": [{"$ref": "#/components/schemas/Cat"}, {"$ref": "#/components/schemas/Dog"}]}
+                "Pet": {
+                    "oneOf": [
+                        {"$ref": "#/components/schemas/Cat"},
+                        {"$ref": "#/components/schemas/Dog"},
+                    ]
+                },
             }
-        }
+        },
     }
 
     # Should return reasonable TypeScript text without throwing
@@ -64,10 +78,16 @@ def test_circular_refs_do_not_infinite_loop(tmp_path):
         "paths": {},
         "components": {
             "schemas": {
-                "A": {"type": "object", "properties": {"b": {"$ref": "#/components/schemas/B"}}},
-                "B": {"type": "object", "properties": {"a": {"$ref": "#/components/schemas/A"}}}
+                "A": {
+                    "type": "object",
+                    "properties": {"b": {"$ref": "#/components/schemas/B"}},
+                },
+                "B": {
+                    "type": "object",
+                    "properties": {"a": {"$ref": "#/components/schemas/A"}},
+                },
             }
-        }
+        },
     }
 
     ts = gen.render_frontend_types(spec, out_path=None)

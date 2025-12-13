@@ -32,7 +32,7 @@ def get_platform_info() -> tuple[str, str]:
     """Get platform and architecture information."""
     system = platform.system().lower()
     machine = platform.machine().lower()
-    
+
     # Normalize platform names
     if system == "windows":
         platform_name = "windows"
@@ -42,7 +42,7 @@ def get_platform_info() -> tuple[str, str]:
         platform_name = "macos"
     else:
         platform_name = system
-    
+
     # Normalize architecture names
     if machine in ["x86_64", "amd64"]:
         arch = "x64"
@@ -52,7 +52,7 @@ def get_platform_info() -> tuple[str, str]:
         arch = "x86"
     else:
         arch = machine
-    
+
     return f"{platform_name}-{arch}", "" if platform_name == "windows" else ""
 
 
@@ -90,29 +90,29 @@ def build_frontend() -> Path:
     frontend_dir = FRONTEND_APP
     if not frontend_dir.exists():
         raise FileNotFoundError(f"Frontend directory not found: {frontend_dir}")
-    
+
     # Check if pnpm is available, otherwise use npm
     try:
         run_command(["pnpm", "--version"], capture=True)
         package_manager = "pnpm"
     except subprocess.CalledProcessError:
         package_manager = "npm"
-    
+
     # Install dependencies if node_modules doesn't exist
     node_modules = frontend_dir / "node_modules"
     if not node_modules.exists():
         print("Installing frontend dependencies...")
         run_command([package_manager, "install"], cwd=frontend_dir)
-    
+
     # Build the frontend
     print("Building frontend...")
     run_command([package_manager, "run", "build"], cwd=frontend_dir)
-    
+
     # Return the dist directory
     dist_dir = frontend_dir / "dist"
     if not dist_dir.exists():
         raise FileNotFoundError(f"Frontend build directory not found: {dist_dir}")
-    
+
     return dist_dir
 
 
@@ -122,6 +122,7 @@ def get_version() -> str:
     content = cargo_toml.read_text()
 
     import re
+
     match = re.search(r'version\s*=\s*"([^"]+)"', content)
     if not match:
         raise ValueError("Could not find version in Cargo.toml")
@@ -133,10 +134,10 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
     """Create a single comprehensive package with backend, runtime tools, config, docs, and frontend."""
     platform_info, _ = get_platform_info()
     binary_ext = get_binary_extension()
-    
+
     profile = "release" if release else "debug"
     target_dir = BACKEND_TARGET / profile
-    
+
     if not target_dir.exists():
         raise FileNotFoundError(f"Target directory not found: {target_dir}")
 
@@ -167,10 +168,10 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
     # Copy runtime tools
     tool_executables = {
         "log_collector": f"didhub-log-collector{binary_ext}",
-        "log_analyzer": f"didhub-log-analyzer{binary_ext}", 
+        "log_analyzer": f"didhub-log-analyzer{binary_ext}",
         "config_generator": f"config-generator{binary_ext}",
     }
-    
+
     for tool_dir in RUNTIME_TOOLS.iterdir():
         if not tool_dir.is_dir():
             continue
@@ -185,7 +186,7 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
         if not exe_name:
             print(f"Warning: Unknown tool {tool_name}")
             continue
-            
+
         binary = bin_dir_src / exe_name
         if not binary.exists():
             print(f"Warning: Binary not found for {tool_name}: {binary}")
@@ -204,12 +205,12 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
     # Copy documentation
     docs_dir = package_dir / "docs"
     docs_dir.mkdir(exist_ok=True)
-    
+
     docs_to_copy = [
         ROOT / "PACKAGING.md",
         ROOT / "LICENSE",
     ]
-    
+
     for doc_file in docs_to_copy:
         if doc_file.exists():
             shutil.copy2(doc_file, docs_dir / doc_file.name)
@@ -219,7 +220,7 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
         static_dir = package_dir / "static"
         static_dir.mkdir(exist_ok=True)
         print(f"Copying frontend files to {static_dir}")
-        for file_path in frontend_dist.rglob('*'):
+        for file_path in frontend_dist.rglob("*"):
             if file_path.is_file():
                 relative_path = file_path.relative_to(frontend_dist)
                 dest_path = static_dir / relative_path
@@ -229,9 +230,9 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
     # Create archive
     archive_name = f"{package_name}.zip"
     archive_path = DIST_DIR / archive_name
-    
-    with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for file_path in package_dir.rglob('*'):
+
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for file_path in package_dir.rglob("*"):
             if file_path.is_file():
                 arcname = file_path.relative_to(package_dir)
                 zf.write(file_path, arcname)

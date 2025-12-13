@@ -12,8 +12,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import dataclass, field
-from functools import lru_cache
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Iterator
 
@@ -23,7 +22,6 @@ from jinja2 import Environment, FileSystemLoader
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared import (
-    SchemaCache,
     SchemaError,
     SchemaValidationError,
     DialectError,
@@ -56,7 +54,11 @@ DEFAULT_TYPES: Final[dict[str, dict[str, str]]] = {
     "text": {"sqlite": "TEXT", "postgres": "TEXT", "mysql": "TEXT"},
     "json_text": {"sqlite": "TEXT", "postgres": "TEXT", "mysql": "TEXT"},
     "bool_flag": {"sqlite": "INTEGER", "postgres": "INTEGER", "mysql": "TINYINT(1)"},
-    "timestamp": {"sqlite": "TEXT", "postgres": "TIMESTAMP WITH TIME ZONE", "mysql": "TIMESTAMP"},
+    "timestamp": {
+        "sqlite": "TEXT",
+        "postgres": "TIMESTAMP WITH TIME ZONE",
+        "mysql": "TIMESTAMP",
+    },
     "number": {"sqlite": "REAL", "postgres": "DOUBLE PRECISION", "mysql": "DOUBLE"},
     "integer": {"sqlite": "INTEGER", "postgres": "INTEGER", "mysql": "INT"},
     "bigint": {"sqlite": "INTEGER", "postgres": "BIGINT", "mysql": "BIGINT"},
@@ -75,9 +77,11 @@ DEFAULT_AUTO_INCREMENT: Final[dict[str, str]] = {
     "sqlite": "AUTOINCREMENT",
 }
 
+
 @dataclass(frozen=True, slots=True)
 class DialectConfig:
     """Configuration for a SQL dialect."""
+
     name: str
     output_path: Path
     header: str | None
@@ -87,13 +91,13 @@ class DialectConfig:
 
 class MigrationGenerator:
     """Generates SQL migrations for multiple database dialects.
-    
+
     Optimizations:
     - Template pre-compilation
     - Cached type and preset lookups
     - Efficient string building
     """
-    
+
     __slots__ = (
         "schema",
         "base_dir",
@@ -104,7 +108,7 @@ class MigrationGenerator:
         "_index_template",
         "_schema_path",
     )
-    
+
     def __init__(
         self,
         schema: dict[str, Any],
@@ -114,15 +118,15 @@ class MigrationGenerator:
         self.schema = schema
         self.base_dir = base_dir
         self._schema_path = schema_path
-        
+
         # Merge schema-provided types with built-in defaults
         schema_types = schema.get("types", {})
         self.types: dict[str, dict[str, str]] = {**DEFAULT_TYPES, **schema_types}
-        
+
         # Merge presets
         schema_presets = schema.get("presets", {})
         self.presets: dict[str, dict[str, str]] = {**DEFAULT_PRESETS, **schema_presets}
-        
+
         self.dialects: dict[str, DialectConfig] = {}
 
         # Initialize Jinja environment with optimizations
@@ -131,7 +135,7 @@ class MigrationGenerator:
             loader=FileSystemLoader(templates_dir),
             auto_reload=False,  # Disable auto-reload for performance
         )
-        
+
         # Pre-compile templates
         self._table_template = jinja_env.get_template("table.sql.jinja")
         self._index_template = jinja_env.get_template("index.sql.jinja")
@@ -150,7 +154,7 @@ class MigrationGenerator:
                     dialect_name,
                     schema_path,
                 )
-            
+
             self.dialects[dialect_name] = DialectConfig(
                 name=dialect_name,
                 output_path=(self.base_dir / output).resolve(),
@@ -167,13 +171,13 @@ class MigrationGenerator:
 
     def generate(self, dialect_name: str) -> str:
         """Generate SQL migration for a specific dialect.
-        
+
         Args:
             dialect_name: Name of the target dialect.
-            
+
         Returns:
             The complete SQL migration content.
-            
+
         Raises:
             DialectError: If the dialect is not defined.
         """
@@ -193,7 +197,11 @@ class MigrationGenerator:
             sections.append(header.strip())
 
         # Global prefix statements
-        global_prefix = self.schema.get("global_statements", {}).get(dialect_name, {}).get("before_tables")
+        global_prefix = (
+            self.schema.get("global_statements", {})
+            .get(dialect_name, {})
+            .get("before_tables")
+        )
         if global_prefix:
             sections.append(self._join_statements(global_prefix))
 
@@ -202,8 +210,12 @@ class MigrationGenerator:
             include = table.get("dialects")
             if include and dialect_name not in include:
                 continue
-            
-            sections.append(self._render_table(table, dialect_name, dialect_cfg.statement_terminator))
+
+            sections.append(
+                self._render_table(
+                    table, dialect_name, dialect_cfg.statement_terminator
+                )
+            )
 
             # Table extras
             table_extra = table.get("dialect_extras", {}).get(dialect_name)
@@ -211,7 +223,11 @@ class MigrationGenerator:
                 sections.append(self._join_statements(table_extra))
 
             # Indexes
-            index_statements = list(self._render_indexes(table, dialect_name, dialect_cfg.statement_terminator))
+            index_statements = list(
+                self._render_indexes(
+                    table, dialect_name, dialect_cfg.statement_terminator
+                )
+            )
             if index_statements:
                 sections.append("\n".join(index_statements))
 
@@ -221,7 +237,11 @@ class MigrationGenerator:
                 sections.append(self._join_statements(dial_indexes))
 
         # Global suffix statements
-        global_suffix = self.schema.get("global_statements", {}).get(dialect_name, {}).get("after_tables")
+        global_suffix = (
+            self.schema.get("global_statements", {})
+            .get(dialect_name, {})
+            .get("after_tables")
+        )
         if global_suffix:
             sections.append(self._join_statements(global_suffix))
 
@@ -246,10 +266,10 @@ class MigrationGenerator:
 
     def write(self, dialect_name: str) -> Path:
         """Write migration to file for a specific dialect.
-        
+
         Args:
             dialect_name: Name of the target dialect.
-            
+
         Returns:
             Path to the written file.
         """
@@ -320,7 +340,7 @@ class MigrationGenerator:
         """Render a table constraint."""
         if isinstance(constraint, str):
             return f"  {constraint.strip()}"
-        
+
         if isinstance(constraint, dict):
             allowed_dialects = constraint.get("dialects")
             if allowed_dialects and dialect_name not in allowed_dialects:
@@ -359,7 +379,7 @@ class MigrationGenerator:
         on_delete = column.get("on_delete")
         on_update = column.get("on_update")
         check_expr = self._resolve_check(column, dialect_name)
-        
+
         # Handle auto_increment
         auto_increment = column.get("auto_increment", False)
         apply_auto_increment = (
@@ -424,14 +444,14 @@ class MigrationGenerator:
         # Handle IF NOT EXISTS logic
         has_explicit_if_not_exists = "if_not_exists" in index
         if_not_exists_raw = index.get("if_not_exists", True)
-        
+
         if isinstance(if_not_exists_raw, dict):
             if_not_exists = bool(if_not_exists_raw.get(dialect_name, True))
         elif dialect_name == "mysql" and not has_explicit_if_not_exists:
             if_not_exists = False
         else:
             if_not_exists = bool(if_not_exists_raw)
-        
+
         unique = index.get("unique", False)
         columns = index.get("columns")
         expression = index.get("expression")
@@ -445,7 +465,9 @@ class MigrationGenerator:
                 if not body:
                     return None
             else:
-                raise TypeError(f"Unsupported expression type for index '{name}': {type(expression)}")
+                raise TypeError(
+                    f"Unsupported expression type for index '{name}': {type(expression)}"
+                )
         elif not columns:
             raise SchemaValidationError(
                 f"index '{name}' must define 'columns' or 'expression'",
@@ -476,7 +498,7 @@ class MigrationGenerator:
 
         type_name = column.get("type")
         col_name = column.get("name", "<unknown>")
-        
+
         if not type_name:
             raise SchemaValidationError(
                 "column is missing required 'type'",
@@ -595,11 +617,11 @@ def generate_migrations(
     dialect: str | None = None,
 ) -> list[Path]:
     """Generate SQL migrations from a schema file.
-    
+
     Args:
         schema_path: Path to the schema YAML file.
         dialect: Optional specific dialect to generate.
-        
+
     Returns:
         List of paths to generated migration files.
     """
@@ -609,13 +631,13 @@ def generate_migrations(
         base_dir=schema_path.parent,
         schema_path=str(schema_path),
     )
-    
+
     output_paths: list[Path] = []
-    
+
     dialects = [dialect] if dialect else list(generator.dialects.keys())
     for dialect_name in dialects:
         output_paths.append(generator.write(dialect_name))
-    
+
     return output_paths
 
 
@@ -633,11 +655,11 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     args = parser.parse_args(argv)
-    
+
     try:
         schema_path: Path = args.schema.resolve()
         output_paths = generate_migrations(schema_path, args.dialect)
-        
+
         for path in output_paths:
             dialect = path.parent.name.replace("migrations_", "")
             print(f"Generated {dialect} migration at {path}")

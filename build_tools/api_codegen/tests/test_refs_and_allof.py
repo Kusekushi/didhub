@@ -1,8 +1,5 @@
-import tempfile
-import textwrap
 from pathlib import Path
 import yaml
-import json
 
 from build_tools.api_codegen import main as generator
 
@@ -20,16 +17,19 @@ def test_external_ref_and_allof_discriminator(tmp_path: Path):
                 "Base": {
                     "type": "object",
                     "properties": {"id": {"type": "string"}},
-                    "required": ["id"]
+                    "required": ["id"],
                 },
                 "Foo": {
                     "allOf": [
                         {"$ref": "#/components/schemas/Base"},
                         {
                             "type": "object",
-                            "properties": {"kind": {"type": "string", "enum": ["foo"]}, "foo": {"type": "string"}},
-                            "required": ["kind", "foo"]
-                        }
+                            "properties": {
+                                "kind": {"type": "string", "enum": ["foo"]},
+                                "foo": {"type": "string"},
+                            },
+                            "required": ["kind", "foo"],
+                        },
                     ]
                 },
                 "Bar": {
@@ -37,11 +37,14 @@ def test_external_ref_and_allof_discriminator(tmp_path: Path):
                         {"$ref": "#/components/schemas/Base"},
                         {
                             "type": "object",
-                            "properties": {"kind": {"type": "string", "enum": ["bar"]}, "bar": {"type": "number"}},
-                            "required": ["kind", "bar"]
-                        }
+                            "properties": {
+                                "kind": {"type": "string", "enum": ["bar"]},
+                                "bar": {"type": "number"},
+                            },
+                            "required": ["kind", "bar"],
+                        },
                     ]
-                }
+                },
             }
         }
     }
@@ -55,12 +58,18 @@ def test_external_ref_and_allof_discriminator(tmp_path: Path):
                 "Payload": {
                     "oneOf": [
                         {"$ref": f"{ext.name}#/components/schemas/Foo"},
-                        {"$ref": f"{ext.name}#/components/schemas/Bar"}
+                        {"$ref": f"{ext.name}#/components/schemas/Bar"},
                     ],
-                    "discriminator": {"propertyName": "kind", "mapping": {"foo": f"{ext.name}#/components/schemas/Foo", "bar": f"{ext.name}#/components/schemas/Bar"}}
+                    "discriminator": {
+                        "propertyName": "kind",
+                        "mapping": {
+                            "foo": f"{ext.name}#/components/schemas/Foo",
+                            "bar": f"{ext.name}#/components/schemas/Bar",
+                        },
+                    },
                 }
             }
-        }
+        },
     }
 
     # Write spec to file and invoke render_frontend_types
@@ -80,14 +89,13 @@ def test_external_ref_and_allof_discriminator(tmp_path: Path):
 def test_file_url_external_ref(tmp_path: Path):
     # create external file and refer to it using file:// URL
     ext = tmp_path / "remote.yaml"
-    ext_data = {
-        "components": {"schemas": {"X": {"type": "string", "enum": ["x"]}}}
-    }
+    ext_data = {"components": {"schemas": {"X": {"type": "string", "enum": ["x"]}}}}
     write_yaml(ext, ext_data)
 
-    spec = {"components": {"schemas": {"RefX": {"$ref": f"{ext.as_uri()}#/components/schemas/X"}}}}
     # ensure the resolver can fetch the external schema
-    resolved = generator.resolve_ref_general(f"{ext.as_uri()}#/components/schemas/X", Path(generator.__file__), {})
+    resolved = generator.resolve_ref_general(
+        f"{ext.as_uri()}#/components/schemas/X", Path(generator.__file__), {}
+    )
     assert isinstance(resolved, dict)
     assert resolved.get("type") == "string"
     assert resolved.get("enum") == ["x"]
@@ -95,7 +103,18 @@ def test_file_url_external_ref(tmp_path: Path):
 
 def test_allof_with_non_object_part(tmp_path: Path):
     # allOf combining object and a primitive should produce a union
-    spec = {"components": {"schemas": {"Mixed": {"allOf": [{"type": "object", "properties": {"a": {"type": "string"}}}, {"type": "string"}]}}}}
+    spec = {
+        "components": {
+            "schemas": {
+                "Mixed": {
+                    "allOf": [
+                        {"type": "object", "properties": {"a": {"type": "string"}}},
+                        {"type": "string"},
+                    ]
+                }
+            }
+        }
+    }
     ts = generator.render_frontend_types(spec.get("components"))
     # Expect Mixed to be a union including string
     assert "export type Mixed" in ts

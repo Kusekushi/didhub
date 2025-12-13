@@ -53,17 +53,19 @@ def generate_rust_docs(*, open_browser: bool = False) -> bool:
     print("\n" + "=" * 40)
     print("Generating Rust documentation...")
     print("=" * 40)
-    
+
     command = [
-        "cargo", "doc",
-        "--manifest-path", str(BACKEND_DIR / "Cargo.toml"),
+        "cargo",
+        "doc",
+        "--manifest-path",
+        str(BACKEND_DIR / "Cargo.toml"),
         "--no-deps",
         "--document-private-items",
     ]
-    
+
     if open_browser:
         command.append("--open")
-    
+
     return run_command(command)
 
 
@@ -72,21 +74,22 @@ def generate_frontend_docs() -> bool:
     print("\n" + "=" * 40)
     print("Generating frontend documentation...")
     print("=" * 40)
-    
+
     if not FRONTEND_APP_DIR.exists():
         print(f"Frontend directory not found: {FRONTEND_APP_DIR}")
         return True
-    
+
     # Check if docs script exists in package.json
     package_json = FRONTEND_APP_DIR / "package.json"
     if package_json.exists():
         import json
+
         with open(package_json) as f:
             pkg = json.load(f)
-        
+
         if "docs" in pkg.get("scripts", {}):
             return run_command(["pnpm", "run", "docs"], cwd=FRONTEND_APP_DIR)
-    
+
     print("No docs script found in frontend package.json. Skipping.")
     return True
 
@@ -96,7 +99,7 @@ def run_rust_coverage(*, open_browser: bool = False) -> bool:
     print("\n" + "=" * 40)
     print("Running Rust test coverage...")
     print("=" * 40)
-    
+
     # Check if tarpaulin is installed
     result = subprocess.run(
         ["cargo", "tarpaulin", "--version"],
@@ -106,22 +109,28 @@ def run_rust_coverage(*, open_browser: bool = False) -> bool:
         print("cargo-tarpaulin is not installed.")
         print("Install with: cargo install cargo-tarpaulin")
         return False
-    
+
     # Create coverage directory
     COVERAGE_DIR.mkdir(exist_ok=True)
-    
+
     output_file = COVERAGE_DIR / "rust-coverage.html"
-    
-    success = run_command([
-        "cargo", "tarpaulin",
-        "--manifest-path", str(BACKEND_DIR / "Cargo.toml"),
-        "--out", "Html",
-        "--output-dir", str(COVERAGE_DIR),
-    ])
-    
+
+    success = run_command(
+        [
+            "cargo",
+            "tarpaulin",
+            "--manifest-path",
+            str(BACKEND_DIR / "Cargo.toml"),
+            "--out",
+            "Html",
+            "--output-dir",
+            str(COVERAGE_DIR),
+        ]
+    )
+
     if success and open_browser and output_file.exists():
         webbrowser.open(f"file://{output_file}")
-    
+
     return success
 
 
@@ -130,21 +139,21 @@ def run_frontend_coverage(*, open_browser: bool = False) -> bool:
     print("\n" + "=" * 40)
     print("Running frontend test coverage...")
     print("=" * 40)
-    
+
     if not FRONTEND_APP_DIR.exists():
         print(f"Frontend directory not found: {FRONTEND_APP_DIR}")
         return True
-    
+
     success = run_command(
         ["pnpm", "test", "--coverage"],
         cwd=FRONTEND_APP_DIR,
         check=False,
     )
-    
+
     coverage_index = FRONTEND_APP_DIR / "coverage" / "index.html"
     if success and open_browser and coverage_index.exists():
         webbrowser.open(f"file://{coverage_index}")
-    
+
     return success
 
 
@@ -183,7 +192,7 @@ def main() -> None:
     # If nothing specified, do everything
     if not args.docs and not args.coverage:
         args.docs = args.coverage = True
-    
+
     target_all = not args.rust and not args.frontend
 
     success = True
