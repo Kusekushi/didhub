@@ -174,7 +174,14 @@ def run_zig_tests(*, verbose: bool = False, coverage: bool = False) -> TestResul
             coverage_dir = Path("coverage") / "zig" / name
             coverage_dir.mkdir(parents=True, exist_ok=True)
             coverage_dirs.append(coverage_dir)
-            command = ["kcov", "--include-pattern=src/", str(coverage_dir), "zig", "build", "test"]
+            command = [
+                "kcov",
+                "--include-pattern=src/",
+                str(coverage_dir),
+                "zig",
+                "build",
+                "test",
+            ]
         else:
             command = ["zig", "build", "test"]
         if verbose:

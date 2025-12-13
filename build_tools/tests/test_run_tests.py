@@ -35,7 +35,7 @@ class TestRunCommand:
         mock_process = MagicMock()
         mock_run.return_value = mock_process
 
-        result = run_command(["cmd"], Path("/tmp"))
+        run_command(["cmd"], Path("/tmp"))
 
         mock_run.assert_called_once()
         args, kwargs = mock_run.call_args
@@ -117,7 +117,7 @@ class TestRunFrontendTests:
         mock_frontend_dir.exists.return_value = True
         mock_run_command.return_value = MagicMock()
 
-        result = run_frontend_tests(watch=True, coverage=True)
+        run_frontend_tests(watch=True, coverage=True)
 
         args, kwargs = mock_run_command.call_args
         command = args[0]
@@ -139,7 +139,9 @@ class TestRunZigTests:
     @patch("build_tools.run_tests.run_command")
     @patch("shutil.which")
     @patch("build_tools.run_tests.RUNTIME_TOOLS_DIR")
-    def test_run_zig_tests_success(self, mock_runtime_dir, mock_which, mock_run_command):
+    def test_run_zig_tests_success(
+        self, mock_runtime_dir, mock_which, mock_run_command
+    ):
         mock_which.return_value = "/usr/bin/zig"
         mock_runtime_dir.__truediv__ = lambda self, x: Path(f"/runtime/{x}")
         # Mock exists for all tools
@@ -156,11 +158,14 @@ class TestRunZigTests:
     @patch("build_tools.run_tests.run_command")
     @patch("shutil.which")
     @patch("build_tools.run_tests.RUNTIME_TOOLS_DIR")
-    def test_run_zig_tests_partial_failure(self, mock_runtime_dir, mock_which, mock_run_command):
+    def test_run_zig_tests_partial_failure(
+        self, mock_runtime_dir, mock_which, mock_run_command
+    ):
         mock_which.return_value = "/usr/bin/zig"
         mock_runtime_dir.__truediv__ = lambda self, x: Path(f"/runtime/{x}")
 
         call_count = 0
+
         def side_effect(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -194,7 +199,9 @@ class TestRunZigTests:
     @patch("build_tools.run_tests.run_command")
     @patch("shutil.which")
     @patch("build_tools.run_tests.RUNTIME_TOOLS_DIR")
-    def test_run_zig_tests_with_coverage(self, mock_runtime_dir, mock_which, mock_run_command):
+    def test_run_zig_tests_with_coverage(
+        self, mock_runtime_dir, mock_which, mock_run_command
+    ):
         mock_which.side_effect = lambda cmd: cmd in ["zig", "kcov"]
         mock_runtime_dir.__truediv__ = lambda self, x: Path(f"/runtime/{x}")
         mock_run_command.return_value = MagicMock()
@@ -209,6 +216,7 @@ class TestRunZigTests:
         assert result.name == "Zig"
         assert result.success is True
         assert result.passed == 3
+
 
 class TestRunPythonTests:
     @patch("subprocess.run")
@@ -249,7 +257,7 @@ class TestRunPythonTests:
         mock_subprocess_run.return_value = MagicMock()
         mock_run_command.return_value = MagicMock()
 
-        result = run_python_tests(verbose=True)
+        run_python_tests(verbose=True)
 
         args, kwargs = mock_run_command.call_args
         command = args[0]

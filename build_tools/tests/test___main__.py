@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -167,8 +166,10 @@ class TestCmdCodegen:
         mock_module = MagicMock()
         mock_import.return_value = mock_module
 
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.glob", return_value=[]):
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.glob", return_value=[]),
+        ):
             result = __main__.cmd_codegen(["all"])
 
         assert result == 0
@@ -186,30 +187,31 @@ class TestCmdCodegen:
 
 class TestMain:
     def test_main_help(self):
-        with patch("sys.argv", ["build_tools"]), \
-             patch("builtins.print") as mock_print:
+        with patch("sys.argv", ["build_tools"]), patch("builtins.print") as mock_print:
             result = __main__.main()
             assert result == 0
             mock_print.assert_called()
 
     def test_main_unknown_command(self):
-        with patch("sys.argv", ["build_tools", "unknown"]), \
-             patch("sys.stderr") as mock_stderr:
+        with (
+            patch("sys.argv", ["build_tools", "unknown"]),
+            patch("sys.stderr"),
+        ):
             result = __main__.main()
             assert result == 1
 
-    @patch("build_tools.__main__.cmd_build")
+    @patch("build_tools.full_build.main")
     @patch("sys.exit")
-    def test_main_valid_command(self, mock_exit, mock_cmd):
-        mock_cmd.return_value = 0
+    def test_main_valid_command(self, mock_exit, mock_full_build_main):
         with patch("sys.argv", ["build_tools", "build"]):
-            __main__.main()
-            mock_cmd.assert_called_once_with([])
+            result = __main__.main()
+            assert result == 0
+            mock_full_build_main.assert_called_once()
 
-    @patch("build_tools.__main__.cmd_build")
+    @patch("build_tools.full_build.main")
     @patch("sys.exit")
-    def test_main_command_with_args(self, mock_exit, mock_cmd):
-        mock_cmd.return_value = 0
+    def test_main_command_with_args(self, mock_exit, mock_full_build_main):
         with patch("sys.argv", ["build_tools", "build", "--release"]):
-            __main__.main()
-            mock_cmd.assert_called_once_with(["--release"])
+            result = __main__.main()
+            assert result == 0
+            mock_full_build_main.assert_called_once_with()

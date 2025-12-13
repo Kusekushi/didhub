@@ -556,6 +556,9 @@ class MigrationGenerator:
         if isinstance(default, str) and default in self.presets:
             return self._resolve_preset(default, dialect_name)
 
+        if isinstance(default, str):
+            return f"'{default}'"
+
         return str(default)
 
     def _resolve_check(

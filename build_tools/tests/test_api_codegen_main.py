@@ -29,7 +29,7 @@ class TestGeneratorContext:
 
         # Check that template_env is initialized
         assert ctx.template_env is not None
-        assert hasattr(ctx.template_env, 'get_template')
+        assert hasattr(ctx.template_env, "get_template")
 
         # Check that templates are pre-compiled
         assert ctx._backend_template is not None
@@ -46,10 +46,10 @@ class TestLoadSpec:
         spec_data = {
             "openapi": "3.0.0",
             "info": {"title": "Test API", "version": "1.0.0"},
-            "paths": {}
+            "paths": {},
         }
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(spec_data, f)
             f.flush()
 
@@ -64,10 +64,10 @@ class TestLoadSpec:
         spec_data = {
             "openapi": "3.0.0",
             "info": {"title": "Test API", "version": "1.0.0"},
-            "paths": {}
+            "paths": {},
         }
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(spec_data, f)
             f.flush()
 
@@ -125,12 +125,7 @@ class TestBuildOperations:
         """Test building operations from OpenAPI spec."""
         spec = {
             "paths": {
-                "/users": {
-                    "get": {
-                        "summary": "Get users",
-                        "operationId": "getUsers"
-                    }
-                }
+                "/users": {"get": {"summary": "Get users", "operationId": "getUsers"}}
             }
         }
 
@@ -153,8 +148,8 @@ class TestBuildOperations:
                         "operationId": "getUser",
                         "parameters": [
                             {"name": "id", "in": "path", "required": True},
-                            {"name": "include", "in": "query"}
-                        ]
+                            {"name": "include", "in": "query"},
+                        ],
                     }
                 }
             }
@@ -180,7 +175,7 @@ class TestGroupRoutes:
                 summary="Get users",
                 has_path_params=False,
                 has_query_params=False,
-                has_body=False
+                has_body=False,
             ),
             Operation(
                 path="/users",
@@ -190,8 +185,8 @@ class TestGroupRoutes:
                 summary="Create user",
                 has_path_params=False,
                 has_query_params=False,
-                has_body=True
-            )
+                has_body=True,
+            ),
         ]
 
         routes = group_routes(operations)
@@ -215,12 +210,10 @@ class TestRenderBackend:
                 summary="Test operation",
                 has_path_params=False,
                 has_query_params=False,
-                has_body=False
+                has_body=False,
             )
         ]
-        routes = [
-            RouteGroup(path="/test", axum_path="/test", operations=operations)
-        ]
+        routes = [RouteGroup(path="/test", axum_path="/test", operations=operations)]
 
         result = render_backend(ctx, operations, routes)
 
@@ -240,7 +233,7 @@ class TestRenderBackend:
                 has_path_params=True,
                 has_query_params=True,
                 has_body=True,
-                needs_headers=True
+                needs_headers=True,
             )
         ]
         routes = [
@@ -268,7 +261,7 @@ class TestRenderFrontend:
                 has_path_params=False,
                 has_query_params=False,
                 has_body=False,
-                ts_return_type="any"
+                ts_return_type="any",
             )
         ]
         components = {"schemas": {}}
@@ -288,8 +281,8 @@ class TestRenderFrontend:
                     "type": "object",
                     "properties": {
                         "id": {"type": "integer"},
-                        "name": {"type": "string"}
-                    }
+                        "name": {"type": "string"},
+                    },
                 }
             }
         }
@@ -310,9 +303,9 @@ class TestRenderFrontendTypes:
                     "type": "object",
                     "properties": {
                         "id": {"type": "integer"},
-                        "name": {"type": "string"}
+                        "name": {"type": "string"},
                     },
-                    "required": ["id", "name"]
+                    "required": ["id", "name"],
                 }
             }
         }
@@ -335,14 +328,23 @@ class TestMainFunction:
     @patch("pathlib.Path.mkdir")
     @patch("pathlib.Path.write_text")
     @patch("builtins.print")
-    def test_main_success(self, mock_print, mock_write, mock_mkdir,
-                         mock_render_types, mock_render_frontend, mock_render_backend,
-                         mock_group_routes, mock_build_ops, mock_load_spec):
+    def test_main_success(
+        self,
+        mock_print,
+        mock_write,
+        mock_mkdir,
+        mock_render_types,
+        mock_render_frontend,
+        mock_render_backend,
+        mock_group_routes,
+        mock_build_ops,
+        mock_load_spec,
+    ):
         """Test main function with successful execution."""
         # Mock spec data
         mock_spec = {
             "components": {"schemas": {}},
-            "paths": {"/test": {"get": {"summary": "test"}}}
+            "paths": {"/test": {"get": {"summary": "test"}}},
         }
         mock_load_spec.return_value = mock_spec
 
@@ -369,7 +371,9 @@ class TestMainFunction:
         mock_render_types.assert_called_once()
 
         # Verify file writes
-        assert mock_write.call_count == 4  # backend, mod.rs, frontend client, frontend types
+        assert (
+            mock_write.call_count == 4
+        )  # backend, mod.rs, frontend client, frontend types
 
     @patch("build_tools.api_codegen.main.load_spec")
     @patch("build_tools.api_codegen.main.build_operations")
@@ -378,8 +382,12 @@ class TestMainFunction:
         mock_load_spec.return_value = {"components": {"schemas": {}}}
         mock_build_ops.return_value = []
 
-        with patch("sys.argv", ["api_codegen"]), \
-             pytest.raises(SystemExit, match="Specification did not contain any operations"):
+        with (
+            patch("sys.argv", ["api_codegen"]),
+            pytest.raises(
+                SystemExit, match="Specification did not contain any operations"
+            ),
+        ):
             main()
 
     @patch("build_tools.api_codegen.main.load_spec")
@@ -391,18 +399,28 @@ class TestMainFunction:
         mock_is_file.return_value = True
         mock_load_spec.return_value = {
             "components": {"schemas": {}},
-            "paths": {"/test": {"get": {"summary": "test"}}}
+            "paths": {"/test": {"get": {"summary": "test"}}},
         }
 
-        with patch("sys.argv", ["api_codegen", "--spec", "custom.yaml"]), \
-             patch("build_tools.api_codegen.main.build_operations", return_value=[MagicMock()]), \
-             patch("build_tools.api_codegen.main.group_routes", return_value=[MagicMock()]), \
-             patch("build_tools.api_codegen.main.render_backend", return_value="code"), \
-             patch("build_tools.api_codegen.main.render_frontend", return_value="code"), \
-             patch("build_tools.api_codegen.main.render_frontend_types", return_value="code"), \
-             patch("pathlib.Path.mkdir"), \
-             patch("pathlib.Path.write_text"), \
-             patch("builtins.print"):
+        with (
+            patch("sys.argv", ["api_codegen", "--spec", "custom.yaml"]),
+            patch(
+                "build_tools.api_codegen.main.build_operations",
+                return_value=[MagicMock()],
+            ),
+            patch(
+                "build_tools.api_codegen.main.group_routes", return_value=[MagicMock()]
+            ),
+            patch("build_tools.api_codegen.main.render_backend", return_value="code"),
+            patch("build_tools.api_codegen.main.render_frontend", return_value="code"),
+            patch(
+                "build_tools.api_codegen.main.render_frontend_types",
+                return_value="code",
+            ),
+            patch("pathlib.Path.mkdir"),
+            patch("pathlib.Path.write_text"),
+            patch("builtins.print"),
+        ):
             main()
 
         # Verify custom spec path was used

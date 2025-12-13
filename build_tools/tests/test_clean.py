@@ -92,7 +92,7 @@ class TestCleanDirectory:
         file_path = dir_path / "file.txt"
         file_path.write_text("content")
 
-        size = clean_directory(dir_path, "test dir")
+        clean_directory(dir_path, "test dir")
 
         assert not dir_path.exists()
         captured = capsys.readouterr()
@@ -104,7 +104,7 @@ class TestCleanDirectory:
         dir_path.mkdir()
         (dir_path / "file.txt").write_text("content")
 
-        size = clean_directory(dir_path, "test dir", dry_run=True)
+        clean_directory(dir_path, "test dir", dry_run=True)
 
         assert dir_path.exists()
         captured = capsys.readouterr()
@@ -121,7 +121,7 @@ class TestCleanFile:
         file_path = tmp_path / "test.txt"
         file_path.write_text("content")
 
-        size = clean_file(file_path)
+        clean_file(file_path)
 
         assert not file_path.exists()
         captured = capsys.readouterr()
@@ -131,7 +131,7 @@ class TestCleanFile:
         file_path = tmp_path / "test.txt"
         file_path.write_text("content")
 
-        size = clean_file(file_path, dry_run=True)
+        clean_file(file_path, dry_run=True)
 
         assert file_path.exists()
         captured = capsys.readouterr()
@@ -149,13 +149,17 @@ class TestMain:
     @patch("build_tools.clean.find_pycache_dirs")
     @patch("build_tools.clean.find_pyc_files")
     @patch("sys.stdout")
-    def test_main_dry_run(self, mock_stdout, mock_find_pyc, mock_find_pycache, mock_exists, mock_rmtree):
+    def test_main_dry_run(
+        self, mock_stdout, mock_find_pyc, mock_find_pycache, mock_exists, mock_rmtree
+    ):
         mock_exists.return_value = True
         mock_find_pycache.return_value = []
         mock_find_pyc.return_value = []
 
         with patch("argparse.ArgumentParser.parse_args") as mock_parse:
-            mock_parse.return_value = argparse.Namespace(dry_run=True, generated=False, all=False)
+            mock_parse.return_value = argparse.Namespace(
+                dry_run=True, generated=False, all=False
+            )
             main()
 
         # Should not call rmtree in dry run
@@ -166,13 +170,17 @@ class TestMain:
     @patch("build_tools.clean.find_pycache_dirs")
     @patch("build_tools.clean.find_pyc_files")
     @patch("sys.stdout")
-    def test_main_with_generated(self, mock_stdout, mock_find_pyc, mock_find_pycache, mock_exists, mock_rmtree):
+    def test_main_with_generated(
+        self, mock_stdout, mock_find_pyc, mock_find_pycache, mock_exists, mock_rmtree
+    ):
         mock_exists.return_value = True
         mock_find_pycache.return_value = []
         mock_find_pyc.return_value = []
 
         with patch("argparse.ArgumentParser.parse_args") as mock_parse:
-            mock_parse.return_value = argparse.Namespace(dry_run=False, generated=True, all=False)
+            mock_parse.return_value = argparse.Namespace(
+                dry_run=False, generated=True, all=False
+            )
             main()
 
         # Should call rmtree for generated dirs
@@ -183,13 +191,17 @@ class TestMain:
     @patch("build_tools.clean.find_pycache_dirs")
     @patch("build_tools.clean.find_pyc_files")
     @patch("sys.stdout")
-    def test_main_with_all(self, mock_stdout, mock_find_pyc, mock_find_pycache, mock_exists, mock_rmtree):
+    def test_main_with_all(
+        self, mock_stdout, mock_find_pyc, mock_find_pycache, mock_exists, mock_rmtree
+    ):
         mock_exists.return_value = True
         mock_find_pycache.return_value = []
         mock_find_pyc.return_value = []
 
         with patch("argparse.ArgumentParser.parse_args") as mock_parse:
-            mock_parse.return_value = argparse.Namespace(dry_run=False, generated=False, all=True)
+            mock_parse.return_value = argparse.Namespace(
+                dry_run=False, generated=False, all=True
+            )
             main()
 
         # Should call rmtree for all dirs
