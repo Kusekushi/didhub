@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "backend"
 FRONTEND_APP_DIR = ROOT / "frontend" / "app"
 BUILD_TOOLS_DIR = ROOT / "build_tools"
+RUNTIME_TOOLS_DIR = ROOT / "runtime_tools"
 
 
 @dataclass
@@ -159,6 +160,45 @@ def lint_python(*, fix: bool = True) -> LintResult:
     return LintResult("Python", success=errors == 0, errors=errors, fixed=fixed)
 
 
+def lint_zig(*, fix: bool = True) -> LintResult:
+    """Lint and format Zig code."""
+    print("\n" + "=" * 40)
+    print("Linting Zig code...")
+    print("=" * 40)
+    
+    if not RUNTIME_TOOLS_DIR.exists():
+        print(f"Warning: Runtime tools directory not found: {RUNTIME_TOOLS_DIR}")
+        return LintResult("Zig", success=True)
+    
+    # Check if zig is available
+    try:
+        subprocess.run(
+            ["zig", "version"],
+            capture_output=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("Warning: zig is not installed. Skipping Zig linting.")
+        print("Install Zig from https://ziglang.org/download/")
+        return LintResult("Zig", success=True)
+    
+    errors = 0
+    
+    # Run zig fmt on each runtime tool
+    for tool_dir in RUNTIME_TOOLS_DIR.iterdir():
+        if tool_dir.is_dir() and (tool_dir / "build.zig").exists():
+            try:
+                fmt_cmd = ["zig", "fmt"]
+                if not fix:
+                    fmt_cmd.append("--check")
+                fmt_cmd.append(str(tool_dir))
+                run_command(fmt_cmd, check=True)
+            except subprocess.CalledProcessError:
+                errors += 1
+    
+    return LintResult("Zig", success=errors == 0, errors=errors)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -180,6 +220,11 @@ def main() -> None:
         help="Only lint Python code",
     )
     parser.add_argument(
+        "--zig",
+        action="store_true",
+        help="Only lint Zig code",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="Check only, don't fix (useful for CI)",
@@ -187,7 +232,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # If no specific target, lint all
-    lint_all = not any([args.rust, args.frontend, args.python])
+    lint_all = not any([args.rust, args.frontend, args.python, args.zig])
     fix = not args.check
 
     results: list[LintResult] = []
@@ -198,6 +243,8 @@ def main() -> None:
         results.append(lint_frontend(fix=fix))
     if args.python or lint_all:
         results.append(lint_python(fix=fix))
+    if args.zig or lint_all:
+        results.append(lint_zig(fix=fix))
 
     # Print summary
     print("\n" + "=" * 40)

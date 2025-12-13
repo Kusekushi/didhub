@@ -44,6 +44,11 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.15.2
+
       # -------------------------------------------------------------------------
       # Caching
       # -------------------------------------------------------------------------
@@ -92,3 +97,6 @@ jobs:
 
       - name: Lint frontend
         run: python build.py lint --frontend --check
+
+      - name: Lint Zig
+        run: python build.py lint --zig --check
