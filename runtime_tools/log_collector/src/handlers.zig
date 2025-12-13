@@ -5,7 +5,9 @@ const errors = @import("errors.zig");
 
 const json_entry_start = "{\"id\":\"";
 const json_ts_field = "\",\"timestamp\":\"";
-const json_cat_field = "\",\"category\":\"audit\",\"message\":\"";
+const json_cat_start = "\",\"category\":\"";
+const json_cat_end = "\",\"message\":\"";
+const json_source_field = "\",\"source\":\"";
 const json_metadata_field = ",\"metadata\":";
 const json_entry_end = "}\n";
 
@@ -17,6 +19,12 @@ pub fn handle_append(opts: types.AppendOptions, config: types.Config, allocator:
     }
 
     const has_metadata = opts.metadata.count() > 0;
+    const has_source = opts.source != null;
+
+    const category_str = switch (opts.category) {
+        .Audit => "audit",
+        .Job => "job",
+    };
 
     const ts = storage.timestamp_ms(allocator);
     defer allocator.free(ts);
@@ -24,7 +32,8 @@ pub fn handle_append(opts: types.AppendOptions, config: types.Config, allocator:
     defer allocator.free(uuid);
 
     const entry_size = json_entry_start.len + uuid.len + json_ts_field.len + ts.len +
-        json_cat_field.len + opts.message.len + 1 + // +1 for closing quote
+        json_cat_start.len + category_str.len + json_cat_end.len + opts.message.len + 1 + // +1 for closing quote
+        (if (has_source) json_source_field.len + opts.source.?.len + 1 else 0) + // +1 for quote
         (if (has_metadata) json_metadata_field.len + 2 else 0) +
         json_entry_end.len;
 
@@ -48,12 +57,24 @@ pub fn handle_append(opts: types.AppendOptions, config: types.Config, allocator:
     pos += json_ts_field.len;
     @memcpy(buf[pos..][0..ts.len], ts);
     pos += ts.len;
-    @memcpy(buf[pos..][0..json_cat_field.len], json_cat_field);
-    pos += json_cat_field.len;
+    @memcpy(buf[pos..][0..json_cat_start.len], json_cat_start);
+    pos += json_cat_start.len;
+    @memcpy(buf[pos..][0..category_str.len], category_str);
+    pos += category_str.len;
+    @memcpy(buf[pos..][0..json_cat_end.len], json_cat_end);
+    pos += json_cat_end.len;
     @memcpy(buf[pos..][0..opts.message.len], opts.message);
     pos += opts.message.len;
     buf[pos] = '"';
     pos += 1;
+    if (has_source) {
+        @memcpy(buf[pos..][0..json_source_field.len], json_source_field);
+        pos += json_source_field.len;
+        @memcpy(buf[pos..][0..opts.source.?.len], opts.source.?);
+        pos += opts.source.?.len;
+        buf[pos] = '"';
+        pos += 1;
+    }
     if (has_metadata) {
         @memcpy(buf[pos..][0..json_metadata_field.len], json_metadata_field);
         pos += json_metadata_field.len;
@@ -63,10 +84,10 @@ pub fn handle_append(opts: types.AppendOptions, config: types.Config, allocator:
     @memcpy(buf[pos..][0..json_entry_end.len], json_entry_end);
     pos += json_entry_end.len;
 
-    const path = try std.fmt.allocPrint(allocator, "{s}/audit.log", .{config.storage_path});
+    const path = try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ config.storage_path, category_str });
     defer allocator.free(path);
 
-    const lock_path = try std.fmt.allocPrint(allocator, "{s}/audit.log.lock", .{config.storage_path});
+    const lock_path = try std.fmt.allocPrint(allocator, "{s}/{s}.log.lock", .{ config.storage_path, category_str });
     defer allocator.free(lock_path);
 
     try storage.acquire_lock(lock_path);
@@ -103,7 +124,13 @@ pub fn handle_export(opts: types.ExportOptions, config: types.Config, allocator:
         entries.deinit(allocator);
     }
 
-    const path = try std.fmt.allocPrint(allocator, "{s}/audit.log", .{config.storage_path});
+    const category = opts.category orelse .Audit;
+    const category_str = switch (category) {
+        .Audit => "audit",
+        .Job => "job",
+    };
+
+    const path = try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ config.storage_path, category_str });
     defer allocator.free(path);
     try storage.load_entries(path, &entries, allocator);
 
@@ -130,8 +157,13 @@ pub fn handle_export(opts: types.ExportOptions, config: types.Config, allocator:
     }
 }
 
-pub fn handle_delete(_: types.DeleteOptions, config: types.Config, allocator: types.Allocator) anyerror!void {
-    const path = try std.fmt.allocPrint(allocator, "{s}/audit.log", .{config.storage_path});
+pub fn handle_delete(opts: types.DeleteOptions, config: types.Config, allocator: types.Allocator) anyerror!void {
+    const category = opts.category orelse .Audit;
+    const category_str = switch (category) {
+        .Audit => "audit",
+        .Job => "job",
+    };
+    const path = try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ config.storage_path, category_str });
     defer allocator.free(path);
     try storage.clear_log(path);
 }

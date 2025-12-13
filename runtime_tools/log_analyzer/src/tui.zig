@@ -4,6 +4,18 @@ const reader = @import("reader.zig");
 
 pub const Allocator = std.mem.Allocator;
 
+const Key = union(enum) {
+    char: u8,
+    up,
+    down,
+    left,
+    right,
+    enter,
+    escape,
+    backspace,
+    unknown,
+};
+
 const TerminalState = struct {
     stdout: std.fs.File,
     stdin: std.fs.File,
@@ -62,15 +74,57 @@ const TerminalState = struct {
         }
     }
 
+    pub fn deinit(self: *TerminalState) void {
+        if (@import("builtin").target.os.tag == .windows) {
+            const hStdout = std.os.windows.kernel32.GetStdHandle(std.os.windows.STD_OUTPUT_HANDLE);
+            if (hStdout) |handle| {
+                if (handle != std.os.windows.INVALID_HANDLE_VALUE) {
+                    _ = std.os.windows.kernel32.SetConsoleMode(handle, self.original_mode);
+                }
+            }
+        }
+    }
+
     pub fn clear(self: *TerminalState) void {
         self.output_len = 0;
     }
 
-    pub fn readKey(self: *TerminalState) !?u8 {
+    pub fn readKey(self: *TerminalState) !?Key {
         var buffer: [1]u8 = undefined;
         const bytes_read = try self.stdin.read(&buffer);
         if (bytes_read == 0) return null;
-        return buffer[0];
+
+        const first_byte = buffer[0];
+        if (first_byte == '\x1b') {
+            // Escape sequence
+            var seq_buf: [8]u8 = undefined;
+            seq_buf[0] = first_byte;
+            var seq_len: usize = 1;
+
+            // Read more bytes with timeout
+            while (seq_len < seq_buf.len) {
+                const more_bytes = try self.stdin.read(seq_buf[seq_len .. seq_len + 1]);
+                if (more_bytes == 0) break;
+                seq_len += more_bytes;
+
+                const seq = seq_buf[0..seq_len];
+                if (std.mem.eql(u8, seq, "\x1b[A")) return .up;
+                if (std.mem.eql(u8, seq, "\x1b[B")) return .down;
+                if (std.mem.eql(u8, seq, "\x1b[C")) return .right;
+                if (std.mem.eql(u8, seq, "\x1b[D")) return .left;
+                if (std.mem.eql(u8, seq, "\x1b")) return .escape;
+
+                // If we get a non-escape byte, treat as unknown
+                if (seq_len > 1 and seq[1] != '[') break;
+            }
+            return .unknown;
+        } else if (first_byte == '\n' or first_byte == '\r') {
+            return .enter;
+        } else if (first_byte == 127) { // Backspace
+            return .backspace;
+        } else {
+            return .{ .char = first_byte };
+        }
     }
 
     pub fn readLine(self: *TerminalState, buf: []u8) !?[]const u8 {
@@ -191,6 +245,7 @@ pub fn run_tui(allocator: Allocator, input_file: ?[]const u8) !void {
 
 pub fn tui_loop_streaming(allocator: Allocator, reader_ptr: *reader.StreamingLogReader) !void {
     var term = try TerminalState.init();
+    defer term.deinit();
     var state = try DisplayState.init(allocator, reader_ptr.count());
     defer state.deinit(allocator);
 
@@ -206,74 +261,84 @@ pub fn tui_loop_streaming(allocator: Allocator, reader_ptr: *reader.StreamingLog
         const key = try term.readKey() orelse continue;
 
         switch (key) {
-            'q' => break,
-            'j', '\n' => state.scrollDown(),
-            'k' => state.scrollUp(),
-            ' ' => state.pageDown(),
-            'b' => state.pageUp(),
-            'g' => {
-                state.scroll_offset = 0;
-                state.needs_redraw = true;
-            },
-            'G' => {
-                if (state.filtered_indices.items.len > state.max_display) {
-                    state.scroll_offset = state.filtered_indices.items.len - state.max_display;
-                }
-                state.needs_redraw = true;
-            },
-            'r' => {
-                state.rebuildFilters(reader_ptr);
-            },
-            '/' => {
-                term.write("\x1b[24;1HSearch: ");
-                try term.flush();
-
-                if (try term.readLine(&search_buf)) |search_input| {
-                    const trimmed = std.mem.trim(u8, search_input, " \r\n");
-                    try state.setSearchTerm(allocator, if (trimmed.len > 0) trimmed else null);
-                }
-            },
-            'f' => {
-                term.write("\x1b[24;1HFilter (d/i/w/e/Enter=clear): ");
-                try term.flush();
-
-                if (try term.readLine(&filter_buf)) |filter_input| {
-                    const level_char = std.mem.trim(u8, filter_input, " \r\n");
-                    const new_level: ?log.LogLevel = if (level_char.len == 0)
-                        null
-                    else switch (level_char[0]) {
-                        'd' => .Debug,
-                        'i' => .Info,
-                        'w' => .Warn,
-                        'e' => .Error,
-                        else => state.filter_level,
-                    };
-
-                    state.setFilterLevel(new_level);
+            .char => |c| switch (c) {
+                'q' => break,
+                'j', '\n' => state.scrollDown(),
+                'k' => state.scrollUp(),
+                ' ' => state.pageDown(),
+                'b' => state.pageUp(),
+                'g' => {
+                    state.scroll_offset = 0;
+                    state.needs_redraw = true;
+                },
+                'G' => {
+                    if (state.filtered_indices.items.len > state.max_display) {
+                        state.scroll_offset = state.filtered_indices.items.len - state.max_display;
+                    }
+                    state.needs_redraw = true;
+                },
+                'r' => {
                     state.rebuildFilters(reader_ptr);
-                }
+                },
+                '/' => {
+                    term.write("\x1b[24;1HSearch: ");
+                    try term.flush();
+
+                    if (try term.readLine(&search_buf)) |search_input| {
+                        const trimmed = std.mem.trim(u8, search_input, " \r\n");
+                        try state.setSearchTerm(allocator, if (trimmed.len > 0) trimmed else null);
+                    }
+                },
+                'f' => {
+                    term.write("\x1b[24;1HFilter (d/i/w/e/Enter=clear): ");
+                    try term.flush();
+
+                    if (try term.readLine(&filter_buf)) |filter_input| {
+                        const level_char = std.mem.trim(u8, filter_input, " \r\n");
+                        const new_level: ?log.LogLevel = if (level_char.len == 0)
+                            null
+                        else switch (level_char[0]) {
+                            'd' => .Debug,
+                            'i' => .Info,
+                            'w' => .Warn,
+                            'e' => .Error,
+                            else => state.filter_level,
+                        };
+
+                        state.setFilterLevel(new_level);
+                        state.rebuildFilters(reader_ptr);
+                    }
+                },
+                '1' => {
+                    state.setFilterLevel(.Debug);
+                    state.rebuildFilters(reader_ptr);
+                },
+                '2' => {
+                    state.setFilterLevel(.Info);
+                    state.rebuildFilters(reader_ptr);
+                },
+                '3' => {
+                    state.setFilterLevel(.Warn);
+                    state.rebuildFilters(reader_ptr);
+                },
+                '4' => {
+                    state.setFilterLevel(.Error);
+                    state.rebuildFilters(reader_ptr);
+                },
+                '0' => {
+                    state.setFilterLevel(null);
+                    state.rebuildFilters(reader_ptr);
+                },
+                else => {},
             },
-            '1' => {
-                state.setFilterLevel(.Debug);
-                state.rebuildFilters(reader_ptr);
-            },
-            '2' => {
-                state.setFilterLevel(.Info);
-                state.rebuildFilters(reader_ptr);
-            },
-            '3' => {
-                state.setFilterLevel(.Warn);
-                state.rebuildFilters(reader_ptr);
-            },
-            '4' => {
-                state.setFilterLevel(.Error);
-                state.rebuildFilters(reader_ptr);
-            },
-            '0' => {
-                state.setFilterLevel(null);
-                state.rebuildFilters(reader_ptr);
-            },
-            else => {},
+            .up => state.scrollUp(),
+            .down => state.scrollDown(),
+            .left => {}, // Not handled
+            .right => {}, // Not handled
+            .enter => state.scrollDown(),
+            .escape => break,
+            .backspace => {}, // Not handled
+            .unknown => {},
         }
     }
 

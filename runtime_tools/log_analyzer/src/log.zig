@@ -83,8 +83,41 @@ inline fn findBracket(line: []const u8) ?usize {
     return std.mem.indexOfScalar(u8, line, '[');
 }
 
+/// Extract a field value from JSON log line
+fn extractJsonField(line: []const u8, field: []const u8) ?[]const u8 {
+    var field_pattern_buf: [32]u8 = undefined;
+    const field_pattern = std.fmt.bufPrint(&field_pattern_buf, "\"{s}\":", .{field}) catch return null;
+
+    const field_start = std.mem.indexOf(u8, line, field_pattern) orelse return null;
+    const value_start_pos = field_start + field_pattern.len;
+    const quote_start = value_start_pos;
+    const quote_end = std.mem.indexOfScalarPos(u8, line, quote_start + 1, '"') orelse return null;
+
+    return line[quote_start + 1 .. quote_end];
+}
+
+/// Parse log level from JSON log line
+fn parseJsonLogLevel(line: []const u8) ?LogLevel {
+    const category = extractJsonField(line, "category") orelse return null;
+
+    // Map category to log level
+    if (std.mem.eql(u8, category, "error")) return .Error;
+    if (std.mem.eql(u8, category, "warn")) return .Warn;
+    if (std.mem.eql(u8, category, "info")) return .Info;
+    if (std.mem.eql(u8, category, "debug")) return .Debug;
+    if (std.mem.eql(u8, category, "audit")) return .Info; // Assume audit is info level
+
+    return null;
+}
+
 /// Parse log level from a line
 pub fn parseLogLevel(line: []const u8) ?LogLevel {
+    // First try JSON format
+    if (line.len > 0 and line[0] == '{') {
+        return parseJsonLogLevel(line);
+    }
+
+    // Fall back to bracket format
     const level_start = findBracket(line) orelse return null;
 
     // Quick bounds check - minimum level string is "[INFO]" (6 chars)
@@ -116,6 +149,22 @@ pub const ParseResult = struct {
 };
 
 pub fn parseLogLevelWithPos(line: []const u8) ?ParseResult {
+    // First try JSON format
+    if (line.len > 0 and line[0] == '{') {
+        const level = parseJsonLogLevel(line) orelse return null;
+        // For JSON, level_start and level_end point to the category field
+        const field_start = std.mem.indexOf(u8, line, "\"category\":") orelse return null;
+        const value_start_pos = field_start + "\"category\":".len;
+        const quote_start = value_start_pos;
+        const quote_end = std.mem.indexOfScalarPos(u8, line, quote_start + 1, '"') orelse return null;
+        return ParseResult{
+            .level = level,
+            .level_start = quote_start + 1,
+            .level_end = quote_end,
+        };
+    }
+
+    // Fall back to bracket format
     const level_start = findBracket(line) orelse return null;
     if (level_start + 6 > line.len) return null;
 
@@ -145,12 +194,22 @@ pub fn parseLogLevelWithPos(line: []const u8) ?ParseResult {
 pub fn parse_log_line(line: []const u8, allocator: Allocator) !?LogEntry {
     const result = parseLogLevelWithPos(line) orelse return null;
 
-    const timestamp = std.mem.trimRight(u8, line[0..result.level_start], " ");
-    const message_start = @min(result.level_end + 2, line.len);
-    const message = if (message_start < line.len)
-        std.mem.trim(u8, line[message_start..], " \n\r")
-    else
-        "";
+    var timestamp: []const u8 = undefined;
+    var message: []const u8 = undefined;
+
+    if (line.len > 0 and line[0] == '{') {
+        // JSON format
+        timestamp = extractJsonField(line, "timestamp") orelse "";
+        message = extractJsonField(line, "message") orelse "";
+    } else {
+        // Bracket format
+        timestamp = std.mem.trimRight(u8, line[0..result.level_start], " ");
+        const message_start = @min(result.level_end + 2, line.len);
+        message = if (message_start < line.len)
+            std.mem.trim(u8, line[message_start..], " \n\r")
+        else
+            "";
+    }
 
     return LogEntry{
         .timestamp = try allocator.dupe(u8, timestamp),
@@ -169,12 +228,22 @@ pub const LogEntryView = struct {
 pub fn parseLogLineView(line: []const u8) ?LogEntryView {
     const result = parseLogLevelWithPos(line) orelse return null;
 
-    const timestamp = std.mem.trimRight(u8, line[0..result.level_start], " ");
-    const message_start = @min(result.level_end + 2, line.len);
-    const message = if (message_start < line.len)
-        std.mem.trim(u8, line[message_start..], " \n\r")
-    else
-        "";
+    var timestamp: []const u8 = undefined;
+    var message: []const u8 = undefined;
+
+    if (line.len > 0 and line[0] == '{') {
+        // JSON format
+        timestamp = extractJsonField(line, "timestamp") orelse "";
+        message = extractJsonField(line, "message") orelse "";
+    } else {
+        // Bracket format
+        timestamp = std.mem.trimRight(u8, line[0..result.level_start], " ");
+        const message_start = @min(result.level_end + 2, line.len);
+        message = if (message_start < line.len)
+            std.mem.trim(u8, line[message_start..], " \n\r")
+        else
+            "";
+    }
 
     return LogEntryView{
         .timestamp = timestamp,

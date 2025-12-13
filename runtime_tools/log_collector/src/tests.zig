@@ -4,18 +4,78 @@ const cli = @import("cli.zig");
 const storage = @import("storage.zig");
 const handlers = @import("handlers.zig");
 
-test "cli.parse_command parses append with metadata" {
+test "cli.parse_command parses append with category and message" {
     const allocator = std.testing.allocator;
-    var args_arr: [6][]const u8 = .{ "prog", "append", "HelloWorld", "--meta", "foo", "bar" };
+    var args_arr: [6][]const u8 = .{ "prog", "append", "--category", "audit", "--message", "test message" };
     const args: []const []const u8 = args_arr[0..];
     const cmd = try cli.parse_command(args, allocator);
     switch (cmd) {
         .append => |opts| {
             var myopts = opts;
-            try std.testing.expectEqualStrings(myopts.message, "HelloWorld");
-            const val = myopts.metadata.get("foo");
-            try std.testing.expectEqualStrings(val.?, "bar");
+            try std.testing.expectEqual(opts.category, .Audit);
+            try std.testing.expectEqualStrings(myopts.message, "test message");
+            try std.testing.expect(myopts.source == null);
             myopts.metadata.deinit();
+        },
+        else => try std.testing.expect(false),
+    }
+}
+
+test "cli.parse_command parses append with job category" {
+    const allocator = std.testing.allocator;
+    var args_arr: [6][]const u8 = .{ "prog", "append", "--category", "job", "--message", "job message" };
+    const args: []const []const u8 = args_arr[0..];
+    const cmd = try cli.parse_command(args, allocator);
+    switch (cmd) {
+        .append => |opts| {
+            var myopts = opts;
+            try std.testing.expectEqual(opts.category, .Job);
+            try std.testing.expectEqualStrings(myopts.message, "job message");
+            myopts.metadata.deinit();
+        },
+        else => try std.testing.expect(false),
+    }
+}
+
+test "cli.parse_command parses append with source" {
+    const allocator = std.testing.allocator;
+    var args_arr: [8][]const u8 = .{ "prog", "append", "--category", "audit", "--message", "msg", "--source", "test_source" };
+    const args: []const []const u8 = args_arr[0..];
+    const cmd = try cli.parse_command(args, allocator);
+    switch (cmd) {
+        .append => |opts| {
+            var myopts = opts;
+            try std.testing.expectEqual(opts.category, .Audit);
+            try std.testing.expectEqualStrings(myopts.message, "msg");
+            try std.testing.expectEqualStrings(myopts.source.?, "test_source");
+            myopts.metadata.deinit();
+        },
+        else => try std.testing.expect(false),
+    }
+}
+
+test "cli.parse_command parses export with category" {
+    const allocator = std.testing.allocator;
+    var args_arr: [4][]const u8 = .{ "prog", "export", "--category", "job" };
+    const args: []const []const u8 = args_arr[0..];
+    const cmd = try cli.parse_command(args, allocator);
+    switch (cmd) {
+        .export_cmd => |opts| {
+            try std.testing.expectEqual(opts.category, .Job);
+            try std.testing.expectEqual(opts.format, .Json);
+        },
+        else => try std.testing.expect(false),
+    }
+}
+
+test "cli.parse_command parses delete with category" {
+    const allocator = std.testing.allocator;
+    var args_arr: [4][]const u8 = .{ "prog", "delete", "--category", "audit" };
+    const args: []const []const u8 = args_arr[0..];
+    const cmd = try cli.parse_command(args, allocator);
+    switch (cmd) {
+        .delete => |opts| {
+            try std.testing.expectEqual(opts.category, .Audit);
         },
         else => try std.testing.expect(false),
     }
@@ -39,7 +99,7 @@ test "handlers.append writes entry and load_entries reads it" {
     const cfg = types.Config{ .storage_path = try allocator.dupe(u8, base_dir) };
     defer allocator.free(cfg.storage_path);
 
-    var opts = types.AppendOptions{ .message = "UnitTestMessage", .metadata = std.StringHashMap([]const u8).init(allocator) };
+    var opts = types.AppendOptions{ .category = .Audit, .message = "UnitTestMessage", .source = null, .metadata = std.StringHashMap([]const u8).init(allocator) };
     defer opts.metadata.deinit();
     try opts.metadata.put("k", "v");
 

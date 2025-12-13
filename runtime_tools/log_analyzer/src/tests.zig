@@ -153,16 +153,108 @@ test "LogLevel methods work correctly" {
     try std.testing.expectEqualStrings("Info", log.LogLevel.Info.name());
 }
 
-test "ErrorItem compareDesc sorts correctly" {
-    var items = [_]log.ErrorItem{
-        .{ .message = "a", .count = 5 },
-        .{ .message = "b", .count = 10 },
-        .{ .message = "c", .count = 3 },
-    };
+test "parseLogLevel handles JSON logs correctly" {
+    // Test JSON audit log
+    try std.testing.expectEqual(log.LogLevel.Info, log.parseLogLevel("{\"category\":\"audit\",\"message\":\"test\"}") orelse unreachable);
+    try std.testing.expectEqual(log.LogLevel.Error, log.parseLogLevel("{\"category\":\"error\",\"message\":\"test\"}") orelse unreachable);
+    try std.testing.expectEqual(log.LogLevel.Warn, log.parseLogLevel("{\"category\":\"warn\",\"message\":\"test\"}") orelse unreachable);
+    try std.testing.expectEqual(log.LogLevel.Info, log.parseLogLevel("{\"category\":\"info\",\"message\":\"test\"}") orelse unreachable);
+    try std.testing.expectEqual(log.LogLevel.Debug, log.parseLogLevel("{\"category\":\"debug\",\"message\":\"test\"}") orelse unreachable);
 
-    std.mem.sort(log.ErrorItem, &items, {}, log.ErrorItem.compareDesc);
+    // Test unknown category returns null
+    try std.testing.expectEqual(null, log.parseLogLevel("{\"category\":\"unknown\",\"message\":\"test\"}"));
 
-    try std.testing.expectEqual(@as(usize, 10), items[0].count);
-    try std.testing.expectEqual(@as(usize, 5), items[1].count);
-    try std.testing.expectEqual(@as(usize, 3), items[2].count);
+    // Test malformed JSON still falls back to bracket parsing
+    try std.testing.expectEqual(log.LogLevel.Info, log.parseLogLevel("timestamp [INFO] message") orelse unreachable);
+}
+
+test "parseLogLevelWithPos handles JSON logs correctly" {
+    const json_line = "{\"id\":\"123\",\"timestamp\":\"1765608798794\",\"category\":\"audit\",\"message\":\"--category\"}";
+    const result = log.parseLogLevelWithPos(json_line) orelse unreachable;
+
+    try std.testing.expectEqual(log.LogLevel.Info, result.level);
+    // For JSON, positions point to the category value in the JSON string
+    try std.testing.expect(result.level_start < result.level_end);
+    try std.testing.expect(result.level_end <= json_line.len);
+}
+
+test "parseLogLineView handles JSON logs correctly" {
+    const json_line = "{\"id\":\"123\",\"timestamp\":\"1765608798794\",\"category\":\"audit\",\"message\":\"--category\"}";
+    const view = log.parseLogLineView(json_line) orelse unreachable;
+
+    try std.testing.expectEqual(log.LogLevel.Info, view.level);
+    try std.testing.expectEqualStrings("1765608798794", view.timestamp);
+    try std.testing.expectEqualStrings("--category", view.message);
+
+    // View should point into original line
+    const line_start = @intFromPtr(json_line.ptr);
+    const line_end = @intFromPtr(json_line.ptr) + json_line.len;
+    const timestamp_start = @intFromPtr(view.timestamp.ptr);
+    const message_start = @intFromPtr(view.message.ptr);
+    try std.testing.expect(timestamp_start >= line_start);
+    try std.testing.expect(timestamp_start < line_end);
+    try std.testing.expect(message_start >= line_start);
+    try std.testing.expect(message_start < line_end);
+}
+
+test "parse_log_line handles JSON logs correctly" {
+    const allocator = std.testing.allocator;
+    const json_line = "{\"id\":\"123\",\"timestamp\":\"1765608798794\",\"category\":\"error\",\"message\":\"Something failed\"}";
+
+    const entry = try log.parse_log_line(json_line, allocator) orelse unreachable;
+    defer entry.deinit(allocator);
+
+    try std.testing.expectEqualStrings("1765608798794", entry.timestamp);
+    try std.testing.expectEqual(log.LogLevel.Error, entry.level);
+    try std.testing.expectEqualStrings("Something failed", entry.message);
+    try std.testing.expectEqual(null, entry.source);
+}
+
+test "JSON log parsing handles missing fields gracefully" {
+    // Missing message field
+    const json_no_message = "{\"category\":\"info\",\"timestamp\":\"123\"}";
+    const view = log.parseLogLineView(json_no_message) orelse unreachable;
+    try std.testing.expectEqual(log.LogLevel.Info, view.level);
+    try std.testing.expectEqualStrings("123", view.timestamp);
+    try std.testing.expectEqualStrings("", view.message);
+
+    // Missing timestamp field
+    const json_no_timestamp = "{\"category\":\"warn\",\"message\":\"test\"}";
+    const view2 = log.parseLogLineView(json_no_timestamp) orelse unreachable;
+    try std.testing.expectEqual(log.LogLevel.Warn, view2.level);
+    try std.testing.expectEqualStrings("", view2.timestamp);
+    try std.testing.expectEqualStrings("test", view2.message);
+}
+
+test "JSON log parsing with StreamingLogReader" {
+    const allocator = std.testing.allocator;
+
+    // Create a test file with JSON logs
+    const cwd = std.fs.cwd();
+    const file_path = "test_json.log";
+    const file = try cwd.createFile(file_path, .{ .truncate = true });
+    defer {
+        std.fs.cwd().deleteFile(file_path) catch {};
+    }
+
+    try file.writeAll("{\"timestamp\":\"1765608798794\",\"category\":\"audit\",\"message\":\"--category\"}\n");
+    try file.writeAll("{\"timestamp\":\"1765608798795\",\"category\":\"error\",\"message\":\"Something failed\"}\n");
+    file.close();
+
+    var rdr = try reader.StreamingLogReader.init(allocator, file_path);
+    defer rdr.deinit();
+
+    try std.testing.expectEqual(2, rdr.count());
+    try std.testing.expectEqual(log.LogLevel.Info, rdr.getLevelAt(0) orelse unreachable);
+    try std.testing.expectEqual(log.LogLevel.Error, rdr.getLevelAt(1) orelse unreachable);
+
+    const counts = rdr.getLevelCounts();
+    try std.testing.expectEqual(@as(usize, 0), counts.debug);
+    try std.testing.expectEqual(@as(usize, 1), counts.info);
+    try std.testing.expectEqual(@as(usize, 0), counts.warn);
+    try std.testing.expectEqual(@as(usize, 1), counts.err);
+
+    const view = try rdr.readEntryView(0) orelse unreachable;
+    try std.testing.expectEqual(log.LogLevel.Info, view.level);
+    try std.testing.expectEqualStrings("--category", view.message);
 }

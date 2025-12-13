@@ -54,8 +54,11 @@ const windows = if (builtin.os.tag == .windows) struct {
 
 pub const Terminal = struct {
     stdout: @TypeOf(std.fs.File.stdout().deprecatedWriter()),
+    original_termios: if (builtin.os.tag == .linux) std.c.termios else void = undefined,
 
-    pub fn init() Terminal {
+    pub fn init() !Terminal {
+        var term = Terminal{ .stdout = std.fs.File.stdout().deprecatedWriter() };
+
         if (builtin.os.tag == .windows) {
             const hStdin = windows.GetStdHandle(windows.STD_INPUT_HANDLE);
             const hStdout = windows.GetStdHandle(windows.STD_OUTPUT_HANDLE);
@@ -72,8 +75,42 @@ pub const Terminal = struct {
                     _ = windows.SetConsoleMode(hStdout, mode | windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING);
                 }
             }
+        } else if (builtin.os.tag == .linux) {
+            _ = std.c.tcgetattr(std.c.STDIN_FILENO, &term.original_termios);
+            var raw = term.original_termios;
+            const IGNBRK: u32 = 1;
+            const BRKINT: u32 = 2;
+            const PARMRK: u32 = 8;
+            const ISTRIP: u32 = 32;
+            const INLCR: u32 = 64;
+            const IGNCR: u32 = 128;
+            const ICRNL: u32 = 256;
+            const IXON: u32 = 1024;
+            const OPOST: u32 = 1;
+            const ECHO: u32 = 8;
+            const ECHONL: u32 = 16;
+            const ICANON: u32 = 2;
+            const ISIG: u32 = 1;
+            const IEXTEN: u32 = 32768;
+            const CSIZE: u32 = 48;
+            const PARENB: u32 = 256;
+            const CS8: u32 = 48;
+            raw.iflag = @bitCast(@as(u32, @bitCast(raw.iflag)) & ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON));
+            raw.oflag = @bitCast(@as(u32, @bitCast(raw.oflag)) & ~OPOST);
+            raw.lflag = @bitCast(@as(u32, @bitCast(raw.lflag)) & ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN));
+            raw.cflag = @bitCast(@as(u32, @bitCast(raw.cflag)) & ~(CSIZE | PARENB));
+            raw.cflag = @bitCast(@as(u32, @bitCast(raw.cflag)) | CS8);
+            raw.cc[6] = 1;
+            raw.cc[5] = 0;
+            _ = std.c.tcsetattr(std.c.STDIN_FILENO, std.posix.TCSA.NOW, &raw);
         }
-        return .{ .stdout = std.fs.File.stdout().deprecatedWriter() };
+        return term;
+    }
+
+    pub fn deinit(self: *Terminal) void {
+        if (builtin.os.tag == .linux) {
+            _ = std.c.tcsetattr(std.c.STDIN_FILENO, std.posix.TCSA.NOW, &self.original_termios);
+        }
     }
 
     pub fn clearScreen(self: *Terminal) !void {
@@ -196,15 +233,36 @@ fn readKeyWindows() !InputResult {
 }
 
 fn readKeyUnix() !InputResult {
-    var buf: [1]u8 = undefined;
+    var buf: [3]u8 = undefined;
     const n = std.fs.File.stdin().read(&buf) catch |err| {
         return if (err == error.WouldBlock) InputResult{ .key = .unknown, .char = null } else err;
     };
     if (n == 0) return InputResult{ .key = .unknown, .char = null };
+    if (buf[0] == '\x1b') {
+        if (n == 1) return .{ .key = .escape, .char = null };
+        if (buf[1] == '[') {
+            if (n >= 3) {
+                switch (buf[2]) {
+                    'A' => return .{ .key = .up, .char = null },
+                    'B' => return .{ .key = .down, .char = null },
+                    'C' => return .{ .key = .right, .char = null },
+                    'D' => return .{ .key = .left, .char = null },
+                    else => {},
+                }
+            }
+            // Incomplete or unknown sequence, treat as escape
+            return .{ .key = .escape, .char = null };
+        } else {
+            // \x1b followed by something else, treat as escape
+            return .{ .key = .escape, .char = null };
+        }
+    }
+    if (n == 1) return mapCharInput(buf[0]);
+    // Multiple chars, but not escape, map first
     return mapCharInput(buf[0]);
 }
 
-fn mapKeyInput(vk: u16, char: u8) InputResult {
+pub fn mapKeyInput(vk: u16, char: u8) InputResult {
     return switch (vk) {
         0x0D => .{ .key = .enter, .char = null },
         0x1B => .{ .key = .escape, .char = null },
@@ -221,7 +279,7 @@ fn mapKeyInput(vk: u16, char: u8) InputResult {
     };
 }
 
-fn mapCharInput(char: u8) InputResult {
+pub fn mapCharInput(char: u8) InputResult {
     return switch (char) {
         '\n', '\r' => .{ .key = .enter, .char = null },
         '\t' => .{ .key = .tab, .char = null },
@@ -233,7 +291,7 @@ fn mapCharInput(char: u8) InputResult {
     };
 }
 
-fn mapNavChar(char: u8) InputResult {
+pub fn mapNavChar(char: u8) InputResult {
     return switch (char) {
         'w', 'W', 'k', 'K' => .{ .key = .up, .char = null },
         's', 'S', 'j', 'J' => .{ .key = .down, .char = null },
@@ -512,10 +570,11 @@ fn parseCommaSeparated(allocator: std.mem.Allocator, text: []const u8, list: any
 // ============================================================================
 
 pub fn gather_interactive_tui(allocator: std.mem.Allocator, cfg: *config.Config) !void {
-    var term = Terminal.init();
+    var term = try Terminal.init();
     try term.clearScreen();
     try term.hideCursor();
     defer term.showCursor() catch {};
+    defer term.deinit();
 
     const sections = [_][]const u8{
         "Server Configuration",

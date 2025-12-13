@@ -16,7 +16,7 @@ fn readLine(allocator: std.mem.Allocator, prompt: []const u8) ![]u8 {
     return buf;
 }
 
-fn parseBool(input: []const u8, default: bool) bool {
+pub fn parseBool(input: []const u8, default: bool) bool {
     if (input.len == 0) return default;
     const lower = input[0];
     return lower == '1' or lower == 't' or lower == 'T' or lower == 'y' or lower == 'Y';
@@ -26,11 +26,11 @@ fn isNone(input: []const u8) bool {
     return input.len > 0 and std.ascii.eqlIgnoreCase(input, "none");
 }
 
-fn parseOptStr(input: []const u8) ?[]const u8 {
+pub fn parseOptStr(input: []const u8) ?[]const u8 {
     return if (input.len == 0 or isNone(input)) null else input;
 }
 
-fn parseCommaSeparated(allocator: std.mem.Allocator, input: []const u8, list: anytype) !void {
+pub fn parseCommaSeparated(allocator: std.mem.Allocator, input: []const u8, list: anytype) !void {
     list.clearRetainingCapacity();
     if (input.len == 0) return;
     var parts = std.mem.tokenizeAny(u8, input, ",");

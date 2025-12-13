@@ -19,7 +19,9 @@ pub const Config = struct {
 };
 
 pub const AppendOptions = struct {
+    category: Category,
     message: []const u8,
+    source: ?[]const u8,
     metadata: std.StringHashMap([]const u8),
 };
 
