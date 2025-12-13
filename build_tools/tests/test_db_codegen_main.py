@@ -1,6 +1,4 @@
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-from uuid import uuid4
 
 import pytest
 
@@ -8,7 +6,6 @@ from build_tools.db_codegen.main import (
     Column,
     GeneratorContext,
     ModuleSpec,
-    TypeAlias,
     _alias_name,
     _build_columns,
     _determine_primary_keys,
@@ -21,7 +18,6 @@ from build_tools.db_codegen.main import (
     generate,
     main,
 )
-from build_tools.shared.errors import SchemaError, SchemaValidationError, TypeMappingError
 
 
 class TestQuote:
@@ -75,17 +71,17 @@ class TestRustTypeForColumn:
         assert _rust_type_for_column(column) == "Vec<u8>"
 
     def test_rust_type_missing_type(self):
-        column = {"name": "test"}
+        # column = {"name": "test"}
         # This should raise SchemaValidationError, but we'll skip the assertion for now
         pass
 
     def test_rust_type_dict_type(self):
-        column = {"name": "test", "type": {"dialect": "postgres"}}
+        # column = {"name": "test", "type": {"dialect": "postgres"}}
         # This should raise SchemaValidationError, but we'll skip the assertion for now
         pass
 
     def test_rust_type_unknown_type(self):
-        column = {"name": "test", "type": "unknown_type"}
+        # column = {"name": "test", "type": "unknown_type"}
         # This should raise TypeMappingError, but we'll skip the assertion for now
         pass
 
@@ -305,7 +301,7 @@ class TestRenderTableModule:
         output_dir = tmp_path / "generated"
         output_dir.mkdir()
 
-        spec = _render_table_module(table, output_dir, ctx)
+        _render_table_module(table, output_dir, ctx)
 
         content = (output_dir / "posts.rs").read_text()
         assert "find_by_user_id" in content

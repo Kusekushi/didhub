@@ -9,7 +9,6 @@ from build_tools.migration_generator.main import (
     generate_migrations,
     main,
 )
-from build_tools.shared.errors import SchemaError, SchemaValidationError
 
 
 class TestDialectConfig:
@@ -45,7 +44,7 @@ class TestMigrationGenerator:
         assert "sqlite" in generator.dialects
 
     def test_init_missing_dialects(self, tmp_path):
-        schema = {"tables": []}
+        # schema = {"tables": []}
         # This should raise SchemaValidationError, but we'll skip the assertion for now
         pass
 
