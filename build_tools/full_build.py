@@ -146,9 +146,9 @@ def build_frontend() -> None:
 
     # Install dependencies if needed
     if not (FRONTEND_DIR / "node_modules").exists():
-        run_command(["pnpm", "install"], cwd=FRONTEND_DIR)
+        run_command(["bun", "install"], cwd=FRONTEND_DIR.parent)
 
-    run_command(["pnpm", "build"], cwd=FRONTEND_DIR)
+    run_command(["bun", "run", "build"], cwd=FRONTEND_DIR)
 
 
 def run_build_steps(steps: list[BuildStep], *, verbose: bool = False) -> None:
@@ -234,6 +234,7 @@ def main() -> None:
         BuildStep(
             "Generate API Code", generate_api_code, enabled=not args.skip_codegen
         ),
+        BuildStep("Build Frontend", build_frontend, enabled=True),
         BuildStep(
             "Build Rust Backend",
             lambda: build_rust(release=args.release, check_only=args.check),
@@ -243,7 +244,6 @@ def main() -> None:
             lambda: build_runtime_tools(release=args.release),
             enabled=not args.skip_runtime_tools,
         ),
-        BuildStep("Build Frontend", build_frontend, enabled=args.include_frontend),
     ]
 
     try:

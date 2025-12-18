@@ -1,0 +1,10 @@
+{
+  "name": "didhub-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "api",
+    "app"
+  ],
+  "type": "module"
+}

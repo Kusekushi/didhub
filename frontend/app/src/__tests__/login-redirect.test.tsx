@@ -1,5 +1,5 @@
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, mock } from 'bun:test'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import LoginPage from '@/pages/Login'
@@ -8,7 +8,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ApiProvider } from '@/context/ApiContext'
 
 // Mock the ApiClient used inside AuthContext so login/signup succeed
-vi.mock('@didhub/api', () => {
+mock.module('@didhub/api', () => {
   return {
     ApiClient: class {
       base: string
@@ -53,7 +53,8 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 
 describe('Login redirect', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    // Bun's test runner doesn't have a clearAllMocks equivalent
+    // Mocks are isolated per test file
   })
 
   it('redirects to `from` location when provided in state', async () => {

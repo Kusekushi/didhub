@@ -37,7 +37,7 @@ dashmap = "6"
 base64 = "0.22"
 mime_guess = "2.0"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
- 
+rust-embed = { version = "8", features = ["compression", "include-exclude"] }
 
 [dev-dependencies]
 hyper = "1"

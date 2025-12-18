@@ -31,6 +31,7 @@ use tracing_setup::install_tracing_from_config;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    eprintln!("[STARTUP] DIDHub Backend starting...");
     let args = CliArgs::parse();
 
     if args.help_requested {
@@ -43,7 +44,9 @@ async fn main() -> anyhow::Result<()> {
         .config_path
         .or_else(|| std::env::var("DIDHUB_CONFIG_PATH").ok());
 
+    eprintln!("[STARTUP] Loading config from: {:?}", config_path);
     let config = load_config(&config_path)?;
+    eprintln!("[STARTUP] Config loaded successfully");
 
     // Propagate config path to environment for downstream code
     if let Some(ref p) = config_path {
@@ -52,17 +55,23 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Initialize tracing
+    eprintln!("[STARTUP] Initializing tracing...");
     let reload_handle = install_tracing_from_config(&config.logging);
     let log_client = log_client_from_config(&config);
+    eprintln!("[STARTUP] Tracing initialized");
 
     // Initialize services
+    eprintln!("[STARTUP] Initializing services...");
     let job_queue = JobQueueClient::new();
     let updates = UpdateCoordinator::new();
 
     // Create and migrate database
+    eprintln!("[STARTUP] Setting up database...");
     let db_cfg = database_config_from_config(&config);
     let db_pool = didhub_db::create_pool(&db_cfg).await.expect("create pool");
+    eprintln!("[STARTUP] Database pool created");
     run_migrations(&db_cfg, &db_pool).await?;
+    eprintln!("[STARTUP] Database migrations completed");
 
     tracing::info!(
         db_url = %db_cfg.url,
@@ -72,6 +81,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Build rate limiter
+    eprintln!("[STARTUP] Building rate limiter...");
     let limiter = RateLimiterManager::from_config(
         config.rate_limit.enabled,
         config.rate_limit.per_ip,
@@ -82,8 +92,10 @@ async fn main() -> anyhow::Result<()> {
     );
     let shared_config = Arc::new(tokio::sync::RwLock::new(config.clone()));
     let shared_limiter = Arc::new(tokio::sync::RwLock::new(limiter));
+    eprintln!("[STARTUP] Rate limiter configured");
 
     // Build authenticator and app state
+    eprintln!("[STARTUP] Building authenticator and app state...");
     let (startup_app_state, maintenance_msg) = match build_authenticator_from_config(&config) {
         Ok((authenticator, info)) => {
             tracing::info!(
@@ -93,6 +105,7 @@ async fn main() -> anyhow::Result<()> {
                 key_bits = info.bits.map(|b| b.to_string()).as_deref().unwrap_or("-"),
                 "authentication configured"
             );
+            eprintln!("[STARTUP] Authenticator built successfully");
             let state = AppState::new(
                 db_pool,
                 log_client,
@@ -100,15 +113,18 @@ async fn main() -> anyhow::Result<()> {
                 job_queue.clone(),
                 updates,
             );
+            eprintln!("[STARTUP] AppState created");
             (Some(Arc::new(state)), None)
         }
         Err(reason) => {
+            eprintln!("[STARTUP] ERROR: Authentication failed: {}", reason);
             tracing::error!(%reason, "entering maintenance mode due to authentication configuration");
             (None, Some(reason))
         }
     };
 
     // Spawn background config reloader
+    eprintln!("[STARTUP] Setting up config reloader...");
     if config.auto_update.check_enabled {
         config_reloader::spawn_config_reloader(
             config_path.clone(),
@@ -119,21 +135,33 @@ async fn main() -> anyhow::Result<()> {
             shared_limiter.clone(),
             job_queue.clone(),
         );
+        eprintln!("[STARTUP] Config reloader spawned");
     }
 
     // Provision admin if configured
+    eprintln!("[STARTUP] Checking admin provisioning...");
     if let Some(ref state) = startup_app_state {
         if let Err(e) = maybe_provision_admin(state).await {
             tracing::error!(%e, "failed to provision admin from environment");
+            eprintln!("[STARTUP] Admin provisioning error: {}", e);
         }
     }
 
     // Build router
+    eprintln!("[STARTUP] Building application router...");
     let app = build_app(startup_app_state, maintenance_msg, &shared_limiter).await;
+    eprintln!("[STARTUP] Router built successfully");
 
     // Start server
+    eprintln!("[STARTUP] Binding to {}:{}", config.server.host, config.server.port);
     let addr = parse_bind_address(&config.server.host, config.server.port);
+    eprintln!("[STARTUP] Parsed address: {:?}", addr);
+    
     let listener = TcpListener::bind(addr).await?;
+    eprintln!("[STARTUP] ✓ Server listening on {}:{}", config.server.host, config.server.port);
+    eprintln!("[STARTUP] ✓ Frontend embedded: YES");
+    eprintln!("[STARTUP] ✓ Ready to accept connections!");
+    
     axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())

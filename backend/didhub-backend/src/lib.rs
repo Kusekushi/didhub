@@ -1,5 +1,6 @@
 pub mod app;
 pub mod csrf;
+pub mod embedded_assets;
 pub mod error;
 pub mod generated;
 pub mod handlers;

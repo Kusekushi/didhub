@@ -7,7 +7,6 @@ use axum::{
     middleware, response::IntoResponse, routing::get, Router,
 };
 use std::convert::Infallible;
-use tower_http::services::ServeDir;
 
 use crate::{generated, state::AppState};
 
@@ -123,13 +122,10 @@ pub fn build_router_with_limiter(state: Arc<AppState>, limiter: RateLimiterManag
         .layer(DefaultBodyLimit::max(DEFAULT_BODY_LIMIT))
         .layer(Extension(state));
 
-    // Serve static files from the "static" directory for non-API routes
-    let static_service = ServeDir::new("static")
-        .fallback(ServeDir::new("static").append_index_html_on_directories(true));
-
+    // Serve embedded frontend files via fallback route
     Router::new()
         .nest("/api", router)
-        .fallback_service(static_service)
+        .fallback(crate::embedded_assets::serve_asset)
 }
 
 fn remote_addr_key(req: &Request<Body>) -> String {
