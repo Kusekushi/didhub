@@ -36,7 +36,18 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y kcov lcov
+          sudo apt-get install -y cmake g++ pkg-config libcurl4-openssl-dev libelf-dev libdw-dev binutils-dev libiberty-dev lcov
+          # Build kcov from source since it's not in standard repos
+          cd /tmp
+          git clone https://github.com/SimonKagstrom/kcov.git
+          cd kcov
+          mkdir build
+          cd build
+          cmake ..
+          make
+          sudo make install
+          cd -
+          rm -rf /tmp/kcov
 
       # -------------------------------------------------------------------------
       # Run Zig Tests
