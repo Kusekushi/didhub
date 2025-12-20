@@ -9,9 +9,9 @@ const jsdom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
   url: 'http://localhost',
 })
 
-global.window = jsdom.window as any
-global.document = jsdom.window.document as any
-global.navigator = jsdom.window.navigator as any
+globalThis.window = jsdom.window as unknown as Window & typeof globalThis
+globalThis.document = jsdom.window.document
+globalThis.navigator = jsdom.window.navigator
 
 // Mock the Particles component to avoid canvas issues in tests
 mock.module('@/components/ui/particles', () => ({

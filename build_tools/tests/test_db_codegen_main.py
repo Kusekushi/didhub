@@ -94,7 +94,7 @@ class TestBuildColumns:
                 {"name": "id", "type": "uuid", "nullable": False},
                 {"name": "name", "type": "string", "nullable": True},
                 {"name": "age", "type": "integer", "nullable": False, "default": 0},
-            ]
+            ],
         }
 
         columns, aliases = _build_columns(table, "UserRow")
@@ -135,7 +135,7 @@ class TestBuildColumns:
             "columns": [
                 {"name": "id", "type": "integer", "nullable": False},
                 {"name": "title", "type": "string", "nullable": False},
-            ]
+            ],
         }
 
         columns, aliases = _build_columns(table, "PostRow")
@@ -150,8 +150,13 @@ class TestBuildColumns:
         table = {
             "name": "users",
             "columns": [
-                {"name": "id", "type": "integer", "nullable": False, "primary_key": True},
-            ]
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": False,
+                    "primary_key": True,
+                },
+            ],
         }
 
         columns, aliases = _build_columns(table, "UserRow")
@@ -164,7 +169,9 @@ class TestDeterminePrimaryKeys:
         table = {"primary_key": "id"}
         columns = [
             Column("id", "id", "i64", "i64", False, False, False, None, "i64"),
-            Column("name", "name", "String", "String", False, False, False, None, "String"),
+            Column(
+                "name", "name", "String", "String", False, False, False, None, "String"
+            ),
         ]
 
         keys = _determine_primary_keys(table, columns)
@@ -181,7 +188,9 @@ class TestDeterminePrimaryKeys:
         table = {}
         columns = [
             Column("id", "id", "i64", "i64", False, False, True, None, "i64"),
-            Column("name", "name", "String", "String", False, False, False, None, "String"),
+            Column(
+                "name", "name", "String", "String", False, False, False, None, "String"
+            ),
         ]
 
         keys = _determine_primary_keys(table, columns)
@@ -231,7 +240,7 @@ class TestExtractIndexes:
             ],
             "columns": [
                 {"name": "email", "unique": True},
-            ]
+            ],
         }
 
         indexes = _extract_indexes(table)
@@ -260,7 +269,7 @@ class TestRenderTableModule:
                 {"name": "id", "type": "uuid", "nullable": False, "primary_key": True},
                 {"name": "name", "type": "string", "nullable": False},
                 {"name": "email", "type": "string", "nullable": True},
-            ]
+            ],
         }
 
         ctx = GeneratorContext()
@@ -285,7 +294,12 @@ class TestRenderTableModule:
         table = {
             "name": "posts",
             "columns": [
-                {"name": "id", "type": "integer", "nullable": False, "primary_key": True},
+                {
+                    "name": "id",
+                    "type": "integer",
+                    "nullable": False,
+                    "primary_key": True,
+                },
                 {"name": "title", "type": "string", "nullable": False},
                 {"name": "user_id", "type": "integer", "nullable": False},
                 {"name": "created_at", "type": "timestamp", "nullable": False},
@@ -294,7 +308,7 @@ class TestRenderTableModule:
                 {"columns": ["user_id"]},
                 {"columns": ["created_at"]},
                 {"columns": ["title"]},
-            ]
+            ],
         }
 
         ctx = GeneratorContext()
@@ -467,7 +481,9 @@ tables:
         crate_dir = tmp_path / "backend" / "didhub-db"
         crate_dir.mkdir(parents=True)
 
-        with patch("sys.argv", ["db_codegen", "--crate-dir", str(crate_dir), str(schema_path)]):
+        with patch(
+            "sys.argv", ["db_codegen", "--crate-dir", str(crate_dir), str(schema_path)]
+        ):
             main()
 
         # Check output

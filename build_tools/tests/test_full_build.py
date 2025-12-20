@@ -45,7 +45,9 @@ class TestRunCommand:
 
     @patch("subprocess.run")
     def test_run_command_with_capture_stderr(self, mock_run, capsys):
-        mock_run.side_effect = subprocess.CalledProcessError(1, "echo", stderr="error message")
+        mock_run.side_effect = subprocess.CalledProcessError(
+            1, "echo", stderr="error message"
+        )
 
         with pytest.raises(BuildError):
             run_command(["echo", "hello"], capture=True)
@@ -99,7 +101,12 @@ class TestBuildRust:
         build_rust()
 
         mock_run_command.assert_called_once_with(
-            ["cargo", "build", "--manifest-path", str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml"))]
+            [
+                "cargo",
+                "build",
+                "--manifest-path",
+                str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml")),
+            ]
         )
 
     @patch("build_tools.full_build.run_command")
@@ -107,7 +114,13 @@ class TestBuildRust:
         build_rust(release=True)
 
         mock_run_command.assert_called_once_with(
-            ["cargo", "build", "--manifest-path", str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml")), "--release"]
+            [
+                "cargo",
+                "build",
+                "--manifest-path",
+                str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml")),
+                "--release",
+            ]
         )
 
     @patch("build_tools.full_build.run_command")
@@ -115,7 +128,12 @@ class TestBuildRust:
         build_rust(check_only=True)
 
         mock_run_command.assert_called_once_with(
-            ["cargo", "check", "--manifest-path", str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml"))]
+            [
+                "cargo",
+                "check",
+                "--manifest-path",
+                str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml")),
+            ]
         )
 
 
@@ -166,7 +184,9 @@ class TestBuildRuntimeTools:
 class TestBuildFrontend:
     @patch("build_tools.full_build.run_command")
     @patch("build_tools.full_build.FRONTEND_DIR")
-    def test_build_frontend_exists_no_node_modules(self, mock_frontend_dir, mock_run_command):
+    def test_build_frontend_exists_no_node_modules(
+        self, mock_frontend_dir, mock_run_command
+    ):
         mock_frontend_dir.exists.return_value = True
         mock_frontend_dir.__truediv__.return_value.exists.return_value = False
 
@@ -177,7 +197,9 @@ class TestBuildFrontend:
 
     @patch("build_tools.full_build.run_command")
     @patch("build_tools.full_build.FRONTEND_DIR")
-    def test_build_frontend_exists_with_node_modules(self, mock_frontend_dir, mock_run_command):
+    def test_build_frontend_exists_with_node_modules(
+        self, mock_frontend_dir, mock_run_command
+    ):
         mock_frontend_dir.exists.return_value = True
         mock_frontend_dir.__truediv__.return_value.exists.return_value = True
 

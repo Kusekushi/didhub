@@ -153,15 +153,21 @@ async fn main() -> anyhow::Result<()> {
     eprintln!("[STARTUP] Router built successfully");
 
     // Start server
-    eprintln!("[STARTUP] Binding to {}:{}", config.server.host, config.server.port);
+    eprintln!(
+        "[STARTUP] Binding to {}:{}",
+        config.server.host, config.server.port
+    );
     let addr = parse_bind_address(&config.server.host, config.server.port);
     eprintln!("[STARTUP] Parsed address: {:?}", addr);
-    
+
     let listener = TcpListener::bind(addr).await?;
-    eprintln!("[STARTUP] ✓ Server listening on {}:{}", config.server.host, config.server.port);
+    eprintln!(
+        "[STARTUP] ✓ Server listening on {}:{}",
+        config.server.host, config.server.port
+    );
     eprintln!("[STARTUP] ✓ Frontend embedded: YES");
     eprintln!("[STARTUP] ✓ Ready to accept connections!");
-    
+
     axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())

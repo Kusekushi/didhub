@@ -1,8 +1,8 @@
 use axum::{
-    http::{header, StatusCode},
-    response::{IntoResponse, Response},
     body::Body,
     extract::Request,
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
 };
 use rust_embed::Embed;
 
@@ -15,7 +15,7 @@ pub struct EmbeddedAssets;
 pub async fn serve_asset(req: Request) -> Response {
     let path = req.uri().path();
     tracing::debug!(path = %path, "serving embedded asset");
-    
+
     let asset_path = if path.is_empty() || path == "/" {
         tracing::debug!("root path, serving index.html");
         "index.html"
@@ -29,7 +29,12 @@ pub async fn serve_asset(req: Request) -> Response {
                 .first_raw()
                 .unwrap_or("application/octet-stream");
 
-            tracing::debug!(path = asset_path, mime = mime, size = content.data.len(), "serving embedded asset");
+            tracing::debug!(
+                path = asset_path,
+                mime = mime,
+                size = content.data.len(),
+                "serving embedded asset"
+            );
 
             (
                 StatusCode::OK,
@@ -39,7 +44,10 @@ pub async fn serve_asset(req: Request) -> Response {
                 .into_response()
         }
         None => {
-            tracing::debug!(path = asset_path, "asset not found, falling back to index.html");
+            tracing::debug!(
+                path = asset_path,
+                "asset not found, falling back to index.html"
+            );
             // Fallback to index.html for SPA routing
             match EmbeddedAssets::get("index.html") {
                 Some(content) => {

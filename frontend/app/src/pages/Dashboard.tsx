@@ -4,8 +4,8 @@ import { useApi } from '@/context/ApiContext'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, Settings, Shield, Calendar, Plus, ArrowRight } from 'lucide-react'
-import type { Profile } from '@didhub/api'
+import { Users, Settings, Shield, Calendar, ArrowRight } from 'lucide-react'
+import type { Profile, User } from '@didhub/api'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -33,12 +33,12 @@ export default function DashboardPage() {
       }
 
       // Load stats - users
-      const usersRes = await client.listUsers()
+      const usersRes = await client.getUsers()
       if (usersRes.status === 200) {
         const users = usersRes.data.items || []
         setStats({
           totalUsers: users.length,
-          systemAccounts: users.filter((u: any) => u.isSystem).length,
+          systemAccounts: users.filter((u: User) => u.isSystem).length,
         })
       }
     } catch (e) {
@@ -112,22 +112,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
               </div>
               <Calendar className="h-8 w-8 text-muted-foreground opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Profile Status Card */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Profile Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end justify-between">
-              <div>
-                <div className="text-lg font-bold text-green-600">Complete</div>
-                <p className="text-xs text-muted-foreground mt-1">{profile?.completeness || 0}% verified</p>
-              </div>
-              <Shield className="h-8 w-8 text-green-600 opacity-50" />
             </div>
           </CardContent>
         </Card>

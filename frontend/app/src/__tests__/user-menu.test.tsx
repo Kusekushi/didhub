@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { describe, it, expect, mock } from 'bun:test'
 
 // Mock useAuth to supply a user without avatar
@@ -22,7 +22,7 @@ mock.module('@/context/ApiContext', () => ({
   useApi: () => ({
     serveStoredFile: async () => ({ data: { url: '/test-avatar.png' } }),
   }),
-  ApiProvider: ({ children }: { children: React.ReactNode }) => children,
+  ApiProvider: ({ children }: { children: React.ReactNode }): React.ReactElement => <>{children}</>,
 }))
 
 // Import the component after mocks
