@@ -7,6 +7,7 @@ import { AdminProtectedRoute } from './components/AdminProtectedRoute'
 import { ToastProvider } from './context/ToastContext'
 import SignupPage from './pages/Signup'
 import AppLayout from './components/AppLayout'
+import DashboardPage from './pages/Dashboard'
 import SettingsPage from './pages/Settings'
 import ProfilePage from './pages/Profile'
 import UsersPage from './pages/Users'
@@ -27,15 +28,6 @@ import AdminUpdates from './pages/AdminUpdates'
 import AwaitingApproval from './pages/AwaitingApproval'
 import BirthdayCalendar from './pages/BirthdayCalendar'
 
-function Dashboard() {
-  return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>TODO: Content.</p>
-    </div>
-  )
-}
-
 function App() {
   return (
     <ToastProvider>
@@ -47,7 +39,7 @@ function App() {
 
         {/* All other routes use the AppLayout which includes top appbar + sidebar */}
         <Route element={<AppLayout />}> 
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/users/:id" element={<ProtectedRoute><UserIntro /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
           <Route path="/system/:userId?" element={<ProtectedRoute><DIDSystemView /></ProtectedRoute>} />
