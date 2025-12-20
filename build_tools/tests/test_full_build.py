@@ -7,6 +7,7 @@ import pytest
 from build_tools.full_build import (
     BuildError,
     BuildStep,
+    CARGO_MANIFEST,
     build_frontend,
     build_rust,
     build_runtime_tools,
@@ -105,7 +106,7 @@ class TestBuildRust:
                 "cargo",
                 "build",
                 "--manifest-path",
-                str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml")),
+                str(CARGO_MANIFEST),
             ]
         )
 
@@ -118,7 +119,7 @@ class TestBuildRust:
                 "cargo",
                 "build",
                 "--manifest-path",
-                str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml")),
+                str(CARGO_MANIFEST),
                 "--release",
             ]
         )
@@ -132,7 +133,7 @@ class TestBuildRust:
                 "cargo",
                 "check",
                 "--manifest-path",
-                str(Path("/home/kusekushi/Desktop/didhub/backend/Cargo.toml")),
+                str(CARGO_MANIFEST),
             ]
         )
 
