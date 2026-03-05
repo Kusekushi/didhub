@@ -17,7 +17,7 @@ pub async fn own_profile_get(
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     let user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
     let opt = db_users::find_by_primary_key(&mut *conn, &user_id)

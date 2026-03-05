@@ -17,7 +17,7 @@ pub async fn refresh(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let bearer = extract_auth_token(&headers)
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     // Authenticate using existing authenticator
     let auth = state
@@ -28,7 +28,7 @@ pub async fn refresh(
 
     if !auth.is_authenticated() {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 

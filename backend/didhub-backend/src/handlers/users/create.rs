@@ -39,10 +39,10 @@ pub async fn create(
     let now = Utc::now().to_rfc3339();
 
     // Hash password using didhub_auth - supports both client-side hashed and plaintext
-    let password_hash = if didhub_auth::is_client_hash(&dto.password_hash) {
-        didhub_auth::hash_client_password(&dto.password_hash)
+    let password_hash = if didhub_auth::auth::is_client_hash(&dto.password_hash) {
+        didhub_auth::auth::hash_client_password(&dto.password_hash)
     } else {
-        didhub_auth::hash_password(&dto.password_hash)
+        didhub_auth::auth::hash_password(&dto.password_hash)
     }
     .map_err(|e| ApiError::Unexpected(e.to_string()))?;
 

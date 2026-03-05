@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use didhub_auth::AuthenticatorTrait;
+use didhub_auth::auth::AuthenticatorTrait;
 use didhub_job_queue::JobQueueClient;
 use didhub_log_client::{AppendRequest, LogCategory, LogToolClient};
 use didhub_updates::UpdateCoordinator;

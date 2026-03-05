@@ -40,18 +40,18 @@ pub async fn login(
         .await
         .map_err(ApiError::from)?;
     let user = maybe
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     // Verify password using didhub_auth
     // Supports both client-side SHA-256 hashed passwords (64 hex chars) and legacy plaintext
-    let verify_result = if didhub_auth::is_client_hash(&dto.password_hash) {
-        didhub_auth::verify_client_password(&dto.password_hash, &user.password_hash)
+    let verify_result = if didhub_auth::auth::is_client_hash(&dto.password_hash) {
+        didhub_auth::auth::verify_client_password(&dto.password_hash, &user.password_hash)
     } else {
         // Legacy support: accept plaintext password during migration
-        didhub_auth::verify_password(&dto.password_hash, &user.password_hash)
+        didhub_auth::auth::verify_password(&dto.password_hash, &user.password_hash)
     };
     verify_result
-        .map_err(|_| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .map_err(|_| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     // Check if user is approved (has 'user' role) or is admin (admins bypass approval check)
     let is_admin = user_has_role(&user.roles, "admin");

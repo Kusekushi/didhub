@@ -19,7 +19,7 @@ pub async fn delete(
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ))
         }
     };
@@ -53,17 +53,17 @@ pub async fn delete(
         .unwrap_or(false);
     if existing.uploaded_by == SqlxUuid::nil() && !is_admin {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
     if force && !is_admin {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
     if !force && !is_admin && !is_uploader {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 

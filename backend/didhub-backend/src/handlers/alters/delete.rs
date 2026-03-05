@@ -18,7 +18,7 @@ pub async fn delete(
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ))
         }
     };
@@ -59,13 +59,13 @@ pub async fn delete(
                     Some(user_row) => {
                         if !user_is_system(&user_row) {
                             return Err(ApiError::Authentication(
-                                didhub_auth::AuthError::AuthenticationFailed,
+                                didhub_auth::auth::AuthError::AuthenticationFailed,
                             ));
                         }
                     }
                     None => {
                         return Err(ApiError::Authentication(
-                            didhub_auth::AuthError::AuthenticationFailed,
+                            didhub_auth::auth::AuthError::AuthenticationFailed,
                         ))
                     }
                 },
@@ -76,19 +76,19 @@ pub async fn delete(
             }
         } else {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ));
         }
     }
     // Prevent non-admins from modifying system-owned alters
     if existing.is_system_host == 1 && !is_admin {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
     if !is_admin && !is_owner {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 

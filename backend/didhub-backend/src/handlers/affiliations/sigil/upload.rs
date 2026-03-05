@@ -22,7 +22,7 @@ pub async fn upload(
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     let user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     let affiliation_id_str = path
         .get("affiliationId")
@@ -75,12 +75,12 @@ pub async fn upload(
     if let Some(owner_id) = affiliation.owner_user_id {
         if owner_id != user_id && !is_admin {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ));
         }
     } else if !is_admin {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 

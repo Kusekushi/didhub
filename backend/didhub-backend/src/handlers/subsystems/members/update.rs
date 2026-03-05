@@ -22,7 +22,7 @@ pub async fn update(
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     let user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
 
     state
@@ -58,7 +58,7 @@ pub async fn update(
         if let Some(owner_id) = subsystem.owner_user_id {
             if owner_id != user_id {
                 return Err(ApiError::Authentication(
-                    didhub_auth::AuthError::AuthenticationFailed,
+                    didhub_auth::auth::AuthError::AuthenticationFailed,
                 ));
             }
         }

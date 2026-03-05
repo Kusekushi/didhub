@@ -12,7 +12,7 @@ pub struct AuthKeyInfo {
 }
 
 /// Result of building an authenticator: the trait object and associated metadata.
-pub type AuthResult = Result<(Arc<dyn didhub_auth::AuthenticatorTrait>, AuthKeyInfo), String>;
+pub type AuthResult = Result<(Arc<dyn didhub_auth::auth::AuthenticatorTrait>, AuthKeyInfo), String>;
 
 /// Build authenticator from config.
 ///
@@ -33,9 +33,9 @@ pub fn build_authenticator_from_config(cfg: &didhub_config::Config) -> AuthResul
     // Try HS256 secret
     if let Some(ref secret) = cfg.auth.jwt_secret {
         let fingerprint = compute_fingerprint(secret.as_bytes());
-        let auth = didhub_auth::JwtAuthenticator::new_hs256(secret.clone());
+        let auth = didhub_auth::auth::JwtAuthenticator::new_hs256(secret.clone());
         return Ok((
-            Arc::from(Box::new(auth) as Box<dyn didhub_auth::AuthenticatorTrait>),
+            Arc::from(Box::new(auth) as Box<dyn didhub_auth::auth::AuthenticatorTrait>),
             AuthKeyInfo {
                 mode: "HS256(secret)".into(),
                 fingerprint,
@@ -58,10 +58,10 @@ fn build_rs256_auth(pem_content: String, mode: String) -> AuthResult {
 
     let fingerprint = compute_fingerprint(pem_parsed.contents());
     let (key_type, bits) = extract_key_info(pem_parsed.contents());
-    let auth = didhub_auth::JwtAuthenticator::new_rs256(pem_content);
+    let auth = didhub_auth::auth::JwtAuthenticator::new_rs256(pem_content);
 
     Ok((
-        Arc::from(Box::new(auth) as Box<dyn didhub_auth::AuthenticatorTrait>),
+        Arc::from(Box::new(auth) as Box<dyn didhub_auth::auth::AuthenticatorTrait>),
         AuthKeyInfo {
             mode,
             fingerprint,

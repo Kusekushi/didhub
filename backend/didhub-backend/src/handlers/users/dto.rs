@@ -41,7 +41,7 @@ impl CreateUserDto {
             }
         }
         // Validate password_hash: either 64 hex chars (SHA-256) or 8+ chars (legacy plaintext)
-        if didhub_auth::is_client_hash(&self.password_hash) {
+        if didhub_auth::auth::is_client_hash(&self.password_hash) {
             // Valid SHA-256 hash format
         } else if self.password_hash.len() < 8 {
             issues.push(ValidationIssue::new(

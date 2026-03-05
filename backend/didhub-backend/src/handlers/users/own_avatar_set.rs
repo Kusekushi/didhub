@@ -21,7 +21,7 @@ pub async fn own_avatar_set(
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     let user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     let payload = body
         .as_ref()

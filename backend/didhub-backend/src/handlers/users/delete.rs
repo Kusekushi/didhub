@@ -20,7 +20,7 @@ pub async fn delete(
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ))
         }
     };
@@ -36,7 +36,7 @@ pub async fn delete(
     let is_owner = auth.user_id.map(|uid| uid == id).unwrap_or(false);
     if !is_admin && !is_owner {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 

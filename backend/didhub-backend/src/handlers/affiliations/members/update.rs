@@ -22,7 +22,7 @@ pub async fn update(
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     let user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
 
     state
@@ -58,7 +58,7 @@ pub async fn update(
     // Only owner or admin can update members
     if !is_admin && affiliation.owner_user_id != Some(user_id) {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 

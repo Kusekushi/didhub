@@ -16,7 +16,7 @@ pub enum ApiError {
     #[error("log client error: {0}")]
     LogClient(#[from] LogClientError),
     #[error("authentication error: {0}")]
-    Authentication(#[from] didhub_auth::AuthError),
+    Authentication(#[from] didhub_auth::auth::AuthError),
     #[error("job queue error: {0}")]
     JobQueue(#[from] didhub_job_queue::JobQueueError),
     #[error("update subsystem error: {0}")]

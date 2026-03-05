@@ -31,7 +31,7 @@ pub async fn update(
     let is_owner = auth.user_id.map(|uid| uid == id).unwrap_or(false);
     if !is_admin && !is_owner {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 

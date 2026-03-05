@@ -24,7 +24,7 @@ pub async fn create(
         .clone();
     let uploaded_by: SqlxUuid = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
     if !is_admin {
         let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
@@ -33,13 +33,13 @@ pub async fn create(
                 Some(user_row) => {
                     if !user_is_system(&user_row) {
                         return Err(ApiError::Authentication(
-                            didhub_auth::AuthError::AuthenticationFailed,
+                            didhub_auth::auth::AuthError::AuthenticationFailed,
                         ));
                     }
                 }
                 None => {
                     return Err(ApiError::Authentication(
-                        didhub_auth::AuthError::AuthenticationFailed,
+                        didhub_auth::auth::AuthError::AuthenticationFailed,
                     ))
                 }
             },

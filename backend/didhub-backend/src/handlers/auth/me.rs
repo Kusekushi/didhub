@@ -15,7 +15,7 @@ pub async fn me(
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let bearer = extract_auth_token(&headers)
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     // Verify via configured authenticator (which supports HS256/RS256 verification)
     let auth = state
@@ -26,19 +26,19 @@ pub async fn me(
 
     if !auth.is_authenticated() {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 
     // Fetch username, avatar, and roles from database
     let user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
     let row = db_users_custom::find_by_id_partial(&mut *conn, &user_id)
         .await
         .map_err(ApiError::from)?
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     // Parse roles to check if user has 'system' role
     let roles: Vec<String> = serde_json::from_str(&row.2).unwrap_or_default();

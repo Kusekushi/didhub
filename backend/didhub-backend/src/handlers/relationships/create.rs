@@ -135,13 +135,13 @@ pub async fn create(
                     Some(user_row) => {
                         if !user_is_system(&user_row) {
                             return Err(ApiError::Authentication(
-                                didhub_auth::AuthError::AuthenticationFailed,
+                                didhub_auth::auth::AuthError::AuthenticationFailed,
                             ));
                         }
                     }
                     None => {
                         return Err(ApiError::Authentication(
-                            didhub_auth::AuthError::AuthenticationFailed,
+                            didhub_auth::auth::AuthError::AuthenticationFailed,
                         ))
                     }
                 },
@@ -151,7 +151,7 @@ pub async fn create(
             }
         } else {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ));
         }
     }

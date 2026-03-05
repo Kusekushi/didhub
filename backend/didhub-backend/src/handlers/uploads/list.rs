@@ -17,14 +17,14 @@ pub async fn list(
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ))
         }
     };
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
     if !is_admin {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
     state

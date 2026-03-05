@@ -18,7 +18,7 @@ pub async fn delete_one(
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     let user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     let alter_id_str = path
         .get("alterId")
@@ -43,7 +43,7 @@ pub async fn delete_one(
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
     if alter.owner_user_id != user_id && !is_admin {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 

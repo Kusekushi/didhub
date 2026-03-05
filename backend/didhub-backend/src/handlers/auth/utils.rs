@@ -65,7 +65,7 @@ pub async fn require_admin(state: &AppState, headers: &HeaderMap) -> Result<(), 
     let is_admin = auth.scopes.iter().any(|scope| scope == "admin");
     if !is_admin {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
     Ok(())
@@ -77,7 +77,7 @@ pub async fn require_admin(state: &AppState, headers: &HeaderMap) -> Result<(), 
 pub async fn authenticate_and_require_approved(
     state: &AppState,
     headers: &HeaderMap,
-) -> Result<didhub_auth::AuthContext, ApiError> {
+) -> Result<didhub_auth::auth::AuthContext, ApiError> {
     let auth_token = extract_auth_token(headers);
 
     // Attempt authentication and log failures with enough context to debug without
@@ -103,7 +103,7 @@ pub async fn authenticate_and_require_approved(
     // Non-admins must be authenticated with a user id
     let user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     // Check that the user has the 'user' role (which means they're approved)
     // The scopes in the auth context are derived from the user's roles at login time
@@ -111,7 +111,7 @@ pub async fn authenticate_and_require_approved(
     if !is_approved {
         debug!(user_id = %user_id, "user not approved (missing 'user' role)");
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 
@@ -123,7 +123,7 @@ pub async fn authenticate_and_require_approved(
 pub async fn authenticate_optional(
     state: &AppState,
     headers: &HeaderMap,
-) -> Result<Option<didhub_auth::AuthContext>, ApiError> {
+) -> Result<Option<didhub_auth::auth::AuthContext>, ApiError> {
     let auth_token = match extract_auth_token(headers) {
         Some(token) => token,
         None => return Ok(None),

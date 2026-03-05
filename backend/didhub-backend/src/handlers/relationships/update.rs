@@ -21,7 +21,7 @@ pub async fn update(
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ))
         }
     };
@@ -55,7 +55,7 @@ pub async fn update(
         .unwrap_or(false);
     if !is_admin && !is_creator {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 
@@ -68,13 +68,13 @@ pub async fn update(
                     Some(user_row) => {
                         if !user_is_system(&user_row) {
                             return Err(ApiError::Authentication(
-                                didhub_auth::AuthError::AuthenticationFailed,
+                                didhub_auth::auth::AuthError::AuthenticationFailed,
                             ));
                         }
                     }
                     None => {
                         return Err(ApiError::Authentication(
-                            didhub_auth::AuthError::AuthenticationFailed,
+                            didhub_auth::auth::AuthError::AuthenticationFailed,
                         ))
                     }
                 },
@@ -84,7 +84,7 @@ pub async fn update(
             }
         } else {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ));
         }
     }

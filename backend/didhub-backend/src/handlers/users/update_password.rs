@@ -31,7 +31,7 @@ pub async fn update_password(
     let is_owner = auth.user_id.map(|uid| uid == id).unwrap_or(false);
     if !is_admin && !is_owner {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 
@@ -52,16 +52,16 @@ pub async fn update_password(
             return Err(ApiError::bad_request("missing newPasswordHash"));
         };
 
-    if didhub_auth::is_client_hash(&new_pass_hash) {
+    if didhub_auth::auth::is_client_hash(&new_pass_hash) {
         // Valid SHA-256 hash format
     } else if new_pass_hash.len() < 8 {
         return Err(ApiError::bad_request("password too short"));
     }
 
-    let password_hash = if didhub_auth::is_client_hash(&new_pass_hash) {
-        didhub_auth::hash_client_password(&new_pass_hash)
+    let password_hash = if didhub_auth::auth::is_client_hash(&new_pass_hash) {
+        didhub_auth::auth::hash_client_password(&new_pass_hash)
     } else {
-        didhub_auth::hash_password(&new_pass_hash)
+        didhub_auth::auth::hash_password(&new_pass_hash)
     }
     .map_err(|e| ApiError::Unexpected(e.to_string()))?;
 

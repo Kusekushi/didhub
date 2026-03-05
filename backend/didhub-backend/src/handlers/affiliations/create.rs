@@ -20,7 +20,7 @@ pub async fn create(
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     let owner_user_id = auth
         .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::AuthError::AuthenticationFailed))?;
+        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
     let is_admin = auth.scopes.iter().any(|scope| scope == "admin");
 
     if !is_admin {
@@ -29,13 +29,13 @@ pub async fn create(
             Ok(Some(user_row)) => {
                 if !user_is_system(&user_row) {
                     return Err(ApiError::Authentication(
-                        didhub_auth::AuthError::AuthenticationFailed,
+                        didhub_auth::auth::AuthError::AuthenticationFailed,
                     ));
                 }
             }
             Ok(None) => {
                 return Err(ApiError::Authentication(
-                    didhub_auth::AuthError::AuthenticationFailed,
+                    didhub_auth::auth::AuthError::AuthenticationFailed,
                 ));
             }
             Err(err) => {

@@ -20,7 +20,7 @@ pub async fn update(
         Some(a) => a,
         None => {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ))
         }
     };
@@ -54,7 +54,7 @@ pub async fn update(
         .unwrap_or(false);
     if !is_admin && !is_owner {
         return Err(ApiError::Authentication(
-            didhub_auth::AuthError::AuthenticationFailed,
+            didhub_auth::auth::AuthError::AuthenticationFailed,
         ));
     }
 
@@ -67,13 +67,13 @@ pub async fn update(
                     Some(user_row) => {
                         if !user_is_system(&user_row) {
                             return Err(ApiError::Authentication(
-                                didhub_auth::AuthError::AuthenticationFailed,
+                                didhub_auth::auth::AuthError::AuthenticationFailed,
                             ));
                         }
                     }
                     None => {
                         return Err(ApiError::Authentication(
-                            didhub_auth::AuthError::AuthenticationFailed,
+                            didhub_auth::auth::AuthError::AuthenticationFailed,
                         ))
                     }
                 },
@@ -84,7 +84,7 @@ pub async fn update(
             }
         } else {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ));
         }
     }
@@ -187,7 +187,7 @@ pub async fn update(
         // Only admin may change owner; and admin-supplied owner must be a system user
         if !is_admin {
             return Err(ApiError::Authentication(
-                didhub_auth::AuthError::AuthenticationFailed,
+                didhub_auth::auth::AuthError::AuthenticationFailed,
             ));
         }
         let parsed_owner = SqlxUuid::parse_str(&owner)
@@ -201,13 +201,13 @@ pub async fn update(
                 Some(user_row) => {
                     if !user_is_system(&user_row) {
                         return Err(ApiError::Authentication(
-                            didhub_auth::AuthError::AuthenticationFailed,
+                            didhub_auth::auth::AuthError::AuthenticationFailed,
                         ));
                     }
                 }
                 None => {
                     return Err(ApiError::Authentication(
-                        didhub_auth::AuthError::AuthenticationFailed,
+                        didhub_auth::auth::AuthError::AuthenticationFailed,
                     ))
                 }
             },
