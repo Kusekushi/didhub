@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import * as d3 from 'd3'
 import { useApi } from '@/context/ApiContext'
 import { useToast } from '@/context/ToastContext'
+import { useSettings } from '@/context/SettingsContext'
 import { Alter, User, Relationship } from '@didhub/api'
 import { Combobox, ComboboxOption } from '@/components/ui/combobox'
-import { RELATIONSHIP_TYPES, BIDIRECTIONAL_TYPES } from '@/lib/relationshipTypes'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,7 @@ interface LinkDatum {
 export default function FamilyTreeView() {
   const api = useApi()
   const { show } = useToast()
+  const { relationshipTypes, bidirectionalTypes } = useSettings()
 
   const svgRef = useRef<SVGSVGElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
@@ -47,9 +48,14 @@ export default function FamilyTreeView() {
   const [loading, setLoading] = useState(false)
 
   // Filter state
-  const [selectedRelationTypes, setSelectedRelationTypes] = useState<Set<string>>(new Set(RELATIONSHIP_TYPES.map(t => t.value)))
+  const [selectedRelationTypes, setSelectedRelationTypes] = useState<Set<string>>(new Set(relationshipTypes.map(t => t.value)))
   const [surnameFilter, setSurnameFilter] = useState<string>('')
   const [showFilters, setShowFilters] = useState(true)
+
+  // Update selected types when relationshipTypes load
+  useEffect(() => {
+    setSelectedRelationTypes(new Set(relationshipTypes.map(t => t.value)))
+  }, [relationshipTypes])
 
   // Load alters, users (non-system only), and relationships
   const loadFilterData = useCallback(async () => {
@@ -263,7 +269,7 @@ export default function FamilyTreeView() {
 
   // Select all / none relationship types
   const selectAllRelationTypes = () => {
-    setSelectedRelationTypes(new Set(RELATIONSHIP_TYPES.map(t => t.value)))
+    setSelectedRelationTypes(new Set(relationshipTypes.map(t => t.value)))
   }
 
   const selectNoRelationTypes = () => {
@@ -272,8 +278,12 @@ export default function FamilyTreeView() {
 
   // Get color for relationship type
   const getRelationColor = (relationType?: string): string => {
-    const type = RELATIONSHIP_TYPES.find(t => t.value === relationType)
+    const type = relationshipTypes.find(t => t.value === relationType)
     return type?.color || '#9ca3af'
+  }
+
+  const isBidirectional = (relationType: string) => {
+    return bidirectionalTypes.includes(relationType)
   }
 
   // D3 visualization - Hierarchical family tree layout
@@ -899,9 +909,9 @@ export default function FamilyTreeView() {
             .attr('fill', 'none')
             .attr('stroke', color)
             .attr('stroke-width', 2)
-            .attr('stroke-dasharray', isBidirectional ? '0' : '5,3')
+            .attr('stroke-dasharray', isBidirectional(link.relation || '') ? '0' : '5,3')
           
-          const relLabel = RELATIONSHIP_TYPES.find(t => t.value === link.relation)?.label || link.relation
+          const relLabel = relationshipTypes.find(t => t.value === link.relation)?.label || link.relation
           linkGroup.append('text')
             .attr('x', (x1 + x2) / 2)
             .attr('y', midY - 4)
@@ -924,7 +934,7 @@ export default function FamilyTreeView() {
           .attr('stroke', color)
           .attr('stroke-width', 2)
         
-        const relLabel = RELATIONSHIP_TYPES.find(t => t.value === link.relation)?.label || link.relation
+        const relLabel = relationshipTypes.find(t => t.value === link.relation)?.label || link.relation
         linkGroup.append('text')
           .attr('x', x1 + 5)
           .attr('y', y1 + (sourceGen < targetGen ? nodeHeight/2 + 15 : -nodeHeight/2 - 8))
@@ -1142,7 +1152,7 @@ export default function FamilyTreeView() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {RELATIONSHIP_TYPES.map(type => (
+                {relationshipTypes.map(type => (
                   <div
                     key={type.value}
                     className="flex items-center space-x-2"
@@ -1235,7 +1245,7 @@ export default function FamilyTreeView() {
                 <span className="text-sm">Focused Node</span>
               </div>
               <div className="border-l pl-4 flex flex-wrap gap-3">
-                {RELATIONSHIP_TYPES.filter(t => selectedRelationTypes.has(t.value)).map(type => (
+                {relationshipTypes.filter(t => selectedRelationTypes.has(t.value)).map(type => (
                   <div key={type.value} className="flex items-center gap-1.5">
                     <span className="w-6 h-0.5" style={{ backgroundColor: type.color }} />
                     <span className="text-xs text-muted-foreground">{type.label}</span>

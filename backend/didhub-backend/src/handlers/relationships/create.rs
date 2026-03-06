@@ -7,6 +7,7 @@ use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
 use crate::handlers::relationships::dto::RelationshipResponse;
+use crate::handlers::relationships::validation::validate_relationship_type;
 use crate::handlers::utils::user_is_system;
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::relationships as db_rels;
@@ -43,6 +44,8 @@ pub async fn create(
             .ok_or_else(|| ApiError::bad_request("missing relation_type"))?,
     )
     .map_err(ApiError::from)?;
+
+    validate_relationship_type(&state.db_pool, &relation_type).await?;
 
     // optional side ids
     let side_a_user_id: Option<SqlxUuid> = match payload.get("side_a_user_id").cloned() {

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ArrowLeft, RefreshCw, Plus, Search, Edit, Check, X, Trash2, Terminal } from 'lucide-react'
 import { InstanceSetting, InstanceSettingsResponse } from '@didhub/api'
 import { LoggingSettings } from '@/components/admin/LoggingSettings'
+import { RelationshipTypeSettings } from '@/components/admin/RelationshipTypeSettings'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface EditableSetting extends InstanceSetting {
@@ -251,8 +252,13 @@ export default function AdminSettings() {
       <Tabs defaultValue="instance" className="space-y-4">
         <TabsList>
           <TabsTrigger value="instance">System Settings</TabsTrigger>
-          <TabsTrigger value="logging">Logging</TabsTrigger>
+          <TabsTrigger value="relationships">Relationship Types</TabsTrigger>
+          <TabsTrigger value="logging">Logging Config</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="relationships">
+          <RelationshipTypeSettings />
+        </TabsContent>
 
         <TabsContent value="logging">
           <LoggingSettings />

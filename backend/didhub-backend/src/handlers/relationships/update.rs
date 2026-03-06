@@ -6,6 +6,7 @@ use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
 use crate::handlers::relationships::dto::UpdateRelationshipDto;
+use crate::handlers::relationships::validation::validate_relationship_type;
 use crate::handlers::utils::user_is_system;
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::relationships as db_rels;
@@ -106,6 +107,7 @@ pub async fn update(
     }
 
     if let Some(t) = dto.r#type {
+        validate_relationship_type(&state.db_pool, &t).await?;
         existing.r#type = t;
     }
     if let Some(pl) = dto.past_life {

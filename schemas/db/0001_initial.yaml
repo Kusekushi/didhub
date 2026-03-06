@@ -315,7 +315,6 @@ tables:
         nullable: false
         default: now
     constraints:
-      - "CHECK (type IN ('parent','spouse'))"
       - "CHECK ((side_a_user_id IS NOT NULL OR side_a_alter_id IS NOT NULL) AND NOT (side_a_user_id IS NOT NULL AND side_a_alter_id IS NOT NULL))"
       - "CHECK ((side_b_user_id IS NOT NULL OR side_b_alter_id IS NOT NULL) AND NOT (side_b_user_id IS NOT NULL AND side_b_alter_id IS NOT NULL))"
     indexes:

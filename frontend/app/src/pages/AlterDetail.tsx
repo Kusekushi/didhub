@@ -10,6 +10,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 import { ArrowLeft, Trash2, Calendar, Briefcase, Heart, Music, Star, AlertTriangle, StickyNote, Pencil, Check, X, Plus, Upload, GripVertical, ArrowUpDown, Expand } from 'lucide-react'
 import { useToast } from '@/context/ToastContext'
 import { useApi } from '@/context/ApiContext'
+import { useSettings } from '@/context/SettingsContext'
 import SoulSongPlayer from '@/components/SoulSongPlayer'
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel'
 import React from 'react'
@@ -386,6 +387,7 @@ export default function AlterDetail() {
   const { alterId } = useParams<{ alterId: string }>()
   const navigate = useNavigate()
   const api = useApi()
+  const { relationshipTypes, bidirectionalTypes } = useSettings()
   const { show: showToast } = useToast()
 
   const [alter, setAlter] = useState<Alter | null>(null)
@@ -856,19 +858,19 @@ export default function AlterDetail() {
 
   const formatRelationshipType = (relType: string, direction: 'outgoing' | 'incoming'): string => {
     // For symmetrical relationships, return as-is
-    const symmetrical = ['friend', 'sibling', 'spouse', 'partner']
-    if (symmetrical.includes(relType.toLowerCase())) {
+    if (bidirectionalTypes.includes(relType.toLowerCase())) {
       return relType
     }
     
     // For parent/child, adjust based on direction
     if (relType.toLowerCase() === 'parent') {
-      return direction === 'outgoing' ? 'child of' : 'parent of'
-    }
-    if (relType.toLowerCase() === 'child') {
       return direction === 'outgoing' ? 'parent of' : 'child of'
     }
     
+    // Check if label exists in settings
+    const settingLabel = relationshipTypes.find(t => t.value === relType)?.label
+    if (settingLabel) return settingLabel
+
     return relType
   }
 
