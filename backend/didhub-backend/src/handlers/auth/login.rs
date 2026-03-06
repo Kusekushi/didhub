@@ -7,6 +7,7 @@ use chrono::Utc;
 use didhub_db::generated::users as db_users;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::json;
+use tracing::{info, warn};
 
 use crate::handlers::auth::utils::get_jwt_secret;
 use crate::{error::ApiError, state::AppState};
@@ -39,18 +40,24 @@ pub async fn login(
     let maybe = db_users::find_first_by_username(&mut *conn, &dto.username)
         .await
         .map_err(ApiError::from)?;
-    let user = maybe
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
+    let user = maybe.ok_or_else(|| {
+        warn!(username = %dto.username, "Login failed: user not found");
+        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+    })?;
 
     // Verify password using didhub_auth
     // Clients MUST provide a SHA-256 pre-hashed password (64 hex characters)
     didhub_auth::auth::verify_client_password(&dto.password_hash, &user.password_hash)
-        .map_err(|_| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
+        .map_err(|_| {
+            warn!(username = %dto.username, user_id = %user.id, "Login failed: password mismatch");
+            ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+        })?;
 
     // Check if user is approved (has 'user' role) or is admin (admins bypass approval check)
     let is_admin = user_has_role(&user.roles, "admin");
     let is_approved = user_has_role(&user.roles, "user");
     if !is_approved && !is_admin {
+        warn!(username = %dto.username, user_id = %user.id, "Login failed: account not approved");
         return Err(ApiError::forbidden("Account awaiting approval"));
     }
 
@@ -62,6 +69,8 @@ pub async fn login(
         .execute(&mut *conn)
         .await
         .map_err(ApiError::from)?;
+
+    info!(username = %dto.username, user_id = %user.id, "User logged in successfully");
 
     // Build claims - scopes are derived from roles
     let exp = (Utc::now().timestamp() + 7 * 24 * 60 * 60) as usize; // 7 days expiry

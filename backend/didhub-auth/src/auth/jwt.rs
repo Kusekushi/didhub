@@ -2,6 +2,7 @@ use crate::auth::context::{AuthContext, AuthError};
 use crate::auth::traits::AuthenticatorTrait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::warn;
 use uuid::Uuid;
 
 /// JWT verification options. Supports HS256 (shared secret) and RS256 (RSA public key PEM).
@@ -48,11 +49,12 @@ impl JwtAuthenticator {
         if let Some(exp) = claims.exp {
             let now = chrono::Utc::now().timestamp() as u64;
             if exp < now.saturating_sub(self.exp_grace_seconds) {
+                warn!(sub = ?claims.sub, "JWT authentication failed: token expired");
                 return Err(AuthError::TokenExpired);
             }
         }
 
-        let sub = claims.sub.and_then(|s| Uuid::parse_str(&s).ok());
+        let sub = claims.sub.as_ref().and_then(|s| Uuid::parse_str(s).ok());
         let scopes = match (claims.scope, claims.scopes) {
             (Some(s), _) => s.split_whitespace().map(String::from).collect(),
             (_, Some(arr)) => arr,
@@ -109,8 +111,10 @@ impl AuthenticatorTrait for JwtAuthenticator {
         let mut validation = Validation::new(algorithm);
         validation.validate_exp = false; // We handle exp manually for grace period
 
-        let data = decode::<Claims>(token, &decoding, &validation)
-            .map_err(|_| AuthError::AuthenticationFailed)?;
+        let data = decode::<Claims>(token, &decoding, &validation).map_err(|e| {
+            warn!(error = %e, "JWT decoding failed");
+            AuthError::AuthenticationFailed
+        })?;
 
         self.process_claims(data.claims)
     }
