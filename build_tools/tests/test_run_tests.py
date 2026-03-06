@@ -152,7 +152,7 @@ class TestRunZigTests:
 
             assert result.name == "Zig"
             assert result.success is True
-            assert result.passed == 3  # 3 tools
+            assert result.passed == 2  # 2 tools
             assert result.failed == 0
 
     @patch("build_tools.run_tests.run_command")
@@ -178,8 +178,9 @@ class TestRunZigTests:
         with patch("pathlib.Path.exists", return_value=True):
             result = run_zig_tests()
 
+            # 1 failure (config_generator) + 1 success (log_analyzer) = 1 passed
             assert result.success is False
-            assert result.passed == 2
+            assert result.passed == 1
             assert result.failed == 1
 
     @patch("build_tools.run_tests.run_command")
@@ -193,7 +194,7 @@ class TestRunZigTests:
 
         assert result.name == "Zig"
         assert result.success is True
-        assert result.passed == 3  # Tools exist
+        assert result.passed == 2  # Tools exist
         assert result.failed == 0  # Since no tools exist in test
 
     @patch("build_tools.run_tests.run_command")
@@ -215,7 +216,7 @@ class TestRunZigTests:
 
         assert result.name == "Zig"
         assert result.success is True
-        assert result.passed == 3
+        assert result.passed == 2
 
 
 class TestRunPythonTests:

@@ -156,7 +156,6 @@ def run_zig_tests(*, verbose: bool = False, coverage: bool = False) -> TestResul
     zig_tools = [
         ("config_generator", RUNTIME_TOOLS_DIR / "config_generator"),
         ("log_analyzer", RUNTIME_TOOLS_DIR / "log_analyzer"),
-        ("log_collector", RUNTIME_TOOLS_DIR / "log_collector"),
     ]
 
     total_failed = 0

@@ -146,8 +146,8 @@ class TestBuildRuntimeTools:
 
         build_runtime_tools()
 
-        # Should call run_command 3 times (one for each tool)
-        assert mock_run_command.call_count == 3
+        # Should call run_command 2 times (one for each tool)
+        assert mock_run_command.call_count == 2
 
     @patch("build_tools.full_build.run_command")
     @patch("pathlib.Path.exists")
@@ -161,13 +161,13 @@ class TestBuildRuntimeTools:
     @patch("build_tools.full_build.run_command")
     @patch("pathlib.Path.exists")
     def test_build_runtime_tools_missing_build_zig(self, mock_exists, mock_run_command):
-        # Mock exists: first tool exists but no build.zig, second and third exist with build.zig
-        mock_exists.side_effect = [True, False, True, True, True, True]
+        # Mock exists: first tool exists but no build.zig, second exists with build.zig
+        mock_exists.side_effect = [True, False, True, True]
 
         build_runtime_tools()
 
-        # Should call run_command for the 2 tools that have build.zig
-        assert mock_run_command.call_count == 2
+        # Should call run_command for the 1 tool that has build.zig
+        assert mock_run_command.call_count == 1
 
     @patch("build_tools.full_build.run_command")
     @patch("pathlib.Path.exists")
