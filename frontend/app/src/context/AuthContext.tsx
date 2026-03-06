@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from './ApiContext'
+import { sha256_hex } from '@/lib/utils'
 
 type UserInfo = { id?: string; username?: string; avatar?: string | null; isAdmin?: boolean; isSystem?: boolean }
 
@@ -61,10 +62,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function login(username: string, password: string, options?: { redirectTo?: string; redirectDelay?: number }) {
     try {
+      const password_hash = await sha256_hex(password)
       // Fetch CSRF token and include it for the login POST (double-submit cookie pattern)
       const csrf = await client.fetchCsrfToken()
       // Server should set an HttpOnly cookie on successful login
-      await client.request('POST', '/auth/login', true, { body: { username, password }, headers: { 'x-csrf-token': csrf } })
+      await client.request('POST', '/auth/login', true, { body: { username, password: password_hash }, headers: { 'x-csrf-token': csrf } })
       // probe /auth/me for user info
       const res = await client.request('GET', '/auth/me', false, {})
       const data = res.data as AuthMeResponse
@@ -109,8 +111,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function signup(username: string, password: string, displayName?: string) {
+    const password_hash = await sha256_hex(password)
     // create user via generated users endpoint
-    const body: { username: string; password: string; display_name?: string } = { username, password, display_name: displayName }
+    const body: { username: string; password_hash: string; display_name?: string } = { username, password_hash, display_name: displayName }
     await client.request('POST', '/users', true, { body })
     // After creating the user, perform login to set session cookie
     await login(username, password)

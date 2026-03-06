@@ -43,14 +43,8 @@ pub async fn login(
         .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     // Verify password using didhub_auth
-    // Supports both client-side SHA-256 hashed passwords (64 hex chars) and legacy plaintext
-    let verify_result = if didhub_auth::auth::is_client_hash(&dto.password_hash) {
-        didhub_auth::auth::verify_client_password(&dto.password_hash, &user.password_hash)
-    } else {
-        // Legacy support: accept plaintext password during migration
-        didhub_auth::auth::verify_password(&dto.password_hash, &user.password_hash)
-    };
-    verify_result
+    // Clients MUST provide a SHA-256 pre-hashed password (64 hex characters)
+    didhub_auth::auth::verify_client_password(&dto.password_hash, &user.password_hash)
         .map_err(|_| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
 
     // Check if user is approved (has 'user' role) or is admin (admins bypass approval check)

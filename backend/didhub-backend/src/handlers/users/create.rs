@@ -38,13 +38,9 @@ pub async fn create(
     // Build UsersRow while stripping fields that should not be client-supplied.
     let now = Utc::now().to_rfc3339();
 
-    // Hash password using didhub_auth - supports both client-side hashed and plaintext
-    let password_hash = if didhub_auth::auth::is_client_hash(&dto.password_hash) {
-        didhub_auth::auth::hash_client_password(&dto.password_hash)
-    } else {
-        didhub_auth::auth::hash_password(&dto.password_hash)
-    }
-    .map_err(|e| ApiError::Unexpected(e.to_string()))?;
+    // Hash password using didhub_auth - clients MUST provide a SHA-256 pre-hashed password
+    let password_hash = didhub_auth::auth::hash_client_password(&dto.password_hash)
+        .map_err(|e| ApiError::Unexpected(format!("Hashing failed: {}", e)))?;
 
     // Determine roles for the new user
     let roles: Vec<String> = if is_admin_request {
