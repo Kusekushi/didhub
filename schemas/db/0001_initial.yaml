@@ -66,6 +66,8 @@ tables:
       - name: name
         type: string
         nullable: false
+      - name: surname
+        type: string
       - name: description
         type: text
       - name: age

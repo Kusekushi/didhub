@@ -48,6 +48,7 @@ export default function FamilyTreeView() {
 
   // Filter state
   const [selectedRelationTypes, setSelectedRelationTypes] = useState<Set<string>>(new Set(RELATIONSHIP_TYPES.map(t => t.value)))
+  const [surnameFilter, setSurnameFilter] = useState<string>('')
   const [showFilters, setShowFilters] = useState(true)
 
   // Load alters, users (non-system only), and relationships
@@ -90,7 +91,7 @@ export default function FamilyTreeView() {
     for (const alter of alters) {
       options.push({
         value: `alter:${alter.id}`,
-        label: `${alter.name}${alter.pronouns ? ` (${alter.pronouns})` : ''} [Alter]`
+        label: `${alter.name} ${alter.surname || ''}${alter.pronouns ? ` (${alter.pronouns})` : ''} [Alter]`
       })
     }
     
@@ -107,13 +108,20 @@ export default function FamilyTreeView() {
 
   // Build the graph from relationships (client-side)
   const buildGraphFromRelationships = useCallback(() => {
+    // Determine which alters to include based on surname filter
+    const surnameLower = surnameFilter.toLowerCase().trim()
+    
     // Create node map
     const nodeMap = new Map<string, NodeDatum>()
 
     // Add all alters as nodes
     for (const alter of alters) {
+      // Filter by surname if provided
+      if (surnameLower && !(alter.surname || '').toLowerCase().includes(surnameLower)) {
+        continue
+      }
       const id = `alter:${alter.id}`
-      nodeMap.set(id, { id, label: alter.name, type: 'alter' })
+      nodeMap.set(id, { id, label: `${alter.name} ${alter.surname || ''}`.trim(), type: 'alter' })
     }
 
     // Add non-system users as nodes
@@ -1074,17 +1082,45 @@ export default function FamilyTreeView() {
                   disabled={loading}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="depth">Depth (1-5)</Label>
-                <Input
-                  id="depth"
-                  type="number"
-                  value={depth}
-                  min={1}
-                  max={5}
-                  onChange={e => setDepth(Math.max(1, Math.min(5, Number(e.target.value))))}
-                  className="w-24"
-                />
+              <div className="space-y-4 pt-2 border-t">
+                <div className="space-y-2">
+                  <Label htmlFor="surname-filter">Filter Alters by Surname</Label>
+                  <div className="relative group/filter">
+                    <Input
+                      id="surname-filter"
+                      value={surnameFilter}
+                      onChange={(e) => setSurnameFilter(e.target.value)}
+                      placeholder="Type a surname..."
+                      className="pr-8"
+                    />
+                    {surnameFilter && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="absolute right-0 top-0 h-full px-2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setSurnameFilter('')}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Only alters matching this surname will be included.
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="depth">Depth (1-5)</Label>
+                  <Input
+                    id="depth"
+                    type="number"
+                    value={depth}
+                    min={1}
+                    max={5}
+                    onChange={e => setDepth(Math.max(1, Math.min(5, Number(e.target.value))))}
+                    className="w-24"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>

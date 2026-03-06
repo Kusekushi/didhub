@@ -491,6 +491,8 @@ components:
           format: uuid
         name:
           type: string
+        surname:
+          type: string
         pronouns:
           type: string
         description:
@@ -595,6 +597,8 @@ components:
       properties:
         name:
           type: string
+        surname:
+          type: string
         pronouns:
           type: string
         description:
@@ -645,6 +649,8 @@ components:
       type: object
       properties:
         name:
+          type: string
+        surname:
           type: string
         pronouns:
           type: string

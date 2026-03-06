@@ -51,6 +51,10 @@ pub async fn create(
     )
     .map_err(ApiError::from)?;
 
+    let surname: Option<String> = payload
+        .get("surname")
+        .and_then(|v| serde_json::from_value(v.clone()).ok());
+
     // Determine owner_user_id: prefer authenticated user; allow admin to supply a user_id/systemId in payload
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
 
@@ -232,6 +236,7 @@ pub async fn create(
         id: SqlxUuid::new_v4(),
         user_id: owner_user_id,
         name,
+        surname,
         description,
         age,
         gender,

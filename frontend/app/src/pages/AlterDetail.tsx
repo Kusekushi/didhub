@@ -15,7 +15,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import React from 'react'
 
 type EditableField = 
-  | 'name' | 'pronouns' | 'description' | 'age' | 'gender' | 'birthday' 
+  | 'name' | 'surname' | 'pronouns' | 'description' | 'age' | 'gender' | 'birthday' 
   | 'sexuality' | 'species' | 'alterType' | 'job' | 'weapon' | 'notes'
   | 'systemRoles' | 'soulSongs' | 'interests' | 'triggers'
 
@@ -753,7 +753,7 @@ export default function AlterDetail() {
       const arr = alter[field]
       currentValue = arr?.join(', ') || ''
     } else {
-      currentValue = (alter[field] as string) || ''
+      currentValue = (alter[field as keyof Alter] as string) || ''
     }
     
     setEditValue(currentValue)
@@ -765,27 +765,33 @@ export default function AlterDetail() {
     setEditValue('')
   }
 
-  const saveField = async () => {
-    if (!alter || !editingField) return
+  const saveField = async (alternativeField?: EditableField, alternativeValue?: string) => {
+    if (!alter || (!editingField && !alternativeField)) return
     
+    const fieldToSave = alternativeField || editingField!
+    const valueToSave = alternativeValue !== undefined ? alternativeValue : editValue
+
     setSaving(true)
     try {
       const updateData: Record<string, unknown> = {}
       
       // Handle array fields
-      if (editingField === 'systemRoles' || editingField === 'soulSongs' || editingField === 'interests' || editingField === 'triggers') {
-        const arr = editValue.split(',').map(s => s.trim()).filter(Boolean)
-        updateData[editingField] = arr
+      if (fieldToSave === 'systemRoles' || fieldToSave === 'soulSongs' || fieldToSave === 'interests' || fieldToSave === 'triggers') {
+        const arr = valueToSave.split(',').map(s => s.trim()).filter(Boolean)
+        updateData[fieldToSave] = arr
       } else {
-        updateData[editingField] = editValue || null
+        updateData[fieldToSave] = valueToSave || null
       }
       
       await api.updateAlter({ path: { alterId: alter.id }, body: updateData })
       
       // Update local state
       setAlter(prev => prev ? { ...prev, ...updateData } as Alter : null)
-      setEditingField(null)
-      setEditValue('')
+      
+      if (!alternativeField) {
+        setEditingField(null)
+        setEditValue('')
+      }
       showToast({ title: 'Saved', description: `Updated successfully` })
     } catch {
       showToast({ title: 'Error', description: 'Failed to save changes', variant: 'error' })
@@ -806,19 +812,23 @@ export default function AlterDetail() {
   const toggleBooleanField = async (field: 'isSystemHost' | 'isDormant' | 'isMerged') => {
     if (!alter) return
     
-    const newValue = !alter[field]
+    const newValue = !alter[field as keyof Alter]
     try {
       await api.updateAlter({ path: { alterId: alter.id }, body: { [field]: newValue } })
-      setAlter(prev => prev ? { ...prev, [field]: newValue } : null)
+      setAlter(prev => prev ? { ...prev, [field]: newValue } as Alter : null)
       showToast({ title: 'Saved', description: `Updated successfully` })
     } catch {
       showToast({ title: 'Error', description: 'Failed to save changes', variant: 'error' })
     }
   }
 
-  const getInitials = (name: string) => {
-    if (!name) return ''
-    return name.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+  const getInitials = (name: string, surname?: string) => {
+    const parts = [name, surname].filter(Boolean)
+    if (parts.length === 0) return ''
+    if (parts.length === 1) {
+      return parts[0]!.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+    }
+    return (parts[0]![0] + parts[1]![0]).toUpperCase()
   }
 
   // Helper functions for relationship display
@@ -918,12 +928,12 @@ export default function AlterDetail() {
             {imageUrl ? (
               <img
                 src={imageUrl}
-                alt={`${alter.name} image`}
+                alt={`${alter.name} ${alter.surname || ''} image`}
                 className="h-32 w-32 rounded-lg object-cover"
               />
             ) : (
               <div className="h-32 w-32 rounded-lg bg-muted flex items-center justify-center text-2xl font-medium text-muted-foreground">
-                {getInitials(alter.name)}
+                {getInitials(alter.name, alter.surname)}
               </div>
             )}
             {/* Image controls overlay */}
@@ -969,29 +979,62 @@ export default function AlterDetail() {
             )}
           </div>
           <div className="flex-1 space-y-2">{/* Name - large editable */}
-            {editingField === 'name' ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  ref={inputRef as RefObject<HTMLInputElement>}
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="text-3xl font-bold h-auto py-1"
-                  disabled={saving}
-                />
-                <Button size="sm" variant="ghost" onClick={saveField} disabled={saving}>
-                  <Check className="w-4 h-4 text-green-600" />
-                </Button>
-                <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={saving}>
-                  <X className="w-4 h-4 text-red-600" />
-                </Button>
+            {editingField === 'name' || editingField === 'surname' ? (
+              <div className="flex flex-col gap-2 transition-all">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground ml-1">First Name</Label>
+                    <Input
+                      ref={editingField === 'name' ? (inputRef as RefObject<HTMLInputElement>) : null}
+                      value={editingField === 'name' ? editValue : alter.name}
+                      onChange={(e) => {
+                        if (editingField === 'name') setEditValue(e.target.value)
+                        else startEditing('name')
+                      }}
+                      onKeyDown={handleKeyDown}
+                      className="text-xl font-bold h-auto py-1"
+                      disabled={saving}
+                      placeholder="First name"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground ml-1">Surname</Label>
+                    <Input
+                      ref={editingField === 'surname' ? (inputRef as RefObject<HTMLInputElement>) : null}
+                      value={editingField === 'surname' ? editValue : (alter.surname || '')}
+                      onChange={(e) => {
+                        if (editingField === 'surname') setEditValue(e.target.value)
+                        else {
+                          // If current name is being edited, we need to save it first or just switch
+                          // For simplicity, we just switch and the previous edit is lost unless saved
+                          setEditValue(e.target.value)
+                          setEditingField('surname')
+                        }
+                      }}
+                      onKeyDown={handleKeyDown}
+                      className="text-xl font-bold h-auto py-1"
+                      disabled={saving}
+                      placeholder="Surname"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => saveField()} disabled={saving}>
+                    <Check className="w-4 h-4 text-green-600 mr-1" />
+                    Save
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={saving}>
+                    <X className="w-4 h-4 text-red-600 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
               </div>
             ) : (
               <h1 
                 className="text-3xl font-bold group cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 -my-1 inline-flex items-center gap-2"
                 onClick={() => startEditing('name')}
               >
-                {alter.name}
+                {alter.name} {alter.surname || ''}
                 <Pencil className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
               </h1>
             )}
