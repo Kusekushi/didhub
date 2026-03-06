@@ -57,6 +57,7 @@ async fn system_user_restrictions() {
             birthday TEXT,
             sexuality TEXT,
             species TEXT,
+            surname TEXT,
             alter_type TEXT,
             job TEXT,
             weapon TEXT,
@@ -108,6 +109,34 @@ async fn system_user_restrictions() {
     .await
     .expect("create relationships table");
 
+    sqlx::query(
+        r#"CREATE TABLE instance_settings (
+            key TEXT PRIMARY KEY,
+            value_type TEXT NOT NULL,
+            value_string TEXT,
+            value_bool INTEGER,
+            value_number REAL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await
+    .expect("create instance_settings table");
+
+    // insert custom type
+    sqlx::query(
+        "INSERT INTO instance_settings (key, value_type, value_string, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind("custom_relationship_types")
+    .bind("string")
+    .bind("[{\"value\": \"friend\", \"label\": \"Friend\"}]")
+    .bind("2024-01-01T00:00:00Z")
+    .bind("2024-01-01T00:00:00Z")
+    .execute(&pool)
+    .await
+    .expect("insert custom types");
+
     let log_dir = std::env::temp_dir().join("didhub_test_logs");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
 
@@ -158,16 +187,16 @@ async fn system_user_restrictions() {
 
     // 1) Non-system user (without admin) should be rejected when creating an alter
     let nonsys_uuid = Uuid::parse_str(nonsys_id).unwrap();
-    let nonsys_auth = std::sync::Arc::from(Box::new(TestAuthenticator::new_with(
+    let nonsys_auth = std::sync::Arc::new(TestAuthenticator::new_with(
         vec!["user".to_string()],
         Some(nonsys_uuid),
-    )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state_nonsys = AppState::new(
         pool.clone(),
-        log.clone(),
         nonsys_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state_nonsys = Arc::new(state_nonsys);
 
@@ -185,15 +214,15 @@ async fn system_user_restrictions() {
 
     // 2) Admin attempting to create an alter for a non-system user should be rejected
     let admin_auth =
-        std::sync::Arc::from(Box::new(TestAuthenticator::new_with_scopes(
+        std::sync::Arc::new(TestAuthenticator::new_with_scopes(
             vec!["admin".to_string()],
-        )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state_admin = AppState::new(
         pool.clone(),
-        log.clone(),
         admin_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state_admin = Arc::new(state_admin);
     let body_admin = serde_json::json!({ "user_id": nonsys_id, "name": "AdminShouldFail" });

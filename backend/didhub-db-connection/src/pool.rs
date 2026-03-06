@@ -35,6 +35,9 @@ type DbPoolOptions = MySqlPoolOptions;
 #[cfg(feature = "sqlite")]
 type DbPoolOptions = SqlitePoolOptions;
 
+#[cfg(feature = "sqlite")]
+pub const SQLITE_MEMORY_PATTERNS: [&[u8]; 2] = [b":memory:", b"mode=memory"];
+
 /// Creates a new backend-specific connection pool using the provided configuration.
 pub async fn create_pool(config: &DbConnectionConfig) -> Result<DbPool, DbConnectionError> {
     create_pool_inner(config).await

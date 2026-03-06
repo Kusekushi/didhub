@@ -7,3 +7,5 @@
 //! - Authentication context and error types
 
 pub mod auth;
+
+pub use auth::*;

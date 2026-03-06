@@ -30,16 +30,16 @@ async fn uploads_crud_sqlite_in_memory() {
     std::fs::create_dir_all(&log_dir).expect("create log dir");
     // give the test authenticator a fixed user id so handlers that require auth.user_id succeed
     let test_user_id = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    let test_auth = std::sync::Arc::from(Box::new(TestAuthenticator::new_with(
+    let test_auth = std::sync::Arc::new(TestAuthenticator::new_with(
         vec!["admin".to_string()],
         Some(test_user_id),
-    )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
-        log,
         test_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state = Arc::new(state);
 

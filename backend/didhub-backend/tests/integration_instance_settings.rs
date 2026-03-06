@@ -50,17 +50,17 @@ async fn setup(scopes: Vec<String>) -> TestContext {
     .await
     .expect("create instance_settings");
 
-    let authenticator: StdArc<dyn AuthenticatorTrait> =
-        StdArc::new(TestAuthenticator::new_with_scopes(scopes));
+    let authenticator =
+        StdArc::new(TestAuthenticator::new_with_scopes(scopes)) as StdArc<dyn AuthenticatorTrait>;
     let job_queue = JobQueueClient::new();
     let updates = UpdateCoordinator::new();
 
     let state = Arc::new(AppState::new(
         pool.clone(),
-        log_client,
         authenticator,
         job_queue,
         updates,
+        None,
     ));
 
     TestContext {

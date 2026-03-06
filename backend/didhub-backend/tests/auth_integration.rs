@@ -1,5 +1,3 @@
-use argon2::password_hash::{rand_core::OsRng, SaltString};
-use argon2::PasswordHasher;
 use didhub_auth::TestAuthenticator;
 use didhub_backend::handlers::auth;
 use didhub_backend::state::AppState;
@@ -25,12 +23,7 @@ async fn login_me_logout_flow() {
 
     // Insert a user with argon2 password hash
     let password = "secret123";
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = argon2::Argon2::default();
-    let password_hash = argon2
-        .hash_password(password.as_bytes(), &salt)
-        .expect("hash")
-        .to_string();
+    let password_hash = didhub_auth::auth::hash_client_password(&didhub_auth::auth::sha256_hex(password)).expect("hash");
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now().to_rfc3339();
     sqlx::query("INSERT INTO users (id, username, password_hash, created_at, updated_at, roles, settings) VALUES (?, ?, ?, ?, ?, ?, ?)")
@@ -47,18 +40,16 @@ async fn login_me_logout_flow() {
 
     // Build a minimal AppState with TestAuthenticator (won't be used for login)
     let parsed_id = id;
-    let auth = std::sync::Arc::from(Box::new(TestAuthenticator::new_with(
+    let auth = std::sync::Arc::new(TestAuthenticator::new_with(
         vec!["user".to_string()],
         Some(parsed_id),
-    )) as Box<dyn didhub_auth::AuthenticatorTrait>);
-    let log_dir = std::env::temp_dir().join("didhub_test_logs_auth");
-    std::fs::create_dir_all(&log_dir).expect("create log dir");
+    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
-        log,
         auth,
         JobQueueClient::new(),
         UpdateCoordinator::new(),
+        None,
     );
     let ext = axum::extract::Extension(Arc::new(state));
 
@@ -67,7 +58,7 @@ async fn login_me_logout_flow() {
 
     // Call login handler with correct credentials
     let body = Some(axum::Json(
-        serde_json::json!({"username":"testuser","password":"secret123"}),
+        serde_json::json!({"username":"testuser","password": didhub_auth::auth::sha256_hex(password)}),
     ));
     let resp = auth::login::login(ext.clone(), body).await.expect("login");
     // Expect 200 and Set-Cookie header present

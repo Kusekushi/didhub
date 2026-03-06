@@ -26,6 +26,7 @@ async fn owner_and_admin_can_modify_alter() {
             birthday TEXT,
             sexuality TEXT,
             species TEXT,
+            surname TEXT,
             alter_type TEXT,
             job TEXT,
             weapon TEXT,
@@ -117,16 +118,16 @@ async fn owner_and_admin_can_modify_alter() {
         },
         Err(e) => eprintln!("debug: generated helper returned Err: {:?}", e),
     }
-    let owner_auth = std::sync::Arc::from(Box::new(TestAuthenticator::new_with(
+    let owner_auth = std::sync::Arc::new(TestAuthenticator::new_with(
         vec!["user".to_string()],
         Some(Uuid::parse_str(owner_id).unwrap()),
-    )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
-        log.clone(),
         owner_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state = Arc::new(state);
 
@@ -173,16 +174,16 @@ async fn owner_and_admin_can_modify_alter() {
     assert!(update_res.is_ok());
 
     // Now attempt delete as admin
-    let admin_auth = std::sync::Arc::from(Box::new(TestAuthenticator::new_with(
+    let admin_auth = std::sync::Arc::new(TestAuthenticator::new_with(
         vec!["admin".to_string()],
         None,
-    )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state2 = AppState::new(
         pool.clone(),
-        log,
         admin_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state2 = Arc::new(state2);
 

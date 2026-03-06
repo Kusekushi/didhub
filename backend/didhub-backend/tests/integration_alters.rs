@@ -24,6 +24,7 @@ async fn alters_crud_sqlite_in_memory() {
             birthday TEXT,
             sexuality TEXT,
             species TEXT,
+            surname TEXT,
             alter_type TEXT,
             job TEXT,
             weapon TEXT,
@@ -49,15 +50,15 @@ async fn alters_crud_sqlite_in_memory() {
     std::fs::create_dir_all(&log_dir).expect("create log dir");
 
     let test_auth =
-        std::sync::Arc::from(Box::new(TestAuthenticator::new_with_scopes(
+        std::sync::Arc::new(TestAuthenticator::new_with_scopes(
             vec!["admin".to_string()],
-        )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
-        log,
         test_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state = Arc::new(state);
 

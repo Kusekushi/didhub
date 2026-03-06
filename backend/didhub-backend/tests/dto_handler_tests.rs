@@ -35,15 +35,15 @@ async fn create_user_returns_structured_validation() {
     let log_dir = std::env::temp_dir().join("didhub_test_logs");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
     let test_auth =
-        std::sync::Arc::from(Box::new(TestAuthenticator::new_with_scopes(
+        std::sync::Arc::new(TestAuthenticator::new_with_scopes(
             vec!["admin".to_string()],
-        )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
-        log,
         test_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state = Arc::new(state);
 

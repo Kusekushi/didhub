@@ -84,6 +84,7 @@ async fn setup() -> TestContext {
             birthday TEXT,
             sexuality TEXT,
             species TEXT,
+            surname TEXT,
             alter_type TEXT,
             job TEXT,
             weapon TEXT,
@@ -134,16 +135,16 @@ async fn setup() -> TestContext {
     let log_dir = std::env::temp_dir().join("didhub_test_logs_affiliations");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
 
-    let authenticator = Arc::from(Box::new(TestAuthenticator::new_with(
+    let authenticator = Arc::new(TestAuthenticator::new_with(
         vec!["user".to_string()],
         Some(owner_id),
-    )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
-        log_client,
         authenticator,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
 
     TestContext {

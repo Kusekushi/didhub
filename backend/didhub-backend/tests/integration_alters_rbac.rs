@@ -24,6 +24,7 @@ async fn alters_rbac_denied_for_non_owner() {
             birthday TEXT,
             sexuality TEXT,
             species TEXT,
+            surname TEXT,
             alter_type TEXT,
             job TEXT,
             weapon TEXT,
@@ -50,15 +51,15 @@ async fn alters_rbac_denied_for_non_owner() {
 
     // Create with admin to set owner
     let admin_auth =
-        std::sync::Arc::from(Box::new(TestAuthenticator::new_with_scopes(
+        std::sync::Arc::new(TestAuthenticator::new_with_scopes(
             vec!["admin".to_string()],
-        )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
-        log.clone(),
         admin_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state = Arc::new(state);
 
@@ -87,16 +88,15 @@ async fn alters_rbac_denied_for_non_owner() {
 
     // Now attempt update with a non-admin different user
     let nonadmin_auth =
-        std::sync::Arc::from(
-            Box::new(TestAuthenticator::new_with_scopes(vec!["user".to_string()]))
-                as Box<dyn didhub_auth::AuthenticatorTrait>,
-        );
+        std::sync::Arc::new(
+            TestAuthenticator::new_with_scopes(vec!["user".to_string()])
+        ) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state2 = AppState::new(
         pool.clone(),
-        log,
         nonadmin_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state2 = Arc::new(state2);
 

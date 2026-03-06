@@ -37,15 +37,15 @@ async fn users_crud_sqlite_in_memory() {
 
     // Build AppState
     let test_auth =
-        std::sync::Arc::from(Box::new(TestAuthenticator::new_with_scopes(
+        std::sync::Arc::new(TestAuthenticator::new_with_scopes(
             vec!["admin".to_string()],
-        )) as Box<dyn didhub_auth::AuthenticatorTrait>);
+        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
-        log,
         test_auth,
         didhub_job_queue::JobQueueClient::new(),
         didhub_updates::UpdateCoordinator::new(),
+        None,
     );
     let arc_state = Arc::new(state);
 
@@ -57,9 +57,10 @@ async fn users_crud_sqlite_in_memory() {
     );
 
     // Create user via handler
+    let dummy_hash = didhub_auth::auth::sha256_hex("longpassword");
     let dto = CreateUserDto {
         username: "inttest".into(),
-        password_hash: "longpassword".into(),
+        password_hash: dummy_hash,
         display_name: Some("inttest".to_string()),
         about_me: None,
         roles: None,
