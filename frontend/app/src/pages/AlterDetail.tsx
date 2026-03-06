@@ -14,6 +14,7 @@ import { useSettings } from '@/context/SettingsContext'
 import SoulSongPlayer from '@/components/SoulSongPlayer'
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel'
 import React from 'react'
+import { Label } from '@/components/ui/label'
 
 type EditableField = 
   | 'name' | 'surname' | 'pronouns' | 'description' | 'age' | 'gender' | 'birthday' 
@@ -750,7 +751,7 @@ export default function AlterDetail() {
     if (!alter) return
     
     // Get current value
-    let currentValue = ''
+    let currentValue: string
     if (field === 'systemRoles' || field === 'soulSongs' || field === 'interests' || field === 'triggers') {
       const arr = alter[field]
       currentValue = arr?.join(', ') || ''

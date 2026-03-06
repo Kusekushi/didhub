@@ -245,7 +245,7 @@ export default function FamilyTreeView() {
 
     setNodes(resultNodes)
     setLinks(resultLinks)
-  }, [alters, users, relationships, selectedRelationTypes, startId, depth])
+  }, [alters, users, relationships, selectedRelationTypes, startId, depth, surnameFilter])
 
   // Rebuild graph when dependencies change
   useEffect(() => {
@@ -277,14 +277,14 @@ export default function FamilyTreeView() {
   }
 
   // Get color for relationship type
-  const getRelationColor = (relationType?: string): string => {
+  const getRelationColor = useCallback((relationType?: string): string => {
     const type = relationshipTypes.find(t => t.value === relationType)
     return type?.color || '#9ca3af'
-  }
+  }, [relationshipTypes])
 
-  const isBidirectional = (relationType: string) => {
+  const isBidirectional = useCallback((relationType: string) => {
     return bidirectionalTypes.includes(relationType)
-  }
+  }, [bidirectionalTypes])
 
   // D3 visualization - Hierarchical family tree layout
   useEffect(() => {
@@ -454,8 +454,10 @@ export default function FamilyTreeView() {
     const sortedGenerations = Array.from(generationGroups.keys()).sort((a, b) => a - b)
     
     // Start with generation 0 (or the first generation)
-    let currentX = 0
+    
+    let initialXValue: number
     const clusterGap = horizontalSpacing * 0.8 // Extra gap between unrelated nodes
+    console.log('Using clusterGap:', clusterGap)
     
     for (const gen of sortedGenerations) {
       const nodesInGen = generationGroups.get(gen) || []
@@ -494,13 +496,13 @@ export default function FamilyTreeView() {
         }
         
         // Position clusters with gaps between them
-        currentX = padding + horizontalSpacing / 2
+        initialXValue = padding + horizontalSpacing / 2
         for (const cluster of clusters) {
           for (const nodeId of cluster) {
-            nodeXPositions.set(nodeId, currentX)
-            currentX += horizontalSpacing
+            nodeXPositions.set(nodeId, initialXValue)
+            initialXValue += horizontalSpacing
           }
-          currentX += clusterGap // Add gap between clusters
+          initialXValue += clusterGap // Add gap between clusters
         }
       } else {
         // Subsequent generations: position children under their parents
@@ -552,11 +554,12 @@ export default function FamilyTreeView() {
         
         // Position any remaining unpositioned nodes at the end
         if (unpositioned.length > 0) {
-          const maxX = Math.max(...Array.from(nodeXPositions.values()), padding)
-          currentX = maxX + clusterGap + horizontalSpacing
+          const allXValues = Array.from(nodeXPositions.values())
+          const maxX = allXValues.length > 0 ? Math.max(...allXValues) : padding
+          let currentGenX = maxX + clusterGap + horizontalSpacing
           for (const nodeId of unpositioned) {
-            nodeXPositions.set(nodeId, currentX)
-            currentX += horizontalSpacing
+            nodeXPositions.set(nodeId, currentGenX)
+            currentGenX += horizontalSpacing
           }
         }
         
@@ -857,7 +860,7 @@ export default function FamilyTreeView() {
       }
       
       const color = getRelationColor(link.relation)
-      const isBidirectional = link.relation && BIDIRECTIONAL_TYPES.includes(link.relation)
+      const isBidirectional = link.relation && bidirectionalTypes.includes(link.relation)
       
       const x1 = link.source.x
       const y1 = link.source.y
@@ -1041,7 +1044,7 @@ export default function FamilyTreeView() {
     return () => {
       d3.select(svgElement).selectAll('*').remove()
     }
-  }, [nodes, links, startId, selectedRelationTypes])
+  }, [nodes, links, startId, selectedRelationTypes, bidirectionalTypes, getRelationColor, isBidirectional, relationshipTypes])
 
   return (
     <div className="space-y-4">

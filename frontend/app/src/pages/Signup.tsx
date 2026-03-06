@@ -30,7 +30,7 @@ export default function SignupPage() {
     return null
   }
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.SubmitEvent) {
     e.preventDefault()
     setError(null)
     const v = validate()

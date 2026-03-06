@@ -16,7 +16,7 @@ type Props = {
   password: string
   onUsernameChange: (v: string) => void
   onPasswordChange: (v: string) => void
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e: React.SubmitEvent) => void
   loading?: boolean
   disabled?: boolean
   error?: string | null

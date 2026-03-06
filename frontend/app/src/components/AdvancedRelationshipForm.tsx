@@ -185,21 +185,20 @@ export function AdvancedRelationshipForm({
 
   // Build preview text
   const getPreviewText = () => {
-    let sourceText = ""
-    let targetText = ""
-    let relationshipCount = 1
+    let sourceTextVal: string
+    let targetTextVal: string
     
     if (sourceMode === "user") {
       if (!sourceUserId) return null
       const user = nonSystemUsers.find(u => u.id === sourceUserId)
-      sourceText = user?.displayName || user?.username || "Unknown User"
+      sourceTextVal = user?.displayName || user?.username || "Unknown User"
     } else {
       if (sourceAlterIds.length === 0) return null
       const sourceNames = sourceAlterIds
         .map((id) => currentSystemAlters.find((a) => a.id === id)?.name)
         .filter(Boolean)
       if (sourceNames.length === 0) return null
-      sourceText = sourceNames.length > 2 
+      sourceTextVal = (sourceNames.length > 2)
         ? `${sourceNames.slice(0, 2).join(", ")} and ${sourceNames.length - 2} more`
         : sourceNames.join(" & ")
     }
@@ -207,14 +206,14 @@ export function AdvancedRelationshipForm({
     if (targetMode === "user") {
       if (!targetUserId) return null
       const user = nonSystemUsers.find(u => u.id === targetUserId)
-      targetText = user?.displayName || user?.username || "Unknown User"
+      targetTextVal = user?.displayName || user?.username || "Unknown User"
     } else {
       if (targetAlterIds.length === 0) return null
       const targetNames = targetAlterIds
         .map((id) => targetAlters.find((a) => a.id === id)?.name)
         .filter(Boolean)
       if (targetNames.length === 0) return null
-      targetText = targetNames.length > 2 
+      targetTextVal = (targetNames.length > 2)
         ? `${targetNames.slice(0, 2).join(", ")} and ${targetNames.length - 2} more`
         : targetNames.join(" & ")
     }
@@ -224,12 +223,12 @@ export function AdvancedRelationshipForm({
     // Calculate relationship count
     const sourceCount = sourceMode === "user" ? 1 : sourceAlterIds.length
     const targetCount = targetMode === "user" ? 1 : targetAlterIds.length
-    relationshipCount = sourceCount * targetCount
+    const relationshipCountValue = sourceCount * targetCount
 
-    const relationshipText = relationshipCount > 1 ? `${relationshipCount} relationships` : "1 relationship"
+    const relationshipText = relationshipCountValue > 1 ? `${relationshipCountValue} relationships` : "1 relationship"
 
     return {
-      summary: `${sourceText} → ${typeLabel} → ${targetText}`,
+      summary: `${sourceTextVal} → ${typeLabel} → ${targetTextVal}`,
       count: relationshipText,
     }
   }

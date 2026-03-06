@@ -19,7 +19,7 @@ type Props = {
   onDisplayNameChange: (v: string) => void
   onPasswordChange: (v: string) => void
   onConfirmPasswordChange: (v: string) => void
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e: React.SubmitEvent) => void
   loading?: boolean
   error?: string | null
   disabled?: boolean
