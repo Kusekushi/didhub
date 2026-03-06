@@ -9,8 +9,8 @@
     "build:html": "cp index.html dist/index.html",
     "build": "pnpm build:css && pnpm build:js && pnpm build:html",
     "lint": "eslint src/",
-    "test": "bun test --environment jsdom",
-    "test:coverage": "bun test --coverage --environment jsdom"
+    "test": "bun test",
+    "test:coverage": "bun test --coverage"
   },
   "dependencies": {
     "@didhub/api": "workspace:*",
