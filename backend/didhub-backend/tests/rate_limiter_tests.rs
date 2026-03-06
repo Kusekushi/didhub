@@ -14,10 +14,8 @@ async fn limiter_blocks_after_burst_per_ip() {
     // Build minimal app state
     let cfg = DbConnectionConfig::new("sqlite::memory:");
     let pool = create_pool(&cfg).await.expect("create pool");
-    let authenticator = Arc::new(TestAuthenticator::new_with(
-        vec!["user".to_string()],
-        None,
-    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
+    let authenticator = Arc::new(TestAuthenticator::new_with(vec!["user".to_string()], None))
+        as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = Arc::new(AppState::new(
         pool,
         authenticator,

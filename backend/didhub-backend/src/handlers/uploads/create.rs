@@ -22,9 +22,9 @@ pub async fn create(
         .ok_or_else(|| ApiError::bad_request("missing request body"))?
         .0
         .clone();
-    let uploaded_by: SqlxUuid = auth
-        .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
+    let uploaded_by: SqlxUuid = auth.user_id.ok_or_else(|| {
+        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+    })?;
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
     if !is_admin {
         let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;

@@ -23,7 +23,9 @@ async fn login_me_logout_flow() {
 
     // Insert a user with argon2 password hash
     let password = "secret123";
-    let password_hash = didhub_auth::auth::hash_client_password(&didhub_auth::auth::sha256_hex(password)).expect("hash");
+    let password_hash =
+        didhub_auth::auth::hash_client_password(&didhub_auth::auth::sha256_hex(password))
+            .expect("hash");
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now().to_rfc3339();
     sqlx::query("INSERT INTO users (id, username, password_hash, created_at, updated_at, roles, settings) VALUES (?, ?, ?, ?, ?, ?, ?)")

@@ -18,9 +18,9 @@ pub async fn create(
 ) -> Result<Json<Value>, ApiError> {
     let auth =
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let owner_user_id = auth
-        .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
+    let owner_user_id = auth.user_id.ok_or_else(|| {
+        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+    })?;
     let is_admin = auth.scopes.iter().any(|scope| scope == "admin");
 
     if !is_admin {

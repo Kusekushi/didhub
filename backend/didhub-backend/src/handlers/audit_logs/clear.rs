@@ -9,5 +9,7 @@ pub async fn clear(
     Extension(_state): Extension<Arc<AppState>>,
     _headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    Ok(Json(json!({ "cleared": false, "message": "Log clearing via API is no longer supported with the tracing-based logger." })))
+    Ok(Json(
+        json!({ "cleared": false, "message": "Log clearing via API is no longer supported with the tracing-based logger." }),
+    ))
 }

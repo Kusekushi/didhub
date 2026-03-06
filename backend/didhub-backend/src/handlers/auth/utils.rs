@@ -101,9 +101,9 @@ pub async fn authenticate_and_require_approved(
     }
 
     // Non-admins must be authenticated with a user id
-    let user_id = auth
-        .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
+    let user_id = auth.user_id.ok_or_else(|| {
+        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+    })?;
 
     // Check that the user has the 'user' role (which means they're approved)
     // The scopes in the auth context are derived from the user's roles at login time

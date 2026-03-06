@@ -88,7 +88,6 @@ fn reload_log_level(
     }
 }
 
-
 fn reload_authenticator(new: &didhub_config::Config, state: &AppState) {
     match build_authenticator_from_config(new) {
         Ok((new_auth, _info)) => {

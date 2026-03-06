@@ -30,11 +30,7 @@ impl ConnectionLogger {
     }
 
     /// Record a failed connection audit event including error details.
-    pub fn log_failure(
-        &self,
-        config: &DbConnectionConfig,
-        error: &DbConnectionError,
-    ) {
+    pub fn log_failure(&self, config: &DbConnectionConfig, error: &DbConnectionError) {
         let metadata = config_metadata(config);
         let enriched = json!({
             "config": metadata,
@@ -43,16 +39,12 @@ impl ConnectionLogger {
         self.append_event("db_pool.create_failure", enriched)
     }
 
-    fn append_event(
-        &self,
-        message: &str,
-        metadata: serde_json::Value,
-    ) {
+    fn append_event(&self, message: &str, metadata: serde_json::Value) {
         let mut enriched_metadata = metadata;
         if !self.source.is_empty() {
-             if let Some(obj) = enriched_metadata.as_object_mut() {
-                 obj.insert("source".to_string(), json!(self.source));
-             }
+            if let Some(obj) = enriched_metadata.as_object_mut() {
+                obj.insert("source".to_string(), json!(self.source));
+            }
         }
         LogCategory::Audit.log(tracing::Level::INFO, message, Some(enriched_metadata));
     }

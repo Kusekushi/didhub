@@ -16,9 +16,9 @@ pub async fn delete(
 ) -> Result<Json<Value>, ApiError> {
     let auth =
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let user_id = auth
-        .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
+    let user_id = auth.user_id.ok_or_else(|| {
+        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+    })?;
 
     let alter_id_str = path
         .get("alterId")

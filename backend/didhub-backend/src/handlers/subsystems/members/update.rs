@@ -20,9 +20,9 @@ pub async fn update(
     // Only system owner or admin can update member status
     let auth =
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let user_id = auth
-        .user_id
-        .ok_or_else(|| ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed))?;
+    let user_id = auth.user_id.ok_or_else(|| {
+        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+    })?;
     let is_admin = auth.scopes.iter().any(|s| s == "admin");
 
     state

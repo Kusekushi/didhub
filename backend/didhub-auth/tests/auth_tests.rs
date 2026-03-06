@@ -1,5 +1,5 @@
 use didhub_auth::auth::context::AuthContext;
-use didhub_auth::auth::hashing::{Argon2Hasher, is_client_hash, sha256_hex, validate_client_hash};
+use didhub_auth::auth::hashing::{is_client_hash, sha256_hex, validate_client_hash, Argon2Hasher};
 use didhub_auth::auth::jwt::JwtAuthenticator;
 use didhub_auth::auth::traits::AuthenticatorTrait;
 use serde_json::Value;

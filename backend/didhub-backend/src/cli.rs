@@ -20,11 +20,4 @@ impl CliArgs {
     pub fn parse() -> Self {
         Parser::parse()
     }
-
-    /// Print usage information.
-    pub fn print_help() {
-        use clap::CommandFactory;
-        let mut cmd = Self::command();
-        cmd.print_help().unwrap();
-    }
 }

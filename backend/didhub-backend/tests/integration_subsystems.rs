@@ -41,10 +41,9 @@ async fn setup() -> (Arc<AppState>, sqlx::Pool<sqlx::Sqlite>) {
     let log_dir = std::env::temp_dir().join("didhub_test_logs_subsystems");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
 
-    let authenticator =
-        Arc::new(TestAuthenticator::new_with_scopes(
-            vec!["admin".to_string()],
-        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
+    let authenticator = Arc::new(TestAuthenticator::new_with_scopes(
+        vec!["admin".to_string()],
+    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state = AppState::new(
         pool.clone(),
         authenticator,

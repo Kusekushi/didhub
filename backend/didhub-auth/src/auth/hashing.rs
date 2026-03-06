@@ -1,3 +1,4 @@
+pub use crate::auth::context::PasswordError;
 use argon2::{
     password_hash::{
         rand_core::OsRng, PasswordHash, PasswordHasher as Argon2PasswordHasher, PasswordVerifier,
@@ -6,7 +7,6 @@ use argon2::{
     Argon2,
 };
 use sha2::{Digest, Sha256};
-pub use crate::auth::context::PasswordError;
 
 // ============================================================================
 // Password Hashing

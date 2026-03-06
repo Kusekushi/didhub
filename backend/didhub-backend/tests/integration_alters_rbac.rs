@@ -88,9 +88,8 @@ async fn alters_rbac_denied_for_non_owner() {
 
     // Now attempt update with a non-admin different user
     let nonadmin_auth =
-        std::sync::Arc::new(
-            TestAuthenticator::new_with_scopes(vec!["user".to_string()])
-        ) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
+        std::sync::Arc::new(TestAuthenticator::new_with_scopes(vec!["user".to_string()]))
+            as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state2 = AppState::new(
         pool.clone(),
         nonadmin_auth,

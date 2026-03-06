@@ -24,8 +24,7 @@ use auth_builder::build_authenticator_from_config;
 use bootstrap::maybe_provision_admin;
 use cli::CliArgs;
 use config_helpers::{
-    database_config_from_config, parse_bind_address,
-    service_unavailable_handler,
+    database_config_from_config, parse_bind_address, service_unavailable_handler,
 };
 use tracing_setup::install_tracing_from_config;
 
@@ -52,8 +51,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize tracing
     eprintln!("[STARTUP] Initializing tracing...");
-    let reload_handle =
-        install_tracing_from_config(&config.logging, args.log_level.as_deref());
+    let reload_handle = install_tracing_from_config(&config.logging, args.log_level.as_deref());
     eprintln!("[STARTUP] Tracing initialized");
 
     // Initialize services

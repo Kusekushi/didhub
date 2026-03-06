@@ -1,4 +1,8 @@
-use axum::{extract::{Extension, Query}, http::HeaderMap, Json};
+use axum::{
+    extract::{Extension, Query},
+    http::HeaderMap,
+    Json,
+};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;

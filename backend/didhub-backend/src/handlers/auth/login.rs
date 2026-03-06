@@ -47,11 +47,12 @@ pub async fn login(
 
     // Verify password using didhub_auth
     // Clients MUST provide a SHA-256 pre-hashed password (64 hex characters)
-    didhub_auth::auth::verify_client_password(&dto.password_hash, &user.password_hash)
-        .map_err(|_| {
+    didhub_auth::auth::verify_client_password(&dto.password_hash, &user.password_hash).map_err(
+        |_| {
             warn!(username = %dto.username, user_id = %user.id, "Login failed: password mismatch");
             ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
-        })?;
+        },
+    )?;
 
     // Check if user is approved (has 'user' role) or is admin (admins bypass approval check)
     let is_admin = user_has_role(&user.roles, "admin");

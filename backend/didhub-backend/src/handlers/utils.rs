@@ -2,7 +2,6 @@ use crate::error::ApiError;
 use didhub_db::generated::affiliations as db_affiliations;
 use didhub_db::generated::alters as db_alters;
 use didhub_db::generated::users as db_users;
-use serde_json::Map;
 use serde_json::{json, Value};
 
 pub fn parse_positive_usize(
@@ -46,7 +45,6 @@ pub fn affiliation_to_payload(row: &db_affiliations::AffiliationsRow) -> Value {
         "createdAt": row.created_at,
     })
 }
-
 
 /// Helper to parse JSON string fields into arrays for the alter response.
 /// This handles system_roles, soul_songs, interests, and triggers which are

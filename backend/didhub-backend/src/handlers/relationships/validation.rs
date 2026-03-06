@@ -27,8 +27,8 @@ pub async fn validate_relationship_type(
 
     if let Some(row) = setting {
         if let Some(json_str) = row.value_string {
-            let custom_types: Vec<CustomRelationshipType> =
-                serde_json::from_str(&json_str).map_err(|e| {
+            let custom_types: Vec<CustomRelationshipType> = serde_json::from_str(&json_str)
+                .map_err(|e| {
                     tracing::error!(%e, "Failed to parse custom_relationship_types setting");
                     ApiError::internal_error("Invalid custom_relationship_types configuration")
                 })?;

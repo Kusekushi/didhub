@@ -114,10 +114,9 @@ async fn owner_and_admin_can_modify_relationship() {
     assert!(update_res.is_ok());
 
     // Now attempt delete as admin
-    let admin_auth = std::sync::Arc::new(TestAuthenticator::new_with(
-        vec!["admin".to_string()],
-        None,
-    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
+    let admin_auth =
+        std::sync::Arc::new(TestAuthenticator::new_with(vec!["admin".to_string()], None))
+            as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
     let state2 = AppState::new(
         pool.clone(),
         admin_auth,
