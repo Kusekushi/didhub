@@ -4,7 +4,6 @@ use std::sync::Arc;
 use tempfile::tempdir;
 
 use didhub_db::{create_pool, DbConnectionConfig};
-use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
 use didhub_backend::handlers::uploads;
@@ -69,7 +68,6 @@ async fn batch_files_happy_path_creates_thumbnail_and_returns_url() {
     // Build AppState with TestAuthenticator (admin)
     let log_dir = std::env::temp_dir().join("didhub_test_logs");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log = LogToolClient::new(log_dir.to_str().unwrap());
     let test_user_id = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     let test_auth = std::sync::Arc::from(Box::new(TestAuthenticator::new_with(
         vec!["admin".to_string()],
@@ -135,7 +133,6 @@ async fn batch_files_missing_file_returns_error_entry() {
 
     let log_dir = std::env::temp_dir().join("didhub_test_logs");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log = LogToolClient::new(log_dir.to_str().unwrap());
     let test_user_id = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     let test_auth = std::sync::Arc::from(Box::new(TestAuthenticator::new_with(
         vec!["admin".to_string()],

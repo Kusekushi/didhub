@@ -4,7 +4,6 @@ use didhub_auth::TestAuthenticator;
 use didhub_backend::{rate_limiter::RateLimiterManager, state::AppState};
 use didhub_db::{create_pool, DbConnectionConfig};
 use didhub_job_queue::JobQueueClient;
-use didhub_log_client::LogToolClient;
 use didhub_updates::UpdateCoordinator;
 use std::sync::Arc;
 use tower::util::ServiceExt;
@@ -16,7 +15,6 @@ async fn limiter_blocks_after_burst_per_ip() {
     let cfg = DbConnectionConfig::new("sqlite::memory:");
     let pool = create_pool(&cfg).await.expect("create pool");
     let log_dir = tempfile::tempdir().expect("tempdir");
-    let log_client = LogToolClient::new(log_dir.path().to_str().unwrap());
     let authenticator = Arc::from(Box::new(TestAuthenticator::new_with(
         vec!["user".to_string()],
         None,

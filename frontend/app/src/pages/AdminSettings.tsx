@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { ArrowLeft, RefreshCw, Plus, Search, Edit, Check, X, Trash2 } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Plus, Search, Edit, Check, X, Trash2, Terminal } from 'lucide-react'
 import { InstanceSetting, InstanceSettingsResponse } from '@didhub/api'
+import { LoggingSettings } from '@/components/admin/LoggingSettings'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface EditableSetting extends InstanceSetting {
   isEditing?: boolean
@@ -237,65 +239,81 @@ export default function AdminSettings() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold">Instance Settings</h1>
+              <h1 className="text-3xl font-bold">Instance Configuration</h1>
               <p className="text-muted-foreground mt-2">
-                Advanced configuration editor - {settings.length} settings
+                Manage system-wide settings and logging
               </p>
             </div>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Setting
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Setting</DialogTitle>
-                <DialogDescription>
-                  Create a new instance setting with the specified key, value, and type.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="new-key">Key</Label>
-                  <Input
-                    id="new-key"
-                    value={newSettingKey}
-                    onChange={(e) => setNewSettingKey(e.target.value)}
-                    placeholder="setting.key.name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="new-type">Type</Label>
-                  <select
-                    id="new-type"
-                    value={newSettingType}
-                    onChange={(e) => setNewSettingType(e.target.value as 'bool' | 'number' | 'string')}
-                    className="w-full px-3 py-2 border rounded"
-                  >
-                    <option value="string">String</option>
-                    <option value="number">Number</option>
-                    <option value="bool">Boolean</option>
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="new-value">Value</Label>
-                  {newSettingType === 'bool' ? (
+        </div>
+      </div>
+
+      <Tabs defaultValue="instance" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="instance">System Settings</TabsTrigger>
+          <TabsTrigger value="logging">Logging</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="logging">
+          <LoggingSettings />
+        </TabsContent>
+
+        <TabsContent value="instance">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold">Instance Settings</h2>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Setting
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Setting</DialogTitle>
+                  <DialogDescription>
+                    Create a new instance setting with the specified key, value, and type.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="new-key">Key</Label>
+                    <Input
+                      id="new-key"
+                      value={newSettingKey}
+                      onChange={(e) => setNewSettingKey(e.target.value)}
+                      placeholder="setting.key.name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="new-type">Type</Label>
                     <select
-                      id="new-value"
-                      value={newSettingValue}
-                      onChange={(e) => setNewSettingValue(e.target.value)}
+                      id="new-type"
+                      value={newSettingType}
+                      onChange={(e) => setNewSettingType(e.target.value as 'bool' | 'number' | 'string')}
                       className="w-full px-3 py-2 border rounded"
                     >
-                      <option value="">Select value</option>
-                      <option value="true">true</option>
-                      <option value="false">false</option>
+                      <option value="string">String</option>
+                      <option value="number">Number</option>
+                      <option value="bool">Boolean</option>
                     </select>
-                  ) : (
-                    <Input
-                      id="new-value"
+                  </div>
+                  <div>
+                    <Label htmlFor="new-value">Value</Label>
+                    {newSettingType === 'bool' ? (
+                      <select
+                        id="new-value"
+                        value={newSettingValue}
+                        onChange={(e) => setNewSettingValue(e.target.value)}
+                        className="w-full px-3 py-2 border rounded"
+                      >
+                        <option value="">Select value</option>
+                        <option value="true">true</option>
+                        <option value="false">false</option>
+                      </select>
+                    ) : (
+                      <Input
+                        id="new-value"
                       type={newSettingType === 'number' ? 'number' : 'text'}
                       value={newSettingValue}
                       onChange={(e) => setNewSettingValue(e.target.value)}
@@ -340,7 +358,6 @@ export default function AdminSettings() {
             <option value="bool">Boolean</option>
           </select>
         </div>
-      </div>
 
       <Card>
         <CardHeader>
@@ -424,6 +441,8 @@ export default function AdminSettings() {
           </div>
         </CardContent>
       </Card>
+      </TabsContent>
+      </Tabs>
     </div>
   )
 }

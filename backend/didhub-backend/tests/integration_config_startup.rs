@@ -3,7 +3,6 @@ use std::net::Ipv4Addr;
 use didhub_backend::build_router;
 use didhub_backend::state::AppState;
 use didhub_db::DbConnectionConfig;
-use didhub_log_client::LogToolClient;
 
 #[tokio::test]
 async fn startup_with_config_binds_and_serves_health() {

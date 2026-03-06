@@ -2,8 +2,6 @@ use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde_json::json;
 use thiserror::Error;
 
-type LogClientError = didhub_log_client::LogClientError;
-
 type DbConnectionError = didhub_db_connection::DbConnectionError;
 type SqlxError = sqlx::Error;
 type SerdeJsonError = serde_json::Error;
@@ -13,8 +11,6 @@ type SerdeJsonError = serde_json::Error;
 pub enum ApiError {
     #[error("database error: {0}")]
     Database(#[from] DbConnectionError),
-    #[error("log client error: {0}")]
-    LogClient(#[from] LogClientError),
     #[error("authentication error: {0}")]
     Authentication(#[from] didhub_auth::auth::AuthError),
     #[error("job queue error: {0}")]
@@ -31,56 +27,68 @@ pub enum ApiError {
     Forbidden(String),
     #[error("validation error")]
     Validation(serde_json::Value),
-    #[error(transparent)]
-    Sqlx(#[from] SqlxError),
-    #[error(transparent)]
-    SerdeJson(#[from] SerdeJsonError),
+    #[error("internal error: {0}")]
+    Internal(String),
     #[error("unexpected error: {0}")]
     Unexpected(String),
-}
-
-impl IntoResponse for ApiError {
-    fn into_response(self) -> axum::response::Response {
-        let status = match self {
-            ApiError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            ApiError::LogClient(_) => StatusCode::BAD_GATEWAY,
-            ApiError::Authentication(_) => StatusCode::UNAUTHORIZED,
-            ApiError::JobQueue(_) => StatusCode::SERVICE_UNAVAILABLE,
-            ApiError::Update(_) => StatusCode::SERVICE_UNAVAILABLE,
-            ApiError::NotImplemented { .. } => StatusCode::NOT_IMPLEMENTED,
-            ApiError::NotFound { .. } => StatusCode::NOT_FOUND,
-            ApiError::BadRequest { .. } => StatusCode::BAD_REQUEST,
-            ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
-            ApiError::Validation(_) => StatusCode::BAD_REQUEST,
-            ApiError::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            ApiError::SerdeJson(_) => StatusCode::BAD_REQUEST,
-            ApiError::Unexpected(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-
-        let payload = match self {
-            ApiError::Validation(v) => v.clone(),
-            _ => json!({ "error": self.to_string() }),
-        };
-
-        (status, Json(payload)).into_response()
-    }
+    #[error("sqlx error: {0}")]
+    Sqlx(#[from] SqlxError),
+    #[error("serde error: {0}")]
+    Serde(#[from] SerdeJsonError),
 }
 
 impl ApiError {
-    /// Helper for generated handlers to surface unimplemented operations.
+    pub fn bad_request(msg: impl Into<String>) -> Self {
+        Self::BadRequest(msg.into())
+    }
+
+    pub fn not_found(msg: impl Into<String>) -> Self {
+        Self::NotFound(msg.into())
+    }
+
     pub fn not_implemented(operation: &'static str) -> Self {
         Self::NotImplemented { operation }
     }
 
-    pub fn not_found(message: impl Into<String>) -> Self {
-        Self::NotFound(message.into())
+    pub fn forbidden(msg: impl Into<String>) -> Self {
+        Self::Forbidden(msg.into())
     }
 
-    pub fn bad_request(message: impl Into<String>) -> Self {
-        Self::BadRequest(message.into())
+    pub fn internal(msg: impl Into<String>) -> Self {
+        Self::Internal(msg.into())
     }
 
-    pub fn forbidden(message: impl Into<String>) -> Self {
-        Self::Forbidden(message.into())
+    pub fn internal_error(msg: impl Into<String>) -> Self {
+        Self::Internal(msg.into())
+    }
+
+    pub fn unexpected(msg: impl Into<String>) -> Self {
+        Self::Unexpected(msg.into())
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> axum::response::Response {
+        let (status, message) = match self {
+            ApiError::Database(_) => (StatusCode::SERVICE_UNAVAILABLE, self.to_string()),
+            ApiError::Authentication(_) => (StatusCode::UNAUTHORIZED, self.to_string()),
+            ApiError::JobQueue(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            ApiError::Update(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            ApiError::NotImplemented { .. } => (StatusCode::NOT_IMPLEMENTED, self.to_string()),
+            ApiError::NotFound(_) => (StatusCode::NOT_FOUND, self.to_string()),
+            ApiError::BadRequest(_) => (StatusCode::BAD_REQUEST, self.to_string()),
+            ApiError::Forbidden(_) => (StatusCode::FORBIDDEN, self.to_string()),
+            ApiError::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()),
+            ApiError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            ApiError::Unexpected(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            ApiError::Sqlx(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            ApiError::Serde(_) => (StatusCode::BAD_REQUEST, self.to_string()),
+        };
+
+        let body = Json(json!({
+            "error": message,
+        }));
+
+        (status, body).into_response()
     }
 }

@@ -167,7 +167,6 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
 
     # Copy runtime tools
     tool_executables = {
-        "log_collector": f"didhub-log-collector{binary_ext}",
         "log_analyzer": f"didhub-log-analyzer{binary_ext}",
         "config_generator": f"config-generator{binary_ext}",
     }

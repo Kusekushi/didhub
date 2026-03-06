@@ -4,7 +4,6 @@ use didhub_auth::TestAuthenticator;
 use didhub_backend::handlers::users::create;
 use didhub_backend::state::AppState;
 use didhub_db::{create_pool, DbConnectionConfig};
-use didhub_log_client::LogToolClient;
 // We'll inspect the HTTP response produced by ApiError via IntoResponse
 
 #[tokio::test]
@@ -35,7 +34,6 @@ async fn create_user_returns_structured_validation() {
 
     let log_dir = std::env::temp_dir().join("didhub_test_logs");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log = LogToolClient::new(log_dir.to_str().unwrap());
     let test_auth =
         std::sync::Arc::from(Box::new(TestAuthenticator::new_with_scopes(
             vec!["admin".to_string()],

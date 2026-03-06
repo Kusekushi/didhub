@@ -1,6 +1,4 @@
 use std::num::ParseIntError;
-
-use didhub_log_client::LogClientError;
 use thiserror::Error;
 
 /// Non-recursive error kinds for efficient composition
@@ -56,9 +54,6 @@ impl From<DbConnectionError> for DbConnectionErrorKind {
             DbConnectionError::InvalidBoolean { var, value } => Self::InvalidBoolean { var, value },
             DbConnectionError::FileCreation(msg) => Self::FileCreation(msg),
             DbConnectionError::Sqlx(err) => Self::Sqlx(err),
-            // For log client errors, we can't convert them properly, so we use a generic message
-            DbConnectionError::LogClient(_) => Self::FileCreation("Log client error".to_owned()),
-            DbConnectionError::LogClientDuringDbError { original, .. } => original,
         }
     }
 }
@@ -80,15 +75,14 @@ pub enum DbConnectionError {
     },
     #[error("invalid boolean value '{value}' for {var}")]
     InvalidBoolean { var: String, value: String },
-    #[error("log collector error: {0}")]
-    LogClient(#[from] LogClientError),
-    #[error("log collector error while handling database failure: {log_error}")]
-    LogClientDuringDbError {
-        original: DbConnectionErrorKind,
-        log_error: LogClientError,
-    },
     #[error("file/directory creation error: {0}")]
     FileCreation(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
+}
+
+impl DbConnectionError {
+    pub fn io(err: std::io::Error) -> Self {
+        Self::FileCreation(err.to_string())
+    }
 }

@@ -8,10 +8,16 @@ pub type ReloadHandle =
 /// Initialize tracing from configuration.
 ///
 /// Returns a reload handle that can be used to update the log level at runtime.
-pub fn install_tracing_from_config(cfg: &didhub_config::LoggingConfig) -> Option<ReloadHandle> {
+pub fn install_tracing_from_config(
+    cfg: &didhub_config::LoggingConfig,
+    cli_filter: Option<&str>,
+) -> Option<ReloadHandle> {
     use tracing_subscriber::fmt::time::ChronoUtc;
 
-    let env_filter_str = std::env::var("RUST_LOG").unwrap_or_else(|_| cfg.level.clone());
+    let env_filter_str = cli_filter
+        .map(|s| s.to_owned())
+        .or_else(|| std::env::var("RUST_LOG").ok())
+        .unwrap_or_else(|| cfg.level.clone());
 
     // Each branch creates its own reload layer since the subscriber types differ.
     // We return a type-erased wrapper for runtime reloading.

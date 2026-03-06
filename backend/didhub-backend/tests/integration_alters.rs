@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use didhub_db::{create_pool, DbConnectionConfig};
-use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
 use didhub_backend::generated::routes::{create_alter, delete_alter, get_alter, update_alter};
@@ -48,7 +47,6 @@ async fn alters_crud_sqlite_in_memory() {
 
     let log_dir = std::env::temp_dir().join("didhub_test_logs");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log = LogToolClient::new(log_dir.to_str().unwrap());
 
     let test_auth =
         std::sync::Arc::from(Box::new(TestAuthenticator::new_with_scopes(

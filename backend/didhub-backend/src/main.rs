@@ -24,7 +24,7 @@ use auth_builder::build_authenticator_from_config;
 use bootstrap::maybe_provision_admin;
 use cli::CliArgs;
 use config_helpers::{
-    database_config_from_config, log_client_from_config, parse_bind_address,
+    database_config_from_config, parse_bind_address,
     service_unavailable_handler,
 };
 use tracing_setup::install_tracing_from_config;
@@ -34,14 +34,10 @@ async fn main() -> anyhow::Result<()> {
     eprintln!("[STARTUP] DIDHub Backend starting...");
     let args = CliArgs::parse();
 
-    if args.help_requested {
-        CliArgs::print_help();
-        return Ok(());
-    }
-
     // Resolve config path: CLI > environment variable
     let config_path = args
         .config_path
+        .clone()
         .or_else(|| std::env::var("DIDHUB_CONFIG_PATH").ok());
 
     eprintln!("[STARTUP] Loading config from: {:?}", config_path);
@@ -56,8 +52,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize tracing
     eprintln!("[STARTUP] Initializing tracing...");
-    let reload_handle = install_tracing_from_config(&config.logging);
-    let log_client = log_client_from_config(&config);
+    let reload_handle =
+        install_tracing_from_config(&config.logging, args.log_level.as_deref());
     eprintln!("[STARTUP] Tracing initialized");
 
     // Initialize services
@@ -108,10 +104,10 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("[STARTUP] Authenticator built successfully");
             let state = AppState::new(
                 db_pool,
-                log_client,
                 authenticator,
                 job_queue.clone(),
                 updates,
+                reload_handle.clone(),
             );
             eprintln!("[STARTUP] AppState created");
             (Some(Arc::new(state)), None)

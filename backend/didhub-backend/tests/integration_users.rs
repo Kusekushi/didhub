@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use didhub_db::{create_pool, DbConnectionConfig};
-use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
 use didhub_backend::generated::routes::{create_user, delete_user, get_user_by_id, update_user};
@@ -37,7 +36,6 @@ async fn users_crud_sqlite_in_memory() {
     .expect("create table");
 
     // Build AppState
-    let log = LogToolClient::new("/tmp/nonexistent");
     let test_auth =
         std::sync::Arc::from(Box::new(TestAuthenticator::new_with_scopes(
             vec!["admin".to_string()],

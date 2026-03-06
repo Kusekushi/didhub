@@ -25,8 +25,6 @@ CLEAN_DIRS: list[tuple[Path, str]] = [
     (ROOT / "frontend" / "app" / "node_modules", "Frontend node_modules"),
     (ROOT / "frontend" / "app" / "dist", "Frontend build output"),
     (ROOT / "frontend" / "api" / "node_modules", "API client node_modules"),
-    (ROOT / "runtime_tools" / "log_collector" / "zig-out", "Log collector build"),
-    (ROOT / "runtime_tools" / "log_collector" / "zig-cache", "Log collector cache"),
     (ROOT / "runtime_tools" / "log_analyzer" / "zig-out", "Log analyzer build"),
     (ROOT / "runtime_tools" / "log_analyzer" / "zig-cache", "Log analyzer cache"),
     (ROOT / "runtime_tools" / "config_generator" / "zig-out", "Config generator build"),

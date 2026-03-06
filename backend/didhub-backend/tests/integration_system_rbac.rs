@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use didhub_db::{create_pool, DbConnectionConfig};
-use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
 use didhub_backend::state::AppState;
@@ -111,7 +110,6 @@ async fn system_user_restrictions() {
 
     let log_dir = std::env::temp_dir().join("didhub_test_logs");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log = LogToolClient::new(log_dir.to_str().unwrap());
 
     // Insert two users: one system user and one non-system user
     let system_id = "00000000-0000-0000-0000-0000000000aa";

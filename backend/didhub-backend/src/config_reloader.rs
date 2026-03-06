@@ -6,7 +6,6 @@ use didhub_job_queue::JobQueueClient;
 use tokio::sync::RwLock;
 
 use crate::auth_builder::build_authenticator_from_config;
-use crate::config_helpers::log_client_from_config;
 use crate::tracing_setup::ReloadHandle;
 
 /// Spawn the background configuration reloader task.
@@ -52,7 +51,6 @@ pub fn spawn_config_reloader(
 
                         // Hot-reload state components
                         if let Some(ref state) = app_state {
-                            reload_log_client(&old, &new_cfg, state);
                             reload_authenticator(&new_cfg, state);
                         }
 
@@ -90,13 +88,6 @@ fn reload_log_level(
     }
 }
 
-fn reload_log_client(old: &didhub_config::Config, new: &didhub_config::Config, state: &AppState) {
-    if old.logging.log_dir != new.logging.log_dir {
-        let new_log_client = log_client_from_config(new);
-        let _old_client = state.swap_log_client(new_log_client);
-        tracing::info!("swapped log client at runtime");
-    }
-}
 
 fn reload_authenticator(new: &didhub_config::Config, state: &AppState) {
     match build_authenticator_from_config(new) {

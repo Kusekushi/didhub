@@ -6,7 +6,6 @@ use didhub_backend::state::AppState;
 use didhub_db::create_pool;
 use didhub_db::DbConnectionConfig;
 use didhub_job_queue::JobQueueClient;
-use didhub_log_client::LogToolClient;
 use didhub_updates::UpdateCoordinator;
 #[allow(unused_imports)]
 use sqlx::Executor;
@@ -54,7 +53,6 @@ async fn login_me_logout_flow() {
     )) as Box<dyn didhub_auth::AuthenticatorTrait>);
     let log_dir = std::env::temp_dir().join("didhub_test_logs_auth");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log = LogToolClient::new(log_dir.to_str().unwrap());
     let state = AppState::new(
         pool.clone(),
         log,

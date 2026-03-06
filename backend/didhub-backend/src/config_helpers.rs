@@ -2,7 +2,6 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 
 use axum::{http::StatusCode, response::Html, response::IntoResponse};
 use didhub_db::DbConnectionConfig;
-use didhub_log_client::LogToolClient;
 
 /// Build database connection config from application config.
 pub fn database_config_from_config(cfg: &didhub_config::Config) -> DbConnectionConfig {
@@ -16,17 +15,6 @@ pub fn database_config_from_config(cfg: &didhub_config::Config) -> DbConnectionC
             DbConnectionConfig::new("sqlite::memory:")
         }
     }
-}
-
-/// Build log client from application config.
-pub fn log_client_from_config(cfg: &didhub_config::Config) -> LogToolClient {
-    let log_dir = cfg
-        .logging
-        .log_dir
-        .clone()
-        .or_else(|| std::env::var("DIDHUB_LOG_DIR").ok())
-        .unwrap_or_else(|| ".".into());
-    LogToolClient::from_directory(log_dir)
 }
 
 /// Parse host:port into a SocketAddr, with fallback to 0.0.0.0.

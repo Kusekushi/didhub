@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use didhub_auth::auth::AuthenticatorTrait;
 use didhub_job_queue::JobQueueClient;
-use didhub_log_client::{AppendRequest, LogCategory, LogToolClient};
+use didhub_log_client::LogCategory;
 use didhub_updates::UpdateCoordinator;
 use serde_json::{json, Value};
 use std::sync::RwLock;
@@ -13,21 +13,20 @@ use crate::error::ApiError;
 /// Shared application state passed to every route handler.
 pub struct AppState {
     pub db_pool: Arc<didhub_db::DbPool>,
-    // Use an Arc-wrapped RwLock to allow swapping the inner Arc<T> atomically.
-    log_client: Arc<RwLock<Arc<LogToolClient>>>,
     authenticator: Arc<RwLock<Arc<dyn AuthenticatorTrait>>>,
     pub job_queue: JobQueueClient,
     pub updates: UpdateCoordinator,
+    pub reload_handle: Option<crate::tracing_setup::ReloadHandle>,
 }
 
 impl Clone for AppState {
     fn clone(&self) -> Self {
         Self {
             db_pool: Arc::clone(&self.db_pool),
-            log_client: Arc::clone(&self.log_client),
             authenticator: Arc::clone(&self.authenticator),
             job_queue: self.job_queue.clone(),
             updates: self.updates.clone(),
+            reload_handle: self.reload_handle.clone(),
         }
     }
 }
@@ -36,32 +35,18 @@ impl AppState {
     /// Build a fully initialised state container from its constituent parts.
     pub fn new(
         db_pool: didhub_db::DbPool,
-        log_client: LogToolClient,
         authenticator: Arc<dyn AuthenticatorTrait>,
         job_queue: JobQueueClient,
         updates: UpdateCoordinator,
+        reload_handle: Option<crate::tracing_setup::ReloadHandle>,
     ) -> Self {
         Self {
             db_pool: Arc::new(db_pool),
-            log_client: Arc::new(RwLock::new(Arc::new(log_client))),
             authenticator: Arc::new(RwLock::new(authenticator)),
             job_queue,
             updates,
+            reload_handle,
         }
-    }
-
-    /// Atomically get a clone of the current log client.
-    pub fn log_client(&self) -> Arc<LogToolClient> {
-        let guard = self.log_client.read().unwrap();
-        guard.clone()
-    }
-
-    /// Atomically replace the log client with a new instance and return the old one.
-    pub fn swap_log_client(&self, new: LogToolClient) -> Arc<LogToolClient> {
-        let mut guard = self.log_client.write().unwrap();
-        let old = guard.clone();
-        *guard = Arc::new(new);
-        old
     }
 
     /// Atomically get a clone of the current authenticator.
@@ -84,13 +69,13 @@ impl AppState {
     /// Record a request/response lifecycle entry via the shared log client.
     pub async fn audit_request(
         &self,
-        method: &str,
+        _method: &str,
         path: &str,
         path_params: &HashMap<String, String>,
         query_params: &HashMap<String, String>,
         body: &Value,
     ) -> Result<(), ApiError> {
-        let mut request = AppendRequest::new(LogCategory::Audit, format!("{method} {path}"));
+        let message = format!("{} {}", _method, path);
 
         let metadata = json!({
             "path": path,
@@ -99,9 +84,8 @@ impl AppState {
             "body": body,
         });
 
-        request = request.with_metadata(metadata);
-        // Don't fail requests if logging fails. Swallow log client errors and proceed.
-        let _ = self.log_client().append(request);
+        LogCategory::Audit.log(tracing::Level::INFO, &message, Some(metadata));
+
         Ok(())
     }
 }

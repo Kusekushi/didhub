@@ -32,7 +32,6 @@ FRONTEND_DIR = ROOT / "frontend" / "app"
 
 # Runtime tools directories
 RUNTIME_TOOLS = [
-    ROOT / "runtime_tools" / "log_collector",
     ROOT / "runtime_tools" / "log_analyzer",
     ROOT / "runtime_tools" / "config_generator",
 ]

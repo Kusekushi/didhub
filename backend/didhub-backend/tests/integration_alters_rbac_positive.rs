@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use didhub_db::{create_pool, DbConnectionConfig};
-use didhub_log_client::LogToolClient;
 
 use didhub_auth::TestAuthenticator;
 use didhub_backend::generated::routes::{create_alter, delete_alter, update_alter};
@@ -50,7 +49,6 @@ async fn owner_and_admin_can_modify_alter() {
 
     let log_dir = std::env::temp_dir().join("didhub_test_logs");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log = LogToolClient::new(log_dir.to_str().unwrap());
 
     // create users table using full migrations schema so generated queries match
     sqlx::query(

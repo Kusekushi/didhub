@@ -5,4 +5,5 @@ pub mod get;
 pub mod get_admin_overview;
 pub mod helpers;
 pub mod list;
+pub mod logging;
 pub mod set;

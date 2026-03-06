@@ -14,7 +14,6 @@ use didhub_backend::{
 };
 use didhub_db::{create_pool, DbConnectionConfig, DbPool};
 use didhub_job_queue::JobQueueClient;
-use didhub_log_client::LogToolClient;
 use didhub_updates::UpdateCoordinator;
 use serde_json::json;
 use tempfile::TempDir;
@@ -51,7 +50,6 @@ async fn setup(scopes: Vec<String>) -> TestContext {
     .await
     .expect("create instance_settings");
 
-    let log_client = LogToolClient::new(temp_dir.path().join("log_tool_stub"));
     let authenticator: StdArc<dyn AuthenticatorTrait> =
         StdArc::new(TestAuthenticator::new_with_scopes(scopes));
     let job_queue = JobQueueClient::new();

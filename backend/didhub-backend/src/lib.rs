@@ -6,6 +6,7 @@ pub mod generated;
 pub mod handlers;
 pub mod rate_limiter;
 pub mod state;
+pub mod tracing_setup;
 pub mod validation;
 
 pub use app::build_router;

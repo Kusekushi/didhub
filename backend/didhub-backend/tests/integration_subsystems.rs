@@ -6,7 +6,6 @@ use didhub_auth::TestAuthenticator;
 use didhub_backend::handlers::subsystems;
 use didhub_backend::state::AppState;
 use didhub_db::{create_pool, DbConnectionConfig};
-use didhub_log_client::LogToolClient;
 use uuid::Uuid;
 
 async fn setup() -> (Arc<AppState>, sqlx::Pool<sqlx::Sqlite>) {
@@ -41,7 +40,6 @@ async fn setup() -> (Arc<AppState>, sqlx::Pool<sqlx::Sqlite>) {
 
     let log_dir = std::env::temp_dir().join("didhub_test_logs_subsystems");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log = LogToolClient::new(log_dir.to_str().unwrap());
 
     let authenticator =
         Arc::from(Box::new(TestAuthenticator::new_with_scopes(

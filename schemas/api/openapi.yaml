@@ -260,6 +260,14 @@ components:
       required:
         - key
         - value
+    LoggingConfig:
+      type: object
+      properties:
+        filter:
+          type: string
+          description: "Environment filter string (e.g. 'info,didhub_backend=debug')"
+      required:
+        - filter
     InstanceSettingsResponse:
       type: object
       properties:
@@ -1462,6 +1470,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemRequest'
+      security:
+        - bearerAuth: []
+  /instance/logging:
+    get:
+      tags: [InstanceSettings]
+      summary: Get current logging configuration
+      operationId: getLoggingConfig
+      x-handler:
+        delegate: crate::handlers::instance_settings::logging::get_logging_config
+        passHeaders: true
+      responses:
+        '200':
+          description: Logging configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoggingConfig'
+      security:
+        - bearerAuth: []
+    post:
+      tags: [InstanceSettings]
+      summary: Update logging configuration
+      operationId: setLoggingConfig
+      x-handler:
+        delegate: crate::handlers::instance_settings::logging::set_logging_config
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoggingConfig'
+      responses:
+        '204':
+          description: Logging configuration updated
       security:
         - bearerAuth: []
   /instance/settings:

@@ -40,6 +40,15 @@ cd ../..
 python build.py dev
 ```
 
+### CLI Options
+
+The backend supports several CLI overrides. For example, you can override the configured log level at startup:
+
+```bash
+# Set log level to debug for the backend and info for others
+cargo run --manifest-path backend/Cargo.toml -- -L "info,didhub_backend=debug"
+```
+
 6. Run tests:
 
 ```pwsh

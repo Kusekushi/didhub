@@ -12,7 +12,6 @@ use didhub_backend::{
     state::AppState,
 };
 use didhub_db::{create_pool, DbConnectionConfig};
-use didhub_log_client::LogToolClient;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
@@ -134,7 +133,6 @@ async fn setup() -> TestContext {
 
     let log_dir = std::env::temp_dir().join("didhub_test_logs_affiliations");
     std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let log_client = LogToolClient::new(log_dir.to_str().unwrap());
 
     let authenticator = Arc::from(Box::new(TestAuthenticator::new_with(
         vec!["user".to_string()],

@@ -2,7 +2,6 @@ use crate::error::ApiError;
 use didhub_db::generated::affiliations as db_affiliations;
 use didhub_db::generated::alters as db_alters;
 use didhub_db::generated::users as db_users;
-use didhub_log_client::LogEntry;
 use serde_json::Map;
 use serde_json::{json, Value};
 
@@ -48,41 +47,6 @@ pub fn affiliation_to_payload(row: &db_affiliations::AffiliationsRow) -> Value {
     })
 }
 
-pub fn audit_entry_to_value(entry: LogEntry) -> Value {
-    let LogEntry {
-        id,
-        timestamp,
-        category,
-        message,
-        source,
-        metadata,
-    } = entry;
-
-    let actor = metadata
-        .as_ref()
-        .and_then(|meta| meta.get("actor"))
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-        .or_else(|| source.clone())
-        .unwrap_or_default();
-
-    let mut object = Map::new();
-    object.insert("id".to_string(), json!(id));
-    object.insert("category".to_string(), json!(category.to_string()));
-    object.insert("message".to_string(), json!(message));
-    object.insert("actor".to_string(), json!(actor));
-    object.insert("createdAt".to_string(), json!(timestamp.to_rfc3339()));
-
-    if let Some(source) = source {
-        object.insert("source".to_string(), json!(source));
-    }
-
-    if let Some(metadata) = metadata {
-        object.insert("metadata".to_string(), metadata);
-    }
-
-    Value::Object(object)
-}
 
 /// Helper to parse JSON string fields into arrays for the alter response.
 /// This handles system_roles, soul_songs, interests, and triggers which are
