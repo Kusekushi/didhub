@@ -1,5 +1,4 @@
 import { Routes, Route } from 'react-router-dom'
-import './App.css'
 import LoginPage from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import { ProtectedRoute } from './components/ProtectedRoute'
