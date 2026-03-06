@@ -6,7 +6,8 @@
   "scripts": {
     "build:css": "npx @tailwindcss/cli -i src/index.css -o dist/main.css",
     "build:js": "bun build src/main.tsx --outdir dist",
-    "build": "pnpm build:css && pnpm build:js",
+    "build:html": "cp index.html dist/index.html",
+    "build": "pnpm build:css && pnpm build:js && pnpm build:html",
     "lint": "eslint src/",
     "test": "bun test --environment jsdom",
     "test:coverage": "bun test --coverage --environment jsdom"
