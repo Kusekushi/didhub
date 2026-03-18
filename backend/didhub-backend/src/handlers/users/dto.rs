@@ -1,4 +1,5 @@
 use crate::validation::ValidationIssue;
+use didhub_db::generated::users::UsersRow;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -8,6 +9,44 @@ pub enum DtoError {
     MissingField(&'static str),
     #[error("invalid field: {0}")]
     InvalidField(&'static str),
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserPublic {
+    pub id: String,
+    pub username: String,
+    pub display_name: Option<String>,
+    pub avatar: Option<String>,
+    pub about_me: Option<String>,
+    pub roles: Vec<String>,
+    pub is_admin: bool,
+    pub is_system: bool,
+    pub is_approved: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl From<UsersRow> for UserPublic {
+    fn from(row: UsersRow) -> Self {
+        let roles: Vec<String> = serde_json::from_str(&row.roles).unwrap_or_default();
+        let is_admin = roles.iter().any(|r| r == "admin");
+        let is_system = roles.iter().any(|r| r == "system");
+        let is_approved = roles.iter().any(|r| r == "user");
+
+        Self {
+            id: row.id.to_string(),
+            username: row.username,
+            display_name: row.display_name,
+            avatar: row.avatar,
+            about_me: row.about_me,
+            roles,
+            is_admin,
+            is_system,
+            is_approved,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

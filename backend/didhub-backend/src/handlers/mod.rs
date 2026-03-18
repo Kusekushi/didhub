@@ -3,6 +3,7 @@ pub mod alters;
 pub mod audit_logs;
 pub mod auth;
 pub mod backups;
+pub mod bulk;
 pub mod instance_settings;
 pub mod jobs;
 pub mod relationships;

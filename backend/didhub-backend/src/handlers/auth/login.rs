@@ -93,6 +93,7 @@ pub async fn login(
     let cookie = cookie::Cookie::build(("didhub_session", token))
         .path("/")
         .http_only(true)
+        .secure(true)
         .same_site(cookie::SameSite::Lax)
         .build();
 

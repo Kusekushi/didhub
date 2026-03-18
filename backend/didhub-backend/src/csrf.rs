@@ -33,7 +33,7 @@ pub async fn get_csrf_token(Extension(_state): Extension<Arc<AppState>>) -> impl
     let cookie = Cookie::build(("csrf_token", token.clone()))
         .path("/")
         .same_site(cookie::SameSite::Lax)
-        .secure(false)
+        .secure(true)
         .build();
 
     let mut resp = (StatusCode::OK, Json(CsrfResponse { token })).into_response();

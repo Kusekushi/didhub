@@ -27,10 +27,8 @@ struct TestContext {
 
 async fn setup(scopes: Vec<String>) -> TestContext {
     let temp_dir = TempDir::new().expect("create temp dir");
-    let db_url = format!(
-        "sqlite://file:instance_settings_{}?mode=memory&cache=shared",
-        Uuid::new_v4()
-    );
+    let db_path = temp_dir.path().join(format!("test_{}.db", Uuid::new_v4()));
+    let db_url = format!("sqlite:///{}", db_path.display());
     let config = DbConnectionConfig::new(db_url);
 
     let pool = create_pool(&config).await.expect("create pool");

@@ -129,19 +129,9 @@ pub fn build_router_with_limiter(state: Arc<AppState>, limiter: RateLimiterManag
 }
 
 fn remote_addr_key(req: &Request<Body>) -> String {
-    // Try to use X-Forwarded-For, then peer addr from extensions
-    if let Some(v) = req.headers().get("x-forwarded-for") {
-        if let Ok(s) = v.to_str() {
-            if let Some(first) = s.split(',').next() {
-                return first.trim().to_string();
-            }
-        }
-    }
-    // Fallback: attempt to read Axum's remote address extension (if set by server)
     if let Some(ext) = req.extensions().get::<std::net::SocketAddr>() {
         return ext.ip().to_string();
     }
-    // Last resort
     "unknown".to_string()
 }
 

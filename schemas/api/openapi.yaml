@@ -1052,6 +1052,157 @@ components:
       properties:
         note:
           type: string
+    BulkGetRequest:
+      type: object
+      properties:
+        alters:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of alter IDs to fetch
+        users:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of user IDs to fetch
+        relationships:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of relationship IDs to fetch
+        affiliations:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of affiliation IDs to fetch
+        subsystems:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of subsystem IDs to fetch
+    BulkGetResponse:
+      type: object
+      properties:
+        alters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alter'
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/Relationship'
+        affiliations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Affiliation'
+        subsystems:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subsystem'
+    BulkSetRequest:
+      type: object
+      properties:
+        alters:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateAlterRequest'
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateUserRequest'
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateRelationshipRequest'
+        affiliations:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateAffiliationRequest'
+        subsystems:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subsystem'
+    BulkSetResponse:
+      type: object
+      properties:
+        alters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alter'
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/Relationship'
+        affiliations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Affiliation'
+        subsystems:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subsystem'
+    BulkRemoveRequest:
+      type: object
+      properties:
+        alters:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of alter IDs to delete
+        users:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of user IDs to delete
+        relationships:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of relationship IDs to delete
+        affiliations:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of affiliation IDs to delete
+        subsystems:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of subsystem IDs to delete
+    BulkRemoveResponse:
+      type: object
+      properties:
+        deleted:
+          type: object
+          properties:
+            alters:
+              type: integer
+            users:
+              type: integer
+            relationships:
+              type: integer
+            affiliations:
+              type: integer
+            subsystems:
+              type: integer
 paths:
   /users:
     get:
@@ -3025,6 +3176,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Profile'
+      security:
+        - bearerAuth: []
+  /bulk-get:
+    post:
+      tags: [Bulk]
+      summary: Bulk get multiple resources by type and ID
+      operationId: bulkGet
+      x-handler:
+        delegate: crate::handlers::bulk::get::bulk_get
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkGetRequest'
+      responses:
+        '200':
+          description: Bulk fetch results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkGetResponse'
+      security:
+        - bearerAuth: []
+  /bulk-set:
+    put:
+      tags: [Bulk]
+      summary: Bulk create/update multiple resources by type
+      operationId: bulkSet
+      x-handler:
+        delegate: crate::handlers::bulk::set::bulk_set
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkSetRequest'
+      responses:
+        '200':
+          description: Bulk set results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkSetResponse'
+      security:
+        - bearerAuth: []
+  /bulk-remove:
+    delete:
+      tags: [Bulk]
+      summary: Bulk delete multiple resources by type and ID
+      operationId: bulkRemove
+      x-handler:
+        delegate: crate::handlers::bulk::remove::bulk_remove
+        passHeaders: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkRemoveRequest'
+      responses:
+        '200':
+          description: Bulk delete results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkRemoveResponse'
       security:
         - bearerAuth: []
 security:

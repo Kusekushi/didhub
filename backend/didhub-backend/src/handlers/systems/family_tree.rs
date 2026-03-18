@@ -9,25 +9,26 @@ use serde_json::{json, Value};
 use crate::error::ApiError;
 use crate::state::AppState;
 
-// DB-backed implementation for GET /systems/family-tree
-// Returns a tree structure rooted at `startId` (query param) up to `depth` (query param).
 #[allow(clippy::unused_async)]
 pub async fn get(
     Extension(state): Extension<Arc<AppState>>,
-    _headers: HeaderMap,
+    headers: HeaderMap,
     query: Option<Query<HashMap<String, String>>>,
 ) -> Result<Json<Value>, ApiError> {
+    let auth = crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
+    let _user_id = auth.user_id
+        .ok_or_else(|| ApiError::forbidden("user_id required for family tree access"))?;
+    
     let params = query.map(|q| q.0).unwrap_or_default();
     let start_id_param = params.get("startId").cloned();
     let depth = params
         .get("depth")
         .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(2);
+        .unwrap_or(2)
+        .min(10);
 
-    // Acquire DB connection
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
 
-    // Load users, alters, relationships
     let users = didhub_db::generated::users::list_all(&mut *conn)
         .await
         .map_err(ApiError::from)?;

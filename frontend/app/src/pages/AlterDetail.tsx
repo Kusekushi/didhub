@@ -418,12 +418,111 @@ export default function AlterDetail() {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    loadAlter()
-    loadRelationships()
-    loadAffiliations()
-    loadSubsystem()
+    loadAlterData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alterId])
+
+  const loadAlterData = async () => {
+    if (!alterId) return
+    setLoading(true)
+    setLoadingRelationships(true)
+    setLoadingAffiliations(true)
+    setLoadingSubsystem(true)
+
+    try {
+      const bulkResponse = await api.bulkGet({
+        body: {
+          alters: [alterId]
+        }
+      })
+
+      const data = bulkResponse.data
+      if (data.alters && data.alters.length > 0) {
+        const alterData = data.alters[0]
+        setAlter(alterData)
+
+        if (alterData.primaryUploadId || (alterData.images && alterData.images.length > 0)) {
+          try {
+            const imageIds = [
+              ...(alterData.primaryUploadId ? [alterData.primaryUploadId] : []),
+              ...(alterData.images || []).filter((id: string) => id !== alterData.primaryUploadId)
+            ]
+            if (imageIds.length > 0) {
+              const fileResponse = await api.serveStoredFilesBatch({
+                query: { ids: imageIds.join(',') }
+              })
+              const files = fileResponse.data as Array<{ file_id: string; url: string }>
+              if (files && files.length > 0) {
+                const mappedFiles = files.map(f => ({ id: f.file_id, url: f.url }))
+                const primaryFile = mappedFiles.find(f => f.id === alterData.primaryUploadId)
+                const otherFiles = mappedFiles.filter(f => f.id !== alterData.primaryUploadId)
+                if (primaryFile) setImageUrl(primaryFile.url)
+                setAllImages(otherFiles.length > 0 ? otherFiles : mappedFiles)
+              }
+            }
+          } catch {
+            // Images not available
+          }
+        }
+
+        const relationshipResponse = await api.listRelationships({
+          query: { alterId, perPage: 100 }
+        })
+        const relData = relationshipResponse.data
+        const relationshipList: Relationship[] = Array.isArray(relData)
+          ? relData
+          : (relData.items || [])
+        setRelationships(relationshipList)
+
+        const alterIds = new Set<string>()
+        const userIds = new Set<string>()
+        relationshipList.forEach(rel => {
+          if (rel.sideAAlterId && rel.sideAAlterId !== alterId) alterIds.add(rel.sideAAlterId)
+          if (rel.sideBAlterId && rel.sideBAlterId !== alterId) alterIds.add(rel.sideBAlterId)
+          if (rel.sideAUserId) userIds.add(rel.sideAUserId)
+          if (rel.sideBUserId) userIds.add(rel.sideBUserId)
+        })
+
+        if (alterIds.size > 0 || userIds.size > 0) {
+          const relatedBulkResponse = await api.bulkGet({
+            body: {
+              alters: Array.from(alterIds),
+              users: Array.from(userIds)
+            }
+          })
+          const relatedData = relatedBulkResponse.data
+
+          const alterMap: Record<string, Alter> = {}
+          if (relatedData.alters) {
+            relatedData.alters.forEach((a: Alter) => { alterMap[a.id] = a })
+          }
+          setRelatedAlters(alterMap)
+
+          const userMap: Record<string, User> = {}
+          if (relatedData.users) {
+            relatedData.users.forEach((u: User) => { userMap[u.id] = u })
+          }
+          if (alterData.systemId) {
+            userMap[alterData.systemId] = relatedData.users?.find((u: User) => u.id === alterData.systemId) || null
+          }
+          setRelatedUsers(userMap)
+        }
+
+        const affiliationsResponse = await api.getAlterAffiliations({
+          path: { alterId }
+        })
+        setAffiliations(affiliationsResponse.data.items || [])
+      }
+    } catch {
+      showToast({ title: 'Error', description: 'Failed to load alter details', variant: 'error' })
+      navigate('/system')
+    } finally {
+      setLoading(false)
+      setLoadingRelationships(false)
+      setLoadingAffiliations(false)
+      setLoadingSubsystem(false)
+    }
+  }
 
   useEffect(() => {
     // Focus input when editing starts
@@ -436,164 +535,9 @@ export default function AlterDetail() {
     }
   }, [editingField])
 
-  const loadAlter = async () => {
-    if (!alterId) return
-    setLoading(true)
-    try {
-      const response = await api.getAlter({ path: { alterId } })
-      const alterData = response.data
-      setAlter(alterData)
-      
-      // Load system info
-      if (alterData.systemId) {
-        try {
-          const systemResponse = await api.getUserById({ path: { id: alterData.systemId } })
-          setSystem(systemResponse.data)
-        } catch {
-          // System user not available
-        }
-      }
 
-      // Load primary image if available
-      if (alterData.primaryUploadId) {
-        try {
-          const fileResponse = await api.serveStoredFilesBatch({ 
-            query: { ids: alterData.primaryUploadId } 
-          })
-          const files = fileResponse.data
-          if (files && files.length > 0 && files[0].url) {
-            setImageUrl(files[0].url)
-          }
-        } catch {
-          // Image not available
-        }
-      }
 
-      // Load all images from the images array
-      if (alterData.images) {
-        try {
-          if (Array.isArray(alterData.images) && alterData.images.length > 0) {
-            // Convert array to comma-separated string as expected by the API
-            const idsString = alterData.images.join(',')
-            const fileResponse = await api.serveStoredFilesBatch({ query: { ids: idsString } })
-            const files = fileResponse.data as Array<{ file_id: string; url: string }>
-            if (files && files.length > 0) {
-              // Map file_id to id for consistency
-              const mappedFiles = files.map(f => ({ id: f.file_id, url: f.url }))
-              setAllImages(mappedFiles)
-              // Set primary image if not already set from above
-              if (!imageUrl && mappedFiles[0].url) {
-                setImageUrl(mappedFiles[0].url)
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Failed to load images:', err)
-          // Images not available
-        }
-      }
-    } catch {
-      showToast({ title: 'Error', description: 'Failed to load alter details', variant: 'error' })
-      navigate('/system')
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  const loadRelationships = async () => {
-    if (!alterId) return
-    setLoadingRelationships(true)
-    try {
-      const response = await api.listRelationships({ 
-        query: { alterId, perPage: 100 } 
-      })
-      // Response is either an array directly or wrapped in data/items
-      const data = response.data
-      let relationshipList: Relationship[] = []
-      if (Array.isArray(data)) {
-        relationshipList = data
-      } else if (response.data.items.length !== 0) {
-        relationshipList = response.data.items || []
-      }
-      setRelationships(relationshipList)
-
-      // Fetch related alter and user details
-      const alterIds = new Set<string>()
-      const userIds = new Set<string>()
-      
-      relationshipList.forEach(rel => {
-        if (rel.sideAAlterId && rel.sideAAlterId !== alterId) alterIds.add(rel.sideAAlterId)
-        if (rel.sideBAlterId && rel.sideBAlterId !== alterId) alterIds.add(rel.sideBAlterId)
-        if (rel.sideAUserId) userIds.add(rel.sideAUserId)
-        if (rel.sideBUserId) userIds.add(rel.sideBUserId)
-      })
-
-      // Fetch alters
-      if (alterIds.size > 0) {
-        const alterMap: Record<string, Alter> = {}
-        for (const id of alterIds) {
-          try {
-            const alterResponse = await api.getAlter({ path: { alterId: id } })
-            alterMap[id] = alterResponse.data
-          } catch {
-            // Skip if alter not accessible
-          }
-        }
-        setRelatedAlters(alterMap)
-      }
-
-      // Fetch users
-      if (userIds.size > 0) {
-        const userMap: Record<string, User> = {}
-        for (const id of userIds) {
-          try {
-            const userResponse = await api.getUserById({ path: { id } })
-            userMap[id] = userResponse.data
-          } catch {
-            // Skip if user not accessible
-          }
-        }
-        setRelatedUsers(userMap)
-      }
-    } catch (err) {
-      console.error('Failed to load relationships:', err)
-      // Don't show error toast - relationships are optional
-    } finally {
-      setLoadingRelationships(false)
-    }
-  }
-
-  const loadAffiliations = async () => {
-    if (!alterId) return
-    setLoadingAffiliations(true)
-    try {
-      const response = await api.getAlterAffiliations({ 
-        path: { alterId } 
-      })
-      setAffiliations(response.data.items || [])
-    } catch (err) {
-      console.error('Failed to load affiliations:', err)
-      // Don't show error toast - affiliations are optional
-    } finally {
-      setLoadingAffiliations(false)
-    }
-  }
-
-  const loadSubsystem = async () => {
-    if (!alterId) return
-    setLoadingSubsystem(true)
-    try {
-      const response = await api.getAlterSubsystem({ 
-        path: { alterId } 
-      })
-      setSubsystem(response.data)
-    } catch {
-      // Not an error if no subsystem - it's optional
-      setSubsystem(null)
-    } finally {
-      setLoadingSubsystem(false)
-    }
-  }
 
   const handleDelete = async () => {
     if (!alter) return
