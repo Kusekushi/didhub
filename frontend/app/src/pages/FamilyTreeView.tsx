@@ -61,17 +61,19 @@ export default function FamilyTreeView() {
   const loadFilterData = useCallback(async () => {
     setLoading(true)
     try {
-      const [altersRes, usersRes, relationshipsRes] = await Promise.all([
-        api.listAlters<Alter[]>({}),
-        api.getUsers<{ items: User[] }>({}),
-        api.listRelationships<Relationship[]>({})
-      ])
+      const bulkRes = await api.bulkOperation<{ alters: Alter[], users: User[], relationships: Relationship[] }>({
+        body: {
+          action: 'get',
+          alters: [],
+          users: [],
+          relationships: [],
+        }
+      })
 
-      const allAlters = Array.isArray(altersRes.data) ? altersRes.data : []
-      const allUsers = usersRes.data?.items || []
-      const allRelationships = Array.isArray(relationshipsRes.data) ? relationshipsRes.data : []
+      const allAlters = bulkRes.data.alters || []
+      const allUsers = bulkRes.data.users || []
+      const allRelationships = bulkRes.data.relationships || []
 
-      // Filter to only non-system users
       const nonSystemUsers = allUsers.filter(u => !u.isSystem)
 
       setAlters(allAlters)

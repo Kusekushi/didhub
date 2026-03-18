@@ -8,8 +8,9 @@ use didhub_auth::{AuthenticatorTrait, TestAuthenticator};
 use didhub_backend::{
     generated::routes::{
         bulk_get_instance_settings, bulk_set_instance_settings, get_instance_setting,
-        list_instance_settings, set_instance_setting,
+        set_instance_setting,
     },
+    handlers::instance_settings::list::list,
     state::AppState,
 };
 use didhub_db::{create_pool, DbConnectionConfig, DbPool};
@@ -105,7 +106,7 @@ async fn list_instance_settings_returns_all() {
         .unwrap();
 
     let response =
-        list_instance_settings(axum::extract::Extension(ctx.state.clone()), admin_headers())
+        list(axum::extract::Extension(ctx.state.clone()), admin_headers(), None)
             .await
             .unwrap();
 
