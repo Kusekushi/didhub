@@ -20,7 +20,7 @@ export function RelationshipTypeSettings() {
     // Only fetch what's actually in the database for this specific key
     const fetchOnlyCustom = async () => {
       try {
-        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+         
         // @ts-expect-error - Codegen types are currently misaligned with the actual API client
         const response = await client.getInstanceSetting({
           path: { key: 'custom_relationship_types' }
@@ -30,7 +30,7 @@ export function RelationshipTypeSettings() {
           // @ts-expect-error - Codegen types are currently misaligned with the actual API client
           setCustomTypes(JSON.parse(response.data.value) as RelationshipType[])
         }
-        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+         
       } catch (e) {
         console.error('Failed to fetch custom relationship types', e)
       }
@@ -41,7 +41,7 @@ export function RelationshipTypeSettings() {
   const saveTypes = async (types: RelationshipType[]) => {
     setLoading(true)
     try {
-      /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+       
       // @ts-expect-error - Codegen types are currently misaligned with the actual API client
       await client.setInstanceSetting({
         path: { key: 'custom_relationship_types' },
@@ -49,7 +49,7 @@ export function RelationshipTypeSettings() {
           value: JSON.stringify(types)
         }
       })
-      /* eslint-enable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+       
       setCustomTypes(types)
       await refresh()
     } catch (error) {

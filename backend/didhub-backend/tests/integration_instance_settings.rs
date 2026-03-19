@@ -105,10 +105,13 @@ async fn list_instance_settings_returns_all() {
         .await
         .unwrap();
 
-    let response =
-        list(axum::extract::Extension(ctx.state.clone()), admin_headers(), None)
-            .await
-            .unwrap();
+    let response = list(
+        axum::extract::Extension(ctx.state.clone()),
+        admin_headers(),
+        None,
+    )
+    .await
+    .unwrap();
 
     let body = response.0;
     let items = body.get("items").and_then(|v| v.as_array()).unwrap();

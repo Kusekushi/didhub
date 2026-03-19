@@ -113,8 +113,10 @@ impl AppState {
         let message = format!("{} {}", method, path);
 
         let safe_body = redact_sensitive_data(body.clone());
-        let safe_path_params = redact_sensitive_data(serde_json::to_value(path_params).unwrap_or_default());
-        let safe_query_params = redact_sensitive_data(serde_json::to_value(query_params).unwrap_or_default());
+        let safe_path_params =
+            redact_sensitive_data(serde_json::to_value(path_params).unwrap_or_default());
+        let safe_query_params =
+            redact_sensitive_data(serde_json::to_value(query_params).unwrap_or_default());
 
         let metadata = json!({
             "path": path,

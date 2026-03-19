@@ -15,10 +15,12 @@ pub async fn get(
     headers: HeaderMap,
     query: Option<Query<HashMap<String, String>>>,
 ) -> Result<Json<Value>, ApiError> {
-    let auth = crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let _user_id = auth.user_id
+    let auth =
+        crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
+    let _user_id = auth
+        .user_id
         .ok_or_else(|| ApiError::forbidden("user_id required for family tree access"))?;
-    
+
     let params = query.map(|q| q.0).unwrap_or_default();
     let start_id_param = params.get("startId").cloned();
     let depth = params

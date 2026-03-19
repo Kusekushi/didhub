@@ -7,8 +7,8 @@ use sqlx::types::Uuid as SqlxUuid;
 
 use didhub_db::generated::users as db_users;
 
-use crate::{error::ApiError, state::AppState};
 use super::dto::UserPublic;
+use crate::{error::ApiError, state::AppState};
 
 pub async fn get(
     Extension(state): Extension<Arc<AppState>>,
@@ -30,7 +30,9 @@ pub async fn get(
         .await
         .map_err(ApiError::from)?;
     match opt {
-        Some(row) => Ok(Json(serde_json::to_value(&UserPublic::from(row)).map_err(ApiError::from)?)),
+        Some(row) => Ok(Json(
+            serde_json::to_value(UserPublic::from(row)).map_err(ApiError::from)?,
+        )),
         None => Err(ApiError::not_found("user not found")),
     }
 }

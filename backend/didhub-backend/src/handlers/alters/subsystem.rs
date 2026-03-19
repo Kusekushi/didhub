@@ -35,7 +35,10 @@ pub async fn set(
             "/alters/{alterId}/subsystem",
             &path,
             &HashMap::new(),
-            payload.as_ref().map(|v| v as &Value).unwrap_or(&Value::Null),
+            payload
+                .as_ref()
+                .map(|v| v as &Value)
+                .unwrap_or(&Value::Null),
         )
         .await?;
 

@@ -45,7 +45,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const refresh = async () => {
     try {
-      /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+       
       // @ts-expect-error - Codegen types are currently misaligned with the actual API client
       const response = await client.getInstanceSetting({
         path: { key: 'custom_relationship_types' }
@@ -58,7 +58,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } else {
         setCustomTypes([])
       }
-      /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+       
     } catch (error) {
       console.warn('Failed to fetch custom_relationship_types, using defaults', error)
       setCustomTypes([])

@@ -16,7 +16,7 @@ pub async fn logout(Extension(_state): Extension<Arc<AppState>>) -> impl IntoRes
         .same_site(cookie::SameSite::Lax)
         .max_age(cookie::time::Duration::seconds(0))
         .build();
-    
+
     let mut resp = (StatusCode::OK, Json(json!({ "ok": true }))).into_response();
     resp.headers_mut().append(
         SET_COOKIE,
