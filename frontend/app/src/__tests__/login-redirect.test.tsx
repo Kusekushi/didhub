@@ -60,17 +60,17 @@ describe('Login redirect', () => {
   it('redirects to `from` location when provided in state', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={[{ pathname: '/login', state: { from: { pathname: '/protected', search: '' } } }]}>
-        <ApiProvider>
-          <AuthProvider>
-            <ToastProvider>
+        <ToastProvider>
+          <ApiProvider>
+            <AuthProvider>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/protected" element={<div>PROTECTED</div>} />
                 <Route path="/" element={<div>HOME</div>} />
               </Routes>
-            </ToastProvider>
-          </AuthProvider>
-        </ApiProvider>
+            </AuthProvider>
+          </ApiProvider>
+        </ToastProvider>
       </MemoryRouter>
     )
 
@@ -89,17 +89,17 @@ describe('Login redirect', () => {
   it('redirects to / when no next or from provided', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={["/login"]}>
-        <ApiProvider>
-          <AuthProvider>
-            <ToastProvider>
+        <ToastProvider>
+          <ApiProvider>
+            <AuthProvider>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/protected" element={<div>PROTECTED</div>} />
                 <Route path="/" element={<div>HOME</div>} />
               </Routes>
-            </ToastProvider>
-          </AuthProvider>
-        </ApiProvider>
+            </AuthProvider>
+          </ApiProvider>
+        </ToastProvider>
       </MemoryRouter>
     )
 
