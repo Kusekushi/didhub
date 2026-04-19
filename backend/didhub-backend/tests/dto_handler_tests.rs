@@ -1,15 +1,11 @@
-use std::sync::Arc;
-
-use didhub_auth::TestAuthenticator;
 use didhub_backend::handlers::users::create;
-use didhub_backend::state::AppState;
-use didhub_db::{create_pool, DbConnectionConfig};
 // We'll inspect the HTTP response produced by ApiError via IntoResponse
+
+mod support;
 
 #[tokio::test]
 async fn create_user_returns_structured_validation() {
-    let config = DbConnectionConfig::new("sqlite::memory:");
-    let pool = create_pool(&config).await.expect("create pool");
+    let pool = support::sqlite_pool().await;
 
     // create users table using full migrations schema
     sqlx::query(
@@ -32,20 +28,7 @@ async fn create_user_returns_structured_validation() {
     .await
     .expect("create table");
 
-    let log_dir = std::env::temp_dir().join("didhub_test_logs");
-    std::fs::create_dir_all(&log_dir).expect("create log dir");
-    let test_auth =
-        std::sync::Arc::new(TestAuthenticator::new_with_scopes(
-            vec!["admin".to_string()],
-        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
-    let state = AppState::new(
-        pool.clone(),
-        test_auth,
-        didhub_job_queue::JobQueueClient::new(),
-        didhub_updates::UpdateCoordinator::new(),
-        None,
-    );
-    let arc_state = Arc::new(state);
+    let arc_state = support::test_state(&pool, &["admin"], None);
 
     // create user with empty username and short password so deserialization succeeds
     // and dto.validate() can return multiple validation issues

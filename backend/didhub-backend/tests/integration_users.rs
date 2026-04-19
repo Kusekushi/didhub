@@ -1,18 +1,12 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use didhub_db::{create_pool, DbConnectionConfig};
-
-use didhub_auth::TestAuthenticator;
 use didhub_backend::generated::routes::{create_user, delete_user, get_user_by_id, update_user};
 use didhub_backend::handlers::users::dto::CreateUserDto;
-use didhub_backend::state::AppState;
+use std::collections::HashMap;
+
+mod support;
 
 #[tokio::test]
 async fn users_crud_sqlite_in_memory() {
-    // Create an in-memory sqlite pool
-    let config = DbConnectionConfig::new("sqlite::memory:");
-    let pool = create_pool(&config).await.expect("create pool");
+    let pool = support::sqlite_pool().await;
 
     // Create the users table using full migrations schema
     sqlx::query(
@@ -35,26 +29,9 @@ async fn users_crud_sqlite_in_memory() {
     .await
     .expect("create table");
 
-    // Build AppState
-    let test_auth =
-        std::sync::Arc::new(TestAuthenticator::new_with_scopes(
-            vec!["admin".to_string()],
-        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
-    let state = AppState::new(
-        pool.clone(),
-        test_auth,
-        didhub_job_queue::JobQueueClient::new(),
-        didhub_updates::UpdateCoordinator::new(),
-        None,
-    );
-    let arc_state = Arc::new(state);
+    let arc_state = support::test_state(&pool, &["admin"], None);
 
-    // Build headers with a dummy Authorization token so TestAuthenticator is invoked
-    let mut headers = axum::http::HeaderMap::new();
-    headers.insert(
-        axum::http::header::AUTHORIZATION,
-        axum::http::HeaderValue::from_static("Bearer test-token"),
-    );
+    let headers = support::auth_headers();
 
     // Create user via handler
     let dummy_hash = didhub_auth::auth::sha256_hex("longpassword");

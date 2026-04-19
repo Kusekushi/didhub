@@ -1,16 +1,11 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use didhub_db::{create_pool, DbConnectionConfig};
-
-use didhub_auth::TestAuthenticator;
 use didhub_backend::generated::routes::{create_relationship, update_relationship};
-use didhub_backend::state::AppState;
+use std::collections::HashMap;
+
+mod support;
 
 #[tokio::test]
 async fn relationships_rbac_denied_for_non_creator() {
-    let config = DbConnectionConfig::new("sqlite::memory:");
-    let pool = create_pool(&config).await.expect("create pool");
+    let pool = support::sqlite_pool().await;
 
     sqlx::query(
         r#"CREATE TABLE relationships (
@@ -57,22 +52,8 @@ async fn relationships_rbac_denied_for_non_creator() {
     .await
     .expect("insert custom types");
 
-    let log_dir = std::env::temp_dir().join("didhub_test_logs");
-    std::fs::create_dir_all(&log_dir).expect("create log dir");
-
     // create as admin
-    let admin_auth =
-        std::sync::Arc::new(TestAuthenticator::new_with_scopes(
-            vec!["admin".to_string()],
-        )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
-    let state = AppState::new(
-        pool.clone(),
-        admin_auth,
-        didhub_job_queue::JobQueueClient::new(),
-        didhub_updates::UpdateCoordinator::new(),
-        None,
-    );
-    let arc_state = Arc::new(state);
+    let arc_state = support::test_state(&pool, &["admin"], None);
 
     let body = serde_json::json!({ "relation_type": "friend", "side_a_user_id": "00000000-0000-0000-0000-000000000002", "side_b_user_id": "00000000-0000-0000-0000-000000000003", "created_by": "00000000-0000-0000-0000-000000000020" });
     let res = create_relationship(
@@ -89,17 +70,7 @@ async fn relationships_rbac_denied_for_non_creator() {
         .expect("id")
         .to_string();
 
-    let nonadmin_auth =
-        std::sync::Arc::new(TestAuthenticator::new_with_scopes(vec!["user".to_string()]))
-            as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
-    let state2 = AppState::new(
-        pool.clone(),
-        nonadmin_auth,
-        didhub_job_queue::JobQueueClient::new(),
-        didhub_updates::UpdateCoordinator::new(),
-        None,
-    );
-    let arc_state2 = Arc::new(state2);
+    let arc_state2 = support::test_state(&pool, &["user"], None);
 
     let mut path = HashMap::new();
     path.insert("relationshipId".to_string(), id.clone());

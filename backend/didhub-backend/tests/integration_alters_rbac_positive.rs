@@ -1,18 +1,13 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use didhub_db::{create_pool, DbConnectionConfig};
-
-use didhub_auth::TestAuthenticator;
 use didhub_backend::generated::routes::{create_alter, delete_alter, update_alter};
-use didhub_backend::state::AppState;
 use sqlx::Row;
+use std::collections::HashMap;
 use uuid::Uuid;
+
+mod support;
 
 #[tokio::test]
 async fn owner_and_admin_can_modify_alter() {
-    let config = DbConnectionConfig::new("sqlite::memory:");
-    let pool = create_pool(&config).await.expect("create pool");
+    let pool = support::sqlite_pool().await;
 
     sqlx::query(
         r#"CREATE TABLE alters (
@@ -47,9 +42,6 @@ async fn owner_and_admin_can_modify_alter() {
     .execute(&pool)
     .await
     .expect("create table");
-
-    let log_dir = std::env::temp_dir().join("didhub_test_logs");
-    std::fs::create_dir_all(&log_dir).expect("create log dir");
 
     // create users table using full migrations schema so generated queries match
     sqlx::query(
@@ -118,25 +110,9 @@ async fn owner_and_admin_can_modify_alter() {
         },
         Err(e) => eprintln!("debug: generated helper returned Err: {:?}", e),
     }
-    let owner_auth = std::sync::Arc::new(TestAuthenticator::new_with(
-        vec!["user".to_string()],
-        Some(Uuid::parse_str(owner_id).unwrap()),
-    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
-    let state = AppState::new(
-        pool.clone(),
-        owner_auth,
-        didhub_job_queue::JobQueueClient::new(),
-        didhub_updates::UpdateCoordinator::new(),
-        None,
-    );
-    let arc_state = Arc::new(state);
+    let arc_state = support::test_state(&pool, &["user"], Some(Uuid::parse_str(owner_id).unwrap()));
 
-    // Build headers with a dummy Authorization token so TestAuthenticator is invoked
-    let mut headers = axum::http::HeaderMap::new();
-    headers.insert(
-        axum::http::header::AUTHORIZATION,
-        axum::http::HeaderValue::from_static("Bearer test-token"),
-    );
+    let headers = support::auth_headers();
 
     let body = serde_json::json!({ "user_id": owner_id, "name": "OwnerAlter" });
     let res = create_alter(
@@ -174,24 +150,9 @@ async fn owner_and_admin_can_modify_alter() {
     assert!(update_res.is_ok());
 
     // Now attempt delete as admin
-    let admin_auth =
-        std::sync::Arc::new(TestAuthenticator::new_with(vec!["admin".to_string()], None))
-            as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
-    let state2 = AppState::new(
-        pool.clone(),
-        admin_auth,
-        didhub_job_queue::JobQueueClient::new(),
-        didhub_updates::UpdateCoordinator::new(),
-        None,
-    );
-    let arc_state2 = Arc::new(state2);
+    let arc_state2 = support::test_state(&pool, &["admin"], None);
 
-    // Headers for admin
-    let mut headers2 = axum::http::HeaderMap::new();
-    headers2.insert(
-        axum::http::header::AUTHORIZATION,
-        axum::http::HeaderValue::from_static("Bearer test-token"),
-    );
+    let headers2 = support::auth_headers();
 
     let delete_res = delete_alter(
         axum::Extension(arc_state2.clone()),

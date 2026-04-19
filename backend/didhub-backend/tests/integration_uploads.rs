@@ -1,16 +1,11 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use didhub_db::{create_pool, DbConnectionConfig};
-
-use didhub_auth::TestAuthenticator;
 use didhub_backend::handlers::uploads;
-use didhub_backend::state::AppState;
+use std::collections::HashMap;
+
+mod support;
 
 #[tokio::test]
 async fn uploads_crud_sqlite_in_memory() {
-    let config = DbConnectionConfig::new("sqlite::memory:");
-    let pool = create_pool(&config).await.expect("create pool");
+    let pool = support::sqlite_pool().await;
 
     // create minimal uploads table
     sqlx::query(
@@ -26,29 +21,11 @@ async fn uploads_crud_sqlite_in_memory() {
     .await
     .expect("create table");
 
-    let log_dir = std::env::temp_dir().join("didhub_test_logs");
-    std::fs::create_dir_all(&log_dir).expect("create log dir");
     // give the test authenticator a fixed user id so handlers that require auth.user_id succeed
     let test_user_id = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    let test_auth = std::sync::Arc::new(TestAuthenticator::new_with(
-        vec!["admin".to_string()],
-        Some(test_user_id),
-    )) as Arc<dyn didhub_auth::auth::AuthenticatorTrait>;
-    let state = AppState::new(
-        pool.clone(),
-        test_auth,
-        didhub_job_queue::JobQueueClient::new(),
-        didhub_updates::UpdateCoordinator::new(),
-        None,
-    );
-    let arc_state = Arc::new(state);
+    let arc_state = support::test_state(&pool, &["admin"], Some(test_user_id));
 
-    // Build headers with a dummy Authorization token so TestAuthenticator is invoked
-    let mut headers = axum::http::HeaderMap::new();
-    headers.insert(
-        axum::http::header::AUTHORIZATION,
-        axum::http::HeaderValue::from_static("Bearer test-token"),
-    );
+    let headers = support::auth_headers();
 
     // create upload
     let body = serde_json::json!({ "stored_file_id": "00000000-0000-0000-0000-000000000001", "stored_name": "file.txt", "uploaded_by": "00000000-0000-0000-0000-000000000001" });
