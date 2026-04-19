@@ -5,6 +5,7 @@ use std::process::Command;
 use anyhow::{bail, Context, Result};
 
 use crate::cli::FirewallManagerKind;
+use crate::util::{binary_name, command_exists};
 
 pub fn detect_firewall_manager() -> Option<FirewallManagerKind> {
     if command_exists("ufw") {
@@ -121,20 +122,4 @@ fn run_status(command: &mut Command, description: &str) -> Result<()> {
         bail!("{description} exited with status {status}");
     }
     Ok(())
-}
-
-fn command_exists(name: &str) -> bool {
-    std::env::var_os("PATH")
-        .map(|paths| {
-            std::env::split_paths(&paths).any(|path| path.join(binary_name(name)).exists())
-        })
-        .unwrap_or(false)
-}
-
-fn binary_name(base: &str) -> String {
-    if cfg!(windows) {
-        format!("{base}.exe")
-    } else {
-        base.to_string()
-    }
 }

@@ -3,6 +3,7 @@ mod db;
 mod firewall;
 mod install;
 mod service;
+mod util;
 mod wizard;
 
 use clap::Parser;

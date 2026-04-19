@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::cli::{FirewallManagerKind, InstallArgs, ServiceManagerKind};
 use crate::{db, firewall, service};
+use crate::util::binary_name;
 
 pub async fn run_install(mut args: InstallArgs) -> Result<()> {
     if !args.non_interactive {
@@ -204,14 +205,6 @@ pub fn resolve_install_root(explicit: Option<&Path>) -> Result<PathBuf> {
 fn shell_escape(value: &str) -> String {
     let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
     format!("\"{escaped}\"")
-}
-
-fn binary_name(base: &str) -> String {
-    if cfg!(windows) {
-        format!("{base}.exe")
-    } else {
-        base.to_string()
-    }
 }
 
 #[cfg(test)]

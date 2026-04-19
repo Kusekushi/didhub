@@ -7,6 +7,7 @@ use sqlx::{mysql::MySqlPoolOptions, postgres::PgPoolOptions, sqlite::SqlitePoolO
 use url::Url;
 
 use crate::cli::{DatabaseDriver, InstallArgs};
+use crate::util::binary_name;
 
 pub enum PreparedDatabase {
     Sqlite {
@@ -368,14 +369,6 @@ fn escape_pg_literal(value: &str) -> String {
 
 fn escape_mysql_literal(value: &str) -> String {
     value.replace('\\', "\\\\").replace('\'', "\\'")
-}
-
-fn binary_name(base: &str) -> String {
-    if cfg!(windows) {
-        format!("{base}.exe")
-    } else {
-        base.to_string()
-    }
 }
 
 #[cfg(test)]
