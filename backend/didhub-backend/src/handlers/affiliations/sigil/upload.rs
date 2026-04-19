@@ -15,7 +15,6 @@ pub async fn upload(
     Path(path): Path<HashMap<String, String>>,
     body: Option<Json<Value>>,
 ) -> Result<Json<Value>, ApiError> {
-    use base64::Engine;
     use didhub_db::generated::uploads as db_uploads;
 
     let auth =
@@ -53,16 +52,7 @@ pub async fn upload(
     )
     .map_err(ApiError::from)?;
 
-    // Accept data URLs or plain base64
-    let base64_data = if let Some(comma) = content_str.find(',') {
-        &content_str[(comma + 1)..]
-    } else {
-        &content_str
-    };
-
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(base64_data)
-        .map_err(|e| ApiError::Unexpected(format!("base64 decode failed: {}", e)))?;
+    let bytes = crate::handlers::utils::decode_and_validate_image_base64(&content_str)?;
 
     // Verify affiliation exists and user owns it (or is admin)
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;

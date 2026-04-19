@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use crate::rate_limiter::RateLimiterManager;
+use axum::http::HeaderValue;
 use axum::middleware::Next;
 use axum::{
     body::Body, extract::DefaultBodyLimit, extract::Extension, http::Request, http::StatusCode,
-    middleware, response::IntoResponse, routing::get, Router,
+    middleware, response::IntoResponse, response::Response, routing::get, Router,
 };
 use std::convert::Infallible;
 
@@ -74,6 +75,22 @@ pub fn build_router_with_limiter(state: Arc<AppState>, limiter: RateLimiterManag
     // clone state for middleware closure so the original `state` can still be used
     let mw_state = state.clone();
     let router = router
+        .layer(middleware::map_response(|mut response: Response| async move {
+            let headers = response.headers_mut();
+            headers.insert("x-frame-options", HeaderValue::from_static("DENY"));
+            headers.insert("x-content-type-options", HeaderValue::from_static("nosniff"));
+            headers.insert(
+                "referrer-policy",
+                HeaderValue::from_static("strict-origin-when-cross-origin"),
+            );
+            headers.insert(
+                "content-security-policy",
+                HeaderValue::from_static(
+                    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+                ),
+            );
+            response
+        }))
         .layer(middleware::from_fn(
             move |req: Request<Body>, next: Next| {
                 let limiter = limiter.clone();

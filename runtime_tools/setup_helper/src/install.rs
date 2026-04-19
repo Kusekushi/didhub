@@ -2,16 +2,17 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use uuid::Uuid;
+use base64::Engine as _;
 
 use crate::cli::{FirewallManagerKind, InstallArgs, ServiceManagerKind};
-use crate::{db, firewall, service};
 use crate::util::binary_name;
+use crate::{db, firewall, service};
 
 pub async fn run_install(mut args: InstallArgs) -> Result<()> {
     if !args.non_interactive {
         crate::wizard::run(&mut args)?;
     }
+    args.validate()?;
     run_install_inner(args).await
 }
 
@@ -120,7 +121,7 @@ fn build_config(
     config.auth.jwt_secret = match (&args.jwt_secret, &args.jwt_pem_path) {
         (Some(secret), _) => Some(secret.clone()),
         (None, Some(_)) => None,
-        (None, None) => Some(format!("didhub-{}", Uuid::new_v4())),
+        (None, None) => Some(generate_jwt_secret()),
     };
 
     config.database.driver = args.database_driver.as_str().to_string();
@@ -176,6 +177,17 @@ fn write_admin_env(install_root: &Path, args: &InstallArgs) -> Result<Option<Pat
             }
             fs::write(&env_path, content)
                 .with_context(|| format!("write {}", env_path.display()))?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+
+                let mut permissions = fs::metadata(&env_path)
+                    .with_context(|| format!("stat {}", env_path.display()))?
+                    .permissions();
+                permissions.set_mode(0o600);
+                fs::set_permissions(&env_path, permissions)
+                    .with_context(|| format!("chmod {}", env_path.display()))?;
+            }
             Ok(Some(env_path))
         }
     }
@@ -205,6 +217,12 @@ pub fn resolve_install_root(explicit: Option<&Path>) -> Result<PathBuf> {
 fn shell_escape(value: &str) -> String {
     let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
     format!("\"{escaped}\"")
+}
+
+fn generate_jwt_secret() -> String {
+    let mut bytes = [0_u8; 32];
+    getrandom::fill(&mut bytes).expect("OS randomness must be available");
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
 #[cfg(test)]

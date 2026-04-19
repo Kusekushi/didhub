@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use axum::http::{header::AUTHORIZATION, HeaderMap, HeaderValue};
 use didhub_auth::{auth::AuthenticatorTrait, TestAuthenticator};
@@ -8,6 +8,11 @@ use didhub_backend::state::AppState;
 use didhub_db::{create_pool, DbConnectionConfig, DbPool};
 use tempfile::TempDir;
 use uuid::Uuid;
+
+fn upload_test_env_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
 
 pub async fn sqlite_pool() -> DbPool {
     let config = DbConnectionConfig::new("sqlite::memory:");
@@ -41,6 +46,7 @@ pub struct UploadTestContext {
     pub state: Arc<AppState>,
     pub uploads_dir: std::path::PathBuf,
     _temp_dir: TempDir,
+    _env_lock: MutexGuard<'static, ()>,
 }
 
 pub async fn upload_test_context() -> UploadTestContext {
@@ -49,6 +55,9 @@ pub async fn upload_test_context() -> UploadTestContext {
 
     let temp_dir = tempfile::tempdir().expect("tempdir");
     let uploads_dir = temp_dir.path().to_path_buf();
+    let env_lock = upload_test_env_lock()
+        .lock()
+        .expect("lock uploads test env");
     std::env::set_var(
         "DIDHUB_UPLOADS_DIRECTORY",
         uploads_dir.to_str().expect("uploads dir utf-8"),
@@ -65,6 +74,7 @@ pub async fn upload_test_context() -> UploadTestContext {
         state,
         uploads_dir,
         _temp_dir: temp_dir,
+        _env_lock: env_lock,
     }
 }
 

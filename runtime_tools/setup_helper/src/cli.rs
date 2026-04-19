@@ -193,6 +193,21 @@ pub struct InstallArgs {
     pub admin_display_name: Option<String>,
 }
 
+impl InstallArgs {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if !self
+            .service_name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
+            anyhow::bail!(
+                "--service-name must contain only ASCII alphanumeric characters, '-' or '_'"
+            );
+        }
+        Ok(())
+    }
+}
+
 impl Default for InstallArgs {
     fn default() -> Self {
         Self {
@@ -255,5 +270,15 @@ mod tests {
             Some(Commands::Install(args)) => assert!(args.non_interactive),
             _ => panic!("expected install command"),
         }
+    }
+
+    #[test]
+    fn validate_rejects_unsafe_service_name() {
+        let args = InstallArgs {
+            service_name: "bad;name".to_string(),
+            ..InstallArgs::default()
+        };
+
+        assert!(args.validate().is_err());
     }
 }

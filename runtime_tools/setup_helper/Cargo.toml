@@ -10,9 +10,11 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
+base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
 didhub-config = { path = "../../backend/didhub-config" }
 didhub-migrations = { path = "../../backend/didhub-migrations" }
+getrandom = "0.3"
 serde_yaml = "0.9"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "mysql"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

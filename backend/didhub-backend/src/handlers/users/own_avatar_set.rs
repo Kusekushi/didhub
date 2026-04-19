@@ -5,7 +5,6 @@ use axum::http::HeaderMap;
 use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
-use base64::Engine as _;
 use chrono::Utc;
 use didhub_db::generated::{uploads as db_uploads, users as db_users};
 
@@ -45,15 +44,7 @@ pub async fn own_avatar_set(
     )
     .map_err(ApiError::from)?;
 
-    let base64_data = if let Some(comma) = content_str.find(',') {
-        &content_str[(comma + 1)..]
-    } else {
-        &content_str
-    };
-
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(base64_data)
-        .map_err(|e| ApiError::Unexpected(format!("base64 decode failed: {}", e)))?;
+    let bytes = crate::handlers::utils::decode_and_validate_image_base64(&content_str)?;
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
 

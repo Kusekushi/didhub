@@ -52,12 +52,13 @@ class TestLoadSpec:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(spec_data, f)
             f.flush()
+            temp_path = Path(f.name)
 
-            try:
-                result = load_spec(Path(f.name))
-                assert result == spec_data
-            finally:
-                Path(f.name).unlink()
+        try:
+            result = load_spec(temp_path)
+            assert result == spec_data
+        finally:
+            temp_path.unlink()
 
     def test_load_json_spec(self):
         """Test loading JSON OpenAPI spec."""
@@ -70,12 +71,13 @@ class TestLoadSpec:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(spec_data, f)
             f.flush()
+            temp_path = Path(f.name)
 
-            try:
-                result = load_spec(Path(f.name))
-                assert result == spec_data
-            finally:
-                Path(f.name).unlink()
+        try:
+            result = load_spec(temp_path)
+            assert result == spec_data
+        finally:
+            temp_path.unlink()
 
 
 class TestSlugify:

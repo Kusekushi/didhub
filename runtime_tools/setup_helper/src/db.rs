@@ -247,7 +247,7 @@ fn provision_mysql(
         .arg(port.to_string())
         .arg("-u")
         .arg(admin_user)
-        .arg(format!("--password={admin_password}"))
+        .env("MYSQL_PWD", admin_password)
         .arg("-e")
         .arg(sql);
     run_status(&mut command, "provision mysql database")

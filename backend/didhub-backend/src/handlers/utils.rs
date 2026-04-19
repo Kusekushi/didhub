@@ -8,6 +8,9 @@ use serde_json::{json, Value};
 use sqlx::Executor;
 use uuid::Uuid;
 
+const MAX_BASE64_IMAGE_CHARS: usize = 16 * 1024 * 1024;
+const MAX_IMAGE_BYTES: usize = 10 * 1024 * 1024;
+
 pub fn authentication_failed() -> ApiError {
     ApiError::Authentication(AuthError::AuthenticationFailed)
 }
@@ -65,6 +68,32 @@ where
             Ok(())
         }
     }
+}
+
+pub fn decode_and_validate_image_base64(content: &str) -> Result<Vec<u8>, ApiError> {
+    use base64::Engine as _;
+
+    let base64_data = if let Some(comma) = content.find(',') {
+        &content[(comma + 1)..]
+    } else {
+        content
+    };
+
+    if base64_data.len() > MAX_BASE64_IMAGE_CHARS {
+        return Err(ApiError::bad_request("image payload too large"));
+    }
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64_data)
+        .map_err(|e| ApiError::bad_request(format!("invalid base64 image data: {e}")))?;
+
+    if bytes.len() > MAX_IMAGE_BYTES {
+        return Err(ApiError::bad_request("decoded image exceeds 10 MiB limit"));
+    }
+
+    image::guess_format(&bytes).map_err(|_| ApiError::bad_request("unsupported image format"))?;
+
+    Ok(bytes)
 }
 
 pub fn affiliation_to_payload(row: &db_affiliations::AffiliationsRow) -> Value {
