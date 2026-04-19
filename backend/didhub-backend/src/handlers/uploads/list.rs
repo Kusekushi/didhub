@@ -12,21 +12,7 @@ pub async fn list(
     _headers: axum::http::HeaderMap,
     _query: Option<Query<HashMap<String, String>>>,
 ) -> Result<Json<Value>, ApiError> {
-    // Admin-only: accept Authorization header or session cookie
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&state, &_headers).await? {
-        Some(a) => a,
-        None => {
-            return Err(ApiError::Authentication(
-                didhub_auth::auth::AuthError::AuthenticationFailed,
-            ))
-        }
-    };
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
-    if !is_admin {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::require_admin(&state, &_headers).await?;
     state
         .audit_request(
             "GET",

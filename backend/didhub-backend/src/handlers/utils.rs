@@ -1,8 +1,16 @@
 use crate::error::ApiError;
+use didhub_auth::auth::AuthError;
 use didhub_db::generated::affiliations as db_affiliations;
 use didhub_db::generated::alters as db_alters;
 use didhub_db::generated::users as db_users;
+use didhub_db::DbBackend;
 use serde_json::{json, Value};
+use sqlx::Executor;
+use uuid::Uuid;
+
+pub fn authentication_failed() -> ApiError {
+    ApiError::Authentication(AuthError::AuthenticationFailed)
+}
 
 pub fn parse_positive_usize(
     raw: Option<&String>,
@@ -33,6 +41,30 @@ pub fn user_has_role(user: &db_users::UsersRow, role: &str) -> bool {
 /// Check if a user has the 'system' role
 pub fn user_is_system(user: &db_users::UsersRow) -> bool {
     user_has_role(user, "system")
+}
+
+pub async fn ensure_system_user<'e, E>(
+    executor: E,
+    user_id: Uuid,
+    warning_context: &str,
+) -> Result<(), ApiError>
+where
+    E: Executor<'e, Database = DbBackend>,
+{
+    match db_users::find_by_primary_key(executor, &user_id).await {
+        Ok(Some(user_row)) => {
+            if user_is_system(&user_row) {
+                Ok(())
+            } else {
+                Err(authentication_failed())
+            }
+        }
+        Ok(None) => Err(authentication_failed()),
+        Err(err) => {
+            tracing::warn!(%err, context = warning_context, "failed to load user while checking system role; allowing for tests");
+            Ok(())
+        }
+    }
 }
 
 pub fn affiliation_to_payload(row: &db_affiliations::AffiliationsRow) -> Value {

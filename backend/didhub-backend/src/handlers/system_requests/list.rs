@@ -14,15 +14,7 @@ pub async fn list(
     headers: HeaderMap,
     query: Option<Query<HashMap<String, String>>>,
 ) -> Result<Json<Value>, ApiError> {
-    // Admin only
-    let auth =
-        crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
-    if !is_admin {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::require_admin(&state, &headers).await?;
     let query_params = query
         .as_ref()
         .map(|value| value.0.clone())

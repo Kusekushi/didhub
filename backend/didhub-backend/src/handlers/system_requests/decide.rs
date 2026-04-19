@@ -16,15 +16,7 @@ pub async fn decide(
     Path(path): Path<HashMap<String, String>>,
     body: Option<Json<Value>>,
 ) -> Result<Json<Value>, ApiError> {
-    // Admin only
-    let auth =
-        crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
-    if !is_admin {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::require_admin(&state, &headers).await?;
 
     state
         .audit_request(

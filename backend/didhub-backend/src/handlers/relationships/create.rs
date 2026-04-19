@@ -8,7 +8,7 @@ use sqlx::types::Uuid as SqlxUuid;
 
 use crate::handlers::relationships::dto::RelationshipResponse;
 use crate::handlers::relationships::validation::validate_relationship_type;
-use crate::handlers::utils::user_is_system;
+use crate::handlers::utils::{ensure_system_user, user_is_system};
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::relationships as db_rels;
 
@@ -19,7 +19,7 @@ pub async fn create(
 ) -> Result<Json<Value>, ApiError> {
     let auth =
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
+    let is_admin = auth.is_admin();
 
     let payload = body
         .as_ref()
@@ -131,32 +131,9 @@ pub async fn create(
 
     // If caller is not admin, require they are a system user
     if !is_admin {
-        if let Some(uid) = auth.user_id {
-            let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-            match didhub_db::generated::users::find_by_primary_key(&mut *conn, &uid).await {
-                Ok(opt_user) => match opt_user {
-                    Some(user_row) => {
-                        if !user_is_system(&user_row) {
-                            return Err(ApiError::Authentication(
-                                didhub_auth::auth::AuthError::AuthenticationFailed,
-                            ));
-                        }
-                    }
-                    None => {
-                        return Err(ApiError::Authentication(
-                            didhub_auth::auth::AuthError::AuthenticationFailed,
-                        ))
-                    }
-                },
-                Err(e) => {
-                    tracing::warn!(%e, "could not fetch user row to check system role; allowing request (test or incomplete DB schema?)");
-                }
-            }
-        } else {
-            return Err(ApiError::Authentication(
-                didhub_auth::auth::AuthError::AuthenticationFailed,
-            ));
-        }
+        let user_id = crate::handlers::auth::utils::require_user_id(&auth)?;
+        let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
+        ensure_system_user(&mut *conn, user_id, "creating relationship").await?;
     }
 
     let now = Utc::now().to_rfc3339();

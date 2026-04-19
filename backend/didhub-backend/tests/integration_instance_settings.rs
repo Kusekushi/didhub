@@ -17,20 +17,13 @@ use didhub_db::{create_pool, DbConnectionConfig, DbPool};
 use didhub_job_queue::JobQueueClient;
 use didhub_updates::UpdateCoordinator;
 use serde_json::json;
-use tempfile::TempDir;
-use uuid::Uuid;
-
 struct TestContext {
     state: Arc<AppState>,
     pool: DbPool,
-    _temp_dir: TempDir,
 }
 
 async fn setup(scopes: Vec<String>) -> TestContext {
-    let temp_dir = TempDir::new().expect("create temp dir");
-    let db_path = temp_dir.path().join(format!("test_{}.db", Uuid::new_v4()));
-    let db_url = format!("sqlite:///{}", db_path.display());
-    let config = DbConnectionConfig::new(db_url);
+    let config = DbConnectionConfig::new("sqlite::memory:");
 
     let pool = create_pool(&config).await.expect("create pool");
 
@@ -62,11 +55,7 @@ async fn setup(scopes: Vec<String>) -> TestContext {
         None,
     ));
 
-    TestContext {
-        state,
-        pool,
-        _temp_dir: temp_dir,
-    }
+    TestContext { state, pool }
 }
 
 fn admin_headers() -> HeaderMap {

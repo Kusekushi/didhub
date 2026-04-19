@@ -27,13 +27,7 @@ pub async fn update_password(
     let id: SqlxUuid =
         SqlxUuid::parse_str(&id_str).map_err(|_| ApiError::bad_request("invalid uuid"))?;
 
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
-    let is_owner = auth.user_id.map(|uid| uid == id).unwrap_or(false);
-    if !is_admin && !is_owner {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::ensure_admin_or_user(&auth, id)?;
 
     let payload = body
         .as_ref()

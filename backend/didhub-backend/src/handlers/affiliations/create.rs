@@ -6,9 +6,9 @@ use chrono::Utc;
 use serde_json::Value;
 use uuid::Uuid;
 
-use didhub_db::generated::{affiliations as db_affiliations, users as db_users};
+use didhub_db::generated::affiliations as db_affiliations;
 
-use crate::handlers::utils::{affiliation_to_payload, user_is_system};
+use crate::handlers::utils::{affiliation_to_payload, ensure_system_user};
 use crate::{error::ApiError, state::AppState};
 
 pub async fn create(
@@ -18,30 +18,12 @@ pub async fn create(
 ) -> Result<Json<Value>, ApiError> {
     let auth =
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let owner_user_id = auth.user_id.ok_or_else(|| {
-        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
-    })?;
-    let is_admin = auth.scopes.iter().any(|scope| scope == "admin");
+    let owner_user_id = crate::handlers::auth::utils::require_user_id(&auth)?;
+    let is_admin = auth.is_admin();
 
     if !is_admin {
         let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-        match db_users::find_by_primary_key(&mut *conn, &owner_user_id).await {
-            Ok(Some(user_row)) => {
-                if !user_is_system(&user_row) {
-                    return Err(ApiError::Authentication(
-                        didhub_auth::auth::AuthError::AuthenticationFailed,
-                    ));
-                }
-            }
-            Ok(None) => {
-                return Err(ApiError::Authentication(
-                    didhub_auth::auth::AuthError::AuthenticationFailed,
-                ));
-            }
-            Err(err) => {
-                tracing::warn!(%err, "failed to load user while creating affiliation; allowing for tests");
-            }
-        }
+        ensure_system_user(&mut *conn, owner_user_id, "creating affiliation").await?;
     }
 
     let payload = body

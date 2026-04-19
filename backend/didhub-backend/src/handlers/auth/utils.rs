@@ -1,6 +1,8 @@
 use crate::{error::ApiError, state::AppState};
 use axum::http::HeaderMap;
+use didhub_auth::auth::{AuthContext, AuthError};
 use tracing::debug;
+use uuid::Uuid;
 
 /// Load JWT secret from environment or config.
 /// Priority: DIDHUB_JWT_SECRET env var > DIDHUB_CONFIG_PATH config > default config
@@ -29,6 +31,10 @@ pub fn get_jwt_secret() -> Result<String, ApiError> {
 
 /// Session cookie name used for authentication.
 pub const SESSION_COOKIE_NAME: &str = "didhub_session";
+
+fn authentication_failed() -> ApiError {
+    ApiError::Authentication(AuthError::AuthenticationFailed)
+}
 
 /// Extract authentication token from headers.
 /// Checks Authorization header first, then falls back to session cookie.
@@ -62,13 +68,40 @@ fn extract_session_cookie(headers: &HeaderMap) -> Option<String> {
 /// Returns Ok(()) if the user is authenticated and has admin privileges.
 pub async fn require_admin(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
     let auth = authenticate_and_require_approved(state, headers).await?;
-    let is_admin = auth.scopes.iter().any(|scope| scope == "admin");
-    if !is_admin {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
+    ensure_admin(&auth)
+}
+
+pub async fn authenticate_required(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<AuthContext, ApiError> {
+    authenticate_optional(state, headers)
+        .await?
+        .ok_or_else(authentication_failed)
+}
+
+pub fn require_user_id(auth: &AuthContext) -> Result<Uuid, ApiError> {
+    auth.user_id.ok_or_else(authentication_failed)
+}
+
+pub fn ensure_admin(auth: &AuthContext) -> Result<(), ApiError> {
+    if auth.is_admin() {
+        Ok(())
+    } else {
+        Err(authentication_failed())
     }
-    Ok(())
+}
+
+pub fn ensure_admin_or(auth: &AuthContext, allowed: bool) -> Result<(), ApiError> {
+    if auth.is_admin() || allowed {
+        Ok(())
+    } else {
+        Err(authentication_failed())
+    }
+}
+
+pub fn ensure_admin_or_user(auth: &AuthContext, user_id: Uuid) -> Result<(), ApiError> {
+    ensure_admin_or(auth, auth.user_id == Some(user_id))
 }
 
 /// Authenticate using the provided optional Authorization header value or session cookie and ensure
@@ -95,24 +128,19 @@ pub async fn authenticate_and_require_approved(
     };
 
     // Admin scope bypasses approval checks
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
-    if is_admin {
+    if auth.is_admin() {
         return Ok(auth);
     }
 
     // Non-admins must be authenticated with a user id
-    let user_id = auth.user_id.ok_or_else(|| {
-        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
-    })?;
+    let user_id = require_user_id(&auth)?;
 
     // Check that the user has the 'user' role (which means they're approved)
     // The scopes in the auth context are derived from the user's roles at login time
     let is_approved = auth.scopes.iter().any(|s| s == "user");
     if !is_approved {
         debug!(user_id = %user_id, "user not approved (missing 'user' role)");
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
+        return Err(authentication_failed());
     }
 
     Ok(auth)

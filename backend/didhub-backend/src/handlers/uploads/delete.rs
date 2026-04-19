@@ -15,14 +15,7 @@ pub async fn delete(
     query: Option<AxumQuery<HashMap<String, String>>>,
 ) -> Result<Json<Value>, ApiError> {
     // RBAC: only admin or uploader may delete. For force delete, admin only.
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&state, &headers).await? {
-        Some(a) => a,
-        None => {
-            return Err(ApiError::Authentication(
-                didhub_auth::auth::AuthError::AuthenticationFailed,
-            ))
-        }
-    };
+    let auth = crate::handlers::auth::utils::authenticate_required(&state, &headers).await?;
 
     let params = query.map(|q| q.0).unwrap_or_default();
     let force = params
@@ -46,7 +39,7 @@ pub async fn delete(
         .map_err(ApiError::from)?;
     let existing = existing.ok_or_else(|| ApiError::not_found("upload not found"))?;
 
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
+    let is_admin = auth.is_admin();
     let is_uploader = auth
         .user_id
         .map(|uid| uid == existing.uploaded_by)

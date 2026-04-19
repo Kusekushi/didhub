@@ -14,14 +14,7 @@ pub async fn delete(
     Path(path): Path<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
     // RBAC: only admin or creator may delete. Accept Authorization header or session cookie.
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&state, &_headers).await? {
-        Some(a) => a,
-        None => {
-            return Err(ApiError::Authentication(
-                didhub_auth::auth::AuthError::AuthenticationFailed,
-            ))
-        }
-    };
+    let auth = crate::handlers::auth::utils::authenticate_required(&state, &_headers).await?;
 
     state
         .audit_request(
@@ -45,16 +38,11 @@ pub async fn delete(
         .map_err(ApiError::from)?;
     let existing = existing.ok_or_else(|| ApiError::not_found("relationship not found"))?;
 
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
     let is_creator = auth
         .user_id
         .map(|uid| existing.created_by.map(|cb| cb == uid).unwrap_or(false))
         .unwrap_or(false);
-    if !is_admin && !is_creator {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::ensure_admin_or(&auth, is_creator)?;
 
     let affected = db_rels::delete_by_primary_key(&mut *conn, &id)
         .await

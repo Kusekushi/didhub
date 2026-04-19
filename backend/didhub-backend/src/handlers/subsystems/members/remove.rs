@@ -14,22 +14,7 @@ pub async fn remove(
     _headers: HeaderMap,
     _path: Path<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
-    // Admin-only: accept Authorization header or session cookie
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&_state, &_headers).await?
-    {
-        Some(a) => a,
-        None => {
-            return Err(ApiError::Authentication(
-                didhub_auth::auth::AuthError::AuthenticationFailed,
-            ))
-        }
-    };
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
-    if !is_admin {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::require_admin(&_state, &_headers).await?;
 
     _state
         .audit_request(

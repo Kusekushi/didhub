@@ -7,7 +7,7 @@ use sqlx::types::Uuid as SqlxUuid;
 
 use crate::handlers::relationships::dto::UpdateRelationshipDto;
 use crate::handlers::relationships::validation::validate_relationship_type;
-use crate::handlers::utils::user_is_system;
+use crate::handlers::utils::ensure_system_user;
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::relationships as db_rels;
 
@@ -18,14 +18,7 @@ pub async fn update(
     body: Option<Json<Value>>,
 ) -> Result<Json<Value>, ApiError> {
     // RBAC: only admin or creator may update. Accept Authorization header or session cookie.
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&state, &headers).await? {
-        Some(a) => a,
-        None => {
-            return Err(ApiError::Authentication(
-                didhub_auth::auth::AuthError::AuthenticationFailed,
-            ))
-        }
-    };
+    let auth = crate::handlers::auth::utils::authenticate_required(&state, &headers).await?;
 
     state
         .audit_request(
@@ -49,45 +42,17 @@ pub async fn update(
         .map_err(ApiError::from)?;
     let mut existing = existing.ok_or_else(|| ApiError::not_found("relationship not found"))?;
 
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
+    let is_admin = auth.is_admin();
     let is_creator = auth
         .user_id
         .map(|uid| existing.created_by.map(|cb| cb == uid).unwrap_or(false))
         .unwrap_or(false);
-    if !is_admin && !is_creator {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::ensure_admin_or(&auth, is_creator)?;
 
     // If caller is not admin, require they are a system user
     if !is_admin {
-        if let Some(uid) = auth.user_id {
-            let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
-            match didhub_db::generated::users::find_by_primary_key(&mut *conn, &uid).await {
-                Ok(opt_user) => match opt_user {
-                    Some(user_row) => {
-                        if !user_is_system(&user_row) {
-                            return Err(ApiError::Authentication(
-                                didhub_auth::auth::AuthError::AuthenticationFailed,
-                            ));
-                        }
-                    }
-                    None => {
-                        return Err(ApiError::Authentication(
-                            didhub_auth::auth::AuthError::AuthenticationFailed,
-                        ))
-                    }
-                },
-                Err(e) => {
-                    tracing::warn!(%e, "could not fetch user row to check system role; allowing request (test or incomplete DB schema?)");
-                }
-            }
-        } else {
-            return Err(ApiError::Authentication(
-                didhub_auth::auth::AuthError::AuthenticationFailed,
-            ));
-        }
+        let user_id = crate::handlers::auth::utils::require_user_id(&auth)?;
+        ensure_system_user(&mut *conn, user_id, "updating relationship").await?;
     }
 
     let dto: UpdateRelationshipDto = if let Some(body) = body {

@@ -16,14 +16,7 @@ pub async fn delete(
     headers: HeaderMap,
     Path(path): Path<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
-    let auth = match crate::handlers::auth::utils::authenticate_optional(&state, &headers).await? {
-        Some(a) => a,
-        None => {
-            return Err(ApiError::Authentication(
-                didhub_auth::auth::AuthError::AuthenticationFailed,
-            ))
-        }
-    };
+    let auth = crate::handlers::auth::utils::authenticate_required(&state, &headers).await?;
 
     let id_str = path
         .get("userId")
@@ -32,13 +25,7 @@ pub async fn delete(
     let id: SqlxUuid =
         SqlxUuid::parse_str(&id_str).map_err(|_| ApiError::bad_request("invalid uuid"))?;
 
-    let is_admin = auth.scopes.iter().any(|s| s == "admin");
-    let is_owner = auth.user_id.map(|uid| uid == id).unwrap_or(false);
-    if !is_admin && !is_owner {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::ensure_admin_or_user(&auth, id)?;
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
     let affected = db_users::delete_by_primary_key(&mut *conn, &id)

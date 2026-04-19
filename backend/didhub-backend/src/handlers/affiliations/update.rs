@@ -6,9 +6,9 @@ use axum::http::HeaderMap;
 use serde_json::Value;
 use uuid::Uuid;
 
-use didhub_db::generated::{affiliations as db_affiliations, users as db_users};
+use didhub_db::generated::affiliations as db_affiliations;
 
-use crate::handlers::utils::{affiliation_to_payload, user_is_system};
+use crate::handlers::utils::{affiliation_to_payload, ensure_system_user};
 use crate::{error::ApiError, state::AppState};
 
 pub async fn update(
@@ -19,10 +19,8 @@ pub async fn update(
 ) -> Result<Json<Value>, ApiError> {
     let auth =
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let user_id = auth.user_id.ok_or_else(|| {
-        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
-    })?;
-    let is_admin = auth.scopes.iter().any(|scope| scope == "admin");
+    let user_id = crate::handlers::auth::utils::require_user_id(&auth)?;
+    let is_admin = auth.is_admin();
 
     let affiliation_id_str = path
         .get("affiliationId")
@@ -40,30 +38,10 @@ pub async fn update(
         .owner_user_id
         .map(|owner| owner == user_id)
         .unwrap_or(false);
-    if !is_admin && !owner_matches {
-        return Err(ApiError::Authentication(
-            didhub_auth::auth::AuthError::AuthenticationFailed,
-        ));
-    }
+    crate::handlers::auth::utils::ensure_admin_or(&auth, owner_matches)?;
 
     if !is_admin {
-        match db_users::find_by_primary_key(&mut *conn, &user_id).await {
-            Ok(Some(user_row)) => {
-                if !user_is_system(&user_row) {
-                    return Err(ApiError::Authentication(
-                        didhub_auth::auth::AuthError::AuthenticationFailed,
-                    ));
-                }
-            }
-            Ok(None) => {
-                return Err(ApiError::Authentication(
-                    didhub_auth::auth::AuthError::AuthenticationFailed,
-                ));
-            }
-            Err(err) => {
-                tracing::warn!(%err, "failed to load user while updating affiliation; allowing for tests");
-            }
-        }
+        ensure_system_user(&mut *conn, user_id, "updating affiliation").await?;
     }
 
     let payload = body
