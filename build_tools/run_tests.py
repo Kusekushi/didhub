@@ -14,7 +14,6 @@ Run without arguments to test everything.
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
@@ -22,11 +21,14 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from build_tools.shared import cargo_manifest_command, print_command, run_subprocess
+
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "backend"
 FRONTEND_APP_DIR = ROOT / "frontend" / "app"
 BUILD_TOOLS_DIR = ROOT / "build_tools"
 RUNTIME_TOOLS_DIR = ROOT / "runtime_tools"
+SETUP_HELPER_MANIFEST = ROOT / "runtime_tools" / "setup_helper" / "Cargo.toml"
 
 
 @dataclass
@@ -49,20 +51,26 @@ def run_command(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a command with proper error handling."""
-    full_env = {**os.environ, **(env or {})}
-    print(f"\n$ {' '.join(str(c) for c in command)}")
-    # On Windows, resolve the executable path to handle .cmd/.bat files
-    resolved_cmd = list(command)
-    if sys.platform == "win32" and command:
-        resolved = shutil.which(command[0])
-        if resolved:
-            resolved_cmd[0] = resolved
-    return subprocess.run(
-        resolved_cmd,
-        cwd=cwd,
-        check=check,
-        env=full_env,
-    )
+    print_command(command, leading_newline=True)
+    return run_subprocess(command, cwd, check=check, env=env)
+
+
+def build_rust_test_command(
+    manifest_path: Path,
+    *,
+    filter_pattern: str | None = None,
+    release: bool = False,
+    verbose: bool = False,
+) -> list[str]:
+    """Build a cargo test command for a Rust manifest."""
+    command = cargo_manifest_command("test", manifest_path)
+    if release:
+        command.append("--release")
+    if filter_pattern:
+        command.extend(["--", filter_pattern])
+    if verbose:
+        command.append("--nocapture")
+    return command
 
 
 def run_rust_tests(
@@ -78,29 +86,38 @@ def run_rust_tests(
 
     start = time.perf_counter()
 
-    command = [
-        "cargo",
-        "test",
-        "--manifest-path",
-        str(BACKEND_DIR / "Cargo.toml"),
-    ]
+    command = build_rust_test_command(
+        BACKEND_DIR / "Cargo.toml",
+        filter_pattern=filter_pattern,
+        release=release,
+        verbose=verbose,
+    )
 
-    if release:
-        command.append("--release")
-
-    if filter_pattern:
-        command.extend(["--", filter_pattern])
-
-    if verbose:
-        command.append("--nocapture")
-
+    success = True
     try:
         run_command(command, check=True, env={"RUST_BACKTRACE": "1"})
-        duration = time.perf_counter() - start
-        return TestResult("Rust", success=True, duration=duration)
     except subprocess.CalledProcessError:
-        duration = time.perf_counter() - start
-        return TestResult("Rust", success=False, failed=1, duration=duration)
+        success = False
+
+    if SETUP_HELPER_MANIFEST.exists():
+        helper_command = build_rust_test_command(
+            SETUP_HELPER_MANIFEST,
+            filter_pattern=filter_pattern,
+            release=release,
+            verbose=verbose,
+        )
+        try:
+            run_command(helper_command, check=True, env={"RUST_BACKTRACE": "1"})
+        except subprocess.CalledProcessError:
+            success = False
+
+    duration = time.perf_counter() - start
+    return TestResult(
+        "Rust",
+        success=success,
+        failed=0 if success else 1,
+        duration=duration,
+    )
 
 
 def run_frontend_tests(

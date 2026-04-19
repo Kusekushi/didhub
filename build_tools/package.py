@@ -21,11 +21,14 @@ import sys
 import zipfile
 from pathlib import Path
 
+from build_tools.shared import print_command, run_subprocess
+
 ROOT = Path(__file__).resolve().parents[1]
 DIST_DIR = ROOT / "dist"
 BACKEND_TARGET = ROOT / "backend" / "target"
 RUNTIME_TOOLS = ROOT / "runtime_tools"
 FRONTEND_APP = ROOT / "frontend" / "app"
+SETUP_HELPER_MANIFEST = ROOT / "runtime_tools" / "setup_helper" / "Cargo.toml"
 
 
 def get_platform_info() -> tuple[str, str]:
@@ -69,15 +72,9 @@ def run_command(
     capture: bool = False,
 ) -> subprocess.CompletedProcess:
     """Run a command with proper error handling."""
-    print(f"$ {' '.join(str(c) for c in command)}")
+    print_command(command)
     try:
-        result = subprocess.run(
-            command,
-            cwd=cwd,
-            check=check,
-            capture_output=capture,
-            text=True,
-        )
+        result = run_subprocess(command, cwd, check=check, capture=capture)
         return result
     except subprocess.CalledProcessError as e:
         if capture and e.stderr:
@@ -194,6 +191,13 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
         # Copy binary to bin directory
         shutil.copy2(binary, bin_dir / exe_name)
 
+    setup_helper_dir = ROOT / "runtime_tools" / "setup_helper" / "target" / profile
+    setup_helper_binary = setup_helper_dir / f"didhub-setup{binary_ext}"
+    if setup_helper_binary.exists():
+        shutil.copy2(setup_helper_binary, package_dir / f"didhub-setup{binary_ext}")
+    elif SETUP_HELPER_MANIFEST.exists():
+        print(f"Warning: Setup helper binary not found: {setup_helper_binary}")
+
     # Copy example config
     config_dir = package_dir / "config"
     config_dir.mkdir(exist_ok=True)
@@ -206,13 +210,15 @@ def create_comprehensive_package(version: str, release: bool = True) -> Path:
     docs_dir.mkdir(exist_ok=True)
 
     docs_to_copy = [
-        ROOT / "PACKAGING.md",
-        ROOT / "LICENSE",
+        (ROOT / "PACKAGING.md", "PACKAGING.md"),
+        (ROOT / "LICENSE", "LICENSE"),
+        (ROOT / "docs" / "user" / "02-installation.md", "installation.md"),
+        (ROOT / "runtime_tools" / "setup_helper" / "README.md", "setup_helper.md"),
     ]
 
-    for doc_file in docs_to_copy:
+    for doc_file, target_name in docs_to_copy:
         if doc_file.exists():
-            shutil.copy2(doc_file, docs_dir / doc_file.name)
+            shutil.copy2(doc_file, docs_dir / target_name)
 
     # Copy frontend static files
     if frontend_dist:

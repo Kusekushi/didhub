@@ -1,63 +1,106 @@
 # DidHub: User Installation Guide
 
-This guide explains how to install and run DidHub as an end user. It focuses on a simple, practical setup using Docker, so you can get started quickly without needing developer tools or code changes.
+This guide explains how to install DIDHub from a GitHub release archive by running the bundled setup helper.
 
 ## Prerequisites
-- A computer with Linux, macOS, or Windows 10/11.
-- Administrative access to install software.
-- Steady internet connection.
-- Docker Desktop (recommended for Windows/macOS) or Docker Engine (Linux).
-- Optional but recommended: 4 GB RAM or more.
-- A web browser to access the DidHub interface.
 
-If you don’t already have Docker, install it from the official site: https://www.docker.com/products/docker-desktop
+- A released DIDHub archive downloaded from GitHub Releases
+- Administrative access on the machine where DIDHub will run
+- One of the supported target platforms:
+  - Linux with `systemd`, `openrc`, or `runit`
+  - FreeBSD-style systems with `rc.d`
+  - Windows for manual/non-service setup
+- For PostgreSQL or MySQL installs, local or reachable database admin credentials
 
-## Installation method: Docker (recommended)
+## Installation from a release archive
 
-1) Obtain the official DidHub Docker setup package from the project’s releases page and extract it to a folder on your computer. Examples:
-- Linux/macOS: ~/didhub
-- Windows: C:\DidHub
+1. Download and extract the release archive.
+2. Open a terminal in the extracted directory.
+3. Run the setup helper:
 
-2) Create a data directory for DidHub data to persist information between runs:
-- Linux/macOS: mkdir -p ~/didhub/data
-- Windows PowerShell: New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\didhub\data"
+```bash
+# Linux / macOS / BSD
+./didhub-setup
+```
 
-3) If the package includes a sample environment file, copy it and customize values. Common values you may need to set include:
-- DIDHUB_BASE_URL=http://localhost:8080
-- DIDHUB_DATA_DIR=./data
+```powershell
+# Windows PowerShell
+.\didhub-setup.exe
+```
 
-4) Start the service. In the installation folder, run:
-- docker-compose up -d
+The default flow launches an interactive wizard. It configures SQLite unless you choose another database, creates `config/config.yaml`, prepares the data directories, runs database migrations, and installs a service when a supported service manager is available.
 
-5) Verify that the services are running:
-- docker-compose ps
-- docker-compose logs -f
+## Common installation variants
 
-6) Open the DidHub user interface in your browser:
-- http://localhost:8080
+### PostgreSQL
 
-If you chose a different port, use that port instead. The port is defined in the docker-compose.yml or the environment file.
+```bash
+./didhub-setup install \
+  --non-interactive \
+  --database-driver postgres \
+  --database-host 127.0.0.1 \
+  --database-port 5432 \
+  --database-name didhub \
+  --database-user didhub \
+  --database-password change-me \
+  --db-admin-user postgres \
+  --db-admin-password postgres-admin-password \
+  --admin-username admin \
+  --admin-password change-me
+```
 
-## Configuration steps
-- On first launch, DidHub will guide you through onboarding. Create an administrator account with a strong password.
-- To customize settings later, edit the environment variables in the .env file (or the equivalent configuration in your setup) and restart the services with:
-- docker-compose down && docker-compose up -d
-- If you don’t see the changes, double-check that the correct environment file is loaded and that your port is not blocked by a firewall.
-- Ensure the data directory you created is kept safe and has write permissions.
+### MySQL
 
-## How to start DidHub
-- Start: docker-compose up -d
-- Stop: docker-compose down
-- Restart: docker-compose restart
-- Check status: docker-compose ps
+```bash
+./didhub-setup install \
+  --non-interactive \
+  --database-driver mysql \
+  --database-host 127.0.0.1 \
+  --database-port 3306 \
+  --database-name didhub \
+  --database-user didhub \
+  --database-password change-me \
+  --db-admin-user root \
+  --db-admin-password mysql-root-password \
+  --admin-username admin \
+  --admin-password change-me
+```
 
-## Troubleshooting common installation issues
-- Docker not installed or not running: Install Docker Desktop (Windows/macOS) or Docker Engine (Linux) and start Docker.
-- Port already in use: Change the port in docker-compose.yml or the .env file, then restart with docker-compose up -d.
-- DidHub UI not reachable: Check docker-compose logs for errors, ensure the port is accessible, and verify your firewall settings.
-- Data not persisting: Confirm the data directory is mounted correctly in docker-compose.yml and that the path has write permissions.
-- Admin onboarding fails: Make sure you are connected to the correct data store and that you are using a strong, unique password.
-- Performance issues: Increase the amount of memory allocated to Docker (Docker Desktop settings > Resources).
+### Disable service or firewall automation
 
-## Next steps
-- After onboarding, follow the guided setup to configure features, add users, and connect data sources.
+```bash
+./didhub-setup install \
+  --non-interactive \
+  --service-manager none \
+  --skip-firewall \
+  --admin-username admin \
+  --admin-password change-me
+```
+
+## What the setup helper creates
+
+- `config/config.yaml` — generated DIDHub configuration
+- `config/admin.env` — optional admin bootstrap environment file
+- `data/` — data directory, including SQLite DB when that driver is used
+- `logs/` — default log directory
+- service definitions under the chosen init system
+
+## Post-install operation
+
+If the helper installed and enabled a service manager entry, DIDHub should already be running or ready to start through that service manager.
+
+If you installed without service automation, start the backend manually from the extracted directory:
+
+```bash
+./bin/didhub-backend --config-path ./config/config.yaml
+```
+
+Then open the DIDHub UI in your browser at `http://<host>:<port>`. The default port is `6000`.
+
+## Troubleshooting
+
+- If service installation fails, rerun with `--service-manager none` and start `bin/didhub-backend` manually first.
+- If firewall automation fails, rerun with `--skip-firewall` and open the port yourself.
+- If PostgreSQL or MySQL setup fails, verify the admin credentials and that `psql` or `mysql` is installed on the host.
+- If authentication is not configured explicitly, the setup helper generates a `jwt_secret` automatically. You can override that with `--jwt-secret` or `--jwt-pem-path`.
+- If you prefer scripted installation, use `didhub-setup install --non-interactive ...`.

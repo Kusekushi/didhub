@@ -20,6 +20,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from build_tools.shared import cargo_manifest_command, print_command, run_subprocess
+
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "backend"
 FRONTEND_DIR = ROOT / "frontend"
@@ -41,10 +43,11 @@ class ToolCheck:
 def check_tool(name: str, command: str, *, required: bool = True) -> ToolCheck:
     """Check if a tool is available."""
     try:
-        result = subprocess.run(
+        result = run_subprocess(
             [command, "--version"],
-            capture_output=True,
-            text=True,
+            ROOT,
+            check=False,
+            capture=True,
             timeout=10,
         )
         if result.returncode == 0:
@@ -67,15 +70,9 @@ def run_command(
     check: bool = True,
 ) -> bool:
     """Run a command, returning success status."""
-    print(f"\n$ {' '.join(str(c) for c in command)}")
-    # On Windows, resolve the executable path to handle .cmd/.bat files
-    resolved_cmd = list(command)
-    if sys.platform == "win32" and command:
-        resolved = shutil.which(command[0])
-        if resolved:
-            resolved_cmd[0] = resolved
+    print_command(command, leading_newline=True)
     try:
-        subprocess.run(resolved_cmd, cwd=cwd, check=check)
+        run_subprocess(command, cwd, check=check)
         return True
     except subprocess.CalledProcessError:
         return False
@@ -117,14 +114,7 @@ def install_rust_deps() -> bool:
     print("=" * 40)
 
     # Just build to fetch deps
-    return run_command(
-        [
-            "cargo",
-            "fetch",
-            "--manifest-path",
-            str(BACKEND_DIR / "Cargo.toml"),
-        ]
-    )
+    return run_command(cargo_manifest_command("fetch", BACKEND_DIR / "Cargo.toml"))
 
 
 def install_frontend_deps() -> bool:

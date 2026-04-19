@@ -7,6 +7,7 @@ import pytest
 
 from build_tools.run_tests import (
     TestResult,
+    build_rust_test_command,
     run_command,
     run_frontend_tests,
     run_python_tests,
@@ -52,7 +53,7 @@ class TestRunRustTests:
         assert result.name == "Rust"
         assert result.success is True
         assert result.failed == 0
-        mock_run_command.assert_called_once()
+        assert mock_run_command.call_count == 2
 
     @patch("build_tools.run_tests.run_command")
     def test_run_rust_tests_failure(self, mock_run_command):
@@ -71,11 +72,12 @@ class TestRunRustTests:
         result = run_rust_tests(filter_pattern="test_*", release=True, verbose=True)
 
         assert result.success is True
-        args, kwargs = mock_run_command.call_args
-        command = args[0]
-        assert "--release" in command
-        assert "--nocapture" in command
-        assert "test_*" in command
+        first_command = mock_run_command.call_args_list[0].args[0]
+        second_command = mock_run_command.call_args_list[1].args[0]
+        for command in (first_command, second_command):
+            assert "--release" in command
+            assert "--nocapture" in command
+            assert "test_*" in command
 
 
 class TestRunFrontendTests:
@@ -208,7 +210,7 @@ class TestRunZigTests:
         mock_run_command.return_value = MagicMock()
 
         original_exists = Path.exists
-        Path.exists = lambda self: str(self).startswith("/runtime")
+        Path.exists = lambda self: str(self).startswith(("/runtime", "\\runtime"))
         try:
             result = run_zig_tests(coverage=True)
         finally:
@@ -217,6 +219,27 @@ class TestRunZigTests:
         assert result.name == "Zig"
         assert result.success is True
         assert result.passed == 2
+
+
+class TestBuildRustTestCommand:
+    def test_build_rust_test_command(self):
+        command = build_rust_test_command(
+            Path("backend") / "Cargo.toml",
+            filter_pattern="test_*",
+            release=True,
+            verbose=True,
+        )
+
+        assert command == [
+            "cargo",
+            "test",
+            "--manifest-path",
+            str(Path("backend") / "Cargo.toml"),
+            "--release",
+            "--",
+            "test_*",
+            "--nocapture",
+        ]
 
 
 class TestRunPythonTests:

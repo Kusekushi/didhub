@@ -19,6 +19,8 @@ from .errors import (
     DialectError,
     TypeMappingError,
 )
+from .cargo import cargo_manifest_command
+from .process import format_command, print_command, resolve_command, run_subprocess
 
 __all__ = [
     # Schema loading
@@ -37,4 +39,11 @@ __all__ = [
     "SchemaValidationError",
     "DialectError",
     "TypeMappingError",
+    # Process helpers
+    "format_command",
+    "print_command",
+    "resolve_command",
+    "run_subprocess",
+    # Cargo helpers
+    "cargo_manifest_command",
 ]

@@ -11,11 +11,12 @@ Generates:
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 import webbrowser
 from pathlib import Path
+
+from build_tools.shared import cargo_manifest_command, print_command, run_subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "backend"
@@ -31,15 +32,9 @@ def run_command(
     check: bool = True,
 ) -> bool:
     """Run a command, returning success status."""
-    print(f"\n$ {' '.join(str(c) for c in command)}")
-    # On Windows, resolve the executable path to handle .cmd/.bat files
-    resolved_cmd = list(command)
-    if sys.platform == "win32" and command:
-        resolved = shutil.which(command[0])
-        if resolved:
-            resolved_cmd[0] = resolved
+    print_command(command, leading_newline=True)
     try:
-        subprocess.run(resolved_cmd, cwd=cwd, check=check)
+        run_subprocess(command, cwd, check=check)
         return True
     except subprocess.CalledProcessError:
         return False
@@ -55,10 +50,7 @@ def generate_rust_docs(*, open_browser: bool = False) -> bool:
     print("=" * 40)
 
     command = [
-        "cargo",
-        "doc",
-        "--manifest-path",
-        str(BACKEND_DIR / "Cargo.toml"),
+        *cargo_manifest_command("doc", BACKEND_DIR / "Cargo.toml"),
         "--no-deps",
         "--document-private-items",
     ]
@@ -117,10 +109,7 @@ def run_rust_coverage(*, open_browser: bool = False) -> bool:
 
     success = run_command(
         [
-            "cargo",
-            "tarpaulin",
-            "--manifest-path",
-            str(BACKEND_DIR / "Cargo.toml"),
+            *cargo_manifest_command("tarpaulin", BACKEND_DIR / "Cargo.toml"),
             "--out",
             "Html",
             "--output-dir",

@@ -144,6 +144,9 @@ jobs:
       - name: Build backend (release)
         run: cargo build --manifest-path backend/Cargo.toml --release --target ${{ matrix.target }}
 
+      - name: Build setup helper (release)
+        run: cargo build --manifest-path runtime_tools/setup_helper/Cargo.toml --release
+
       - name: Build frontend
         run: pnpm build
         working-directory: frontend/app
@@ -181,9 +184,10 @@ jobs:
           
           # Copy runtime tools documentation
           mkdir -p package/docs/tools
-          cp runtime_tools/log_analyzer/README.md package/docs/tools/log_analyzer.md || true
-          cp runtime_tools/log_collector/README.md package/docs/tools/log_collector.md || true
-          cp runtime_tools/config_generator/README.md package/docs/tools/config_generator.md || true
+            cp runtime_tools/log_analyzer/README.md package/docs/tools/log_analyzer.md || true
+            cp runtime_tools/log_collector/README.md package/docs/tools/log_collector.md || true
+            cp runtime_tools/config_generator/README.md package/docs/tools/config_generator.md || true
+            cp runtime_tools/setup_helper/README.md package/docs/tools/setup_helper.md || true
           
           # Copy frontend documentation
           mkdir -p package/docs/frontend
@@ -214,6 +218,7 @@ jobs:
           cp runtime_tools/log_collector/zig-out/bin/didhub-log-collector package/tools/
           cp runtime_tools/log_analyzer/zig-out/bin/didhub-log-analyzer package/tools/
           cp runtime_tools/config_generator/zig-out/bin/config-generator package/tools/
+          cp runtime_tools/setup_helper/target/release/didhub-setup package/
 
       - name: Copy runtime tools (Windows)
         if: runner.os == 'Windows'
@@ -222,6 +227,7 @@ jobs:
           cp runtime_tools/log_collector/zig-out/bin/didhub-log-collector.exe package/tools/ || true
           cp runtime_tools/log_analyzer/zig-out/bin/didhub-log-analyzer.exe package/tools/ || true
           cp runtime_tools/config_generator/zig-out/bin/config-generator.exe package/tools/ || true
+          cp runtime_tools/setup_helper/target/release/didhub-setup.exe package/ || true
 
       - name: Copy frontend build
         shell: bash

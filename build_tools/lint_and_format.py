@@ -13,17 +13,19 @@ Run without arguments to lint/format everything.
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+from build_tools.shared import cargo_manifest_command, print_command, run_subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "backend"
 FRONTEND_APP_DIR = ROOT / "frontend" / "app"
 BUILD_TOOLS_DIR = ROOT / "build_tools"
 RUNTIME_TOOLS_DIR = ROOT / "runtime_tools"
+SETUP_HELPER_MANIFEST = ROOT / "runtime_tools" / "setup_helper" / "Cargo.toml"
 
 
 @dataclass
@@ -44,20 +46,8 @@ def run_command(
     capture: bool = False,
 ) -> subprocess.CompletedProcess:
     """Run a command with proper error handling."""
-    print(f"\n$ {' '.join(str(c) for c in command)}")
-    # On Windows, resolve the executable path to handle .cmd/.bat files
-    resolved_cmd = list(command)
-    if sys.platform == "win32" and command:
-        resolved = shutil.which(command[0])
-        if resolved:
-            resolved_cmd[0] = resolved
-    return subprocess.run(
-        resolved_cmd,
-        cwd=cwd,
-        check=check,
-        capture_output=capture,
-        text=True,
-    )
+    print_command(command, leading_newline=True)
+    return run_subprocess(command, cwd, check=check, capture=capture)
 
 
 def lint_rust(*, fix: bool = True) -> LintResult:
@@ -71,10 +61,7 @@ def lint_rust(*, fix: bool = True) -> LintResult:
     # Run clippy
     try:
         clippy_cmd = [
-            "cargo",
-            "clippy",
-            "--manifest-path",
-            str(BACKEND_DIR / "Cargo.toml"),
+            *cargo_manifest_command("clippy", BACKEND_DIR / "Cargo.toml"),
             "--all-targets",
             "--",
             "-D",
@@ -90,10 +77,7 @@ def lint_rust(*, fix: bool = True) -> LintResult:
     # Run fmt
     try:
         fmt_cmd = [
-            "cargo",
-            "fmt",
-            "--manifest-path",
-            str(BACKEND_DIR / "Cargo.toml"),
+            *cargo_manifest_command("fmt", BACKEND_DIR / "Cargo.toml"),
             "--all",
         ]
         if not fix:
@@ -101,6 +85,33 @@ def lint_rust(*, fix: bool = True) -> LintResult:
         run_command(fmt_cmd, check=True)
     except subprocess.CalledProcessError:
         errors += 1
+
+    if SETUP_HELPER_MANIFEST.exists():
+        try:
+            helper_clippy_cmd = [
+                *cargo_manifest_command("clippy", SETUP_HELPER_MANIFEST),
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ]
+            if fix:
+                helper_clippy_cmd.insert(2, "--fix")
+                helper_clippy_cmd.insert(3, "--allow-dirty")
+            run_command(helper_clippy_cmd, check=True)
+        except subprocess.CalledProcessError:
+            errors += 1
+
+        try:
+            helper_fmt_cmd = [
+                *cargo_manifest_command("fmt", SETUP_HELPER_MANIFEST),
+                "--all",
+            ]
+            if not fix:
+                helper_fmt_cmd.append("--check")
+            run_command(helper_fmt_cmd, check=True)
+        except subprocess.CalledProcessError:
+            errors += 1
 
     return LintResult("Rust", success=errors == 0, errors=errors)
 

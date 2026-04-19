@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from build_tools.shared import cargo_manifest_command, print_command, run_subprocess
+
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION_SCRIPT = ROOT / "build_tools" / "migration_generator" / "main.py"
 DB_CODEGEN_SCRIPT = ROOT / "build_tools" / "db_codegen" / "main.py"
@@ -29,6 +31,7 @@ SCHEMA_DIR = ROOT / "schemas" / "db"
 DB_CRATE_DIR = ROOT / "backend" / "didhub-db"
 CARGO_MANIFEST = ROOT / "backend" / "Cargo.toml"
 FRONTEND_DIR = ROOT / "frontend" / "app"
+SETUP_HELPER_MANIFEST = ROOT / "runtime_tools" / "setup_helper" / "Cargo.toml"
 
 # Runtime tools directories
 RUNTIME_TOOLS = [
@@ -60,15 +63,9 @@ def run_command(
     capture: bool = False,
 ) -> subprocess.CompletedProcess:
     """Run a command with proper error handling."""
-    print(f"\n$ {' '.join(str(c) for c in command)}")
+    print_command(command, leading_newline=True)
     try:
-        result = subprocess.run(
-            command,
-            cwd=cwd,
-            check=check,
-            capture_output=capture,
-            text=True,
-        )
+        result = run_subprocess(command, cwd, check=check, capture=capture)
         return result
     except subprocess.CalledProcessError as e:
         if capture and e.stderr:
@@ -111,11 +108,25 @@ def generate_api_code() -> None:
 def build_rust(*, release: bool = False, check_only: bool = False) -> None:
     """Build the Rust backend."""
     if check_only:
-        command = ["cargo", "check", "--manifest-path", str(CARGO_MANIFEST)]
+        command = cargo_manifest_command("check", CARGO_MANIFEST)
     else:
-        command = ["cargo", "build", "--manifest-path", str(CARGO_MANIFEST)]
+        command = cargo_manifest_command("build", CARGO_MANIFEST)
         if release:
             command.append("--release")
+    run_command(command)
+
+
+def build_setup_helper(*, release: bool = False, check_only: bool = False) -> None:
+    """Build the setup helper executable."""
+    if not SETUP_HELPER_MANIFEST.exists():
+        print(f"Warning: setup helper manifest not found: {SETUP_HELPER_MANIFEST}")
+        return
+
+    command = cargo_manifest_command(
+        "check" if check_only else "build", SETUP_HELPER_MANIFEST
+    )
+    if not check_only and release:
+        command.append("--release")
     run_command(command)
 
 
@@ -237,6 +248,10 @@ def main() -> None:
         BuildStep(
             "Build Rust Backend",
             lambda: build_rust(release=args.release, check_only=args.check),
+        ),
+        BuildStep(
+            "Build Setup Helper",
+            lambda: build_setup_helper(release=args.release, check_only=args.check),
         ),
         BuildStep(
             "Build Runtime Tools",

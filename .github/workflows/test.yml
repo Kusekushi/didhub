@@ -104,6 +104,9 @@ jobs:
           cd backend
           cargo llvm-cov --workspace --lcov --output-path ../coverage-rust.lcov
 
+      - name: Run setup helper tests
+        run: cargo test --manifest-path runtime_tools/setup_helper/Cargo.toml
+
       - name: Run frontend tests with coverage
         run: pnpm test:coverage
         working-directory: frontend/app

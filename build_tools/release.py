@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from build_tools.shared import print_command, run_subprocess
+
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_CARGO_TOML = ROOT / "backend" / "Cargo.toml"
 FRONTEND_PACKAGE_JSON = ROOT / "frontend" / "app" / "package.json"
@@ -64,14 +66,8 @@ def run_command(
     capture: bool = False,
 ) -> subprocess.CompletedProcess:
     """Run a command with error handling."""
-    print(f"$ {' '.join(command)}")
-    return subprocess.run(
-        command,
-        cwd=cwd,
-        capture_output=capture,
-        text=True,
-        check=True,
-    )
+    print_command(command)
+    return run_subprocess(command, cwd, capture=capture)
 
 
 def get_current_version() -> Version:
