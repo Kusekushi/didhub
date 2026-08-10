@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -21,9 +20,6 @@ from typing import Any, Dict, Final, List, Optional
 
 import yaml
 from jinja2 import Environment, FileSystemLoader
-
-# Add parent directory to path for shared imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # HTTP methods supported in OpenAPI
 HTTP_METHODS: Final[frozenset[str]] = frozenset(

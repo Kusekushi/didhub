@@ -139,9 +139,13 @@ class TestBuildRust:
 
 
 class TestBuildRuntimeTools:
+    @patch("build_tools.full_build.check_zig_compatibility")
     @patch("build_tools.full_build.run_command")
     @patch("pathlib.Path.exists")
-    def test_build_runtime_tools_exists(self, mock_exists, mock_run_command):
+    def test_build_runtime_tools_exists(
+        self, mock_exists, mock_run_command, mock_zig_compat
+    ):
+        mock_zig_compat.return_value = (True, "Zig is compatible")
         mock_exists.return_value = True
 
         build_runtime_tools()
@@ -149,18 +153,26 @@ class TestBuildRuntimeTools:
         # Should call run_command 2 times (one for each tool)
         assert mock_run_command.call_count == 2
 
+    @patch("build_tools.full_build.check_zig_compatibility")
     @patch("build_tools.full_build.run_command")
     @patch("pathlib.Path.exists")
-    def test_build_runtime_tools_not_exists(self, mock_exists, mock_run_command):
+    def test_build_runtime_tools_not_exists(
+        self, mock_exists, mock_run_command, mock_zig_compat
+    ):
+        mock_zig_compat.return_value = (True, "Zig is compatible")
         mock_exists.return_value = False
 
         build_runtime_tools()
 
         mock_run_command.assert_not_called()
 
+    @patch("build_tools.full_build.check_zig_compatibility")
     @patch("build_tools.full_build.run_command")
     @patch("pathlib.Path.exists")
-    def test_build_runtime_tools_missing_build_zig(self, mock_exists, mock_run_command):
+    def test_build_runtime_tools_missing_build_zig(
+        self, mock_exists, mock_run_command, mock_zig_compat
+    ):
+        mock_zig_compat.return_value = (True, "Zig is compatible")
         # Mock exists: first tool exists but no build.zig, second exists with build.zig
         mock_exists.side_effect = [True, False, True, True]
 
@@ -169,9 +181,13 @@ class TestBuildRuntimeTools:
         # Should call run_command for the 1 tool that has build.zig
         assert mock_run_command.call_count == 1
 
+    @patch("build_tools.full_build.check_zig_compatibility")
     @patch("build_tools.full_build.run_command")
     @patch("pathlib.Path.exists")
-    def test_build_runtime_tools_release_mode(self, mock_exists, mock_run_command):
+    def test_build_runtime_tools_release_mode(
+        self, mock_exists, mock_run_command, mock_zig_compat
+    ):
+        mock_zig_compat.return_value = (True, "Zig is compatible")
         mock_exists.return_value = True
 
         build_runtime_tools(release=True)
@@ -180,6 +196,15 @@ class TestBuildRuntimeTools:
         for call in mock_run_command.call_args_list:
             args, kwargs = call
             assert "--release=fast" in args[0]
+
+    @patch("build_tools.full_build.check_zig_compatibility")
+    @patch("build_tools.full_build.run_command")
+    def test_build_runtime_tools_incompatible_zig(self, mock_run_command, mock_zig_compat):
+        mock_zig_compat.return_value = (False, "Zig version not supported")
+
+        build_runtime_tools()
+
+        mock_run_command.assert_not_called()
 
 
 class TestBuildFrontend:

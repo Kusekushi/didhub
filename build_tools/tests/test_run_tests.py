@@ -128,9 +128,9 @@ class TestRunFrontendTests:
 
 
 class TestRunZigTests:
-    @patch("shutil.which")
-    def test_run_zig_tests_no_zig(self, mock_which):
-        mock_which.return_value = None
+    @patch("build_tools.run_tests.check_zig_compatibility")
+    def test_run_zig_tests_no_zig(self, mock_zig_compat):
+        mock_zig_compat.return_value = (False, "Zig is not installed")
 
         result = run_zig_tests()
 
@@ -138,13 +138,13 @@ class TestRunZigTests:
         assert result.success is True
         assert result.skipped == 1
 
+    @patch("build_tools.run_tests.check_zig_compatibility")
     @patch("build_tools.run_tests.run_command")
-    @patch("shutil.which")
     @patch("build_tools.run_tests.RUNTIME_TOOLS_DIR")
     def test_run_zig_tests_success(
-        self, mock_runtime_dir, mock_which, mock_run_command
+        self, mock_runtime_dir, mock_run_command, mock_zig_compat
     ):
-        mock_which.return_value = "/usr/bin/zig"
+        mock_zig_compat.return_value = (True, "Zig 0.14.0 is compatible")
         mock_runtime_dir.__truediv__ = lambda self, x: Path(f"/runtime/{x}")
         # Mock exists for all tools
         with patch("pathlib.Path.exists", return_value=True):
@@ -157,13 +157,13 @@ class TestRunZigTests:
             assert result.passed == 2  # 2 tools
             assert result.failed == 0
 
+    @patch("build_tools.run_tests.check_zig_compatibility")
     @patch("build_tools.run_tests.run_command")
-    @patch("shutil.which")
     @patch("build_tools.run_tests.RUNTIME_TOOLS_DIR")
     def test_run_zig_tests_partial_failure(
-        self, mock_runtime_dir, mock_which, mock_run_command
+        self, mock_runtime_dir, mock_run_command, mock_zig_compat
     ):
-        mock_which.return_value = "/usr/bin/zig"
+        mock_zig_compat.return_value = (True, "Zig 0.14.0 is compatible")
         mock_runtime_dir.__truediv__ = lambda self, x: Path(f"/runtime/{x}")
 
         call_count = 0
@@ -185,13 +185,21 @@ class TestRunZigTests:
             assert result.passed == 1
             assert result.failed == 1
 
+    @patch("build_tools.run_tests.check_zig_compatibility")
     @patch("build_tools.run_tests.run_command")
-    @patch("shutil.which")
-    def test_run_zig_tests_coverage_no_kcov(self, mock_which, mock_run_command):
-        mock_which.side_effect = lambda cmd: cmd == "zig"
+    @patch("build_tools.run_tests.RUNTIME_TOOLS_DIR")
+    def test_run_zig_tests_coverage_no_kcov(
+        self, mock_runtime_dir, mock_run_command, mock_zig_compat
+    ):
+        mock_zig_compat.return_value = (True, "Zig 0.14.0 is compatible")
+        mock_runtime_dir.__truediv__ = lambda self, x: Path(f"/runtime/{x}")
         mock_run_command.return_value = MagicMock()
 
-        with patch("builtins.print"):
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("shutil.which", return_value=None),
+            patch("builtins.print"),
+        ):
             result = run_zig_tests(coverage=True)
 
         assert result.name == "Zig"
@@ -199,13 +207,13 @@ class TestRunZigTests:
         assert result.passed == 2  # Tools exist
         assert result.failed == 0  # Since no tools exist in test
 
+    @patch("build_tools.run_tests.check_zig_compatibility")
     @patch("build_tools.run_tests.run_command")
-    @patch("shutil.which")
     @patch("build_tools.run_tests.RUNTIME_TOOLS_DIR")
     def test_run_zig_tests_with_coverage(
-        self, mock_runtime_dir, mock_which, mock_run_command
+        self, mock_runtime_dir, mock_run_command, mock_zig_compat
     ):
-        mock_which.side_effect = lambda cmd: cmd in ["zig", "kcov"]
+        mock_zig_compat.return_value = (True, "Zig 0.14.0 is compatible")
         mock_runtime_dir.__truediv__ = lambda self, x: Path(f"/runtime/{x}")
         mock_run_command.return_value = MagicMock()
 
@@ -219,6 +227,16 @@ class TestRunZigTests:
         assert result.name == "Zig"
         assert result.success is True
         assert result.passed == 2
+
+    @patch("build_tools.run_tests.check_zig_compatibility")
+    def test_run_zig_tests_incompatible_zig(self, mock_zig_compat):
+        mock_zig_compat.return_value = (False, "Zig 0.16.0 is not yet supported")
+
+        result = run_zig_tests()
+
+        assert result.name == "Zig"
+        assert result.success is True
+        assert result.skipped == 1
 
 
 class TestBuildRustTestCommand:

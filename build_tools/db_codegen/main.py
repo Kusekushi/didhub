@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -21,10 +20,7 @@ from typing import Any, Final, Iterator, Sequence
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-# Add parent directory to path for shared imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from shared import (
+from build_tools.shared import (
     SchemaCache,
     SchemaError,
     SchemaValidationError,

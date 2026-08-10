@@ -11,17 +11,13 @@ This module provides optimized migration generation with:
 from __future__ import annotations
 
 import argparse
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Iterator
 
 from jinja2 import Environment, FileSystemLoader
 
-# Add parent directory to path for shared imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from shared import (
+from build_tools.shared import (
     SchemaError,
     SchemaValidationError,
     DialectError,

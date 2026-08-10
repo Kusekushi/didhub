@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Callable
 
 from build_tools.shared import cargo_manifest_command, print_command, run_subprocess
+from build_tools.shared.toolchain import check_zig_compatibility
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION_SCRIPT = ROOT / "build_tools" / "migration_generator" / "main.py"
@@ -132,6 +133,12 @@ def build_setup_helper(*, release: bool = False, check_only: bool = False) -> No
 
 def build_runtime_tools(*, release: bool = False) -> None:
     """Build Zig runtime tools."""
+    compatible, message = check_zig_compatibility()
+    if not compatible:
+        print(f"Warning: {message}")
+        print("Skipping Zig runtime tools build.")
+        return
+
     for tool_dir in RUNTIME_TOOLS:
         if not tool_dir.exists():
             print(f"Warning: Runtime tool directory not found: {tool_dir}")

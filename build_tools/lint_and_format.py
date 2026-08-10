@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from build_tools.shared import cargo_manifest_command, print_command, run_subprocess
+from build_tools.shared.toolchain import check_zig_compatibility
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "backend"
@@ -206,16 +207,11 @@ def lint_zig(*, fix: bool = True) -> LintResult:
         print(f"Warning: Runtime tools directory not found: {RUNTIME_TOOLS_DIR}")
         return LintResult("Zig", success=True)
 
-    # Check if zig is available
-    try:
-        subprocess.run(
-            ["zig", "version"],
-            capture_output=True,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("Warning: zig is not installed. Skipping Zig linting.")
-        print("Install Zig from https://ziglang.org/download/")
+    # Check Zig compatibility
+    compatible, message = check_zig_compatibility()
+    if not compatible:
+        print(f"Warning: {message}")
+        print("Skipping Zig linting.")
         return LintResult("Zig", success=True)
 
     errors = 0

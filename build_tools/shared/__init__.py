@@ -21,6 +21,13 @@ from .errors import (
 )
 from .cargo import cargo_manifest_command
 from .process import format_command, print_command, resolve_command, run_subprocess
+from .toolchain import (
+    Version,
+    ToolchainInfo,
+    detect_zig,
+    detect_cargo,
+    check_zig_compatibility,
+)
 
 __all__ = [
     # Schema loading
@@ -46,4 +53,10 @@ __all__ = [
     "run_subprocess",
     # Cargo helpers
     "cargo_manifest_command",
+    # Toolchain helpers
+    "Version",
+    "ToolchainInfo",
+    "detect_zig",
+    "detect_cargo",
+    "check_zig_compatibility",
 ]

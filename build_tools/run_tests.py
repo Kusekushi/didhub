@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from build_tools.shared import cargo_manifest_command, print_command, run_subprocess
+from build_tools.shared.toolchain import check_zig_compatibility
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "backend"
@@ -159,10 +160,13 @@ def run_zig_tests(*, verbose: bool = False, coverage: bool = False) -> TestResul
 
     start = time.perf_counter()
 
-    # Check if zig is available
-    if not shutil.which("zig"):
-        print("Warning: zig is not installed. Skipping Zig tests.")
-        return TestResult("Zig", success=True, skipped=1)
+    # Check Zig compatibility
+    compatible, message = check_zig_compatibility()
+    if not compatible:
+        print(f"Warning: {message}")
+        print("Skipping Zig tests.")
+        duration = time.perf_counter() - start
+        return TestResult("Zig", success=True, skipped=1, duration=duration)
 
     # Check if kcov is available for coverage
     if coverage and not shutil.which("kcov"):
