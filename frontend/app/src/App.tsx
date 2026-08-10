@@ -1,42 +1,40 @@
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import LoginPage from './pages/Login'
-import ResetPassword from './pages/ResetPassword'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AdminProtectedRoute } from './components/AdminProtectedRoute'
-import { ToastProvider } from './context/ToastContext'
 import { ErrorProvider } from './context/ErrorContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { BugReportModal } from './components/modals/BugReportModal'
-import SignupPage from './pages/Signup'
 import AppLayout from './components/AppLayout'
-import DashboardPage from './pages/Dashboard'
-import SettingsPage from './pages/Settings'
-import ProfilePage from './pages/Profile'
-import UsersPage from './pages/Users'
-import DIDSystemView from './pages/DIDSystemView'
-import AlterDetail from './pages/AlterDetail'
-import UserIntro from './pages/UserIntro'
-import AdminPanel from './pages/AdminPanel'
-import FamilyTreeView from './pages/FamilyTreeView'
-import AffiliationDetail from './pages/AffiliationDetail'
-import SubsystemDetail from './pages/SubsystemDetail'
-import AdminSettings from './pages/AdminSettings'
-import AdminUsers from './pages/AdminUsers'
-import AdminDatabase from './pages/AdminDatabase'
-import AdminSecurity from './pages/AdminSecurity'
-import AdminJobs from './pages/AdminJobs'
-import AdminSystemRequests from './pages/AdminSystemRequests'
-import AdminUpdates from './pages/AdminUpdates'
-import AwaitingApproval from './pages/AwaitingApproval'
-import BirthdayCalendar from './pages/BirthdayCalendar'
-import { useEffect } from 'react'
-import { useToast } from './context/ToastContext'
 import { useError } from './context/ErrorContext'
-import { normalizeError, normalizeApiError } from './lib/errors'
+import { normalizeError } from './lib/errors'
+
+const LoginPage = lazy(() => import('./pages/Login'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const SignupPage = lazy(() => import('./pages/Signup'))
+const DashboardPage = lazy(() => import('./pages/Dashboard'))
+const SettingsPage = lazy(() => import('./pages/Settings'))
+const ProfilePage = lazy(() => import('./pages/Profile'))
+const UsersPage = lazy(() => import('./pages/Users'))
+const DIDSystemView = lazy(() => import('./pages/DIDSystemView'))
+const AlterDetail = lazy(() => import('./pages/AlterDetail'))
+const UserIntro = lazy(() => import('./pages/UserIntro'))
+const AdminPanel = lazy(() => import('./pages/AdminPanel'))
+const FamilyTreeView = lazy(() => import('./pages/FamilyTreeView'))
+const AffiliationDetail = lazy(() => import('./pages/AffiliationDetail'))
+const SubsystemDetail = lazy(() => import('./pages/SubsystemDetail'))
+const AdminSettings = lazy(() => import('./pages/AdminSettings'))
+const AdminUsers = lazy(() => import('./pages/AdminUsers'))
+const AdminDatabase = lazy(() => import('./pages/AdminDatabase'))
+const AdminSecurity = lazy(() => import('./pages/AdminSecurity'))
+const AdminJobs = lazy(() => import('./pages/AdminJobs'))
+const AdminSystemRequests = lazy(() => import('./pages/AdminSystemRequests'))
+const AdminUpdates = lazy(() => import('./pages/AdminUpdates'))
+const AwaitingApproval = lazy(() => import('./pages/AwaitingApproval'))
+const BirthdayCalendar = lazy(() => import('./pages/BirthdayCalendar'))
 
 function GlobalErrorHandler() {
   const { showError } = useError()
-  const { show: showToast } = useToast()
 
   useEffect(() => {
     const handleWindowError = (event: ErrorEvent) => {
@@ -63,15 +61,21 @@ function GlobalErrorHandler() {
 
 function App() {
   return (
-    <ToastProvider>
-      <ErrorProvider>
-        <GlobalErrorHandler />
-        <ErrorBoundary>
+    <ErrorProvider>
+      <GlobalErrorHandler />
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center min-h-svh">
+              <div className="animate-pulse text-muted-foreground">Loading...</div>
+            </div>
+          }
+        >
           <AppRoutes />
-        </ErrorBoundary>
-        <ApiErrorModal />
-      </ErrorProvider>
-    </ToastProvider>
+        </Suspense>
+      </ErrorBoundary>
+      <ApiErrorModal />
+    </ErrorProvider>
   )
 }
 

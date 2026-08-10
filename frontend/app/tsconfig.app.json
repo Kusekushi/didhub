@@ -5,7 +5,7 @@
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "types": ["bun-types", "node"],
+    "types": ["@types/bun", "node"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -24,13 +24,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
       ]
     }
   },
-  "include": ["src"],
-  "exclude": ["src/__tests__"]
+  "include": ["src"]
 }

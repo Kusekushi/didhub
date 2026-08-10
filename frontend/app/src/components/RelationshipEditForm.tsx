@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { Alter, Relationship, UpdateRelationshipRequest, CreateRelationshipRequest } from "@didhub/api"
 import { Button } from "@/components/ui/button"
@@ -28,7 +26,7 @@ interface RelationshipEditFormProps {
   /** The anchor participant ID (the one that all partners are connected to) */
   anchorId?: string
   anchorUserId?: string
-  /** Direction of the grouped relationship ('forward' = anchor→partners, 'reverse' = partners→anchor) */
+  /** Direction of the grouped relationship ('forward' = anchorâ†’partners, 'reverse' = partnersâ†’anchor) */
   direction?: 'forward' | 'reverse'
   /** All available alters for adding new partners */
   availableAlters?: Alter[]
@@ -159,8 +157,8 @@ export function RelationshipEditForm({
     setLoading(true)
     try {
       // Create new relationships based on direction
-      // Forward: anchor is side A, partners are side B (anchor → type → partners)
-      // Reverse: anchor is side B, partners are side A (partners → type → anchor)
+      // Forward: anchor is side A, partners are side B (anchor â†’ type â†’ partners)
+      // Reverse: anchor is side B, partners are side A (partners â†’ type â†’ anchor)
       const newRelationships: CreateRelationshipRequest[] = selectedNewPartnerIds.map(alterId => {
         if (direction === 'reverse') {
           // Reverse: new partners go on side A, anchor stays on side B
@@ -271,7 +269,7 @@ export function RelationshipEditForm({
           <div className="space-y-2">
             {direction === 'reverse' ? (
               <>
-                {/* Reverse: Partners → Type → Anchor */}
+                {/* Reverse: Partners â†’ Type â†’ Anchor */}
                 {/* Partners list (sources) */}
                 <div className="space-y-1">
                   {groupedPartners.map((partner) => {
@@ -325,7 +323,7 @@ export function RelationshipEditForm({
 
                 {/* Relationship arrow */}
                 <div className="text-center text-muted-foreground text-sm">
-                  ↓ {RELATIONSHIP_TYPES.find(t => t.value === relationType)?.label || relationType} ↓
+                  â†“ {RELATIONSHIP_TYPES.find(t => t.value === relationType)?.label || relationType} â†“
                 </div>
 
                 {/* Anchor participant (target) */}
@@ -336,7 +334,7 @@ export function RelationshipEditForm({
               </>
             ) : (
               <>
-                {/* Forward: Anchor → Type → Partners */}
+                {/* Forward: Anchor â†’ Type â†’ Partners */}
                 {/* Anchor participant (source) */}
                 <div className="p-3 bg-primary/10 rounded-md border border-primary/20">
                   <span className="font-medium">{anchorName}</span>
@@ -345,7 +343,7 @@ export function RelationshipEditForm({
 
                 {/* Relationship arrow */}
                 <div className="text-center text-muted-foreground text-sm">
-                  ↓ {RELATIONSHIP_TYPES.find(t => t.value === relationType)?.label || relationType} ↓
+                  â†“ {RELATIONSHIP_TYPES.find(t => t.value === relationType)?.label || relationType} â†“
                 </div>
 
                 {/* Partners list (targets) */}
@@ -411,7 +409,7 @@ export function RelationshipEditForm({
             )}
           </div>
         ) : (
-          /* Legacy display: side A → side B */
+          /* Legacy display: side A â†’ side B */
           <div className="space-y-2">
             {/* Side A */}
             <div className="flex items-center justify-between p-3 bg-muted rounded-md">
@@ -420,7 +418,7 @@ export function RelationshipEditForm({
 
             {/* Relationship arrow */}
             <div className="text-center text-muted-foreground text-sm">
-              ↓ {RELATIONSHIP_TYPES.find(t => t.value === relationType)?.label || relationType} ↓
+              â†“ {RELATIONSHIP_TYPES.find(t => t.value === relationType)?.label || relationType} â†“
             </div>
 
               {/* Side B */}

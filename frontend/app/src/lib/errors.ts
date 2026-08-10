@@ -139,7 +139,7 @@ export function normalizeApiError(
 /**
  * Get user-friendly error title based on category
  */
-function getErrorTitle(error: Error, category: ErrorCategory): string {
+function getErrorTitle(_error: Error, category: ErrorCategory): string {
   if (category === 'runtime' || category === 'window_error') {
     return 'Something went wrong'
   }
@@ -149,7 +149,7 @@ function getErrorTitle(error: Error, category: ErrorCategory): string {
   return 'Error'
 }
 
-function getErrorTitleFromString(message: string, category: ErrorCategory): string {
+function getErrorTitleFromString(_message: string, category: ErrorCategory): string {
   if (category === 'runtime' || category === 'window_error') {
     return 'Something went wrong'
   }

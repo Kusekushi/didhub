@@ -24,7 +24,7 @@ export default function LoginPage() {
 
     function validate() {
         if (!username || username.trim().length === 0) return 'Please enter a username'
-        if (!password || password.length < 6) return 'Password must be at least 6 characters'
+        if (!password || password.length < 8) return 'Password must be at least 8 characters'
         return null
     }
 

@@ -39,26 +39,21 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined)
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { client } = useApi()
+  const api = useApi()
   const [customTypes, setCustomTypes] = useState<RelationshipType[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const refresh = async () => {
     try {
-       
-      // @ts-expect-error - Codegen types are currently misaligned with the actual API client
-      const response = await client.getInstanceSetting({
+      const response = await api.getInstanceSetting<{ value?: string }>({
         path: { key: 'custom_relationship_types' }
       })
-      // @ts-expect-error - Codegen types are currently misaligned with the actual API client
       if (response && response.data && response.data.value) {
-        // @ts-expect-error - Codegen types are currently misaligned with the actual API client
         const parsed = JSON.parse(response.data.value) as RelationshipType[]
         setCustomTypes(parsed)
       } else {
         setCustomTypes([])
       }
-       
     } catch (error) {
       console.warn('Failed to fetch custom_relationship_types, using defaults', error)
       setCustomTypes([])
@@ -70,7 +65,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client])
+  }, [api])
 
   const relationshipTypes = useMemo(() => {
     const all = [...DEFAULT_RELATIONSHIP_TYPES]

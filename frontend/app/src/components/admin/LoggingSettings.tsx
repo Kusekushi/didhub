@@ -24,7 +24,7 @@ export function LoggingSettings() {
       toast.show({
         title: 'Error',
         description: 'Failed to load logging configuration.',
-        variant: 'destructive',
+        variant: 'error',
       })
     } finally {
       setLoading(false)
@@ -47,7 +47,7 @@ export function LoggingSettings() {
       toast.show({
         title: 'Error',
         description: 'Failed to update logging configuration.',
-        variant: 'destructive',
+        variant: 'error',
       })
     } finally {
       setSaving(false)

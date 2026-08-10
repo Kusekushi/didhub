@@ -2,5 +2,7 @@ packages:
   - api
   - app
 
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: true
+  esbuild: true

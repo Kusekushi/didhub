@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi } from '@/context/ApiContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Settings, Users, Database, Shield, Activity, UserCheck, AlertCircle, RefreshCw, Download } from 'lucide-react'
 import { AdminOverviewResponse } from '@didhub/api'
 
@@ -40,14 +41,15 @@ export default function AdminPanel() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">System Overview</h2>
-          <button
+          <Button
             onClick={loadOverview}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+            variant="outline"
+            size="sm"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </button>
+          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -95,12 +97,9 @@ export default function AdminPanel() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              to="/admin/settings"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-            >
-              Manage Settings
-            </Link>
+            <Button asChild>
+              <Link to="/admin/settings">Manage Settings</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -115,12 +114,9 @@ export default function AdminPanel() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              to="/admin/users"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-            >
-              Manage Users
-            </Link>
+            <Button asChild>
+              <Link to="/admin/users">Manage Users</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -135,12 +131,9 @@ export default function AdminPanel() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              to="/admin/system-requests"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-            >
-              Review Requests
-            </Link>
+            <Button asChild>
+              <Link to="/admin/system-requests">Review Requests</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -155,12 +148,9 @@ export default function AdminPanel() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              to="/admin/database"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-            >
-              Database Tools
-            </Link>
+            <Button asChild>
+              <Link to="/admin/database">Database Tools</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -175,12 +165,9 @@ export default function AdminPanel() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              to="/admin/security"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-            >
-              Security Panel
-            </Link>
+            <Button asChild>
+              <Link to="/admin/security">Security Panel</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -195,12 +182,9 @@ export default function AdminPanel() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              to="/admin/jobs"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-            >
-              Job Management
-            </Link>
+            <Button asChild>
+              <Link to="/admin/jobs">Job Management</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -215,12 +199,9 @@ export default function AdminPanel() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              to="/admin/updates"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-            >
-              Check Updates
-            </Link>
+            <Button asChild>
+              <Link to="/admin/updates">Check Updates</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>

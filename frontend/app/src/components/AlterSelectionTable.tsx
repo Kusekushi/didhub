@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { ColumnDef, RowSelectionState } from "@tanstack/react-table"
 import { Alter } from "@didhub/api"
@@ -69,7 +67,7 @@ export function AlterSelectionTable({
       accessorKey: "pronouns",
       header: "Pronouns",
       cell: ({ row }) => (
-        <div className="text-muted-foreground">{row.getValue("pronouns") || "—"}</div>
+        <div className="text-muted-foreground">{row.getValue("pronouns") || "â€”"}</div>
       ),
     },
   ], [])

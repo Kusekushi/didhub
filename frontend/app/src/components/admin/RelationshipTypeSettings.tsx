@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Trash2, Plus } from 'lucide-react'
 
 export function RelationshipTypeSettings() {
-  const { client } = useApi()
+  const api = useApi()
   const { refresh } = useSettings()
   const [customTypes, setCustomTypes] = useState<RelationshipType[]>([])
   const [loading, setLoading] = useState(false)
@@ -20,36 +20,28 @@ export function RelationshipTypeSettings() {
     // Only fetch what's actually in the database for this specific key
     const fetchOnlyCustom = async () => {
       try {
-         
-        // @ts-expect-error - Codegen types are currently misaligned with the actual API client
-        const response = await client.getInstanceSetting({
+        const response = await api.getInstanceSetting<{ value?: string }>({
           path: { key: 'custom_relationship_types' }
         })
-        // @ts-expect-error - Codegen types are currently misaligned with the actual API client
         if (response && response.data && response.data.value) {
-          // @ts-expect-error - Codegen types are currently misaligned with the actual API client
           setCustomTypes(JSON.parse(response.data.value) as RelationshipType[])
         }
-         
       } catch (e) {
         console.error('Failed to fetch custom relationship types', e)
       }
     }
     fetchOnlyCustom()
-  }, [client])
+  }, [api])
 
   const saveTypes = async (types: RelationshipType[]) => {
     setLoading(true)
     try {
-       
-      // @ts-expect-error - Codegen types are currently misaligned with the actual API client
-      await client.setInstanceSetting({
+      await api.setInstanceSetting({
         path: { key: 'custom_relationship_types' },
         body: {
           value: JSON.stringify(types)
         }
       })
-       
       setCustomTypes(types)
       await refresh()
     } catch (error) {

@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { Alter, User, CreateRelationshipRequest } from "@didhub/api"
 import { Button } from "@/components/ui/button"
@@ -228,7 +226,7 @@ export function AdvancedRelationshipForm({
     const relationshipText = relationshipCountValue > 1 ? `${relationshipCountValue} relationships` : "1 relationship"
 
     return {
-      summary: `${sourceTextVal} → ${typeLabel} → ${targetTextVal}`,
+      summary: `${sourceTextVal} â†’ ${typeLabel} â†’ ${targetTextVal}`,
       count: relationshipText,
     }
   }

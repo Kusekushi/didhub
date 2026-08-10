@@ -36,8 +36,9 @@ export default function DashboardPage() {
       const usersRes = await client.getUsers()
       if (usersRes.status === 200) {
         const users = usersRes.data.items || []
+        const totalUsers = usersRes.data.pagination?.total ?? users.length
         setStats({
-          totalUsers: users.length,
+          totalUsers,
           systemAccounts: users.filter((u: User) => u.isSystem).length,
         })
       }

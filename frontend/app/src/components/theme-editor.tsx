@@ -1,5 +1,3 @@
-"use client"
-
 // Comprehensive Theme Editor
 import { useState } from 'react'
 import { useTheme } from '@/context/theme'

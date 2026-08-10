@@ -13,9 +13,7 @@ export default defineConfig(
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        projectService: {
-          allowDefaultProject: ['src/__tests__/login-redirect.test.tsx', 'src/__tests__/user-menu.test.tsx'],
-        },
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
         ecmaFeatures: {
           jsx: true,

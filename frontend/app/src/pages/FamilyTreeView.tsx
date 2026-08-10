@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { RefreshCw, Filter, Users, Link2 } from 'lucide-react'
+import { RefreshCw, Filter, Users, Link2, X } from 'lucide-react'
 
 interface NodeDatum extends d3.SimulationNodeDatum {
   id: string
@@ -459,7 +459,6 @@ export default function FamilyTreeView() {
     
     let initialXValue: number
     const clusterGap = horizontalSpacing * 0.8 // Extra gap between unrelated nodes
-    console.log('Using clusterGap:', clusterGap)
     
     for (const gen of sortedGenerations) {
       const nodesInGen = generationGroups.get(gen) || []
@@ -862,7 +861,6 @@ export default function FamilyTreeView() {
       }
       
       const color = getRelationColor(link.relation)
-      const isBidirectional = link.relation && bidirectionalTypes.includes(link.relation)
       
       const x1 = link.source.x
       const y1 = link.source.y

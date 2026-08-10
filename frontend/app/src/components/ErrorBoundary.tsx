@@ -1,11 +1,12 @@
 import { Component, type ReactNode } from 'react'
 import { BugReportModal } from './modals/BugReportModal'
 import { useError } from '@/context/ErrorContext'
-import { normalizeError } from '@/lib/errors'
+import { normalizeError, type NormalizedError } from '@/lib/errors'
 
 interface Props {
   children: ReactNode
   fallback?: ReactNode
+  onError?: (normalized: NormalizedError) => void
 }
 
 interface State {
@@ -24,9 +25,8 @@ class ErrorBoundaryImpl extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    const normalized = normalizeError(error, 'runtime', errorInfo.componentStack)
-    const { showError } = this.context as { showError: (e: typeof normalized) => void }
-    showError(normalized)
+    const normalized = normalizeError(error, 'runtime', errorInfo.componentStack ?? undefined)
+    this.props.onError?.(normalized)
   }
 
   render() {
@@ -37,12 +37,12 @@ class ErrorBoundaryImpl extends Component<Props, State> {
   }
 }
 
-export function ErrorBoundary({ children, fallback }: Props) {
-  const { error, clearError } = useError()
+export function ErrorBoundary({ children, fallback, onError }: Props) {
+  const { error, clearError, showError } = useError()
 
   return (
     <>
-      <ErrorBoundaryImpl fallback={fallback}>
+      <ErrorBoundaryImpl fallback={fallback} onError={onError ?? showError}>
         {children}
       </ErrorBoundaryImpl>
       {error && error.category !== 'api' && (

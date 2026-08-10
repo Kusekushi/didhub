@@ -1,6 +1,4 @@
-"use client"
-
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { Outlet, Link } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 
@@ -22,6 +20,143 @@ import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import UserMenu from "@/components/ui/user-menu"
 import { Home, Settings, ChevronLeft, Users, Network, Shield, Trees, Calendar } from "lucide-react"
 
+function SidebarStatePersistor() {
+    const { open } = useSidebar()
+    useEffect(() => {
+        try {
+            localStorage.setItem("sidebar_collapsed", (!open).toString())
+        } catch { /* ignore localStorage errors */ }
+    }, [open])
+    return null
+}
+
+function SidebarToggleButton() {
+    const { open, toggleSidebar } = useSidebar()
+    const [leftPx, setLeftPx] = useState<number | null>(null)
+
+    useEffect(() => {
+        function updateLeft() {
+            // Defer measurement to the next paint frames so layout transitions
+            // (collapse/expand) have applied their transforms/widths.
+            const measure = () => {
+                // Use the current open state to pick which CSS token represents the
+                // visible rail width. Prefer the sidebar wrapper since the provider
+                // sets the CSS variables there.
+                const wrapper = document.querySelector('[data-slot="sidebar-wrapper"]')
+                const varName = open ? "--sidebar-width" : "--sidebar-width-icon"
+                const computed = wrapper
+                    ? getComputedStyle(wrapper).getPropertyValue(varName)
+                    : getComputedStyle(document.documentElement).getPropertyValue(varName)
+
+                let px: number | null = null
+                if (computed && computed.endsWith("px")) {
+                    px = parseInt(computed.replace("px", ""), 10)
+                } else if (computed && computed.endsWith("rem")) {
+                    const rem = parseFloat(computed.replace("rem", ""))
+                    const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+                    px = Math.round(rem * rootFont)
+                } else if (computed) {
+                    const n = parseFloat(computed)
+                    if (!Number.isNaN(n)) px = Math.round(n)
+                }
+
+                // If CSS variable wasn't set/resolvable, fallback to measuring DOM
+                // elements (container or gap). Measuring after RAF ensures we see
+                // the post-transition geometry.
+                if (px === null) {
+                    const el = document.querySelector('[data-slot="sidebar-container"]')
+                    const gap = document.querySelector('[data-slot="sidebar-gap"]')
+                    let rect: DOMRect | null = null
+                    if (el) rect = el.getBoundingClientRect()
+                    if ((!rect || rect.width === 0) && gap) rect = gap.getBoundingClientRect()
+                    if (rect) px = Math.round(rect.right)
+                }
+
+                if (px !== null) {
+                    // Position the button slightly inside the sidebar's right edge.
+                    setLeftPx(px - 12)
+                }
+            }
+
+            // run measurement on the next two animation frames to allow transitions
+            // and layout updates to complete.
+            requestAnimationFrame(() => requestAnimationFrame(measure))
+        }
+
+        updateLeft()
+        // update when window resizes or when sidebar toggles
+        window.addEventListener("resize", updateLeft)
+        return () => window.removeEventListener("resize", updateLeft)
+    }, [open])
+
+    // Use fixed positioning so left is relative to the viewport and animates reliably
+    return (
+        <div
+            className="hidden md:flex items-center justify-center fixed z-40 top-4 transition-[left] duration-200 ease-in-out"
+            style={leftPx ? { left: `${leftPx}px` } : undefined}
+        >
+            <button
+                aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+                onClick={() => toggleSidebar()}
+                className="p-1 rounded-full bg-popover border hover:bg-muted"
+            >
+                {/* single icon that rotates when toggled to animate smoothly */}
+                <ChevronLeft className={`size-4 transform transition-transform duration-200 ease-in-out ${open ? "rotate-0" : "-rotate-180"}`} />
+            </button>
+        </div>
+    )
+}
+
+function FooterUser() {
+    const { open } = useSidebar()
+    return open ? <UserMenu /> : <UserMenu compact />
+}
+
+function FooterActions() {
+    const { open } = useSidebar()
+    // When open: keep theme toggler on left and user on right.
+    // When collapsed: show compact user avatar and overlay the theme toggler on top of it.
+    if (open) {
+        return (
+            <div className="flex items-center justify-between">
+                <AnimatedThemeToggler className="p-2 rounded-md hover:bg-muted" />
+                <div className="hidden md:block">
+                    <FooterUser />
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex items-center justify-center">
+            <div className="relative">
+                {/* overlay toggler (smaller) positioned over avatar */}
+                <AnimatedThemeToggler className="p-1 rounded-full bg-popover shadow-sm" />
+                {/* compact avatar */}
+                <FooterUser />
+            </div>
+        </div>
+    )
+}
+
+function SidebarBrand() {
+    const { open } = useSidebar()
+    return (
+        <Link to="/" className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-md bg-linear-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold">
+                D
+            </div>
+            {open ? (
+                // show text when sidebar is expanded; keep the md:hidden/md:inline behavior for small screens
+                <span className="hidden md:inline-block font-semibold">DIDHub</span>
+            ) : (
+                // when collapsed only render a screen-reader-only label so the logo remains accessible
+                <span className="sr-only">DIDHub</span>
+            )}
+        </Link>
+    )
+}
+
 export default function AppLayout() {
     const auth = useAuth()
     const draggingRef = useRef(false)
@@ -32,144 +167,6 @@ export default function AppLayout() {
         const saved = localStorage.getItem("sidebar_collapsed")
         if (saved === "true") defaultOpen = false
     } catch { /* ignore localStorage errors */ }
-
-    // Persist sidebar open/collapsed state
-    function SidebarStatePersistor() {
-        const { open } = useSidebar()
-        useEffect(() => {
-            try {
-                localStorage.setItem("sidebar_collapsed", (!open).toString())
-            } catch { /* ignore localStorage errors */ }
-        }, [open])
-        return null
-    }
-
-    function SidebarToggleButton() {
-        const { open, toggleSidebar } = useSidebar()
-        const [leftPx, setLeftPx] = useState<number | null>(null)
-
-        useEffect(() => {
-            function updateLeft() {
-                // Defer measurement to the next paint frames so layout transitions
-                // (collapse/expand) have applied their transforms/widths.
-                const measure = () => {
-                    // Use the current open state to pick which CSS token represents the
-                    // visible rail width. Prefer the sidebar wrapper since the provider
-                    // sets the CSS variables there.
-                    const wrapper = document.querySelector('[data-slot="sidebar-wrapper"]')
-                    const varName = open ? "--sidebar-width" : "--sidebar-width-icon"
-                    const computed = wrapper
-                        ? getComputedStyle(wrapper).getPropertyValue(varName)
-                        : getComputedStyle(document.documentElement).getPropertyValue(varName)
-
-                    let px: number | null = null
-                    if (computed && computed.endsWith("px")) {
-                        px = parseInt(computed.replace("px", ""), 10)
-                    } else if (computed && computed.endsWith("rem")) {
-                        const rem = parseFloat(computed.replace("rem", ""))
-                        const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-                        px = Math.round(rem * rootFont)
-                    } else if (computed) {
-                        const n = parseFloat(computed)
-                        if (!Number.isNaN(n)) px = Math.round(n)
-                    }
-
-                    // If CSS variable wasn't set/resolvable, fallback to measuring DOM
-                    // elements (container or gap). Measuring after RAF ensures we see
-                    // the post-transition geometry.
-                    if (px === null) {
-                        const el = document.querySelector('[data-slot="sidebar-container"]')
-                        const gap = document.querySelector('[data-slot="sidebar-gap"]')
-                        let rect: DOMRect | null = null
-                        if (el) rect = el.getBoundingClientRect()
-                        if ((!rect || rect.width === 0) && gap) rect = gap.getBoundingClientRect()
-                        if (rect) px = Math.round(rect.right)
-                    }
-
-                    if (px !== null) {
-                        // Position the button slightly inside the sidebar's right edge.
-                        setLeftPx(px - 12)
-                    }
-                }
-
-                // run measurement on the next two animation frames to allow transitions
-                // and layout updates to complete.
-                requestAnimationFrame(() => requestAnimationFrame(measure))
-            }
-
-            updateLeft()
-            // update when window resizes or when sidebar toggles
-            window.addEventListener("resize", updateLeft)
-            return () => window.removeEventListener("resize", updateLeft)
-        }, [open])
-
-        // Use fixed positioning so left is relative to the viewport and animates reliably
-        return (
-            <div
-                className="hidden md:flex items-center justify-center fixed z-40 top-4 transition-[left] duration-200 ease-in-out"
-                style={leftPx ? { left: `${leftPx}px` } : undefined}
-            >
-                <button
-                    aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
-                    onClick={() => toggleSidebar()}
-                    className="p-1 rounded-full bg-popover border hover:bg-muted"
-                >
-                    {/* single icon that rotates when toggled to animate smoothly */}
-                    <ChevronLeft className={`size-4 transform transition-transform duration-200 ease-in-out ${open ? "rotate-0" : "-rotate-180"}`} />
-                </button>
-            </div>
-        )
-    }
-
-    function FooterUser() {
-        const { open } = useSidebar()
-        return open ? <UserMenu /> : <UserMenu compact />
-    }
-
-    function FooterActions() {
-        const { open } = useSidebar()
-        // When open: keep theme toggler on left and user on right.
-        // When collapsed: show compact user avatar and overlay the theme toggler on top of it.
-        if (open) {
-            return (
-                <div className="flex items-center justify-between">
-                    <AnimatedThemeToggler className="p-2 rounded-md hover:bg-muted" />
-                    <div className="hidden md:block">
-                        <FooterUser />
-                    </div>
-                </div>
-            )
-        }
-
-        return (
-            <div className="flex items-center justify-center">
-                <div className="relative">
-                    {/* overlay toggler (smaller) positioned over avatar */}
-                    <AnimatedThemeToggler className="p-1 rounded-full bg-popover shadow-sm" />
-                    {/* compact avatar */}
-                    <FooterUser />
-                </div>
-            </div>
-        )
-    }
-
-    function SidebarBrand() {
-        const { open } = useSidebar()
-        return (
-            <Link to="/" className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-md bg-linear-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold">
-                    D
-                </div>
-                {open ? (
-                    // show text when sidebar is expanded; keep the md:hidden/md:inline behavior for small screens
-                    <span className="hidden md:inline-block font-semibold">DIDHub</span>
-                ) : (
-                    // when collapsed only render a screen-reader-only label so the logo remains accessible
-                    <span className="sr-only">DIDHub</span>
-                )}
-            </Link>
-        )
-    }
 
     useEffect(() => {
         // Apply saved width (in px) from localStorage if present
@@ -349,7 +346,15 @@ export default function AppLayout() {
                         <SidebarInset className="p-4">
                             {/* Center the main content and constrain its width so it's not left-bound */}
                             <div className="w-full mx-auto max-w-7xl px-4">
-                                <Outlet />
+                                <Suspense
+                                    fallback={
+                                        <div className="flex items-center justify-center py-16">
+                                            <div className="animate-pulse text-muted-foreground">Loading...</div>
+                                        </div>
+                                    }
+                                >
+                                    <Outlet />
+                                </Suspense>
                             </div>
                         </SidebarInset>
                     </main>

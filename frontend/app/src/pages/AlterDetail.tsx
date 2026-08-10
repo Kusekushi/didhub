@@ -392,7 +392,7 @@ export default function AlterDetail() {
   const { show: showToast } = useToast()
 
   const [alter, setAlter] = useState<Alter | null>(null)
-  const [system, setSystem] = useState<User | null>(null)
+  const [system] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [allImages, setAllImages] = useState<{ id: string; url: string }[]>([])
@@ -402,7 +402,7 @@ export default function AlterDetail() {
   const [relatedUsers, setRelatedUsers] = useState<Record<string, User>>({})
   const [affiliations, setAffiliations] = useState<Affiliation[]>([])
   const [loadingAffiliations, setLoadingAffiliations] = useState(false)
-  const [subsystem, setSubsystem] = useState<Subsystem | null>(null)
+  const [subsystem] = useState<Subsystem | null>(null)
   const [loadingSubsystem, setLoadingSubsystem] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<string>('')
@@ -430,8 +430,9 @@ export default function AlterDetail() {
     setLoadingSubsystem(true)
 
     try {
-      const bulkResponse = await api.bulkGet({
+      const bulkResponse = await api.bulkOperation({
         body: {
+          action: 'get',
           alters: [alterId]
         }
       })
@@ -484,8 +485,9 @@ export default function AlterDetail() {
         })
 
         if (alterIds.size > 0 || userIds.size > 0) {
-          const relatedBulkResponse = await api.bulkGet({
+          const relatedBulkResponse = await api.bulkOperation({
             body: {
+              action: 'get',
               alters: Array.from(alterIds),
               users: Array.from(userIds)
             }
@@ -503,7 +505,8 @@ export default function AlterDetail() {
             relatedData.users.forEach((u: User) => { userMap[u.id] = u })
           }
           if (alterData.systemId) {
-            userMap[alterData.systemId] = relatedData.users?.find((u: User) => u.id === alterData.systemId) || null
+            const systemUser = relatedData.users?.find((u: User) => u.id === alterData.systemId)
+            if (systemUser) userMap[alterData.systemId] = systemUser
           }
           setRelatedUsers(userMap)
         }
@@ -602,7 +605,7 @@ export default function AlterDetail() {
       }
       
       // Reload to get new image URLs
-      await loadAlter()
+      await loadAlterData()
       showToast({ 
         title: 'Success', 
         description: `${validFiles.length} image(s) uploaded successfully` 
@@ -641,7 +644,7 @@ export default function AlterDetail() {
     try {
       await api.deleteAlterImageById({ path: { alterId: alter.id, imageId } })
       // Reload to update images
-      await loadAlter()
+      await loadAlterData()
       showToast({ title: 'Success', description: 'Image removed' })
     } catch {
       showToast({ title: 'Error', description: 'Failed to remove image', variant: 'error' })
@@ -684,7 +687,7 @@ export default function AlterDetail() {
       })
       
       setReorderDialogOpen(false)
-      await loadAlter()
+      await loadAlterData()
       showToast({ title: 'Success', description: 'Images reordered successfully' })
     } catch {
       showToast({ title: 'Error', description: 'Failed to reorder images', variant: 'error' })

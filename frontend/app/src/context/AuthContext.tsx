@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from './ApiContext'
-import { sha256_hex } from '@/lib/utils'
+import { hashPassword } from '@didhub/api'
 
 type UserInfo = { id?: string; username?: string; avatar?: string | null; isAdmin?: boolean; isSystem?: boolean }
 
@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function login(username: string, password: string, options?: { redirectTo?: string; redirectDelay?: number }) {
     try {
-      const password_hash = await sha256_hex(password)
+      const password_hash = await hashPassword(password)
       // Fetch CSRF token and include it for the login POST (double-submit cookie pattern)
       const csrf = await client.fetchCsrfToken()
       // Server should set an HttpOnly cookie on successful login
@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function signup(username: string, password: string, displayName?: string) {
-    const password_hash = await sha256_hex(password)
+    const password_hash = await hashPassword(password)
     // create user via generated users endpoint
     const body: { username: string; password_hash: string; display_name?: string } = { username, password_hash, display_name: displayName }
     await client.request('POST', '/users', true, { body })
