@@ -60,8 +60,7 @@ export default function UserIntro() {
           }
         }
       } catch (error) {
-        // Profile might not exist or might not be accessible
-        console.log('Could not load profile:', error)
+        console.warn('Could not load profile:', error)
       }
     } catch {
       showToast({

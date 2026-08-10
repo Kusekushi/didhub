@@ -86,7 +86,11 @@ pub async fn create(
                 }
             },
             Err(e) => {
-                tracing::warn!(%e, "could not fetch user row to check system role; allowing request (test or incomplete DB schema?)");
+                tracing::warn!(%e, "could not fetch user row to check system role");
+                return Err(ApiError::Unexpected(format!(
+                    "failed to verify system role: {}",
+                    e
+                )));
             }
         }
         target_user_id
@@ -110,8 +114,11 @@ pub async fn create(
                     }
                 },
                 Err(e) => {
-                    tracing::warn!(%e, "could not fetch user row to check system role; allowing request (test or incomplete DB schema?)");
-                    // allow through for tests that don't create users table
+                    tracing::warn!(%e, "could not fetch user row to check system role");
+                    return Err(ApiError::Unexpected(format!(
+                        "failed to verify system role: {}",
+                        e
+                    )));
                 }
             }
         }
@@ -145,7 +152,11 @@ pub async fn create(
                 }
             },
             Err(e) => {
-                tracing::warn!(%e, "could not fetch user row to check system role; allowing request (test or incomplete DB schema?)");
+                tracing::warn!(%e, "could not fetch user row to check system role");
+                return Err(ApiError::Unexpected(format!(
+                    "failed to verify system role: {}",
+                    e
+                )));
             }
         }
         parsed

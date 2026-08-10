@@ -2,6 +2,9 @@ import { useAuth } from "@/context/AuthContext"
 import { useApi } from "@/context/ApiContext"
 import { useEffect, useState, ChangeEvent } from "react"
 import type { Profile } from "@didhub/api"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function ProfilePage() {
   const { user, logout } = useAuth()
@@ -167,12 +170,12 @@ export default function ProfilePage() {
 
         <div>
           <h2 className="text-sm text-muted-foreground">Display name</h2>
-          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full input" />
+          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </div>
 
         <div>
           <h2 className="text-sm text-muted-foreground">About</h2>
-          <textarea value={aboutMe} onChange={(e) => setAboutMe(e.target.value)} className="w-full textarea" />
+          <Textarea value={aboutMe} onChange={(e) => setAboutMe(e.target.value)} />
         </div>
 
         <div>
@@ -192,12 +195,12 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-2">
               <input type="file" accept="image/*" onChange={onFileChange} />
               <div className="flex gap-2">
-                <button onClick={uploadAvatar} disabled={!selectedFile || loading} className="btn">
+                <Button onClick={uploadAvatar} disabled={!selectedFile || loading} type="button">
                   Upload
-                </button>
-                <button onClick={removeAvatar} disabled={loading} className="btn-ghost">
+                </Button>
+                <Button onClick={removeAvatar} disabled={loading} variant="ghost" type="button">
                   Remove
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -215,32 +218,33 @@ export default function ProfilePage() {
             </span>
             {!user?.isSystem && (
               <div className="flex flex-col gap-2 mt-2">
-                <textarea 
+                <Textarea 
                   value={systemRequestNote} 
                   onChange={(e) => setSystemRequestNote(e.target.value)} 
                   placeholder="Optional: Explain why you want system account access..."
-                  className="w-full textarea text-sm" 
+                  className="text-sm" 
                   rows={3}
                 />
-                <button 
+                <Button 
                   onClick={requestSystemAccount} 
                   disabled={requestingSystem} 
-                  className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
+                  size="sm"
+                  type="button"
                 >
                   {requestingSystem ? 'Submitting...' : 'Request System Account'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
         </div>
 
         <div className="pt-2 border-t flex gap-2">
-          <button onClick={saveProfile} disabled={loading} className="px-3 py-2 rounded-md bg-primary text-primary-foreground">
+          <Button onClick={saveProfile} disabled={loading} type="button">
             Save
-          </button>
-          <button onClick={() => logout()} className="px-3 py-2 rounded-md bg-destructive text-destructive-foreground">
+          </Button>
+          <Button onClick={() => logout()} variant="destructive" type="button">
             Sign out
-          </button>
+          </Button>
         </div>
       </div>
     </div>

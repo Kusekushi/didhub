@@ -23,9 +23,9 @@ This document describes the high‑level architecture of the DIDAlterHub project
 - didhub-config: Configuration loading and management (environment, file, etc.).
 - didhub-log-client: Logging client and facilities used by services to emit structured logs.
 - didhub-updates: Update handling, including service updates and deployment coordination.
+## Frontend architecture (Bun + React + TypeScript + Tailwind)
 
-## Frontend architecture (Vite + React + TypeScript + Tailwind)
-- The frontend is a modern SPA built with Vite, React, and TypeScript, with Tailwind CSS for styling.
+- The frontend is a modern SPA built with Bun, React, and TypeScript, with Tailwind CSS for styling.
 - It consumes the generated TypeScript API client (frontend/api/src/generated/) to talk to the backend endpoints defined by the OpenAPI spec.
 - Generated types ensure the frontend and backend share a consistent view of the API surface and data shapes.
 

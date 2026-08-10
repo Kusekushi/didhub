@@ -111,10 +111,9 @@ def check_cargo_watch() -> bool:
 def start_rust_server(config_path: Path | None = None) -> ServerProcess:
     """Create the Rust development server process."""
     if config_path:
-        # cargo watch -x "run -- -c path/to/config"
-        command = ["cargo", "watch", "-x", f"run -- -c {config_path}"]
+        command = ["cargo", "watch", "-x", f"run -p didhub-backend -- -c {config_path}"]
     else:
-        command = ["cargo", "watch", "-x", "run"]
+        command = ["cargo", "watch", "-x", "run -p didhub-backend"]
 
     return ServerProcess(
         name="Backend",

@@ -226,7 +226,7 @@ export function AdvancedRelationshipForm({
     const relationshipText = relationshipCountValue > 1 ? `${relationshipCountValue} relationships` : "1 relationship"
 
     return {
-      summary: `${sourceTextVal} â†’ ${typeLabel} â†’ ${targetTextVal}`,
+      summary: `${sourceTextVal} → ${typeLabel} → ${targetTextVal}`,
       count: relationshipText,
     }
   }

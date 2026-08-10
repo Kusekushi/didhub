@@ -27,13 +27,26 @@ fn generate_token() -> String {
 /// Returns a JSON body with the token and also sets a cookie named `csrf_token`.
 /// This implements the double-submit cookie pattern: the client should read the cookie and
 /// send the same value in the `x-csrf-token` header for state-changing requests.
-pub async fn get_csrf_token(Extension(_state): Extension<Arc<AppState>>) -> impl IntoResponse {
+pub async fn get_csrf_token(
+    Extension(_state): Extension<Arc<AppState>>,
+    req: axum::extract::Request,
+) -> impl IntoResponse {
     let token = generate_token();
-    // Build cookie: readable by JS (HttpOnly = false) so SPA can read it and include header.
+    let is_https = req
+        .headers()
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v == "https")
+        .or_else(|| {
+            req.uri()
+                .scheme()
+                .map(|s| s == &axum::http::uri::Scheme::HTTPS)
+        })
+        .unwrap_or(false);
     let cookie = Cookie::build(("csrf_token", token.clone()))
         .path("/")
         .same_site(cookie::SameSite::Lax)
-        .secure(true)
+        .secure(is_https)
         .build();
 
     let mut resp = (StatusCode::OK, Json(CsrfResponse { token })).into_response();

@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "dev": "pnpm build",
     "build:css": "npx @tailwindcss/cli -i src/index.css -o dist/main.css",
     "build:js": "bun build src/main.tsx --outdir dist --splitting",
     "build:html": "cpx index.html dist/ -u",

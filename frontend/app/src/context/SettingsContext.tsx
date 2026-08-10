@@ -1,32 +1,13 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react'
 import { useApi } from './ApiContext'
+import {
+  RELATIONSHIP_TYPES,
+  MN_RELATIONSHIP_TYPES,
+  BIDIRECTIONAL_TYPES,
+  type RelationshipType,
+} from '@/lib/relationshipTypes'
 
-export type RelationshipType = {
-  value: string
-  label: string
-  color?: string
-}
-
-export const DEFAULT_RELATIONSHIP_TYPES: RelationshipType[] = [
-  { value: 'partner', label: 'Partner', color: '#ec4899' },
-  { value: 'parent', label: 'Parent', color: '#f97316' },
-  { value: 'sibling', label: 'Sibling', color: '#22c55e' },
-  { value: 'friend', label: 'Friend', color: '#3b82f6' },
-  { value: 'caretaker', label: 'Caretaker', color: '#8b5cf6' },
-  { value: 'protector', label: 'Protector', color: '#06b6d4' },
-  { value: 'source', label: 'Source', color: '#14b8a6' },
-  { value: 'fragment', label: 'Fragment', color: '#64748b' },
-  { value: 'twin', label: 'Twin', color: '#f43f5e' },
-  { value: 'rival', label: 'Rival', color: '#ef4444' },
-  { value: 'mentor', label: 'Mentor', color: '#a855f7' },
-  { value: 'other', label: 'Other', color: '#6b7280' },
-]
-
-// Relationship types that typically represent many-to-many relationships
-export const DEFAULT_MN_RELATIONSHIP_TYPES: string[] = ['partner', 'friend', 'sibling', 'rival']
-
-// Bidirectional types for showing relationships without arrows
-export const DEFAULT_BIDIRECTIONAL_TYPES: string[] = ['partner', 'sibling', 'twin', 'friend', 'rival']
+export type { RelationshipType }
 
 interface SettingsContextType {
   relationshipTypes: RelationshipType[]
@@ -68,7 +49,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [api])
 
   const relationshipTypes = useMemo(() => {
-    const all = [...DEFAULT_RELATIONSHIP_TYPES]
+    const all = [...RELATIONSHIP_TYPES]
     for (const ct of customTypes) {
       if (!all.find(t => t.value === ct.value)) {
         all.push(ct)
@@ -77,8 +58,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return all
   }, [customTypes])
 
-  const mnRelationshipTypes = DEFAULT_MN_RELATIONSHIP_TYPES
-  const bidirectionalTypes = DEFAULT_BIDIRECTIONAL_TYPES
+  const mnRelationshipTypes = MN_RELATIONSHIP_TYPES
+  const bidirectionalTypes = BIDIRECTIONAL_TYPES
 
   return (
     <SettingsContext.Provider value={{

@@ -1,7 +1,7 @@
 Debugging DidHub
 
 Audience
-- Backend Rust Axum, frontend React with Vite, build system Python (build.py).
+- Backend Rust Axum, frontend React with Bun, build system Python (build.py).
 - This guide focuses on project specific issues and practical steps to reproduce and fix.
 
 Environment references
@@ -29,7 +29,7 @@ Backend debugging (Rust / Axum)
 - Tips
   - Use tracing to locate issues; verify spans and event logs for the failing component.
 
-Frontend debugging (Vite / React)
+Frontend debugging (Bun / React)
 - Common issues
   - HMR not working
     * Symptom: changes do not hot-reload in the browser.
@@ -59,7 +59,7 @@ Build system issues
   - Commands:
     - python3 -m venv .venv
     - source .venv/bin/activate
-    - pip install -r requirements.txt
+    - pip install -e ".[dev]"
 - Verification
   - After environment setup, run a full build to verify nothing is broken.
 

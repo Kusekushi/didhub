@@ -11,9 +11,11 @@ use didhub_db::generated::relationships as db_rels;
 
 pub async fn get_by_id(
     Extension(state): Extension<Arc<AppState>>,
-    _headers: axum::http::HeaderMap,
+    headers: axum::http::HeaderMap,
     Path(path): Path<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
+    let _auth =
+        crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     state
         .audit_request(
             "GET",

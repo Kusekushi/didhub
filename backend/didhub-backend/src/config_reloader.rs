@@ -58,7 +58,13 @@ pub fn spawn_config_reloader(
                         reload_rate_limiter(&new_cfg, &shared_limiter).await;
 
                         // Enqueue job for any other reload processing
-                        let payload = serde_json::json!({"old": old, "new": new_cfg});
+                        let payload = serde_json::json!({
+                            "changed_fields": {
+                                "logging_level_changed": old.logging.level != new_cfg.logging.level,
+                                "auth_changed": old.auth != new_cfg.auth,
+                                "rate_limit_changed": old.rate_limit != new_cfg.rate_limit,
+                            }
+                        });
                         let _ = job_queue
                             .enqueue(didhub_job_queue::JobRequest::new("config.reload", payload))
                             .await;

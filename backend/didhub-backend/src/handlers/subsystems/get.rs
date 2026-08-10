@@ -7,6 +7,7 @@ use axum::Json;
 use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
+use super::helpers::subsystem_to_payload;
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::subsystems as db_subsystems;
 
@@ -41,7 +42,7 @@ pub async fn get(
         .await
         .map_err(ApiError::from)?;
     match opt {
-        Some(row) => Ok(Json(serde_json::to_value(&row).map_err(ApiError::from)?)),
+        Some(row) => Ok(Json(subsystem_to_payload(&row))),
         None => Err(ApiError::not_found("subsystem not found")),
     }
 }

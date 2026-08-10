@@ -188,7 +188,7 @@ export default function AffiliationDetail() {
       // Load system info
       if (affiliationData.systemId) {
         try {
-          const systemResponse = await api.getUserById({ path: { id: affiliationData.systemId } })
+          const systemResponse = await api.getUserById({ path: { userId: affiliationData.systemId } })
           setSystem(systemResponse.data)
         } catch {
           // System user not available

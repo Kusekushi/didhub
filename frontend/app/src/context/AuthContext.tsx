@@ -112,10 +112,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function signup(username: string, password: string, displayName?: string) {
     const password_hash = await hashPassword(password)
-    // create user via generated users endpoint
-    const body: { username: string; password_hash: string; display_name?: string } = { username, password_hash, display_name: displayName }
+    const body: { username: string; passwordHash: string; displayName?: string } = { username, passwordHash: password_hash, displayName }
     await client.request('POST', '/users', true, { body })
-    // After creating the user, perform login to set session cookie
     await login(username, password)
   }
 

@@ -8,6 +8,7 @@ use chrono::Utc;
 use serde_json::Value;
 use sqlx::types::Uuid as SqlxUuid;
 
+use super::helpers::subsystem_to_payload;
 use crate::{error::ApiError, state::AppState};
 use didhub_db::generated::subsystems as db_subsystems;
 
@@ -68,7 +69,5 @@ pub async fn create(
         .await
         .map_err(ApiError::from)?;
 
-    Ok(Json(
-        serde_json::to_value(&new_row).map_err(ApiError::from)?,
-    ))
+    Ok(Json(subsystem_to_payload(&new_row)))
 }

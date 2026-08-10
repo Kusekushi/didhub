@@ -40,14 +40,14 @@ class TestStartRustServer:
     def test_start_rust_server_no_config(self):
         server = start_rust_server()
         assert server.name == "Backend"
-        assert server.command == ["cargo", "watch", "-x", "run"]
+        assert server.command == ["cargo", "watch", "-x", "run -p didhub-backend"]
         assert server.cwd.name == "backend"
         assert server.env["RUST_BACKTRACE"] == "1"
 
     def test_start_rust_server_with_config(self, tmp_path):
         config_path = tmp_path / "config.toml"
         server = start_rust_server(config_path)
-        assert server.command == ["cargo", "watch", "-x", f"run -- -c {config_path}"]
+        assert server.command == ["cargo", "watch", "-x", f"run -p didhub-backend -- -c {config_path}"]
 
 
 class TestStartFrontendServer:

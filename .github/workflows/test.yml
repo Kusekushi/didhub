@@ -54,6 +54,11 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       # -------------------------------------------------------------------------
       # Caching
       # -------------------------------------------------------------------------
@@ -129,3 +134,4 @@ jobs:
           name: coverage-frontend-${{ matrix.os }}
           path: frontend/app/coverage/
           retention-days: 30
+          if-no-files-found: warn

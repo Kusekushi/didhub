@@ -17,7 +17,7 @@ pub async fn get(
 ) -> Result<Json<Value>, ApiError> {
     let auth =
         crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
-    let _user_id = auth
+    let user_id = auth
         .user_id
         .ok_or_else(|| ApiError::forbidden("user_id required for family tree access"))?;
 
@@ -31,15 +31,38 @@ pub async fn get(
 
     let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
 
-    let users = didhub_db::generated::users::list_all(&mut *conn)
+    // Load current user
+    let current_user = didhub_db::generated::users::find_by_primary_key(&mut *conn, &user_id)
+        .await
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::not_found("current user not found"))?;
+    let users = vec![current_user];
+
+    // Load alters owned by the current user
+    let all_alters = didhub_db::generated::alters::list_all(&mut *conn)
         .await
         .map_err(ApiError::from)?;
-    let alters = didhub_db::generated::alters::list_all(&mut *conn)
+    let alters: Vec<_> = all_alters
+        .into_iter()
+        .filter(|a| a.user_id == user_id || a.owner_user_id == Some(user_id))
+        .collect();
+
+    // Load all relationships and filter to those involving the current user's alters
+    let all_relationships = didhub_db::generated::relationships::list_all(&mut *conn)
         .await
         .map_err(ApiError::from)?;
-    let relationships = didhub_db::generated::relationships::list_all(&mut *conn)
-        .await
-        .map_err(ApiError::from)?;
+    let alter_ids: std::collections::HashSet<_> = alters.iter().map(|a| a.id).collect();
+    let relationships: Vec<_> = all_relationships
+        .into_iter()
+        .filter(|r| {
+            r.side_a_alter_id
+                .map(|id| alter_ids.contains(&id))
+                .unwrap_or(false)
+                || r.side_b_alter_id
+                    .map(|id| alter_ids.contains(&id))
+                    .unwrap_or(false)
+        })
+        .collect();
 
     // Build node map and adjacency
     #[derive(Clone)]

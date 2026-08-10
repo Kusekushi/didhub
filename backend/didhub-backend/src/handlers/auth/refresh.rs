@@ -33,13 +33,28 @@ pub async fn refresh(
         ));
     }
 
+    let user_id = auth.user_id.ok_or_else(|| {
+        ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+    })?;
+
+    let mut conn = state.db_pool.acquire().await.map_err(ApiError::from)?;
+    let user_row = didhub_db::generated::users::find_by_primary_key(&mut *conn, &user_id)
+        .await
+        .map_err(ApiError::from)?
+        .ok_or_else(|| {
+            ApiError::Authentication(didhub_auth::auth::AuthError::AuthenticationFailed)
+        })?;
+
+    let current_roles: Vec<String> =
+        serde_json::from_str(&user_row.roles).unwrap_or_default();
+
     let secret = get_jwt_secret()?;
 
-    let exp = (Utc::now().timestamp() + 7 * 24 * 60 * 60) as usize; // 7 days expiry
+    let exp = (Utc::now().timestamp() + 7 * 24 * 60 * 60) as usize;
     let claims = serde_json::json!({
-        "sub": auth.user_id.map(|u| u.to_string()),
+        "sub": user_id.to_string(),
         "exp": exp,
-        "scopes": auth.scopes,
+        "scopes": current_roles,
     });
 
     let token = encode(

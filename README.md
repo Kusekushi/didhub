@@ -23,9 +23,10 @@ cd didhub
 
 **Prerequisites:**
 - Rust (latest stable)
-- Node.js (v18+)
-- Python 3.10+
-- pnpm
+- Node.js (v22+)
+- Python 3.11+
+- pnpm (v10.26+)
+- Bun (latest)
 - PostgreSQL
 
 ### 3. Initialize the Project
@@ -41,7 +42,7 @@ source .venv/bin/activate
 .\.venv\Scripts\Activate.ps1
 
 # Install build tool dependencies
-pip install -r build_tools/requirements.txt
+pip install -e ".[dev]"
 
 # Install frontend dependencies
 cd frontend/app && pnpm install && cd ../..
@@ -65,7 +66,7 @@ python build.py dev --web     # Frontend only
 python build.py test
 
 # Run specific test suites
-python build.py test --backend   # Backend tests only
+python build.py test --rust   # Backend tests only
 python build.py test --frontend  # Frontend tests only
 ```
 
@@ -83,10 +84,7 @@ python build.py build --release
 
 ```bash
 # Check code style
-python build.py lint
-
-# Auto-fix issues
-python build.py lint --fix
+python build.py lint --check
 ```
 
 ## CLI Options
@@ -114,7 +112,7 @@ For direct backend development:
 
 ```bash
 # Set log level to debug
-cargo run --manifest-path backend/Cargo.toml -- -L "info,didhub_backend=debug"
+cargo run --manifest-path backend/Cargo.toml -p didhub-backend -- -L "info,didhub_backend=debug"
 ```
 
 ## Documentation

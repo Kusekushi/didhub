@@ -10,9 +10,11 @@ use didhub_db::generated::uploads as db_uploads;
 
 pub async fn get(
     Extension(state): Extension<Arc<AppState>>,
-    _headers: axum::http::HeaderMap,
+    headers: axum::http::HeaderMap,
     Path(path): Path<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
+    let _auth =
+        crate::handlers::auth::utils::authenticate_and_require_approved(&state, &headers).await?;
     state
         .audit_request("GET", "/uploads/{id}", &path, &HashMap::new(), &Value::Null)
         .await?;

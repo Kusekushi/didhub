@@ -97,7 +97,6 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            runtime_tools/log_collector/zig-cache
             runtime_tools/log_analyzer/zig-cache
             runtime_tools/config_generator/zig-cache
           key: ${{ runner.os }}-zig-${{ hashFiles('runtime_tools/**/build.zig') }}
@@ -154,7 +153,7 @@ jobs:
       - name: Build runtime tools
         shell: bash
         run: |
-          for tool in log_collector log_analyzer config_generator; do
+          for tool in log_analyzer config_generator; do
             echo "Building $tool..."
             cd runtime_tools/$tool
             zig build --release=fast
@@ -185,7 +184,6 @@ jobs:
           # Copy runtime tools documentation
           mkdir -p package/docs/tools
             cp runtime_tools/log_analyzer/README.md package/docs/tools/log_analyzer.md || true
-            cp runtime_tools/log_collector/README.md package/docs/tools/log_collector.md || true
             cp runtime_tools/config_generator/README.md package/docs/tools/config_generator.md || true
             cp runtime_tools/setup_helper/README.md package/docs/tools/setup_helper.md || true
           
@@ -215,7 +213,6 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          cp runtime_tools/log_collector/zig-out/bin/didhub-log-collector package/tools/
           cp runtime_tools/log_analyzer/zig-out/bin/didhub-log-analyzer package/tools/
           cp runtime_tools/config_generator/zig-out/bin/config-generator package/tools/
           cp runtime_tools/setup_helper/target/release/didhub-setup package/
@@ -224,7 +221,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          cp runtime_tools/log_collector/zig-out/bin/didhub-log-collector.exe package/tools/ || true
           cp runtime_tools/log_analyzer/zig-out/bin/didhub-log-analyzer.exe package/tools/ || true
           cp runtime_tools/config_generator/zig-out/bin/config-generator.exe package/tools/ || true
           cp runtime_tools/setup_helper/target/release/didhub-setup.exe package/ || true

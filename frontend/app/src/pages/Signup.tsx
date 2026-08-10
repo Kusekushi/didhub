@@ -1,6 +1,6 @@
 import { GalleryVerticalEnd } from 'lucide-react'
 import React, { useState, useMemo } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useToast } from '@/context/ToastContext'
 
 import { SignupForm } from '@/components/signup-form'
@@ -18,6 +18,7 @@ export default function SignupPage() {
   const auth = useAuth()
   const toast = useToast()
   const location = useLocation()
+  const navigate = useNavigate()
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
   const next = searchParams.get('next') || '/'
@@ -42,7 +43,9 @@ export default function SignupPage() {
     try {
       await auth.signup(username, password, displayName)
       toast.show({ title: 'Account created', description: 'Welcome! Redirecting...', variant: 'success' })
-      await auth.login(username, password, { redirectTo: next, redirectDelay: 350 })
+      if (next && next !== '/') {
+        setTimeout(() => navigate(next, { replace: true }), 350)
+      }
     } catch (err: unknown) {
       const error = err as { payload?: { error?: string }; message?: string }
       setError(error?.payload?.error ?? error?.message ?? 'Signup failed')

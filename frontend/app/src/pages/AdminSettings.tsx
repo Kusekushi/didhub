@@ -80,10 +80,9 @@ export default function AdminSettings() {
           items: [{
             key: setting.key,
             value: setting.value,
-            value_type: setting.valueType
           }]
         }
-      })
+      } as any)
 
       setSettings(prev => prev.map(s =>
         s.key === key ? { ...s, isEditing: false } : s
@@ -120,12 +119,11 @@ export default function AdminSettings() {
       const updates = [{
         key: newSettingKey.trim(),
         value: newSettingValue,
-        value_type: newSettingType
       }]
 
       await client.bulkSetInstanceSettings({
         body: { items: updates }
-      })
+      } as any)
 
       setNewSettingKey('')
       setNewSettingValue('')

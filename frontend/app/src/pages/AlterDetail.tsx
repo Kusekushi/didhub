@@ -450,7 +450,7 @@ export default function AlterDetail() {
             ]
             if (imageIds.length > 0) {
               const fileResponse = await api.serveStoredFilesBatch({
-                query: { ids: imageIds.join(',') }
+                query: { ids: imageIds }
               })
               const files = fileResponse.data as Array<{ file_id: string; url: string }>
               if (files && files.length > 0) {

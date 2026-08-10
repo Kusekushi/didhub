@@ -13,7 +13,7 @@ All test commands go through `build.py` — the project's single entry point for
 python build.py test
 
 # Backend tests only
-python build.py test --backend
+python build.py test --rust
 
 # Frontend tests only
 python build.py test --frontend
@@ -22,7 +22,7 @@ python build.py test --frontend
 python build.py test --coverage
 
 # Backend with coverage
-python build.py test --backend --coverage
+python build.py test --rust --coverage
 
 # Frontend with coverage
 python build.py test --frontend --coverage
@@ -62,26 +62,22 @@ cargo test --lib
 cargo test --tests
 ```
 
-#### Frontend (Vitest / Bun)
+#### Frontend (Bun)
 
 From `frontend/app/`:
 
 ```bash
 # Run all frontend tests
 bun test
-# or
-npx vitest run
 
 # Run a specific test file
 bun test src/components/Button.test.tsx
-# or
-npx vitest run src/components/Button.test.tsx
 
 # Run tests matching a pattern
-npx vitest run --reporter=verbose -t "should render"
+bun test --test-name-pattern "should render"
 
 # Run with coverage
-npx vitest run --coverage
+bun test --coverage
 ```
 
 ## Test Organization
@@ -133,7 +129,7 @@ Either colocated files (`Button.test.tsx` next to `Button.tsx`) or `__tests__/` 
 python build.py test --coverage
 
 # Backend only with coverage
-python build.py test --backend --coverage
+python build.py test --rust --coverage
 
 # Frontend only with coverage
 python build.py test --frontend --coverage
@@ -153,10 +149,10 @@ cargo llvm-cov --html
 
 ### Frontend Coverage Tools
 
-Vitest integrates with `c8` or `istanbul` for coverage:
+Bun has built-in coverage support:
 
 ```bash
-npx vitest run --coverage
+bun test --coverage
 ```
 
 ## Best Practices
@@ -193,4 +189,4 @@ npx vitest run --coverage
 | Tests can't connect to database | Check `DATABASE_URL` env var and ensure PostgreSQL is running |
 | Frontend tests fail on missing modules | Run `pnpm install` in `frontend/app/` |
 | Flaky tests | Look for timing dependencies, shared state, or network calls — mock them |
-| Coverage report not generated | Ensure the coverage tool is installed (`cargo-tarpaulin`, `c8`, etc.) |
+| Coverage report not generated | Ensure the coverage tool is installed (`cargo-llvm-cov` for Rust, `bun test --coverage` for frontend) |

@@ -22,7 +22,7 @@ from pathlib import Path
 from build_tools.shared import print_command, run_subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-BACKEND_CARGO_TOML = ROOT / "backend" / "Cargo.toml"
+BACKEND_CARGO_TOML = ROOT / "backend" / "didhub-backend" / "Cargo.toml"
 FRONTEND_PACKAGE_JSON = ROOT / "frontend" / "app" / "package.json"
 API_PACKAGE_JSON = ROOT / "frontend" / "api" / "package.json"
 CHANGELOG_FILE = ROOT / "CHANGELOG.md"
